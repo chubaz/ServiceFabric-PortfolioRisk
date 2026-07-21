@@ -5,20 +5,27 @@ import pytest
 from pydantic import ValidationError
 
 from risk_domain import (
+    AgentRun,
+    AlertDraft,
+    ArtifactReference,
     CashBalance,
     ConcentrationMeasure,
     DatasetFile,
     DatasetProvenance,
     DatasetSnapshot,
+    DecisionPoint,
     ExposureSnapshot,
     FundamentalObservation,
     Instrument,
     InstrumentIdentifier,
     MarketObservation,
+    NewsEvent,
     PortfolioSnapshot,
     Position,
     PositionExposure,
     QualityFlag,
+    RiskFinding,
+    RiskLimit,
     SourceReference,
 )
 
@@ -234,3 +241,106 @@ def test_exposure_weights_and_digest_ignore_callers_decimal_context() -> None:
         high_precision = exposure()
 
     assert low_precision.digest == high_precision.digest
+
+
+def artifact(artifact_id: str) -> ArtifactReference:
+    return ArtifactReference(
+        artifact_id=artifact_id,
+        digest="sha256:" + "a" * 64,
+        media_type="application/json",
+        reference=f"artifact://{artifact_id}",
+    )
+
+
+def finding(**changes: object) -> RiskFinding:
+    values: dict[str, object] = {
+        "finding_type": "risk_limit_breach",
+        "severity": "high",
+        "title": "Synthetic concentration threshold exceeded",
+        "summary": "The synthetic demonstration portfolio exceeds its concentration threshold.",
+        "snapshot_references": (artifact("snapshot-a"),),
+        "evidence_references": (artifact("evidence-a"),),
+        "assumptions": ("All values are synthetic.",),
+        "warnings": ("This is not investment advice.",),
+    }
+    values.update(changes)
+    return RiskFinding(**values)
+
+
+def test_successful_draft_creation_and_review_only_defaults() -> None:
+    alert = AlertDraft(
+        alert_id="alert-a",
+        findings=(finding(),),
+        rationale="Evidence supports a human review of the synthetic concentration finding.",
+        suggested_analytical_next_steps=("Review the evidence and assumptions.",),
+    )
+    event = NewsEvent(
+        event_id="event-a",
+        occurred_at=NOW,
+        title="Synthetic event",
+        summary="A deterministic synthetic event for contract coverage.",
+        evidence_references=(artifact("news-a"),),
+        synthetic=True,
+    )
+    limit = RiskLimit(limit_id="limit-a", limit_type="concentration", scope="portfolio", threshold=Decimal("0.50"))
+    run = AgentRun(
+        run_id="run-a",
+        agent_role="risk.agent.portfolio_exposure",
+        capability_invocations=("risk.capability.portfolio_exposure",),
+        input_digest="sha256:" + "a" * 64,
+        output_digest="sha256:" + "b" * 64,
+        evidence_references=(artifact("run-a"),),
+        observed_at=NOW,
+    )
+
+    assert alert.status == "draft"
+    assert alert.human_review_required is True
+    assert alert.effects == ()
+    assert event.synthetic is True
+    assert limit.threshold == Decimal("0.50")
+    assert run.provider_disclosure == "deterministic-local"
+
+
+def test_alert_cannot_claim_approval_and_effects_must_be_empty() -> None:
+    values: dict[str, object] = {
+        "alert_id": "alert-a",
+        "findings": (finding(),),
+        "rationale": "Evidence supports human review.",
+        "suggested_analytical_next_steps": ("Review evidence.",),
+    }
+    with pytest.raises(ValidationError, match="draft"):
+        AlertDraft(**values, status="approved")
+    with pytest.raises(ValidationError):
+        AlertDraft(**values, effects=("effect",))
+
+
+def test_missing_evidence_is_rejected_and_finding_ids_are_deterministic() -> None:
+    first = finding()
+    second = finding()
+
+    assert first.finding_id == second.finding_id
+    with pytest.raises(ValidationError, match="at least 1 item"):
+        finding(evidence_references=())
+
+
+def test_decision_history_is_immutable() -> None:
+    digest = "sha256:" + "d" * 64
+    prior = DecisionPoint(
+        decision="request_changes",
+        reviewer_id="reviewer-a",
+        decided_at=NOW,
+        comment="Please clarify the synthetic-data assumption.",
+        alert_digest_before_decision=digest,
+    )
+    decision = DecisionPoint(
+        decision="approve",
+        reviewer_id="reviewer-b",
+        decided_at=datetime(2026, 7, 21, 13, 0, tzinfo=UTC),
+        comment="The draft is approved for human review display only.",
+        alert_digest_before_decision=digest,
+        history=(prior,),
+    )
+
+    assert decision.history == (prior,)
+    with pytest.raises(ValidationError):
+        decision.history = ()  # type: ignore[misc]

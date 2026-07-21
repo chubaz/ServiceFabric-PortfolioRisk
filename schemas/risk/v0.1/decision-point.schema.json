@@ -1,0 +1,61 @@
+{
+  "$defs": {
+    "DecisionPoint": {
+      "additionalProperties": false,
+      "description": "An immutable human review decision linked to the reviewed alert digest.",
+      "properties": {
+        "alert_digest_before_decision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Alert Digest Before Decision",
+          "type": "string"
+        },
+        "comment": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Comment",
+          "type": "string"
+        },
+        "decided_at": {
+          "format": "date-time",
+          "title": "Decided At",
+          "type": "string"
+        },
+        "decision": {
+          "enum": [
+            "approve",
+            "reject",
+            "request_changes"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "history": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DecisionPoint"
+          },
+          "title": "History",
+          "type": "array"
+        },
+        "reviewer_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reviewer Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "decision",
+        "reviewer_id",
+        "decided_at",
+        "comment",
+        "alert_digest_before_decision"
+      ],
+      "title": "DecisionPoint",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/decision-point.schema.json",
+  "$ref": "#/$defs/DecisionPoint",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
