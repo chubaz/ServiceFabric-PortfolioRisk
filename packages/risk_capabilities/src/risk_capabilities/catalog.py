@@ -6,6 +6,9 @@ from .contracts import CapabilityDescriptor
 ORDER_AND_BROKER_EFFECTS = ("order_submission", "broker_connectivity")
 
 CAPABILITY_DESCRIPTORS = (
+    CapabilityDescriptor(capability_id="news.event.classify", objective="Classify an explicitly synthetic news event.", input_contract="NewsClassificationRequest with evidence.", output_contract="CapabilityResult containing synthetic classification.", denied_effects=ORDER_AND_BROKER_EFFECTS),
+    CapabilityDescriptor(capability_id="alert.draft.synthesize", objective="Create a reviewable alert draft from supplied outputs.", input_contract="AlertSynthesisRequest with evidence.", output_contract="CapabilityResult containing AlertDraft.", denied_effects=ORDER_AND_BROKER_EFFECTS),
+    CapabilityDescriptor(capability_id="alert.draft.review", objective="Record an explicit human decision on an alert draft.", input_contract="AlertReviewRequest with evidence.", output_contract="CapabilityResult containing DecisionPoint.", denied_effects=ORDER_AND_BROKER_EFFECTS),
     CapabilityDescriptor(
         capability_id="planning.knowledge.list_due",
         objective="List supplied deterministic planning products due by an explicit offset.",

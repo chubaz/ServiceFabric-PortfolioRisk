@@ -1,4 +1,4 @@
-"""Wave 0B active agents that delegate all calculations to registered capabilities."""
+"""Wave 0C active agents that delegate all calculations to registered capabilities."""
 
 from typing import Any
 
@@ -12,7 +12,7 @@ class RegisteredCapabilityAgent:
 
     def __init__(self, role_id: str, registry: CapabilityRegistry) -> None:
         if role_id not in ACTIVE_AGENT_ROLE_IDS:
-            raise ValueError(f"agent role is not active in Wave 0B: {role_id}")
+            raise ValueError(f"agent role is not active in Wave 0C: {role_id}")
         self.role = ROLE_BY_ID[role_id]
         self.registry = registry
 

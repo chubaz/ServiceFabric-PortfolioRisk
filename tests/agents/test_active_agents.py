@@ -9,8 +9,8 @@ from risk_data import NormalizedMarketRecord
 from risk_domain import InstrumentIdentifier
 
 
-def test_only_market_and_portfolio_agents_are_active_and_delegate_to_registry() -> None:
-    assert ACTIVE_AGENT_ROLE_IDS == ("risk.agent.market_data", "risk.agent.portfolio_exposure")
+def test_all_role_cards_are_active_and_delegate_to_registry() -> None:
+    assert ACTIVE_AGENT_ROLE_IDS == ("risk.agent.news_sentiment", "risk.agent.market_data", "risk.agent.portfolio_exposure", "risk.agent.alert_recommendation")
     registry = CapabilityRegistry()
     agent = RegisteredCapabilityAgent("risk.agent.portfolio_exposure", registry)
     evidence = (EvidenceReference(evidence_id="evidence", reference="fixture://synthetic/test", source_type="synthetic_fixture"),)
@@ -19,5 +19,4 @@ def test_only_market_and_portfolio_agents_are_active_and_delegate_to_registry() 
     assert agent.invoke("portfolio.snapshot.create", request).data.snapshot_id == "agent-snapshot"
     with pytest.raises(ValueError, match="not granted"):
         agent.invoke("market.anomaly.detect", request)
-    with pytest.raises(ValueError, match="not active"):
-        RegisteredCapabilityAgent("risk.agent.news_sentiment", registry)
+    assert RegisteredCapabilityAgent("risk.agent.news_sentiment", registry).role.role_id == "risk.agent.news_sentiment"
