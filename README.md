@@ -6,6 +6,25 @@ alerts, and four-role agent orchestration. The pinned ServiceFabric repository
 under `vendor/servicefabric` remains a read-only dependency at commit
 `7632b61d94a966346f95eb6c5bb2a5ea27f3bc14`.
 
+## Day 0 complete; Day 1 prepared
+
+Day 0 is complete and its reviewed soft-QA handoff passed. Day 1 is prepared
+but not implemented: `D1-WAVE-1A` is the queued entry point.
+
+The Day 1 waves are:
+
+- 1A — human-readable, profile-aware Workbench and information architecture;
+- 1B — local portfolio input, immutable snapshots, data catalogue, and rights;
+- 1C — explainable risk analytics, reports, agent timelines, and human review.
+
+The Day 1 plan preserves JSON APIs for developers and evidence inspection, but
+the primary user surface will be semantic server-rendered HTML. Research uses
+synthetic/reviewed public evidence; `personal_portfolio` uses local private
+holdings only. No external provider is enabled by default, no licensed or
+personal data enters Git, and no broker, order, trade, hedge, optimization, or
+automatic rebalance effect exists. Alerts and analyses remain non-advice
+drafts requiring explicit human review.
+
 ## Implemented Day 0 modules
 
 - `risk_domain`: immutable dataset, portfolio, exposure, finding, alert,
@@ -61,8 +80,8 @@ by `/plan` and `/research`.
 
 All observations, news events, portfolios, and outputs are fictional synthetic
 fixtures. Missing or failed observations are never represented as zero. Day 0
-does not connect to market-data providers, licensed datasets, external LLMs,
-brokers, or accounts.
+and prepared Day 1 do not connect to market-data providers, licensed datasets,
+external LLMs, brokers, or accounts.
 
 There is no live trading, order object, broker object, automatic rebalancing,
 or investment advice. Alerts begin as drafts, have empty effects, and require a

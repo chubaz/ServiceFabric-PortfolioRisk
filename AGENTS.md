@@ -127,6 +127,28 @@ Owns:
 
 Branch: `feature/day0-agents`
 
+## Day 1 preparation and lanes
+
+Day 1 preparation is integration-owned on `chore/day1-preparation`. Before
+any Day 1 implementation, review `docs/workplans/current.md` and the active
+workplan it names. The Day 1 integration order is:
+
+`domain-analytics` -> `knowledge` -> `data` -> `agents` -> `experience` -> `integration`.
+
+Day 1 lanes are recorded in `config/agent/day1/lanes.json`. Specialist lanes
+must change only their explicit directories and their one exact handoff file;
+they stop without merge. The three Day 1 waves are human-readable workbench
+(1A), portfolio/data workspace (1B), and risk analysis/explainability (1C).
+
+During Day 1, raw JSON remains available as developer/evidence APIs but is
+prohibited as the primary user presentation. Server-rendered semantic HTML,
+local CSS, progressive enhancement, keyboard access, and visible
+synthetic/profile/human-review disclosures are required. Arbitrary SQL,
+notebook execution, remote UI assets, external providers, external LLMs,
+broker connectivity, live portfolio effects, orders, trades, and rebalancing
+are prohibited. Notebook pages are catalogue-only and any provider secret is
+an opaque local reference.
+
 ## Prohibited overlap
 
 Specialist lanes must not modify:

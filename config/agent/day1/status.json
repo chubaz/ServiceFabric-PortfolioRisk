@@ -1,0 +1,9 @@
+{
+  "current": "D1-WAVE-1A",
+  "preparation": "complete",
+  "wave_1a": "queued",
+  "wave_1b": "queued",
+  "wave_1c": "queued",
+  "soft_qa": "queued",
+  "base_tag": "day0-complete"
+}
