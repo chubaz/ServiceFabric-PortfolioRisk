@@ -67,10 +67,17 @@ def digest_tree(paths: tuple[Path, ...]) -> str:
     digest = hashlib.sha256()
     for path in paths:
         for file in sorted(path.rglob("*")):
-            if not file.is_file() or "__pycache__" in file.parts or file.suffix == ".pyc":
+            relative = file.relative_to(path)
+            if (
+                not file.is_file()
+                or "__pycache__" in relative.parts
+                or any(part.endswith(".egg-info") for part in relative.parts)
+                or relative.parts[0] in {"build", "dist", ".pytest_cache"}
+                or relative.suffix == ".pyc"
+            ):
                 continue
             digest.update(path.name.encode())
-            digest.update(file.relative_to(path).as_posix().encode())
+            digest.update(relative.as_posix().encode())
             digest.update(file.read_bytes())
     return digest.hexdigest()
 
