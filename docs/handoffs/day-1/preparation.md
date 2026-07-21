@@ -3,7 +3,7 @@
 - Lane: integration authority / preparation
 - Branch: `chore/day1-preparation`
 - Base: tag `day0-complete` (`a37f45809ddaa838f39f2aeaa9d0a7426fe7be4e`)
-- Head: working tree, intentionally uncommitted (no commit/push/merge/tag)
+- Head: focused CI remediation candidate commit (no merge or tag)
 
 ## Changed files
 
@@ -12,6 +12,9 @@ information architecture and screen contracts; portfolio-input and risk-
 analysis contracts; provider rights boundary; Day 1 workplans and knowledge
 schedule; six lane prompt templates; preparation checker/context scripts;
 architecture test; Day 1 workflow; README, AGENTS.md, and Makefile.
+
+CI remediation additionally changes `scripts/bootstrap/check_environment.sh` so
+GitHub Actions does not require the local-only Codex and tmux executables.
 
 ## Scope and ownership
 
@@ -28,6 +31,11 @@ Executed: `make preflight`, `make verify-day0`, `make verify-day1-prep`,
 for every Day 1 record, `git diff --check`, and a clean ServiceFabric submodule.
 Evidence is local control-plane output only; no providers or personal portfolios
 were accessed.
+
+For the CI remediation, `GITHUB_ACTIONS=true make verify-day0` passed (102
+tests) and `GITHUB_ACTIONS=true make verify-day1-prep` passed (7 preparation
+architecture tests). The observed failing GitHub Actions run was
+`29867853968`, which stopped because the hosted runner lacked `codex`.
 
 ## Deviations, blockers, limitations
 

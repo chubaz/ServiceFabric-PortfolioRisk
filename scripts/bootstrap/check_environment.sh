@@ -3,7 +3,6 @@ set -euo pipefail
 
 required_commands=(
   bash
-  codex
   curl
   gh
   git
@@ -11,8 +10,13 @@ required_commands=(
   make
   python3
   shellcheck
-  tmux
 )
+
+# Codex and tmux support the local agent workflow but are not needed by the
+# repository verification targets executed on GitHub-hosted runners.
+if [[ "${GITHUB_ACTIONS:-}" != "true" ]]; then
+  required_commands+=(codex tmux)
+fi
 
 for command_name in "${required_commands[@]}"; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
@@ -39,7 +43,9 @@ if ! gh auth status --hostname github.com >/dev/null 2>&1; then
   fi
   echo "WARNING: GitHub CLI authentication is unavailable; offline Day 0 checks will continue." >&2
 fi
-codex --version
+if [[ "${GITHUB_ACTIONS:-}" != "true" ]]; then
+  codex --version
+fi
 git --version
 shellcheck --version | sed -n '1,2p'
 
