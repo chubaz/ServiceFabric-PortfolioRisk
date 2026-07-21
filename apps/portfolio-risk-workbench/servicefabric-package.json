@@ -1,0 +1,25 @@
+{
+  "application_id": "portfolio-risk-workbench",
+  "version": "0.1.0",
+  "framework": "fastapi",
+  "adapter": "reviewed-fastapi-v1",
+  "module": "app:app",
+  "build": {"kind": "reviewed-python-source"},
+  "start": {"adapter": "reviewed-fastapi-v1", "module": "app:app"},
+  "health_path": "/health",
+  "source_files": [
+    {"path": "app.py", "sha256": "901b5f25a14affe7da0fabb467081bc5907669e31f3a14a3a2690b496827b8e0"},
+    {"path": "pyproject.toml", "sha256": "dd243eaccd4ab55b41a63e9ee15513760869f6b63bf3d79b7cf1c453d86eb37c"}
+  ],
+  "declared_resources": {
+    "memory_mib": 128,
+    "cpu_cores": 0.25,
+    "storage_mib": 16,
+    "network": "loopback-only"
+  },
+  "public_hosting": false,
+  "entrypoints": ["web", "health", "capability-adapter"],
+  "capabilities": [
+    {"tool_id": "risk.workbench.status", "path": "/actions/status"}
+  ]
+}
