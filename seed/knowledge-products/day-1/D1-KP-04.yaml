@@ -1,0 +1,31 @@
+work_item_id: D1-KP-04
+knowledge_product_id: D1-KP-04
+planning_day: day-1
+title: Agent Explainability and Human Review Protocol
+purpose: Define evidence-bearing agent timelines and explicit human review without granting consequential authority.
+owner_lane: knowledge
+draft_deadline: {anchor: T1, offset_minutes: 600}
+review_deadline: {anchor: T1, offset_minutes: 720}
+status: review_requested
+dependencies: [D1-KP-03]
+acceptance_criteria:
+  - Requires role, capability, evidence, assumptions, warnings, limitations, and output digest.
+  - Keeps consequential actions behind an explicit human decision point.
+source_references:
+  - reference_id: ADR-0005
+    title: Explainable Day 1 risk analytics
+    uri: docs/architecture/adr/0005-day1-risk-analytics-and-explainability.md
+    relevance: Defines explainable agent timelines and the human-review boundary.
+artifact_paths: [docs/knowledge-products/D1-KP-04-agent-explainability-and-human-review-protocol.md]
+artifact_links:
+  - artifact_id: D1-KP-04-A1
+    path: docs/knowledge-products/D1-KP-04-agent-explainability-and-human-review-protocol.md
+    label: Explainability and review protocol
+    purpose: Records the evidence and review information required from agent-facing presentation.
+implementation_status: implemented
+implementation_summary: The knowledge protocol is recorded; capability and agent runtime behavior remains owned by the agents lane and canonical ServiceFabric runtime.
+review_history:
+  - decision_id: D1-KP-04-R1
+    state: review_requested
+    decided_by: knowledge-specialist
+    rationale: The explainability and human-review protocol is ready for review.
