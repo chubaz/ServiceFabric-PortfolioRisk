@@ -16,4 +16,11 @@ source_references:
     uri: AGENTS.md
     relevance: Prohibits live orders, broker connectivity, automatic rebalancing, and investment-advice claims.
 artifact_paths: [docs/knowledge-products/KP-05-supervisor-demo-pack-and-day-1-3-backlog.md]
+artifact_links:
+  - artifact_id: KP-05-A1
+    path: docs/knowledge-products/KP-05-supervisor-demo-pack-and-day-1-3-backlog.md
+    label: Supervisor demo and backlog draft
+    purpose: Provides the bounded Day 0 demonstration narrative and follow-on work.
+implementation_status: partial
+implementation_summary: The planning catalogue demonstration is implemented; a full supervisor-facing application remains planned.
 review_history: []

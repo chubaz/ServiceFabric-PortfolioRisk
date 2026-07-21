@@ -16,4 +16,11 @@ source_references:
     uri: docs/workplans/day-0/wave-0a.md
     relevance: Defines lane sequencing and excludes executable agent actions.
 artifact_paths: [docs/knowledge-products/KP-04-capability-catalogue-agent-roles-and-thesis-traceability.md]
+artifact_links:
+  - artifact_id: KP-04-A1
+    path: docs/knowledge-products/KP-04-capability-catalogue-agent-roles-and-thesis-traceability.md
+    label: Capability and traceability draft
+    purpose: Defines the intended evidence and review boundaries for future agents.
+implementation_status: planned
+implementation_summary: Capability and agent implementations are owned by their dedicated lane and are not implemented by this knowledge product.
 review_history: []

@@ -16,4 +16,11 @@ source_references:
     uri: docs/architecture/adr/0002-day0-runtime-and-storage.md
     relevance: Establishes immutable snapshots, explicit approval, and data handling constraints.
 artifact_paths: [docs/knowledge-products/KP-00-day-0-charter-and-supervisor-promise.md]
+artifact_links:
+  - artifact_id: KP-00-A1
+    path: docs/knowledge-products/KP-00-day-0-charter-and-supervisor-promise.md
+    label: Day 0 charter draft
+    purpose: Records the supervisor promise and bounded scope.
+implementation_status: partial
+implementation_summary: Repository safety controls and the planning catalogue are implemented; supervisor approval remains pending.
 review_history: []

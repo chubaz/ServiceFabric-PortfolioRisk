@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ from risk_planning import KnowledgeProduct, PlanningCatalog, ReviewDecision, Sou
 
 
 ROOT = Path(__file__).resolve().parents[2]
+T0 = datetime(2026, 7, 21, 9, 0, tzinfo=UTC)
 
 
 def catalog() -> PlanningCatalog:
@@ -55,6 +57,42 @@ def test_deadlines_sort_deterministically() -> None:
     assert [item.knowledge_product_id for item in reversed_catalog.sorted_by_draft_deadline()] == [f"KP-{number:02d}" for number in range(6)]
 
 
+def test_review_queue_and_due_computation_use_supplied_t0() -> None:
+    loaded = catalog()
+    first = loaded.knowledge_products[0].record_review_decision(
+        ReviewDecision(decision_id="KP-00-R1", state="review_requested", decided_by="planning-supervisor", rationale="Ready for review.")
+    )
+    second = loaded.knowledge_products[1].record_review_decision(
+        ReviewDecision(decision_id="KP-01-R1", state="changes_requested", decided_by="planning-supervisor", rationale="Clarify the adapter boundary.")
+    )
+    queued = PlanningCatalog(knowledge_products=(first, second))
+    assert [item.knowledge_product_id for item in queued.review_queue()] == ["KP-00", "KP-01"]
+    assert [item.knowledge_product_id for item in queued.due_for_review(T0, datetime(2026, 7, 21, 12, 0, tzinfo=UTC))] == ["KP-00"]
+
+
+def test_overdue_computation_excludes_approved_products() -> None:
+    first = catalog().knowledge_products[0].record_review_decision(
+        ReviewDecision(decision_id="KP-00-R1", state="review_requested", decided_by="planning-supervisor", rationale="Ready for review.")
+    )
+    overdue_catalog = PlanningCatalog(knowledge_products=(first,))
+    assert [item.knowledge_product_id for item in overdue_catalog.overdue(T0, datetime(2026, 7, 21, 12, 1, tzinfo=UTC))] == ["KP-00"]
+    approved = first.record_review_decision(
+        ReviewDecision(decision_id="KP-00-R2", state="approved", decided_by="planning-supervisor", rationale="Approved after review.")
+    )
+    assert PlanningCatalog(knowledge_products=(approved,)).overdue(T0, datetime(2026, 7, 21, 12, 1, tzinfo=UTC)) == ()
+
+
+def test_dependency_traversal_and_blocking_are_deterministic() -> None:
+    loaded = catalog()
+    assert [item.knowledge_product_id for item in loaded.dependency_traversal("KP-05")] == ["KP-00", "KP-01", "KP-02", "KP-03", "KP-04"]
+    assert loaded.is_dependency_blocked("KP-01")
+    approved = loaded.knowledge_products[0].record_review_decision(
+        ReviewDecision(decision_id="KP-00-R1", state="approved", decided_by="planning-supervisor", rationale="Approved prerequisite.")
+    )
+    unblocked = PlanningCatalog(knowledge_products=(approved, loaded.knowledge_products[1]))
+    assert unblocked.blocking_dependencies("KP-01") == ()
+
+
 def test_review_decisions_are_recorded_immutably() -> None:
     product = catalog().knowledge_products[0]
     decision = ReviewDecision(decision_id="KP-00-R1", state="review_requested", decided_by="planning-supervisor", rationale="Ready for bounded review.")
@@ -83,3 +121,14 @@ def test_source_references_are_preserved() -> None:
         uri="docs/architecture/adr/0002-day0-runtime-and-storage.md",
         relevance="Supplies immutable, UTC, Decimal, and synthetic-data conventions.",
     )
+
+
+def test_artifact_links_traceability_and_implementation_status_are_preserved() -> None:
+    product = catalog().knowledge_products[2]
+    assert product.artifact_links[0].path == product.artifact_paths[0]
+    assert product.implementation_status == "implemented"
+    assert product.thesis_traceability[0].evidence_reference_ids == ("ADR-0002",)
+    payload = product.model_dump(mode="python")
+    payload["thesis_traceability"][0]["evidence_reference_ids"] = ("MISSING-REF",)
+    with pytest.raises(ValidationError, match="unknown thesis evidence references"):
+        KnowledgeProduct.model_validate(payload)

@@ -16,4 +16,17 @@ source_references:
     uri: docs/architecture/adr/0002-day0-runtime-and-storage.md
     relevance: Supplies immutable, UTC, Decimal, and synthetic-data conventions.
 artifact_paths: [docs/knowledge-products/KP-02-object-kernel-and-data-dictionary.md]
+artifact_links:
+  - artifact_id: KP-02-A1
+    path: docs/knowledge-products/KP-02-object-kernel-and-data-dictionary.md
+    label: Object kernel and data dictionary draft
+    purpose: Documents the implemented immutable domain kernel and its limits.
+thesis_traceability:
+  - entry_id: KP-02-T1
+    thesis: Immutable UTC-normalized snapshots with source references preserve the context required to assess Day 0 observations.
+    evidence_reference_ids: [ADR-0002]
+    assumptions: [Consumers preserve the contract fields when rendering or transporting snapshots.]
+    limitations: [The kernel does not establish the truth or completeness of a provider observation.]
+implementation_status: implemented
+implementation_summary: The Day 0 immutable object kernel, UTC handling, Decimal validation, source references, and snapshot digest validation are implemented.
 review_history: []

@@ -1,19 +1,27 @@
 # KP-02: Object Kernel and Data Dictionary
 
-Status: draft. Deadlines: draft T+6h; review T+8h.
+Status: draft; implementation status: implemented for the Day 0 kernel. Deadlines: draft T+6h; review T+8h.
 
-## Identity and value boundaries
+## Object definitions and identifiers
 
-Day 0 keeps package, capability, tool, application, agent, finding, and alert identities distinct. The implemented domain kernel defines instruments, identifiers, positions, cash balances, market observations, fundamental observations, portfolio snapshots, quality flags, and source references. Snapshot IDs identify snapshots; content digests make their persisted contents addressable.
+The implemented kernel distinguishes `Instrument`, `InstrumentIdentifier`, `Position`, `CashBalance`, `MarketObservation`, `FundamentalObservation`, `PortfolioSnapshot`, `QualityFlag`, and `SourceReference`. An instrument has a stable overlay `instrument_id`, a display name, and one or more typed identifiers. Identifier types are limited to ticker, PERMNO, GVKEY, CUSIP, and CIK; an instrument cannot repeat an identifier type. These are identifiers, not a claim that a corresponding provider record was retrieved.
 
-## Implemented behavior
+Package, capability, tool, application, agent, finding, and alert identities remain separate from these domain objects. A `snapshot_id` identifies a submitted portfolio snapshot; its digest identifies the canonical contents of that immutable value.
 
-Persisted financial values use `Decimal`, timestamps are timezone-aware and normalized to UTC, and snapshot construction enforces immutable values. A missing observation has no fabricated value and must carry a missing quality flag. Synthetic observations carry `synthetic: true`. Source references retain source ID, type, reference, and retrieval time.
+## Time and Decimal conventions
 
-## Planning vocabulary
+All observation and snapshot times are timezone-aware and normalized to UTC. Naive timestamps are rejected. Persisted monetary values, quantities, prices, and market values use `Decimal`; binary floating point is not a persisted financial representation. Currency values use supported ISO 4217 alphabetic codes. Positions validate quantity × price against market value within the documented cent-level tolerance.
 
-This catalogue adds knowledge-product IDs (`KP-00` through `KP-05`), work items, T0-relative deadlines, review decisions, and source-reference links. Review decisions are append-only values; recording one returns a revised knowledge-product record rather than mutating the original.
+## Provenance, quality, and digest policy
 
-## Planned behavior
+Every observation may carry `SourceReference` entries containing source ID, source type, reference, and UTC retrieval time. A missing market or fundamental value remains `None` and requires the `missing` quality flag; it is never converted to zero. Synthetic observations carry `synthetic: true` and are not presented as real data.
 
-Additional risk measures, provider mappings, and finding schemas are not implemented by this product. Their data dictionaries must retain the same missingness, source, and immutable-revision semantics.
+Snapshots derive a deterministic SHA-256 digest from canonical JSON: model values are normalized, keys are ordered, decimals retain decimal text, and timestamps are rendered in UTC. A supplied mismatching digest is rejected. This is a content-addressing policy, not an assertion that input observations are complete or correct.
+
+## Snapshot relationships
+
+A portfolio snapshot contains sorted, unique positions; unique cash balances by currency; optional market and fundamental observations; and snapshot-level source references. Positions reference `instrument_id`; observations reference the same identifier. Corrected or newly observed data creates a new snapshot or revision value—existing snapshots are never overwritten in place.
+
+## Planning and remaining work
+
+The planning catalogue adds immutable review history, artifact links, thesis traceability, implementation status, and T0-relative deadlines around these artifacts. Additional risk measures, provider mappings, and finding schemas are planned work. They must preserve the same identity, provenance, missingness, and immutable-revision rules.

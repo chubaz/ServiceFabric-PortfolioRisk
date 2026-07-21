@@ -4,11 +4,11 @@
 - Branch: feature/day0-planning
 - Base: day0-prepared (5d4bb78)
 - Head: c05e48c at implementation start; candidate changes are uncommitted by instruction.
-- Status: ready for integration review after focused verification
+- Status: Wave 0B planning extension ready for integration review after focused verification
 
 ## Objective
 
-Provide immutable Pydantic v2 planning contracts, deterministic YAML seed products KP-00 through KP-05, substantive draft knowledge products, and focused verification.
+Extend immutable Pydantic v2 planning contracts with dependency traversal and blocking, review queues, supplied-T0 deadline evaluation, immutable review decisions, artifact links, thesis traceability, and implementation status. Complete the KP-02 and KP-03 drafts without asserting licensed-data access.
 
 ## Changed paths
 
@@ -30,11 +30,11 @@ ADR-0001 and ADR-0002, the Wave 0A workplan, and repository safety and publicati
 
 ## Tests and results
 
-`make test-planning` passed: 9 tests. The focused suite loads all seeds and validates duplicate IDs, invalid states, unknown and cyclic dependency references, deterministic deadline ordering, immutable review recording and decision ownership, and source-reference preservation. `git diff --check` passed.
+`make test-planning` passed: 13 tests. The focused suite loads all seeds and validates duplicate IDs, invalid states, unknown and cyclic dependency references, deterministic deadline ordering, supplied-T0 due and overdue computation, dependency traversal and blocking, review queues, immutable review recording and decision ownership, source-reference preservation, artifact links, and thesis traceability. `git diff --check` passed.
 
 ## Evidence
 
-Six lexical YAML seed records use `anchor: T0` and integer minute offsets. Each record includes all required product fields. The catalogue rejects unknown and cyclic dependencies, and review-decision IDs are bound to their product IDs. The draft documents explicitly separate implemented behavior from planned behavior and restate human-review and financial-safety limits.
+Six lexical YAML seed records use `anchor: T0` and integer minute offsets. Each record includes artifact links and implementation status; KP-02 and KP-03 include evidence-linked thesis traceability entries. The catalogue rejects unknown and cyclic dependencies, traverses dependencies deterministically, identifies blockers, and binds review-decision IDs to their product IDs. KP-02 documents the implemented object kernel; KP-03 documents only the policy and future local-only design, not real CRSP or Compustat access.
 
 ## Deviations
 
@@ -46,7 +46,7 @@ None for the planning artifact. Integration should restore or refresh the local 
 
 ## Limitations
 
-This is a planning catalogue only: it performs no provider query, risk calculation, ServiceFabric invocation, agent execution, broker connectivity, or trading action. Documents are draft and require review.
+This is a planning catalogue only: it performs no provider query, risk calculation, ServiceFabric invocation, agent execution, broker connectivity, or trading action. WRDS secret references, storage zones, Parquet, and DuckDB are future-design documentation only. Documents are draft and require review.
 
 ## Rollback
 
