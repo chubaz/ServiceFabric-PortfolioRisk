@@ -16,4 +16,11 @@ source_references:
     uri: docs/architecture/adr/0001-overlay-repository.md
     relevance: Defines the overlay and pinned, read-only upstream dependency.
 artifact_paths: [docs/knowledge-products/KP-01-overlay-architecture-and-servicefabric-integration.md]
+artifact_links:
+  - artifact_id: KP-01-A1
+    path: docs/knowledge-products/KP-01-overlay-architecture-and-servicefabric-integration.md
+    label: Overlay architecture draft
+    purpose: Describes the read-only ServiceFabric integration boundary.
+implementation_status: partial
+implementation_summary: The overlay boundary is implemented; future runtime adapters are not implemented here.
 review_history: []
