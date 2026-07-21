@@ -3,12 +3,13 @@
 - Lane and branch: application / `feature/day0-application`
 - Base: `day0-prepared` (`5d4bb78a2c4126c7a04c0244e50ef6662cd3e0b8`)
 - Head: `c05e48ce1dac06f2f5211e2f05eedd30a883f1b9` (no candidate commit created)
-- Status: Wave 0B synthetic vertical-slice adapter implemented; no candidate commit created.
+- Status: Wave 0A shell implemented; no candidate commit created.
 
 ## Objective
 
-Expose the integrated planning, data, domain, and capability APIs through a
-reviewed, local-only FastAPI workbench without recreating their calculations.
+Provide a reviewed, loopback-only FastAPI Portfolio Risk Workbench shell for
+local synthetic-prototype navigation and the read-only
+`risk.workbench.status` capability.
 
 ## Changed paths
 
@@ -16,7 +17,6 @@ reviewed, local-only FastAPI workbench without recreating their calculations.
 - `apps/portfolio-risk-workbench/pyproject.toml`
 - `apps/portfolio-risk-workbench/servicefabric-package.json`
 - `tests/application/test_workbench.py`
-- `tests/application/conftest.py`
 - `docs/handoffs/day-0/application.md`
 - `vendor/servicefabric/services/application_host/servicefabric_application_host/service.py`
 
@@ -25,8 +25,6 @@ reviewed, local-only FastAPI workbench without recreating their calculations.
 - Pinned ServiceFabric Text Utility FastAPI example: reviewed adapter manifest
   structure and FastAPI/Uvicorn pins.
 - ADR-0002: Python 3.11, synthetic-mode disclosure, and human-review boundary.
-- `risk_planning`, `risk_data`, `risk_domain`, `risk_capabilities`, and
-  `risk_agents`: immutable contracts and registered Wave 0B operations.
 
 ## Commands executed
 
@@ -40,13 +38,10 @@ reviewed, local-only FastAPI workbench without recreating their calculations.
 
 ## Evidence
 
-- All new API and action routes are covered with a temporary
-  `PORTFOLIO_RISK_DATA_ROOT`; immutable ingestion, snapshot, exposure, and
-  finding records are written only below that root.
-- Pages expose synthetic planning, ingestion, portfolio, finding, and agent
-  state while retaining the human-review and non-advisory disclosures.
-- The manifest declares exactly the implemented read-only capabilities and
-  remains loopback-only with non-public hosting.
+- Every page identifies Wave 0A as a local synthetic prototype and explicitly
+  rules out live data, live trading, broker connectivity, and investment advice.
+- The manifest declares only the read-only status capability and loopback-only,
+  non-public hosting through `reviewed-fastapi-v1`.
 
 ## Deviations, blockers, and limitations
 
@@ -60,18 +55,14 @@ reviewed, local-only FastAPI workbench without recreating their calculations.
   application-lane change.
 - `make preflight` is blocked in `env-check` by an expired local GitHub CLI
   token; this is an environment issue, not an application change.
-- The application does not calculate risk itself: it adapts registered
-  capability results. It provides no live providers, orders, brokers, public
-  hosting, or actionable tools.
+- This wave provides no portfolio calculations, providers, or actionable tools.
 
 ## Rollback
 
 Remove the uncommitted lane-owned files, or revert a future focused candidate
-commit. The separately authorized pre-existing ServiceFabric submodule change
-must be reverted independently if its upstream review is rejected.
+commit. No shared configuration or ServiceFabric vendor files changed.
 
 ## Recommended next action
 
-Review the temporary-root route coverage and manifest capability mapping, then
-let integration review the lane-scoped diff and the separately dirty upstream
-candidate.
+Run the focused application tests and manifest-hash check, then let integration
+review the lane-scoped diff and accept a focused candidate commit.
