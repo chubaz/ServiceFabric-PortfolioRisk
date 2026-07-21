@@ -1,8 +1,8 @@
 {
-  "current": "D0-QA",
+  "current": "D0-COMPLETE",
   "preparation": "complete",
   "wave_0a": "complete",
   "wave_0b": "complete",
   "wave_0c": "complete",
-  "soft_qa": "changes_requested"
+  "soft_qa": "passed"
 }

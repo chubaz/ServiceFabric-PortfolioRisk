@@ -1,5 +1,7 @@
 # Day 0 Integration Handoff
 
+> This is the pre-QA integration record. The final human decision is recorded in `docs/handoffs/day-0/soft-qa.md`.
+
 - Lane and branch: integration / `integration/day0`
 - Base: `day0-prepared` (`eedde4b2e6ed69c91f21bedb91d183b5b859af58`)
 - Head: `4bd61739ebf1fa67ddc5cb73b47ffc96681daa2c` plus the intentionally uncommitted final integration diff
