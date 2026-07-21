@@ -15,9 +15,10 @@ import pyarrow.parquet as pq
 from pydantic import Field, field_validator, model_validator
 
 from risk_domain import DatasetFile, DatasetProvenance, DatasetSnapshot as DomainDatasetSnapshot, InstrumentIdentifier, SourceReference
-from risk_domain.digests import canonical_json, sha256_digest
+from risk_domain.digests import sha256_digest
 
 from .contracts import DataContract, FIXTURE_SEED, NormalizedFundamentalRecord, NormalizedMarketRecord, QuerySpec, SYNTHETIC_LABEL, _utc
+from .serialization import manifest_json
 
 
 FIXTURE_CREATED_AT = datetime(2026, 7, 21, 12, 0, tzinfo=UTC)
@@ -198,10 +199,10 @@ def ingest_synthetic(output_root: Path | str | None = None) -> SyntheticIngestio
     market_query = QuerySpec(dataset="market", instrument_ids=("instrument-alpha", "instrument-beta", "instrument-gamma"), start_at=datetime(2026, 7, 13, tzinfo=UTC), end_at=datetime(2026, 7, 17, tzinfo=UTC), include_duplicate_candidates=True)
     fundamental_query = QuerySpec(dataset="fundamental", instrument_ids=("instrument-alpha", "instrument-beta", "instrument-gamma"), start_at=datetime(2026, 7, 13, tzinfo=UTC), end_at=datetime(2026, 7, 17, tzinfo=UTC), include_duplicate_candidates=False)
     run_manifest = {"run_id": RUN_ID, "created_at": FIXTURE_CREATED_AT, "synthetic": True, "synthetic_label": SYNTHETIC_LABEL, "fixture_seed": FIXTURE_SEED, "query_digests": {"market": sha256_digest(market_query), "fundamentals": sha256_digest(fundamental_query)}, "evidence": evidence}
-    run_path.write_text(canonical_json(run_manifest), encoding="utf-8")
+    run_path.write_text(manifest_json(run_manifest), encoding="utf-8")
     evidence = evidence.model_copy(update={"content_digests": evidence.content_digests | {"manifests/ingestion-run.json": _sha256_file(run_path)}})
 
     files = tuple(DatasetFile(path=path, media_type=media_type, size=(root / path).stat().st_size, digest=_sha256_file(root / path), row_count=row_count) for path, media_type, row_count in (("market/prices.parquet", "application/vnd.apache.parquet", len(market_rows)), ("fundamentals/fundamentals.parquet", "application/vnd.apache.parquet", len(fundamental_rows)), ("catalog/day0.duckdb", "application/vnd.duckdb", 0)))
     snapshot = DomainDatasetSnapshot(snapshot_id="synthetic-day0-dataset-20260721", created_at=FIXTURE_CREATED_AT, files=files, ingestion_run_ids=(RUN_ID,), source_query_digests=(sha256_digest(market_query), sha256_digest(fundamental_query)), provenance=DatasetProvenance(synthetic=True, synthetic_label=SYNTHETIC_LABEL, synthetic_seed=FIXTURE_SEED, sources=(SourceReference(source_id="synthetic-fixture", source_type="fixture", reference="fixture://day0/20260721", retrieved_at=FIXTURE_CREATED_AT),)))
-    snapshot_path.write_text(canonical_json(snapshot), encoding="utf-8")
+    snapshot_path.write_text(manifest_json(snapshot), encoding="utf-8")
     return SyntheticIngestionResult(data_root=root, ingestion_manifest=run_path, snapshot_manifest=snapshot_path, snapshot=snapshot, evidence=evidence)
