@@ -1,0 +1,31 @@
+work_item_id: D1-KP-05
+knowledge_product_id: D1-KP-05
+planning_day: day-1
+title: Supervisor Demo and Day 1 Soft-QA Protocol
+purpose: Provide a bounded supervisor walkthrough and an evidence-based soft-QA protocol without claiming a pass.
+owner_lane: knowledge
+draft_deadline: {anchor: T1, offset_minutes: 1080}
+review_deadline: {anchor: T1, offset_minutes: 1320}
+status: review_requested
+dependencies: [D1-KP-01, D1-KP-02, D1-KP-03, D1-KP-04]
+acceptance_criteria:
+  - Demonstrates profile, evidence-state, methodology, limitation, and review disclosures using reviewed records.
+  - Separates focused test evidence from supervisor approval and soft-QA outcome.
+source_references:
+  - reference_id: WAVE-1A
+    title: Day 1 Wave 1A workplan
+    uri: docs/workplans/day-1/wave-1a.md
+    relevance: Defines the human-readable Workbench acceptance scope and exclusions.
+artifact_paths: [docs/knowledge-products/D1-KP-05-supervisor-demo-and-day-1-soft-qa-protocol.md]
+artifact_links:
+  - artifact_id: D1-KP-05-A1
+    path: docs/knowledge-products/D1-KP-05-supervisor-demo-and-day-1-soft-qa-protocol.md
+    label: Supervisor demo and soft-QA protocol
+    purpose: Records the walkthrough, expected evidence, limitations, and explicit decision point.
+implementation_status: implemented
+implementation_summary: The catalogue-level demo and QA protocol is recorded; running integrated soft QA and deciding its outcome remain human integration activities.
+review_history:
+  - decision_id: D1-KP-05-R1
+    state: review_requested
+    decided_by: knowledge-specialist
+    rationale: The bounded demo and soft-QA protocol is ready for supervisor review.

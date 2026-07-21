@@ -24,3 +24,8 @@ def load_catalog(seed_directory: Path) -> PlanningCatalog:
 def load_seed_catalog(repository_root: Path) -> PlanningCatalog:
     """Load the repository's reviewed Day 0 knowledge-product seeds."""
     return load_catalog(repository_root / "seed" / "knowledge-products")
+
+
+def load_day1_seed_catalog(repository_root: Path) -> PlanningCatalog:
+    """Load the repository's reviewed Day 1 knowledge-product seeds."""
+    return load_catalog(repository_root / "seed" / "knowledge-products" / "day-1")
