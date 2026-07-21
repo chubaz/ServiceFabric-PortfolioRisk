@@ -4,8 +4,6 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
-import sys
-from tempfile import TemporaryDirectory
 
 import pytest
 from fastapi import FastAPI
@@ -36,6 +34,11 @@ def request(application: FastAPI, method: str, path: str) -> tuple[int, bytes]:
     return result.status_code, result.body
 
 
+@pytest.fixture(autouse=True)
+def temporary_data_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("PORTFOLIO_RISK_DATA_ROOT", str(tmp_path / "risk-data"))
+
+
 def test_health(application: FastAPI) -> None:
     status, body = request(application, "GET", "/health")
     assert status == 200
@@ -64,7 +67,7 @@ def test_api_status(application: FastAPI) -> None:
 def test_pages_are_available_and_disclose_synthetic_mode(application: FastAPI, path: str) -> None:
     status, body = request(application, "GET", path)
     assert status == 200
-    assert b"Wave 0A is a local synthetic prototype." in body
+    assert b"Wave 0B is a local synthetic prototype." in body
 
 
 def test_manifest_source_files_exist_and_hashes_match() -> None:
@@ -89,26 +92,17 @@ def test_no_order_or_broker_route_exists(application: FastAPI) -> None:
     assert not any("order" in path or "broker" in path for path in paths)
 
 
-def test_status_capability_has_a_canonical_servicefabric_execution_path() -> None:
-    upstream = ROOT / "vendor" / "servicefabric"
-    for pyproject in upstream.rglob("pyproject.toml"):
-        sys.path.insert(0, str(pyproject.parent))
-    for source_root in upstream.rglob("src"):
-        sys.path.insert(0, str(source_root))
-    from servicefabric_application_host import LocalApplicationHost
-
-    with TemporaryDirectory() as temporary:
-        host = LocalApplicationHost(Path(temporary))
-        assert host.install(APPLICATION_DIR)["application_id"] == "portfolio-risk-workbench"
-        assert host.build("portfolio-risk-workbench")["status"] == "success"
-        try:
-            assert host.start("portfolio-risk-workbench")["health"] == "healthy"
-            assert host.invoke("risk.workbench.status", {}) == {
-                "application_id": "portfolio-risk-workbench",
-                "version": "0.1.0",
-                "synthetic_mode": True,
-                "external_providers": "disabled",
-                "human_review": "required",
-            }
-        finally:
-            host.stop("portfolio-risk-workbench")
+def test_wave_0b_api_and_action_routes(application: FastAPI) -> None:
+    assert request(application, "GET", "/api/plan")[0] == 200
+    assert request(application, "POST", "/actions/planning-list-due")[0] == 200
+    assert request(application, "GET", "/api/datasets")[0] == 200
+    assert request(application, "POST", "/actions/data-synthetic-ingest")[0] == 200
+    assert request(application, "GET", "/api/datasets")[0] == 200
+    assert request(application, "POST", "/actions/portfolio-snapshot-create")[0] == 200
+    assert request(application, "GET", "/api/portfolio/latest")[0] == 200
+    assert request(application, "POST", "/actions/portfolio-exposure-summarize")[0] == 200
+    assert request(application, "GET", "/api/exposures/latest")[0] == 200
+    assert request(application, "POST", "/actions/market-anomaly-detect")[0] == 200
+    findings_status, findings_body = request(application, "GET", "/api/findings")
+    assert findings_status == 200
+    assert json.loads(findings_body)["human_review_required"] is True

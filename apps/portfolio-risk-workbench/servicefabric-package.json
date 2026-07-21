@@ -15,7 +15,7 @@
   "source_files": [
     {
       "path": "app.py",
-      "sha256": "901b5f25a14affe7da0fabb467081bc5907669e31f3a14a3a2690b496827b8e0"
+      "sha256": "cd89e21aff16fc71405a2ce94b55832cd49365d05de63ac2388f6866092290e6"
     },
     {
       "path": "pyproject.toml",
@@ -38,6 +38,26 @@
     {
       "tool_id": "risk.workbench.status",
       "path": "/actions/status"
+    },
+    {
+      "tool_id": "planning.knowledge.list_due",
+      "path": "/actions/planning-list-due"
+    },
+    {
+      "tool_id": "data.synthetic.ingest",
+      "path": "/actions/data-synthetic-ingest"
+    },
+    {
+      "tool_id": "portfolio.snapshot.create",
+      "path": "/actions/portfolio-snapshot-create"
+    },
+    {
+      "tool_id": "portfolio.exposure.summarize",
+      "path": "/actions/portfolio-exposure-summarize"
+    },
+    {
+      "tool_id": "market.anomaly.detect",
+      "path": "/actions/market-anomaly-detect"
     }
   ]
 }
