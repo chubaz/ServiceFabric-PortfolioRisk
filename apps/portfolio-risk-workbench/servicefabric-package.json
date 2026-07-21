@@ -15,11 +15,23 @@
   "source_files": [
     {
       "path": "app.py",
-      "sha256": "43be40e2c4b8294756d2eb3b09ea98de506a205c61b43d5a13dfe572706d6165"
+      "sha256": "72e949a2901e89f01c8376a11b2feb4f9dc03b52511e6750eeb7e5c0f83ab1f0"
+    },
+    {
+      "path": "catalog/notebooks.yaml",
+      "sha256": "9c9698f4c3b63b93ded7a6b1ad8c3b50f8c49bb7fa859107a0b18fa8bee9fa45"
+    },
+    {
+      "path": "catalog/research.yaml",
+      "sha256": "14b2e5de0b2bcc79f68d1693d57900f865c136db6c365b7550254c04cb68fdd0"
+    },
+    {
+      "path": "presentation.py",
+      "sha256": "c5ffcea7a0fc8977ff77ae257801e846248f9377fadfba296ffe3208fc500ade"
     },
     {
       "path": "pyproject.toml",
-      "sha256": "dd243eaccd4ab55b41a63e9ee15513760869f6b63bf3d79b7cf1c453d86eb37c"
+      "sha256": "e27c43966e48f6d8c30442f0ddd9b2087769fe455bd6b1b58a3c0195a20cc7a8"
     },
     {
       "path": "risk-package-lock.json",
@@ -48,6 +60,98 @@
     {
       "path": "seed/knowledge-products/KP-05.yaml",
       "sha256": "6450ac9ff2c4a786b2662c24a7aa92b4551798794d9e74014ac55689e5c305ab"
+    },
+    {
+      "path": "seed/knowledge-products/day-1/D1-KP-01.yaml",
+      "sha256": "39d461e43053118836d354d3f86e925065e64ef3fd3b6e074cdd195382e996b1"
+    },
+    {
+      "path": "seed/knowledge-products/day-1/D1-KP-02.yaml",
+      "sha256": "3d02e01d627bff597b4e80659949cc6429ec17bd39f655732f00d14658575c74"
+    },
+    {
+      "path": "seed/knowledge-products/day-1/D1-KP-03.yaml",
+      "sha256": "276e1de2084e0e2c528ec191ef49964452c2466bfaa35e2e47847ba5eb2710f7"
+    },
+    {
+      "path": "seed/knowledge-products/day-1/D1-KP-04.yaml",
+      "sha256": "be8387cce59babaa97fabb487b7b190618b4390ce841c4c9128bd9dcc1d5793d"
+    },
+    {
+      "path": "seed/knowledge-products/day-1/D1-KP-05.yaml",
+      "sha256": "0663194a8f15a760496b9d3e7033f1c26457f9ef00ee3042a9b6380b7c128475"
+    },
+    {
+      "path": "static/workbench.css",
+      "sha256": "ecb6d1429762225fe5f6ef838c92ae2d28c1ee1715e18d07600f4e351dfab4a2"
+    },
+    {
+      "path": "templates/agent_runs.html",
+      "sha256": "a5e3db39e24cb7a3c2185ddab24be71ffd444877076c07be11df4d413c1c91cc"
+    },
+    {
+      "path": "templates/agents.html",
+      "sha256": "2194b9d025577979ab0e340179af683d525988f18d439fd0dfa0d600573354db"
+    },
+    {
+      "path": "templates/alert_detail.html",
+      "sha256": "2e853df983bd389024569bfb9e51fb401cfdfdfa1db1f59a8146bf6a0796e7ed"
+    },
+    {
+      "path": "templates/alerts.html",
+      "sha256": "78ebb9e18a800128694a1ebb9f082c47433f7bae80e0ee7de547f457bb08f26c"
+    },
+    {
+      "path": "templates/base.html",
+      "sha256": "55ccf6f19a5130dc79c0c21b456018745b2686532b025dc20dacb7a3f52b481c"
+    },
+    {
+      "path": "templates/components.html",
+      "sha256": "d64d6858d6553e95847d6982cdc729aba427379f42d0e90895ddfc4592c5af64"
+    },
+    {
+      "path": "templates/dashboard.html",
+      "sha256": "06ea994a7ed61a7a626cd943fac0619c1651a13081f400191d3d538d31509e08"
+    },
+    {
+      "path": "templates/data.html",
+      "sha256": "ccd63b2596d69b567061e28b49877cb0ab7d597ab30c9fe739ba2949e8918074"
+    },
+    {
+      "path": "templates/error.html",
+      "sha256": "492aeec4323ed02b53af5cd671b2ac42f9d5f4192a1c4a1da9aa7d3e510a6646"
+    },
+    {
+      "path": "templates/findings.html",
+      "sha256": "3fff275878ee85ca6ac8d8dacc108636f0f851f61c990061ddb1d989eeca85ec"
+    },
+    {
+      "path": "templates/notebooks.html",
+      "sha256": "a5142d558e667bf54b136e9dd72507d7822cd7b264cd915dd43bb7bf199ab83b"
+    },
+    {
+      "path": "templates/plan.html",
+      "sha256": "e54b0dca71daef4bd43abe03badddb58b0b1984c761d4ef1e528736702ff6684"
+    },
+    {
+      "path": "templates/portfolio.html",
+      "sha256": "b154ee756fc9fcbfcd2a57a9cd65f5cb26d119aa3dcbc8694f08277371dcd932"
+    },
+    {
+      "path": "templates/providers.html",
+      "sha256": "35f7fcbdc149451edede3ae287664fb00bfc36be0f35cb32ae558410aaeb5bb7"
+    },
+    {
+      "path": "templates/research.html",
+      "sha256": "c6b220a4610b54c21c9348a527518600a7ae1eee259680af019a0146a75f3f74"
+    },
+    {
+      "path": "templates/risk.html",
+      "sha256": "521a0eccbad9bc00b7b00b2b8d97927a7977da0ea08815238abde06c787fceaf"
+    },
+    {
+      "path": "templates/settings.html",
+      "sha256": "683355fb357ed80cf786bea96cd439a956c7b32c7349bd1ce85929952501819a"
     }
   ],
   "declared_resources": {

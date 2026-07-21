@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure, empty_state %}
+{% block title %}Providers{% endblock %}
+{% block heading %}Providers{% endblock %}
+{% block intro %}<p class="lead">Provider access remains outside this foundation pass and disabled by default.</p>{% endblock %}
+{% block content %}
+  {{ disclosure('All external providers are disabled', 'The Workbench has no provider enablement control, no external query path, and no credential input. Provider catalogue binding will follow the reviewed data contract in a later integration.', 'critical') }}
+  {{ empty_state('No enabled providers', 'WRDS, CRSP, Compustat, RavenPack, Accern, Bloomberg, and every other external source remain disabled. A failed provider query cannot be mistaken for a zero observation because no query is attempted.') }}
+  <section aria-labelledby="provider-boundary-heading">
+    <h2 id="provider-boundary-heading">Access boundary</h2>
+    <dl class="definition-grid"><div><dt>Secrets</dt><dd>Opaque local references only; never raw values.</dd></div><div><dt>Network</dt><dd>Loopback only.</dd></div><div><dt>Publication</dt><dd>No licensed, personal, cache, or local database files.</dd></div><div><dt>Actions</dt><dd>View explanations only; no enable button.</dd></div></dl>
+  </section>
+{% endblock %}

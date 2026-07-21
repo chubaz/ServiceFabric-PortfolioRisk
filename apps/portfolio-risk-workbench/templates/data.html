@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure, error_state, metric %}
+{% block title %}Data{% endblock %}
+{% block heading %}Data{% endblock %}
+{% block intro %}<p class="lead">Synthetic dataset coverage, quality, freshness, and provenance without exposing local storage paths.</p>{% endblock %}
+{% block content %}
+  {{ disclosure('External data is disabled', 'No WRDS, CRSP, Compustat, Bloomberg, RavenPack, Accern, or other external provider is queried. Failed or incomplete data is never represented as zero.', 'critical') }}
+  {% if error %}{{ error_state('Dataset summary is unavailable', error) }}{% else %}
+    <section class="metric-grid" aria-label="Dataset summary">
+      {{ metric('Market observations', summary.record_count, 'Rows in the reviewed local fixture') }}
+      {{ metric('Instruments', summary.instrument_count, 'Distinct synthetic identifiers') }}
+      {{ metric('Latest observation', summary.latest_observation|timestamp, 'Timestamp, not a freshness guarantee') }}
+      {{ metric('Missing values', summary.missing_count, 'Explicitly retained; never zero-filled', 'warning' if summary.missing_count else 'neutral') }}
+    </section>
+    <section aria-labelledby="quality-heading">
+      <h2 id="quality-heading">Quality and provenance</h2>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Data quality and provenance table">
+        <table><thead><tr><th scope="col">Instrument</th><th scope="col">Observed at</th><th scope="col">Value</th><th scope="col">Quality flags</th><th scope="col">Provenance</th></tr></thead>
+        <tbody>{% for item in observations %}<tr><th scope="row">{{ item.instrument_id }}</th><td>{{ item.observed_at|timestamp }}</td><td>{{ item.price|currency(item.currency) }}</td><td><span class="badge badge-{{ 'warning' if item.price is none else 'success' }}">{{ 'Missing' if item.price is none else 'Complete' }}</span></td><td>{{ item.source_id }} · synthetic fixture {{ item.fixture_seed }}</td></tr>{% endfor %}</tbody></table>
+      </div>
+    </section>
+    <section class="metadata-strip" aria-label="Dataset provenance summary">
+      <p><span>Data zone</span><strong>Synthetic fixture</strong></p>
+      <p><span>Rights state</span><strong>Reviewed repository fixture</strong></p>
+      <p><span>Publication</span><strong>No private or licensed extracts</strong></p>
+      <p><span>Freshness</span><strong>As observed; no live refresh</strong></p>
+    </section>
+  {% endif %}
+{% endblock %}

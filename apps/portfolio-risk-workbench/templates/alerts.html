@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% from "components.html" import alert_card, disclosure, empty_state, error_state %}
+{% block title %}Alerts{% endblock %}
+{% block heading %}Alerts{% endblock %}
+{% block intro %}<p class="lead">Draft alerts and immutable human decisions, with no external effects.</p>{% endblock %}
+{% block content %}
+  {{ disclosure('Review is not trade approval', 'Approving a draft records a human DecisionPoint only. It cannot approve, create, route, or execute an order or rebalance.', 'critical') }}
+  {% if error %}{{ error_state('Alerts are unavailable', error) }}
+  {% elif alerts %}<div class="card-grid">{% for alert in alerts %}{{ alert_card(alert, profile_query) }}{% endfor %}</div>
+  {% else %}{{ empty_state('No alert drafts', 'No alert draft is stored. Run the existing local monitoring capability before beginning human review.') }}{% endif %}
+{% endblock %}

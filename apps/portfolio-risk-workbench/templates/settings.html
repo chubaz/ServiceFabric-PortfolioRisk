@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure %}
+{% block title %}Settings{% endblock %}
+{% block heading %}Settings{% endblock %}
+{% block intro %}<p class="lead">Local presentation preferences and explicit storage and credential boundaries.</p>{% endblock %}
+{% block content %}
+  <section class="settings-panel" aria-labelledby="profile-heading">
+    <h2 id="profile-heading">Operating profile</h2>
+    <p>Selection changes presentation context only for this request. It cannot enable a provider or cause an external effect.</p>
+    <form method="get" action="/settings">
+      <fieldset><legend>Select profile</legend>
+        <label class="choice-card"><input type="radio" name="profile" value="research"{% if profile.profile_id == 'research' %} checked{% endif %}> <span><strong>Research</strong><small>Synthetic or reviewed public evidence; personal account data excluded by default.</small></span></label>
+        <label class="choice-card"><input type="radio" name="profile" value="personal_portfolio"{% if profile.profile_id == 'personal_portfolio' %} checked{% endif %}> <span><strong>Personal portfolio</strong><small>Private local monitoring only; no publication and no broker connection.</small></span></label>
+      </fieldset>
+      <button type="submit">Apply presentation profile</button>
+    </form>
+  </section>
+  <section aria-labelledby="storage-heading"><h2 id="storage-heading">Local data root</h2><dl class="definition-grid"><div><dt>Configuration</dt><dd><code>PORTFOLIO_RISK_DATA_ROOT</code></dd></div><div><dt>Scope</dt><dd>Local filesystem state outside published application content.</dd></div><div><dt>Current disclosure</dt><dd>{{ data_root_state }}</dd></div><div><dt>Publication</dt><dd>Private holdings, local databases, and provider caches are never committed.</dd></div></dl></section>
+  <section aria-labelledby="secret-heading"><h2 id="secret-heading">Provider credentials</h2><p>A future provider configuration may carry an opaque local secret reference. The Workbench must never render, store in a contract, or publish a raw secret value.</p></section>
+  {{ disclosure('No enablement or trading controls', 'Settings has no provider enable button and no broker, order, trade, rebalance, or publication action.', 'critical') }}
+{% endblock %}

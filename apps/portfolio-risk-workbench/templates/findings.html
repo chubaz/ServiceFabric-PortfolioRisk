@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure, empty_state, error_state, finding_card %}
+{% block title %}Findings{% endblock %}
+{% block heading %}Findings{% endblock %}
+{% block intro %}<p class="lead">Evidence-backed observations produced by the bounded local Day 0 capabilities.</p>{% endblock %}
+{% block content %}
+  {{ disclosure('Interpretation requires review', 'A finding is an observation for investigation. It is not advice, a trade signal, or proof that unobserved risk is zero.', 'warning') }}
+  {% if error %}{{ error_state('Findings are unavailable', error) }}
+  {% elif findings %}<div class="card-grid">{% for finding in findings %}{{ finding_card(finding) }}{% endfor %}</div>
+  {% else %}{{ empty_state('No findings recorded', 'No local monitoring findings are stored. This means no finding is available for review; it does not mean risk is zero.') }}{% endif %}
+{% endblock %}
