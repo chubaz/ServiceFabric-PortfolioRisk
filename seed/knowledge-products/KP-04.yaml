@@ -5,7 +5,7 @@ purpose: Describe the planned evidence-bearing capability and agent surface with
 owner_lane: planning
 draft_deadline: {anchor: T0, offset_minutes: 840}
 review_deadline: {anchor: T0, offset_minutes: 1020}
-status: draft
+status: review_requested
 dependencies: [KP-01, KP-02, KP-03]
 acceptance_criteria:
   - Identifies evidence, assumptions, warnings, and limitations as required agent output.
@@ -15,12 +15,31 @@ source_references:
     title: Wave 0A workplan
     uri: docs/workplans/day-0/wave-0a.md
     relevance: Defines lane sequencing and excludes executable agent actions.
-artifact_paths: [docs/knowledge-products/KP-04-capability-catalogue-agent-roles-and-thesis-traceability.md]
+  - reference_id: CAPABILITY-CATALOG
+    title: Day 0 capability catalogue
+    uri: packages/risk_capabilities/src/risk_capabilities/catalog.py
+    relevance: Defines the finite capability identifiers, effects, and evidence/review defaults.
+  - reference_id: AGENT-ROLES
+    title: Day 0 agent role cards
+    uri: packages/risk_agents/src/risk_agents/roles.py
+    relevance: Defines four bounded roles, their granted capabilities, and denied effects.
+artifact_paths:
+  - docs/knowledge-products/KP-04-capability-catalogue-agent-roles-and-thesis-traceability.md
 artifact_links:
   - artifact_id: KP-04-A1
     path: docs/knowledge-products/KP-04-capability-catalogue-agent-roles-and-thesis-traceability.md
     label: Capability and traceability draft
     purpose: Defines the intended evidence and review boundaries for future agents.
-implementation_status: planned
-implementation_summary: Capability and agent implementations are owned by their dedicated lane and are not implemented by this knowledge product.
-review_history: []
+thesis_traceability:
+  - entry_id: KP-04-T1
+    thesis: Day 0 capability and agent outputs can remain explainable when each role is restricted to registered capabilities and preserves supplied evidence.
+    evidence_reference_ids: [CAPABILITY-CATALOG, AGENT-ROLES]
+    assumptions: [The canonical runtime remains the sole invocation path for any active agent workflow.]
+    limitations: [The planning catalogue does not itself execute capabilities or agents.]
+implementation_status: partial
+implementation_summary: The finite capability catalogue and four review-bound role cards are implemented in their owning lane; this planning product documents their evidence and safety boundary.
+review_history:
+  - decision_id: KP-04-R1
+    state: review_requested
+    decided_by: planning-specialist
+    rationale: Substantive capability, role-card, traceability, and safety draft is ready for supervisor review.

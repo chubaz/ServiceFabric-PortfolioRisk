@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from risk_planning import KnowledgeProduct, PlanningCatalog, ReviewDecision, SourceReferenceLink, load_seed_catalog
+from risk_planning import KnowledgeProduct, PlanningCatalog, ReviewDecision, SourceReferenceLink, load_seed_catalog, supervisor_one_page_markdown
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -132,3 +132,17 @@ def test_artifact_links_traceability_and_implementation_status_are_preserved() -
     payload["thesis_traceability"][0]["evidence_reference_ids"] = ("MISSING-REF",)
     with pytest.raises(ValidationError, match="unknown thesis evidence references"):
         KnowledgeProduct.model_validate(payload)
+
+
+def test_wave_0c_review_queue_contains_completed_drafts() -> None:
+    loaded = catalog()
+    assert [item.knowledge_product_id for item in loaded.review_queue()] == ["KP-04", "KP-05"]
+    assert all(item.review_history[-1].state == "review_requested" for item in loaded.review_queue())
+
+
+def test_generated_supervisor_page_is_deterministic_catalog_representation() -> None:
+    generated = supervisor_one_page_markdown(catalog())
+    committed = (ROOT / "docs" / "knowledge-products" / "supervisor-one-page.md").read_text(encoding="utf-8")
+    assert generated == committed
+    assert generated.startswith("# Supervisor Review Page — Draft")
+    assert "no soft-QA pass is claimed" in generated

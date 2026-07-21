@@ -4,17 +4,18 @@
 - Branch: feature/day0-planning
 - Base: day0-prepared (5d4bb78)
 - Head: c05e48c at implementation start; candidate changes are uncommitted by instruction.
-- Status: Wave 0B planning extension ready for integration review after focused verification
+- Status: Wave 0C planning drafts KP-04 and KP-05 are review-requested; generated supervisor page remains draft
 
 ## Objective
 
-Extend immutable Pydantic v2 planning contracts with dependency traversal and blocking, review queues, supplied-T0 deadline evaluation, immutable review decisions, artifact links, thesis traceability, and implementation status. Complete the KP-02 and KP-03 drafts without asserting licensed-data access.
+Complete substantive KP-04 and KP-05 drafts, update their structured review state and traceability, and generate a supervisor one-page draft from the validated catalogue without claiming soft-QA approval.
 
 ## Changed paths
 
 - `packages/risk_planning/**`
 - `seed/knowledge-products/KP-00.yaml` through `KP-05.yaml`
 - `docs/knowledge-products/KP-00-*.md` through `KP-05-*.md`
+- `docs/knowledge-products/supervisor-one-page.md`
 - `tests/planning/**`
 - `docs/handoffs/day-0/planning.md`
 
@@ -30,11 +31,11 @@ ADR-0001 and ADR-0002, the Wave 0A workplan, and repository safety and publicati
 
 ## Tests and results
 
-`make test-planning` passed: 13 tests. The focused suite loads all seeds and validates duplicate IDs, invalid states, unknown and cyclic dependency references, deterministic deadline ordering, supplied-T0 due and overdue computation, dependency traversal and blocking, review queues, immutable review recording and decision ownership, source-reference preservation, artifact links, and thesis traceability. `git diff --check` passed.
+`make test-planning` passed after the Wave 0C additions: 15 tests. The focused suite loads all seeds and validates duplicate IDs, invalid states, unknown and cyclic dependency references, deterministic deadline ordering, supplied-T0 due and overdue computation, dependency traversal and blocking, review queues, immutable review recording and decision ownership, source-reference preservation, artifact links, thesis traceability, the KP-04/KP-05 review queue, and deterministic generation of the supervisor one-page draft. `git diff --check` passed.
 
 ## Evidence
 
-Six lexical YAML seed records use `anchor: T0` and integer minute offsets. Each record includes artifact links and implementation status; KP-02 and KP-03 include evidence-linked thesis traceability entries. The catalogue rejects unknown and cyclic dependencies, traverses dependencies deterministically, identifies blockers, and binds review-decision IDs to their product IDs. KP-02 documents the implemented object kernel; KP-03 documents only the policy and future local-only design, not real CRSP or Compustat access.
+Six lexical YAML seed records use `anchor: T0` and integer minute offsets. Each record includes artifact links and implementation status; KP-02 through KP-05 include evidence-linked thesis traceability entries. KP-04 and KP-05 now have immutable `review_requested` history and appear in the review queue. The generated supervisor page is a deterministic rendering of the validated catalogue and remains draft. KP-04 documents the finite capability catalogue and four role cards; KP-05 documents the bounded demonstration, evidence, limitations, backlog, and decisions requested.
 
 ## Deviations
 
@@ -46,7 +47,7 @@ None for the planning artifact. Integration should restore or refresh the local 
 
 ## Limitations
 
-This is a planning catalogue only: it performs no provider query, risk calculation, ServiceFabric invocation, agent execution, broker connectivity, or trading action. WRDS secret references, storage zones, Parquet, and DuckDB are future-design documentation only. Documents are draft and require review.
+This is a planning catalogue only: it performs no provider query, risk calculation, ServiceFabric invocation, agent execution, broker connectivity, or trading action. WRDS secret references, storage zones, Parquet, and DuckDB are future-design documentation only. The supervisor page is draft and no soft-QA pass is claimed.
 
 ## Rollback
 
