@@ -12,6 +12,9 @@ DAY0_PYTHON := $(DAY0_VENV)/bin/python
 DAY0_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src
 DAY0_PYTEST := PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS)" $(DAY0_PYTHON) -m pytest
 DAY1_VENV ?= $(CURDIR)/.venv-day1
+ifeq ($(strip $(DAY1_VENV)),)
+override DAY1_VENV := $(CURDIR)/.venv-day1
+endif
 DAY1_PYTHON := $(DAY1_VENV)/bin/python
 DAY1_PACKAGE_PATHS := $(DAY0_PACKAGE_PATHS):$(CURDIR)/packages/risk_analytics/src
 DAY1_PYTEST := PYTHONPATH="$(CURDIR):$(DAY1_PACKAGE_PATHS)" $(DAY1_PYTHON) -m pytest

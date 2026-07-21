@@ -2,7 +2,8 @@
 
 - Lane and branch: integration / `integration/day1`
 - Base: `day1-prepared` (`01ff31a3daa0db815da51da16ca19099005149e7`)
-- Head: working tree candidate; no commit, push, or merge was performed
+- Head: `HEAD`; the environment-path correction is a focused candidate atop
+  `0768a20064099f6e6e7282266931a289bc3034ff`
 
 ## Changed paths
 
@@ -39,6 +40,20 @@ review remediation.
 Review remediation added lifecycle-derived current-workplan validation, full
 status validation before gate selection, and regression coverage preventing a
 cumulative integration-lane check from rejecting accepted specialist changes.
+
+### Environment-path correction (2026-07-22)
+
+An empty `DAY1_VENV` previously produced two conflicting interpretations:
+the bootstrap script created the repository-local `.venv-day1`, while Make
+looked for `/bin/python`. The Makefile now normalizes an empty environment or
+command-line value to `$(CURDIR)/.venv-day1` before deriving `DAY1_PYTHON`.
+Non-empty overrides remain unchanged. The focused candidate changes
+`Makefile`, `tests/architecture/test_day1_preparation.py`, and this handoff.
+
+Executed for the correction: `make preflight`, `DAY1_VENV= make
+test-day1-architecture` (27 passed), `DAY1_VENV= make verify-day1-current`,
+and `git diff --check`. The current-wave verifier passed preparation and
+correctly reported Wave 1A as still in progress.
 
 ## Deviations, blockers, limitations
 

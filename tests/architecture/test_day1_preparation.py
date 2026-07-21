@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -14,6 +16,28 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def payload(relative: str) -> dict:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("from_command_line", [False, True])
+def test_empty_day1_venv_uses_repository_default(from_command_line: bool) -> None:
+    environment = {**os.environ, "DAY1_VENV": ""}
+    command = ["make", "--no-print-directory", "-n"]
+    if from_command_line:
+        command.append("DAY1_VENV=")
+    command.append("day1-env")
+
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    expected_python = ROOT / ".venv-day1/bin/python"
+    assert f'test -x "{expected_python}"' in result.stdout
+    assert 'test -x "/bin/python"' not in result.stdout
 
 
 def test_lifecycle_aware_checker_passes_for_active_wave_1a() -> None:
