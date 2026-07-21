@@ -3,7 +3,7 @@
 - Lane and branch: application / `feature/day0-application`
 - Base: `day0-prepared` (`5d4bb78a2c4126c7a04c0244e50ef6662cd3e0b8`)
 - Head: `c05e48ce1dac06f2f5211e2f05eedd30a883f1b9` (no candidate commit created)
-- Status: Wave 0A shell implemented; no candidate commit created.
+- Status: Wave 0C review-bound dashboard and monitoring adapter implemented; no candidate commit created.
 
 ## Objective
 
@@ -66,3 +66,15 @@ commit. No shared configuration or ServiceFabric vendor files changed.
 
 Run the focused application tests and manifest-hash check, then let integration
 review the lane-scoped diff and accept a focused candidate commit.
+
+## Wave 0C update
+
+- Added local synthetic dashboard cards, catalogue-only research and notebook
+  pages, alert and agent-run APIs, and review-bound monitoring actions.
+- Alert reviews require a reviewer and one explicit decision; each stores an
+  immutable `DecisionPoint` below `PORTFOLIO_RISK_DATA_ROOT` and has no effects.
+- The adapter delegates news classification, alert synthesis, review, and
+  monitoring orchestration to integrated capability and agent packages.
+- Focused tests cover all pages, monitoring, alert detail, every review outcome,
+  missing-reviewer rejection, empty effects, synthetic disclosure, route safety,
+  and manifest hashes.
