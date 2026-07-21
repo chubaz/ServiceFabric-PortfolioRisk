@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "components.html" import badge, disclosure, evidence_drawer %}
+{% block title %}Alert detail{% endblock %}
+{% block heading %}Alert detail{% endblock %}
+{% block intro %}<p class="lead">Review one local draft and its recorded decision history.</p>{% endblock %}
+{% block content %}
+  <article class="alert-detail">
+    <div class="card-heading"><h2>{{ alert.alert_id }}</h2>{{ badge(alert.status, 'warning') }}</div>
+    <p>{{ alert.summary }}</p>
+    <section aria-labelledby="next-steps-heading">
+      <h3 id="next-steps-heading">Suggested analytical next steps</h3>
+      <ul>{% for step in alert.suggested_next_steps %}<li>{{ step|humanize }}</li>{% endfor %}</ul>
+    </section>
+    {{ evidence_drawer(evidence) }}
+  </article>
+  <section class="review-panel" aria-labelledby="review-heading">
+    <h2 id="review-heading">Record human review</h2>
+    <p>This form records an immutable local decision. Approval does not authorize a trade, order, broker action, or rebalance.</p>
+    <form method="post" action="/alerts/{{ alert.alert_id }}/review{{ profile_query }}">
+      <div class="field"><label for="reviewer">Reviewer ID</label><input id="reviewer" name="reviewer" required autocomplete="off"></div>
+      <fieldset><legend>Decision</legend>
+        <label><input type="radio" name="decision" value="approve" required> Approve the review draft</label>
+        <label><input type="radio" name="decision" value="reject"> Reject the review draft</label>
+        <label><input type="radio" name="decision" value="request_changes"> Request changes</label>
+      </fieldset>
+      <div class="field"><label for="comment">Review rationale</label><textarea id="comment" name="comment" rows="4" aria-describedby="comment-help"></textarea><p id="comment-help" class="help-text">If left blank, the immutable record states that no comment was supplied.</p></div>
+      <button type="submit">Record review decision</button>
+    </form>
+  </section>
+  <section aria-labelledby="history-heading">
+    <h2 id="history-heading">Decision history</h2>
+    {% if decisions %}<ol class="timeline">{% for item in decisions %}<li><strong>{{ item.decision|humanize }}</strong><span>{{ item.human_reviewer_id }} · {{ item.rationale }}</span></li>{% endfor %}</ol>
+    {% else %}<p class="muted">No human decision has been recorded for this alert.</p>{% endif %}
+  </section>
+  {{ disclosure('Effect-free review', 'The canonical alert review capability returns an empty effects list. This screen cannot initiate an external action.', 'info') }}
+{% endblock %}

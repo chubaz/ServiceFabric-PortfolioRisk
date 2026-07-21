@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "components.html" import badge, disclosure, error_state, evidence_drawer %}
+{% block title %}Agents{% endblock %}
+{% block heading %}Agents{% endblock %}
+{% block intro %}<p class="lead">Four deterministic, review-bound roles with finite capability grants and explicit denied effects.</p>{% endblock %}
+{% block heading_action %}<a class="button-link secondary" href="/agent-runs{{ profile_query }}">View run history</a>{% endblock %}
+{% block content %}
+  {{ disclosure('Agents cannot cause portfolio effects', 'All roles deny broker connectivity, order creation or submission, trade execution, and automatic rebalancing. Canonical ServiceFabric runtime contracts remain authoritative.', 'critical') }}
+  {% if error %}{{ error_state('Agent evidence is unavailable', error) }}{% else %}
+  <div class="card-grid">
+    {% for role in roles %}
+      <article class="agent-card">
+        <div class="card-heading"><h2>{{ role.name }}</h2>{{ badge('Active', 'success') }}</div>
+        <p>{{ role.objective }}</p>
+        <h3>Capability grants</h3><ul class="tag-list">{% for capability in role.allowed_capability_ids %}<li>{{ capability }}</li>{% endfor %}</ul>
+        <h3>Prohibited effects</h3><ul>{% for effect in role.denied_effects %}<li>{{ effect|humanize }}</li>{% endfor %}</ul>
+        <h3>Evidence summary</h3>
+        {% if role.evidence_summaries %}<ul>{% for summary in role.evidence_summaries %}<li>{{ summary }}</li>{% endfor %}</ul>{% else %}<p class="muted">No stored run output is available for this role.</p>{% endif %}
+        {{ evidence_drawer((), (), ('Human review is required.',), (role.escalation_policy,)) }}
+      </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endblock %}

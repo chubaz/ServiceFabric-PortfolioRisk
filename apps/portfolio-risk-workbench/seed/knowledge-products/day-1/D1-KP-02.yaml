@@ -1,0 +1,31 @@
+work_item_id: D1-KP-02
+knowledge_product_id: D1-KP-02
+planning_day: day-1
+title: Operating Profiles, Portfolio Input, and Data Rights
+purpose: Make research and personal-portfolio profile boundaries, local input rules, and data rights visible.
+owner_lane: knowledge
+draft_deadline: {anchor: T1, offset_minutes: 240}
+review_deadline: {anchor: T1, offset_minutes: 360}
+status: review_requested
+dependencies: [D1-KP-01]
+acceptance_criteria:
+  - Separates reviewed public or synthetic research evidence from private local portfolio state.
+  - Prohibits provider enablement, credential values, arbitrary SQL, and broker connectivity.
+source_references:
+  - reference_id: ADR-0004
+    title: Day 1 operating profiles and data boundary
+    uri: docs/architecture/adr/0004-day1-operating-profiles-and-data-boundary.md
+    relevance: Defines profiles, data zones, rights states, and local-only provider boundaries.
+artifact_paths: [docs/knowledge-products/D1-KP-02-operating-profiles-portfolio-input-and-data-rights.md]
+artifact_links:
+  - artifact_id: D1-KP-02-A1
+    path: docs/knowledge-products/D1-KP-02-operating-profiles-portfolio-input-and-data-rights.md
+    label: Profile and data-rights protocol
+    purpose: Records profile-visible input, evidence, rights, and privacy states.
+implementation_status: implemented
+implementation_summary: Profile and visibility semantics are represented in planning and catalogue contracts; provider and portfolio operations are outside this lane.
+review_history:
+  - decision_id: D1-KP-02-R1
+    state: review_requested
+    decided_by: knowledge-specialist
+    rationale: The profile and data-rights boundary is ready for human review.

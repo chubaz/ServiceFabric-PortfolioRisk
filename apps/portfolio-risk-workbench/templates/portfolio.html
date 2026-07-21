@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure, empty_state, error_state %}
+{% block title %}Portfolio{% endblock %}
+{% block heading %}Portfolio{% endblock %}
+{% block intro %}<p class="lead">Readable holdings from one immutable, locally stored synthetic snapshot.</p>{% endblock %}
+{% block content %}
+  {% if error %}{{ error_state('Portfolio snapshot is unavailable', error) }}{% else %}
+    <section class="metadata-strip" aria-label="Snapshot metadata">
+      <p><span>Snapshot ID</span><strong>{{ snapshot.snapshot_id }}</strong></p>
+      <p><span>As of</span><strong>{{ snapshot.as_of|timestamp }}</strong></p>
+      <p><span>Base currency</span><strong>{{ snapshot.base_currency }}</strong></p>
+      <p><span>State</span><strong>Synthetic · immutable</strong></p>
+    </section>
+    <section aria-labelledby="holdings-heading">
+      <div class="section-heading"><div><p class="eyebrow">Current snapshot</p><h2 id="holdings-heading">Holdings</h2></div></div>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Portfolio holdings table">
+        <table>
+          <thead><tr><th scope="col">Instrument</th><th scope="col" class="numeric">Quantity</th><th scope="col" class="numeric">Price</th><th scope="col" class="numeric">Market value</th></tr></thead>
+          <tbody>{% for position in snapshot.positions %}<tr><th scope="row">{{ position.instrument_id }}</th><td class="numeric">{{ position.quantity|number }}</td><td class="numeric">{{ position.price|currency(position.currency) }}</td><td class="numeric">{{ position.market_value|currency(position.currency) }}</td></tr>{% endfor %}</tbody>
+        </table>
+      </div>
+    </section>
+    <section aria-labelledby="cash-heading">
+      <h2 id="cash-heading">Cash balances</h2>
+      <ul class="plain-list">{% for balance in snapshot.cash_balances %}<li><span>{{ balance.currency }}</span><strong>{{ balance.amount|currency(balance.currency) }}</strong></li>{% else %}<li>Not available</li>{% endfor %}</ul>
+    </section>
+    {{ disclosure('Synthetic evidence', 'This snapshot is constructed only from reviewed synthetic fixture observations. Missing prices stop snapshot creation; they are never presented as zero.', 'info') }}
+  {% endif %}
+  {{ empty_state('Portfolio import arrives in Wave 1B', 'Upload, validation preview, and confirmation are intentionally unavailable in this foundation pass. No file has been imported.') }}
+{% endblock %}

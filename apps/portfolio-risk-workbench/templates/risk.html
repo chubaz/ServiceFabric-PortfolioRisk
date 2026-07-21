@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure, empty_state, error_state, metric %}
+{% block title %}Risk{% endblock %}
+{% block heading %}Risk{% endblock %}
+{% block intro %}<p class="lead">Current Day 0 exposure arithmetic, clearly separated from analytics that do not yet exist.</p>{% endblock %}
+{% block content %}
+  {% if error %}{{ error_state('Exposure summary is unavailable', error) }}{% else %}
+    <section class="metric-grid" aria-label="Current exposure summary">
+      {{ metric('Net asset value', exposure.nav|currency(exposure.portfolio_snapshot.base_currency)) }}
+      {{ metric('Gross exposure', exposure.gross_exposure|percentage) }}
+      {{ metric('Net exposure', exposure.net_exposure|percentage) }}
+      {{ metric('Cash weight', exposure.cash_weight|percentage) }}
+      {{ metric('Largest position', exposure.largest_position_weight|percentage) }}
+    </section>
+    <section aria-labelledby="exposure-visual-heading">
+      <h2 id="exposure-visual-heading">Position weights</h2>
+      <div class="bar-list">
+        {% for item in exposure.position_exposures %}
+          <div class="bar-row"><span>{{ item.instrument_id }}</span><div class="bar-track" role="img" aria-label="{{ item.instrument_id }} represents {{ item.weight|percentage }} of NAV"><span style="width: {{ item.weight|bar_width }}%"></span></div><strong>{{ item.weight|percentage }}</strong></div>
+        {% endfor %}
+      </div>
+    </section>
+    {{ disclosure('Methodology boundary', 'These values are deterministic arithmetic summaries from the current snapshot. They are not VaR, stress testing, factor analysis, a forecast, or investment advice.', 'warning') }}
+  {% endif %}
+  {{ empty_state('Risk analytics arrive in Wave 1C', 'Methodology, horizon, sample windows, scenarios, and explainability views are not implemented. No analytics result is implied by this empty state.') }}
+{% endblock %}
