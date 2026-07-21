@@ -1,0 +1,39 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/artifact-reference.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A content-addressed artifact available for evidence or snapshot lineage.",
+  "properties": {
+    "artifact_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Artifact Id",
+      "type": "string"
+    },
+    "digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Digest",
+      "type": "string"
+    },
+    "media_type": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Media Type",
+      "type": "string"
+    },
+    "reference": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Reference",
+      "type": "string"
+    }
+  },
+  "required": [
+    "artifact_id",
+    "digest",
+    "media_type",
+    "reference"
+  ],
+  "title": "ArtifactReference",
+  "type": "object"
+}

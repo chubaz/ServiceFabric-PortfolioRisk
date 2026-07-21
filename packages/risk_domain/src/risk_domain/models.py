@@ -369,3 +369,184 @@ class ExposureSnapshot(UtcTimestampModel):
             raise ValueError("digest must equal the canonical snapshot digest")
         object.__setattr__(self, "digest", expected_digest)
         return self
+
+
+class ArtifactReference(ImmutableDomainModel):
+    """A content-addressed artifact available for evidence or snapshot lineage."""
+
+    artifact_id: NonEmptyString
+    digest: str = Field(pattern=rf"^{SHA256_DIGEST_PATTERN}$")
+    media_type: NonEmptyString
+    reference: NonEmptyString
+
+
+class NewsEvent(UtcTimestampModel):
+    """A time-bounded news event supported by retained evidence artifacts."""
+
+    event_id: NonEmptyString
+    occurred_at: datetime
+    title: NonEmptyString
+    summary: NonEmptyString
+    evidence_references: tuple[ArtifactReference, ...] = Field(min_length=1)
+    synthetic: bool
+
+    _occurred_at = field_validator("occurred_at")(normalize_utc)
+
+    @field_validator("evidence_references")
+    @classmethod
+    def evidence_is_present_and_ordered(
+        cls, values: tuple[ArtifactReference, ...]
+    ) -> tuple[ArtifactReference, ...]:
+        return _required_ordered_artifacts(values, "news events require evidence references")
+
+
+class RiskLimit(ImmutableDomainModel):
+    """A named, non-executing analytical threshold."""
+
+    limit_id: NonEmptyString
+    limit_type: NonEmptyString
+    scope: NonEmptyString
+    threshold: Decimal
+
+    _threshold = field_validator("threshold")(decimal_value)
+
+
+class RiskFinding(ImmutableDomainModel):
+    """An evidence-backed risk observation with a deterministic identifier."""
+
+    finding_id: str | None = Field(default=None, pattern=rf"^{SHA256_DIGEST_PATTERN}$")
+    finding_type: NonEmptyString
+    severity: Literal["info", "low", "medium", "high", "critical"]
+    title: NonEmptyString
+    summary: NonEmptyString
+    snapshot_references: tuple[ArtifactReference, ...] = Field(min_length=1)
+    evidence_references: tuple[ArtifactReference, ...] = Field(min_length=1)
+    assumptions: tuple[NonEmptyString, ...] = ()
+    warnings: tuple[NonEmptyString, ...] = ()
+
+    @field_validator("snapshot_references")
+    @classmethod
+    def snapshots_are_present_and_ordered(
+        cls, values: tuple[ArtifactReference, ...]
+    ) -> tuple[ArtifactReference, ...]:
+        return _required_ordered_artifacts(values, "risk findings require snapshot references")
+
+    @field_validator("evidence_references")
+    @classmethod
+    def evidence_is_present_and_ordered(
+        cls, values: tuple[ArtifactReference, ...]
+    ) -> tuple[ArtifactReference, ...]:
+        return _required_ordered_artifacts(values, "risk findings require evidence references")
+
+    @model_validator(mode="after")
+    def deterministic_finding_id(self) -> "RiskFinding":
+        expected = sha256_digest(self.model_dump(mode="python", exclude={"finding_id"}))
+        if self.finding_id is not None and self.finding_id != expected:
+            raise ValueError("finding_id must equal the canonical finding digest")
+        object.__setattr__(self, "finding_id", expected)
+        return self
+
+
+class AlertDraft(ImmutableDomainModel):
+    """A non-executing alert that is explicitly pending human review."""
+
+    alert_id: NonEmptyString
+    status: Literal["draft"] = "draft"
+    findings: tuple[RiskFinding, ...]
+    rationale: NonEmptyString
+    suggested_analytical_next_steps: tuple[NonEmptyString, ...]
+    human_review_required: Literal[True] = True
+    effects: tuple[()] = ()
+    digest: str | None = Field(default=None, pattern=rf"^{SHA256_DIGEST_PATTERN}$")
+
+    @field_validator("findings")
+    @classmethod
+    def findings_are_present_and_ordered(cls, values: tuple[RiskFinding, ...]) -> tuple[RiskFinding, ...]:
+        if not values:
+            raise ValueError("alert drafts require findings")
+        ids = [finding.finding_id for finding in values]
+        if len(ids) != len(set(ids)):
+            raise ValueError("alert findings must remain unique")
+        return tuple(sorted(values, key=lambda finding: finding.finding_id or ""))
+
+    @field_validator("suggested_analytical_next_steps")
+    @classmethod
+    def next_steps_are_present(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        if not values:
+            raise ValueError("alert drafts require suggested analytical next steps")
+        return tuple(values)
+
+    @model_validator(mode="after")
+    def content_addressed_digest(self) -> "AlertDraft":
+        expected = sha256_digest(self)
+        if self.digest is not None and self.digest != expected:
+            raise ValueError("digest must equal the canonical alert digest")
+        object.__setattr__(self, "digest", expected)
+        return self
+
+
+class DecisionPoint(ImmutableDomainModel):
+    """An immutable human review decision linked to the reviewed alert digest."""
+
+    decision: Literal["approve", "reject", "request_changes"]
+    reviewer_id: NonEmptyString
+    decided_at: datetime
+    comment: NonEmptyString
+    alert_digest_before_decision: str = Field(pattern=rf"^{SHA256_DIGEST_PATTERN}$")
+    history: tuple["DecisionPoint", ...] = ()
+
+    _decided_at = field_validator("decided_at")(normalize_utc)
+
+    @model_validator(mode="after")
+    def history_is_for_the_same_alert_and_precedes_decision(self) -> "DecisionPoint":
+        if any(item.alert_digest_before_decision != self.alert_digest_before_decision for item in self.history):
+            raise ValueError("decision history must reference the same alert digest")
+        if any(item.decided_at > self.decided_at for item in self.history):
+            raise ValueError("decision history cannot follow the decision point")
+        return self
+
+
+class AgentRun(UtcTimestampModel):
+    """A deterministic, evidence-carrying agent execution record."""
+
+    run_id: NonEmptyString
+    agent_role: NonEmptyString
+    capability_invocations: tuple[NonEmptyString, ...]
+    input_digest: str = Field(pattern=rf"^{SHA256_DIGEST_PATTERN}$")
+    output_digest: str = Field(pattern=rf"^{SHA256_DIGEST_PATTERN}$")
+    evidence_references: tuple[ArtifactReference, ...] = Field(min_length=1)
+    warnings: tuple[NonEmptyString, ...] = ()
+    provider_disclosure: Literal["deterministic-local"] = "deterministic-local"
+    observed_at: datetime
+
+    _observed_at = field_validator("observed_at")(normalize_utc)
+
+    @field_validator("capability_invocations")
+    @classmethod
+    def invocations_are_present_and_ordered(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        if not values:
+            raise ValueError("agent runs require capability invocations")
+        if len(values) != len(set(values)):
+            raise ValueError("capability invocations must remain unique")
+        return tuple(sorted(values))
+
+    @field_validator("evidence_references")
+    @classmethod
+    def evidence_is_present_and_ordered(
+        cls, values: tuple[ArtifactReference, ...]
+    ) -> tuple[ArtifactReference, ...]:
+        return _required_ordered_artifacts(values, "agent runs require evidence references")
+
+
+def _required_ordered_artifacts(
+    values: tuple[ArtifactReference, ...], message: str
+) -> tuple[ArtifactReference, ...]:
+    if not values:
+        raise ValueError(message)
+    ids = [item.artifact_id for item in values]
+    if len(ids) != len(set(ids)):
+        raise ValueError("artifact references must remain unique")
+    return tuple(sorted(values, key=lambda item: item.artifact_id))
+
+
+DecisionPoint.model_rebuild()

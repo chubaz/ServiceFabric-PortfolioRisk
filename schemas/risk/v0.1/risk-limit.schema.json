@@ -1,0 +1,46 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/risk-limit.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A named, non-executing analytical threshold.",
+  "properties": {
+    "limit_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Limit Id",
+      "type": "string"
+    },
+    "limit_type": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Limit Type",
+      "type": "string"
+    },
+    "scope": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Scope",
+      "type": "string"
+    },
+    "threshold": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Threshold"
+    }
+  },
+  "required": [
+    "limit_id",
+    "limit_type",
+    "scope",
+    "threshold"
+  ],
+  "title": "RiskLimit",
+  "type": "object"
+}

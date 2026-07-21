@@ -8,14 +8,18 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from .models import CashBalance, ConcentrationMeasure, DatasetFile, DatasetProvenance, DatasetSnapshot, ExposureSnapshot, FundamentalObservation, Instrument, InstrumentIdentifier, MarketObservation, PortfolioSnapshot, Position, PositionExposure, SourceReference
+from .models import AgentRun, AlertDraft, ArtifactReference, CashBalance, ConcentrationMeasure, DatasetFile, DatasetProvenance, DatasetSnapshot, DecisionPoint, ExposureSnapshot, FundamentalObservation, Instrument, InstrumentIdentifier, MarketObservation, NewsEvent, PortfolioSnapshot, Position, PositionExposure, RiskFinding, RiskLimit, SourceReference
 
 
 SCHEMA_RESOURCES: dict[str, tuple[type[BaseModel], str]] = {
+    "agent-run.schema.json": (AgentRun, "https://schemas.servicefabric.ai/risk/v0.1/agent-run.schema.json"),
+    "alert-draft.schema.json": (AlertDraft, "https://schemas.servicefabric.ai/risk/v0.1/alert-draft.schema.json"),
+    "artifact-reference.schema.json": (ArtifactReference, "https://schemas.servicefabric.ai/risk/v0.1/artifact-reference.schema.json"),
     "concentration-measure.schema.json": (ConcentrationMeasure, "https://schemas.servicefabric.ai/risk/v0.1/concentration-measure.schema.json"),
     "dataset-file.schema.json": (DatasetFile, "https://schemas.servicefabric.ai/risk/v0.1/dataset-file.schema.json"),
     "dataset-provenance.schema.json": (DatasetProvenance, "https://schemas.servicefabric.ai/risk/v0.1/dataset-provenance.schema.json"),
     "dataset-snapshot.schema.json": (DatasetSnapshot, "https://schemas.servicefabric.ai/risk/v0.1/dataset-snapshot.schema.json"),
+    "decision-point.schema.json": (DecisionPoint, "https://schemas.servicefabric.ai/risk/v0.1/decision-point.schema.json"),
     "exposure-snapshot.schema.json": (ExposureSnapshot, "https://schemas.servicefabric.ai/risk/v0.1/exposure-snapshot.schema.json"),
     "source-reference.schema.json": (SourceReference, "https://schemas.servicefabric.ai/risk/v0.1/source-reference.schema.json"),
     "instrument-identifier.schema.json": (InstrumentIdentifier, "https://schemas.servicefabric.ai/risk/v0.1/instrument-identifier.schema.json"),
@@ -24,8 +28,11 @@ SCHEMA_RESOURCES: dict[str, tuple[type[BaseModel], str]] = {
     "position-exposure.schema.json": (PositionExposure, "https://schemas.servicefabric.ai/risk/v0.1/position-exposure.schema.json"),
     "cash-balance.schema.json": (CashBalance, "https://schemas.servicefabric.ai/risk/v0.1/cash-balance.schema.json"),
     "market-observation.schema.json": (MarketObservation, "https://schemas.servicefabric.ai/risk/v0.1/market-observation.schema.json"),
+    "news-event.schema.json": (NewsEvent, "https://schemas.servicefabric.ai/risk/v0.1/news-event.schema.json"),
     "fundamental-observation.schema.json": (FundamentalObservation, "https://schemas.servicefabric.ai/risk/v0.1/fundamental-observation.schema.json"),
     "portfolio-snapshot.schema.json": (PortfolioSnapshot, "https://schemas.servicefabric.ai/risk/v0.1/portfolio-snapshot.schema.json"),
+    "risk-finding.schema.json": (RiskFinding, "https://schemas.servicefabric.ai/risk/v0.1/risk-finding.schema.json"),
+    "risk-limit.schema.json": (RiskLimit, "https://schemas.servicefabric.ai/risk/v0.1/risk-limit.schema.json"),
 }
 
 
