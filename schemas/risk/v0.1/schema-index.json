@@ -1,0 +1,110 @@
+{
+  "api_version": "risk.servicefabric.ai/v0.1",
+  "schemas": [
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/agent-run.schema.json",
+      "schema_path": "agent-run.schema.json",
+      "sha256": "d4650197673d1cb79890c4d9db68541815ed89431fc007f0368b40645fcb85d2"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/alert-draft.schema.json",
+      "schema_path": "alert-draft.schema.json",
+      "sha256": "638d55adeeba4bff92861a00b1aaf407c6ba452d18828f382ea4ff8b49941b5e"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/artifact-reference.schema.json",
+      "schema_path": "artifact-reference.schema.json",
+      "sha256": "9f3b834075e87631059243f3ac4621b47e62c39c51e792a5f8ee013ae7220ed9"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/cash-balance.schema.json",
+      "schema_path": "cash-balance.schema.json",
+      "sha256": "ddc52622f635bef51765f1148b2c29812107f1eb070caac8b73c701e1feef52a"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/concentration-measure.schema.json",
+      "schema_path": "concentration-measure.schema.json",
+      "sha256": "2988c53dfebcb5ef94fc7c843b84793bd67ed5827a63733f8223a31614c7c41e"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/dataset-file.schema.json",
+      "schema_path": "dataset-file.schema.json",
+      "sha256": "c4681f1c28a3d8356b6abf310a2eaef02a59be5d0b2f5a5f8860b9f5e1578781"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/dataset-provenance.schema.json",
+      "schema_path": "dataset-provenance.schema.json",
+      "sha256": "ac25bcf3859ac15098654429eece71a8f82531bcbfaa6dd5b023e817e3560c4a"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/dataset-snapshot.schema.json",
+      "schema_path": "dataset-snapshot.schema.json",
+      "sha256": "23d4cc793862876fea85819c8021db5a3643fbfb63911da5f31c6c93a275f2b0"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/decision-point.schema.json",
+      "schema_path": "decision-point.schema.json",
+      "sha256": "e504064cedd0722803c7cc9e68b8f0eb991ba168c514b4258901d8a7f1703222"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/exposure-snapshot.schema.json",
+      "schema_path": "exposure-snapshot.schema.json",
+      "sha256": "3edeec2bcbbd1e91c1da229324904d05c3758bec05b5b21dc6b66c829e082e54"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/fundamental-observation.schema.json",
+      "schema_path": "fundamental-observation.schema.json",
+      "sha256": "d1e87ba8df1d81681e23c4792ae418f8636509a9abd7f48859b58f93e95b422f"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/instrument-identifier.schema.json",
+      "schema_path": "instrument-identifier.schema.json",
+      "sha256": "d3e0d4e5843d0d1adcbc0849de65ab88ab956c7103a7578e09295c877e17bb9a"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/instrument.schema.json",
+      "schema_path": "instrument.schema.json",
+      "sha256": "cca3977a95c9a81c50aa563e5ee211dbbb39221d770a64383fd2b868a60b808d"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/market-observation.schema.json",
+      "schema_path": "market-observation.schema.json",
+      "sha256": "9a1e1718afe7560d858f97b829f6c39a1a969871c716f94a87d9211713d87a5d"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/news-event.schema.json",
+      "schema_path": "news-event.schema.json",
+      "sha256": "a298c6758d02c9d86caafeedf3debfa09e45d139ed0787a97b6b99de72a1a94c"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/portfolio-snapshot.schema.json",
+      "schema_path": "portfolio-snapshot.schema.json",
+      "sha256": "9fefcfdda94da1dc41b3c88ae9a4411b2d4084df4fbee8ec81899ad42edf5b97"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/position-exposure.schema.json",
+      "schema_path": "position-exposure.schema.json",
+      "sha256": "e1c66e7c5fe02c98198300809126ab75050f2c1079027abc1770cf02936ae358"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/position.schema.json",
+      "schema_path": "position.schema.json",
+      "sha256": "f18dfe0c9a32bca35b2c3e0989ec62e96c8816c3d82ca0da83e9799eb0a62fd6"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/risk-finding.schema.json",
+      "schema_path": "risk-finding.schema.json",
+      "sha256": "e15c71695815bd0c37ccb3b75a380c8b1d01803f7887d6bb8fc371f970e3b45b"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/risk-limit.schema.json",
+      "schema_path": "risk-limit.schema.json",
+      "sha256": "bb27edcd678ad56123cf37460e627ccbc26078f277595ff8b67ff1b5e640c0da"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/source-reference.schema.json",
+      "schema_path": "source-reference.schema.json",
+      "sha256": "f6dd20259da92b69b3c4ebeea89c307f6f2168d85ed700dceeace8368539cb37"
+    }
+  ]
+}

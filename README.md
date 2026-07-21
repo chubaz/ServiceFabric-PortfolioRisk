@@ -1,35 +1,75 @@
 # ServiceFabric Portfolio Risk
 
-ServiceFabric Portfolio Risk is a public application overlay for research and
-development of portfolio-risk monitoring capabilities, data workflows,
-reviewable alerts, and agentic orchestration.
+ServiceFabric Portfolio Risk is a public, synthetic-only application overlay
+for deterministic portfolio-risk research, monitoring, evidence, reviewable
+alerts, and four-role agent orchestration. The pinned ServiceFabric repository
+under `vendor/servicefabric` remains a read-only dependency at commit
+`7632b61d94a966346f95eb6c5bb2a5ea27f3bc14`.
 
-## Repository boundary
+## Implemented Day 0 modules
 
-This repository does not own or modify ServiceFabric core. ServiceFabric is
-included as a read-only Git submodule under `vendor/servicefabric` and is
-pinned to:
+- `risk_domain`: immutable dataset, portfolio, exposure, finding, alert,
+  decision, and agent-run contracts with Decimal financial values.
+- `risk_planning`: six knowledge-product records, review state, traceability,
+  and the draft supervisor one-page renderer.
+- `risk_data`: deterministic synthetic CRSP-like and Compustat-like ingestion,
+  validation evidence, Parquet artifacts, DuckDB views, and dataset manifests.
+- `risk_capabilities`: portfolio snapshot and exposure calculations, market
+  anomaly detection, synthetic-news classification, alert drafting, and review.
+- `risk_agents`: four bounded deterministic roles that invoke only registered
+  capabilities and produce no effects.
+- `portfolio-risk-workbench`: a loopback-only FastAPI dashboard and reviewed
+  ServiceFabric capability adapter.
 
-```text
-7632b61d94a966346f95eb6c5bb2a5ea27f3bc14
+## Exact local commands
+
+Python 3.11 is required. These commands keep environments and generated data
+outside Git:
+
+```bash
+export DAY0_VENV=/home/lorenzoccasoni/servicefabric-lab/state/venvs/day0
+make preflight
+make verify-day0
+make demo-day0-headless
+make servicefabric-smoke
+git diff --check
 ```
 
-Risk-specific applications, domain objects, connectors, capabilities, agents,
-tests, and documentation belong in this repository.
+`make demo-day0-headless` writes the portfolio snapshot, exposure snapshot,
+findings, four agent runs, alert draft, and evidence manifest beneath
+`/home/lorenzoccasoni/servicefabric-lab/state/day0/integration/portfolio-risk-data`
+by default. Override `PORTFOLIO_RISK_DATA_ROOT` on the Make command line when a
+different external root is needed.
 
-## Day 0 status
+`make servicefabric-smoke` creates or reuses its runtime venv beneath
+`state/venvs/day0`, uses a dedicated `SERVICEFABRIC_HOME`, validates the pinned
+upstream Text Utility journey first, then installs, builds, starts, inspects,
+calls, and stops the Workbench through the canonical ServiceFabric CLI. It also
+proves that a capability is unavailable after stop. The process-host smoke is
+Linux-local because GitHub Actions cannot guarantee the same deterministic
+process-host conditions; CI runs all unit, architecture, integration, and
+journey tests plus the headless demo.
 
-The repository is in Day 0 preparation. No production hosting, live trading,
-broker connectivity, autonomous order execution, or provider-licensed data is
-included.
+The smoke bootstrap records a digest of the reviewed local risk-package sources
+and installs them as ordinary, non-editable distributions in the external
+runtime. A running hosted application therefore cannot import later working-tree
+edits. Changing those sources deliberately creates a new bootstrap input set.
+The hosted artifact also packages the reviewed knowledge-product catalogue used
+by `/plan` and `/research`.
 
-## Data policy
+## Boundaries and limitations
 
-Only synthetic fixtures and publicly redistributable metadata may be committed.
-CRSP, Compustat, Bloomberg, RavenPack, Accern, private portfolio, credential,
-and provider-licensed data must remain outside Git.
+All observations, news events, portfolios, and outputs are fictional synthetic
+fixtures. Missing or failed observations are never represented as zero. Day 0
+does not connect to market-data providers, licensed datasets, external LLMs,
+brokers, or accounts.
 
-## Human review
+There is no live trading, order object, broker object, automatic rebalancing,
+or investment advice. Alerts begin as drafts, have empty effects, and require a
+recorded human DecisionPoint. The exposure calculation supports one base
+currency and performs no FX conversion.
 
-Agent output is advisory and evidence-backed. Alerts, recommendations, data
-publication, and consequential actions remain human-reviewed.
+The pinned AP-01A host natively reviews only Text Utility. The local smoke
+bootstrap therefore applies a digest-checked Portfolio Risk allowlist to a
+copied host installed in the external runtime venv; it does not edit the pinned
+submodule. Broader multi-application hosting remains an upstream limitation.

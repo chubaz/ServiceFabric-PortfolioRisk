@@ -1,0 +1,10 @@
+# Reviewed runtime and test tooling for Day 0. Pins are resolved in day0.lock.
+fastapi==0.139.0
+uvicorn==0.51.0
+pydantic
+PyYAML
+httpx
+pytest
+pytest-cov
+duckdb
+pyarrow

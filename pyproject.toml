@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "servicefabric-portfolio-risk-day0-tooling"
+version = "0.0.0"
+description = "Tooling configuration for the ServiceFabric Portfolio Risk Day 0 overlay."
+requires-python = ">=3.11,<3.12"
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["packages"]

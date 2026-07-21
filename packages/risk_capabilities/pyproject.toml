@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "risk-capabilities"
+version = "0.1.0"
+description = "Bounded Day 0 portfolio-risk capability contracts."
+requires-python = ">=3.11,<3.12"
+dependencies = ["pydantic>=2,<3", "risk-data==0.1.0", "risk-domain==0.1.0", "risk-planning==0.1.0"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

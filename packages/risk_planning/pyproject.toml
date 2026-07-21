@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "risk-planning"
+version = "0.1.0"
+description = "Immutable knowledge-product planning contracts for the portfolio-risk overlay."
+requires-python = ">=3.11,<3.12"
+dependencies = ["pydantic>=2,<3", "PyYAML>=6,<7"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

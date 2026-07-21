@@ -1,0 +1,95 @@
+{
+  "application_id": "portfolio-risk-workbench",
+  "version": "0.1.0",
+  "framework": "fastapi",
+  "adapter": "reviewed-fastapi-v1",
+  "module": "app:app",
+  "build": {
+    "kind": "reviewed-python-source"
+  },
+  "start": {
+    "adapter": "reviewed-fastapi-v1",
+    "module": "app:app"
+  },
+  "health_path": "/health",
+  "source_files": [
+    {
+      "path": "app.py",
+      "sha256": "43be40e2c4b8294756d2eb3b09ea98de506a205c61b43d5a13dfe572706d6165"
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "dd243eaccd4ab55b41a63e9ee15513760869f6b63bf3d79b7cf1c453d86eb37c"
+    },
+    {
+      "path": "risk-package-lock.json",
+      "sha256": "2e9f2e9ae9d0bb74df5c59c0845e1afbefe6d887b920ee076c3eb62eb82ce14f"
+    },
+    {
+      "path": "seed/knowledge-products/KP-00.yaml",
+      "sha256": "c8cf936a31ece86f51d06ef303439a26151097a9f33d5520bb9df91de3c60633"
+    },
+    {
+      "path": "seed/knowledge-products/KP-01.yaml",
+      "sha256": "9a0af994c54712108de776e34f7ca6642ea3c8618bda7938f9b3e8ddf1538066"
+    },
+    {
+      "path": "seed/knowledge-products/KP-02.yaml",
+      "sha256": "0142504cc77168d78c14d86e30b48de72a3913e14d65645b8fa1bdffe0b39f26"
+    },
+    {
+      "path": "seed/knowledge-products/KP-03.yaml",
+      "sha256": "0b8e482d63c7f5b458292bd7f96ccbe2c80acb7848cf598ceec167db2107dc64"
+    },
+    {
+      "path": "seed/knowledge-products/KP-04.yaml",
+      "sha256": "0050907fe9d0b4d9cff5ae62b04d7a83928b918a9be282ef76f0c85a1511e345"
+    },
+    {
+      "path": "seed/knowledge-products/KP-05.yaml",
+      "sha256": "6450ac9ff2c4a786b2662c24a7aa92b4551798794d9e74014ac55689e5c305ab"
+    }
+  ],
+  "declared_resources": {
+    "memory_mib": 128,
+    "cpu_cores": 0.25,
+    "storage_mib": 16,
+    "network": "loopback-only"
+  },
+  "public_hosting": false,
+  "entrypoints": [
+    "web",
+    "health",
+    "capability-adapter"
+  ],
+  "capabilities": [
+    {
+      "tool_id": "risk.workbench.status",
+      "path": "/actions/status"
+    },
+    {
+      "tool_id": "portfolio.exposure.summarize",
+      "path": "/actions/portfolio-exposure-summarize"
+    },
+    {
+      "tool_id": "market.anomaly.detect",
+      "path": "/actions/market-anomaly-detect"
+    },
+    {
+      "tool_id": "news.event.classify",
+      "path": "/actions/news-event-classify"
+    },
+    {
+      "tool_id": "alert.draft.synthesize",
+      "path": "/actions/alert-draft-synthesize"
+    },
+    {
+      "tool_id": "alert.draft.review",
+      "path": "/actions/alert-draft-review"
+    },
+    {
+      "tool_id": "monitoring.run",
+      "path": "/actions/monitoring-run"
+    }
+  ]
+}

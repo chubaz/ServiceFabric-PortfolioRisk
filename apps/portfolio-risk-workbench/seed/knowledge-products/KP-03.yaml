@@ -1,0 +1,32 @@
+work_item_id: KP-03
+knowledge_product_id: KP-03
+title: CRSP/Compustat Access and Publication Boundary
+purpose: Record licensed-data access constraints and the public-repository publication boundary.
+owner_lane: planning
+draft_deadline: {anchor: T0, offset_minutes: 420}
+review_deadline: {anchor: T0, offset_minutes: 600}
+status: draft
+dependencies: [KP-02]
+acceptance_criteria:
+  - Prohibits licensed extracts and credentials from public repository artifacts.
+  - Requires failed or incomplete queries to remain explicit rather than become zero.
+source_references:
+  - reference_id: AGENTS-DATA
+    title: Repository public-data boundary
+    uri: AGENTS.md
+    relevance: Defines prohibited licensed extracts, secrets, private data, and local caches.
+artifact_paths: [docs/knowledge-products/KP-03-crsp-compustat-access-and-publication-boundary.md]
+artifact_links:
+  - artifact_id: KP-03-A1
+    path: docs/knowledge-products/KP-03-crsp-compustat-access-and-publication-boundary.md
+    label: Licensed-data boundary draft
+    purpose: Records publication restrictions and the future local-only design.
+thesis_traceability:
+  - entry_id: KP-03-T1
+    thesis: Licensed data and secrets can remain outside public contracts while future local processing retains query provenance.
+    evidence_reference_ids: [AGENTS-DATA]
+    assumptions: [Future operators maintain approved local access controls and redistribution rights records.]
+    limitations: [No CRSP, Compustat, WRDS, or other licensed provider access is implemented in Day 0.]
+implementation_status: partial
+implementation_summary: The repository publication boundary is implemented; provider access, secret resolution, and data zones are planned only.
+review_history: []

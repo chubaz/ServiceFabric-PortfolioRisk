@@ -1,0 +1,30 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/cash-balance.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "amount": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Amount"
+    },
+    "currency": {
+      "pattern": "^[A-Z]{3}$",
+      "title": "Currency",
+      "type": "string"
+    }
+  },
+  "required": [
+    "currency",
+    "amount"
+  ],
+  "title": "CashBalance",
+  "type": "object"
+}

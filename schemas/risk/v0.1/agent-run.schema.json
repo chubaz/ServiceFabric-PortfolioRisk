@@ -1,0 +1,118 @@
+{
+  "$defs": {
+    "ArtifactReference": {
+      "additionalProperties": false,
+      "description": "A content-addressed artifact available for evidence or snapshot lineage.",
+      "properties": {
+        "artifact_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "media_type": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        },
+        "reference": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "digest",
+        "media_type",
+        "reference"
+      ],
+      "title": "ArtifactReference",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/agent-run.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A deterministic, evidence-carrying agent execution record.",
+  "properties": {
+    "agent_role": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Agent Role",
+      "type": "string"
+    },
+    "capability_invocations": {
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Capability Invocations",
+      "type": "array"
+    },
+    "evidence_references": {
+      "items": {
+        "$ref": "#/$defs/ArtifactReference"
+      },
+      "minItems": 1,
+      "title": "Evidence References",
+      "type": "array"
+    },
+    "input_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Input Digest",
+      "type": "string"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "output_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Output Digest",
+      "type": "string"
+    },
+    "provider_disclosure": {
+      "const": "deterministic-local",
+      "default": "deterministic-local",
+      "title": "Provider Disclosure",
+      "type": "string"
+    },
+    "run_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "agent_role",
+    "capability_invocations",
+    "input_digest",
+    "output_digest",
+    "evidence_references",
+    "observed_at"
+  ],
+  "title": "AgentRun",
+  "type": "object"
+}

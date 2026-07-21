@@ -32,7 +32,13 @@ if sys.version_info < (3, 11):
 print(f"Python: {sys.version.split()[0]}")
 PY
 
-gh auth status --hostname github.com >/dev/null
+if ! gh auth status --hostname github.com >/dev/null 2>&1; then
+  if [[ "${DAY0_REQUIRE_GITHUB_AUTH:-0}" == "1" ]]; then
+    echo "GitHub CLI authentication is required but unavailable." >&2
+    exit 1
+  fi
+  echo "WARNING: GitHub CLI authentication is unavailable; offline Day 0 checks will continue." >&2
+fi
 codex --version
 git --version
 shellcheck --version | sed -n '1,2p'

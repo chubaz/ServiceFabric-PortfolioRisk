@@ -1,0 +1,50 @@
+work_item_id: KP-05
+knowledge_product_id: KP-05
+title: Supervisor Demo Pack and Day 1–3 Backlog
+purpose: Provide a reviewable Day 0 demonstration narrative and bounded follow-on backlog.
+owner_lane: planning
+draft_deadline: {anchor: T0, offset_minutes: 1200}
+review_deadline: {anchor: T0, offset_minutes: 1440}
+status: review_requested
+dependencies: [KP-00, KP-01, KP-02, KP-03, KP-04]
+acceptance_criteria:
+  - Demonstrates only verified Day 0 behavior and labels planned work.
+  - Includes human review, limitations, and no-investment-advice framing.
+source_references:
+  - reference_id: AGENTS-SAFETY
+    title: Financial safety boundary
+    uri: AGENTS.md
+    relevance: Prohibits live orders, broker connectivity, automatic rebalancing, and investment-advice claims.
+  - reference_id: WAVE-0B
+    title: Wave 0B workplan
+    uri: docs/workplans/day-0/wave-0b.md
+    relevance: Defines the bounded synthetic vertical-slice acceptance and exclusions.
+  - reference_id: PLANNING-TESTS
+    title: Planning catalogue tests
+    uri: tests/planning/test_catalog.py
+    relevance: Verifies catalogue loading, dependency, deadline, review, artifact, and traceability behavior.
+artifact_paths:
+  - docs/knowledge-products/KP-05-supervisor-demo-pack-and-day-1-3-backlog.md
+  - docs/knowledge-products/supervisor-one-page.md
+artifact_links:
+  - artifact_id: KP-05-A1
+    path: docs/knowledge-products/KP-05-supervisor-demo-pack-and-day-1-3-backlog.md
+    label: Supervisor demo and backlog draft
+    purpose: Provides the bounded Day 0 demonstration narrative and follow-on work.
+  - artifact_id: KP-05-A2
+    path: docs/knowledge-products/supervisor-one-page.md
+    label: Generated supervisor one-page draft
+    purpose: Presents the current review queue and supervisor decisions from the validated catalogue.
+thesis_traceability:
+  - entry_id: KP-05-T1
+    thesis: A supervisor can review the bounded Day 0 slice when evidence, limitations, review state, and follow-on decisions are presented together.
+    evidence_reference_ids: [AGENTS-SAFETY, WAVE-0B, PLANNING-TESTS]
+    assumptions: [The displayed catalogue is loaded from reviewed deterministic seed objects.]
+    limitations: [The page is a draft representation and does not establish soft-QA approval or production readiness.]
+implementation_status: partial
+implementation_summary: The deterministic planning catalogue and generated supervisor draft are implemented; a full supervisor-facing application and soft-QA sign-off remain outside this product.
+review_history:
+  - decision_id: KP-05-R1
+    state: review_requested
+    decided_by: planning-specialist
+    rationale: Demonstration sequence, evidence list, limitations, backlog, and supervisor decisions are ready for review.

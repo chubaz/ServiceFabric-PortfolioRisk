@@ -1,0 +1,26 @@
+work_item_id: KP-01
+knowledge_product_id: KP-01
+title: Overlay Architecture and ServiceFabric Integration
+purpose: Explain how the portfolio-risk overlay consumes canonical ServiceFabric contracts without bypassing the runtime.
+owner_lane: planning
+draft_deadline: {anchor: T0, offset_minutes: 120}
+review_deadline: {anchor: T0, offset_minutes: 240}
+status: draft
+dependencies: [KP-00]
+acceptance_criteria:
+  - Identifies the read-only ServiceFabric dependency and integration boundaries.
+  - Distinguishes implemented repository controls from planned adapters.
+source_references:
+  - reference_id: ADR-0001
+    title: Separate ServiceFabric overlay
+    uri: docs/architecture/adr/0001-overlay-repository.md
+    relevance: Defines the overlay and pinned, read-only upstream dependency.
+artifact_paths: [docs/knowledge-products/KP-01-overlay-architecture-and-servicefabric-integration.md]
+artifact_links:
+  - artifact_id: KP-01-A1
+    path: docs/knowledge-products/KP-01-overlay-architecture-and-servicefabric-integration.md
+    label: Overlay architecture draft
+    purpose: Describes the read-only ServiceFabric integration boundary.
+implementation_status: partial
+implementation_summary: The overlay boundary is implemented; future runtime adapters are not implemented here.
+review_history: []
