@@ -1,11 +1,12 @@
 # Current Workplan
 
-- ID: `D0-WAVE-0B`
-- Title: Bounded Synthetic Vertical Slice
-- Status: active
-- Workplan: `docs/workplans/day-0/wave-0b.md`
+- ID: `D0-QA`
+- Title: Day 0 Soft-QA Entry Point
+- Status: ready for soft QA; not passed
+- Workplan: `docs/workplans/day-0/soft-qa.md`
 - Configuration: `config/agent/day0/status.json`
-- Verification: `make verify-wave-0b`
+- Verification: `make verify-day0`
 
-Wave 0B is active on `integration/day0` after the Wave 0A foundation gate.
+Preparation and Waves 0A, 0B, and 0C are complete on `integration/day0`.
+Part 3/6 soft QA is the current review activity. No soft-QA pass is claimed.
 The `main` branch remains the reviewed stable baseline.

@@ -11,6 +11,10 @@ DAY0_VENV ?= $(CURDIR)/.venv-day0
 DAY0_PYTHON := $(DAY0_VENV)/bin/python
 DAY0_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src
 DAY0_PYTEST := PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS)" $(DAY0_PYTHON) -m pytest
+DAY0_STATE_ROOT := $(abspath $(CURDIR)/../../../state/day0/integration)
+PORTFOLIO_RISK_DATA_ROOT := $(DAY0_STATE_ROOT)/portfolio-risk-data
+SERVICEFABRIC_RUNTIME_VENV := $(abspath $(CURDIR)/../../../state/venvs/day0/servicefabric-runtime)
+SERVICEFABRIC_HOME := $(DAY0_STATE_ROOT)/servicefabric-home-day0-immutable
 
 .PHONY: env-check
 env-check:
@@ -23,7 +27,8 @@ repo-check:
 .PHONY: bootstrap-venv
 bootstrap-venv:
 > test -x "$(BOOTSTRAP_PYTHON)" || $(PYTHON) -m venv "$(BOOTSTRAP_VENV)"
-> $(BOOTSTRAP_PIP) install -e vendor/servicefabric/packages/servicefabric_release_readiness
+> $(BOOTSTRAP_PIP) install setuptools==80.9.0 wheel==0.45.1
+> $(BOOTSTRAP_PIP) install --no-build-isolation -e vendor/servicefabric/packages/servicefabric_release_readiness
 
 .PHONY: upstream-doctor
 upstream-doctor: bootstrap-venv
@@ -112,5 +117,28 @@ verify-wave-0c: verify-wave-0b test-journeys
 > @echo "D0-WAVE-0C verification: PASS"
 
 .PHONY: verify-day0
-verify-day0: preflight verify-wave-0a verify-wave-0b verify-wave-0c
+verify-day0: \
+  preflight \
+  test-architecture \
+  test-domain \
+  test-planning \
+  test-data \
+  test-capabilities \
+  test-agents \
+  test-application \
+  test-integration \
+  test-journeys
+> python3 scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+> git diff --check
 > @echo "Day 0 verification: PASS"
+
+.PHONY: demo-day0-headless
+demo-day0-headless: day0-env
+> PORTFOLIO_RISK_DATA_ROOT="$(PORTFOLIO_RISK_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS)" $(DAY0_PYTHON) scripts/day0/run_monitoring_demo.py
+
+.PHONY: servicefabric-smoke
+servicefabric-smoke:
+> SERVICEFABRIC_RUNTIME_VENV="$(SERVICEFABRIC_RUNTIME_VENV)" \
+> SERVICEFABRIC_HOME="$(SERVICEFABRIC_HOME)" \
+> PORTFOLIO_RISK_DATA_ROOT="$(PORTFOLIO_RISK_DATA_ROOT)" \
+> ./scripts/day0/servicefabric_smoke.sh

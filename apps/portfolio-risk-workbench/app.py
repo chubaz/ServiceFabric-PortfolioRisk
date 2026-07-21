@@ -19,7 +19,11 @@ from risk_planning import load_seed_catalog
 
 
 APPLICATION_STATUS = {"application_id": "portfolio-risk-workbench", "version": "0.1.0", "synthetic_mode": True, "external_providers": "disabled", "human_review": "required"}
-ROOT = Path(__file__).resolve().parents[2]
+APPLICATION_ROOT = Path(__file__).resolve().parent
+# The hosted artifact contains the reviewed catalogue alongside the adapter.
+# Source-tree execution keeps the repository root fallback for local use.
+ROOT = APPLICATION_ROOT.parents[2]
+CATALOG_ROOT = APPLICATION_ROOT if (APPLICATION_ROOT / "seed" / "knowledge-products").is_dir() else ROOT
 EVIDENCE = (EvidenceReference(evidence_id="synthetic-day0-evidence", reference="fixture://day0/20260721", source_type="synthetic-fixture"),)
 REGISTRY = DEFAULT_CAPABILITY_REGISTRY
 app = FastAPI(title="Portfolio Risk Workbench", version="0.1.0")
@@ -102,6 +106,16 @@ def health() -> dict[str, str]: return {"status": "healthy"}
 def api_status() -> dict[str, str | bool]: return APPLICATION_STATUS
 @app.post("/actions/status")
 def status_action() -> dict[str, str | bool]: return APPLICATION_STATUS
+@app.post("/actions/portfolio-exposure-summarize")
+def portfolio_exposure_summarize() -> dict[str, object]:
+    result = REGISTRY.invoke("portfolio.exposure.summarize", ExposureSummaryRequest(snapshot_id="workbench-exposure", portfolio_snapshot=portfolio(), evidence_references=EVIDENCE))
+    if result.data is not None: store("exposures", result.data)
+    return dumped(result)
+@app.post("/actions/market-anomaly-detect")
+def market_anomaly_detect() -> dict[str, object]:
+    result = REGISTRY.invoke("market.anomaly.detect", AnomalyDetectionRequest(normalized_observations=records(), percentage_threshold=Decimal("0.10"), evidence_references=EVIDENCE))
+    for finding in result.findings: store("findings", finding)
+    return dumped(result)
 @app.get("/api/findings")
 def api_findings() -> dict[str, object]: return {"findings": files("findings"), "synthetic": True, "human_review_required": True}
 @app.get("/api/alerts")
@@ -136,7 +150,7 @@ def alert_draft_review(reviewer: str = "", decision: str = "", comment: str = ""
 @app.get("/findings")
 def findings() -> HTMLResponse: return page("Findings", api_findings())
 @app.get("/plan")
-def plan() -> HTMLResponse: return page("Plan", {"items": [item.model_dump(mode="json") for item in load_seed_catalog(ROOT).knowledge_products]})
+def plan() -> HTMLResponse: return page("Plan", {"items": [item.model_dump(mode="json") for item in load_seed_catalog(CATALOG_ROOT).knowledge_products]})
 @app.get("/data")
 def data() -> HTMLResponse: return page("Data", {"synthetic": True, "data_root": str(root())})
 @app.get("/portfolio")
@@ -150,6 +164,6 @@ def agents() -> HTMLResponse: return page("Agents", {"active": [dumped(role) for
 @app.get("/agent-runs")
 def agent_runs() -> HTMLResponse: return page("Agent runs", api_agent_runs())
 @app.get("/research")
-def research() -> HTMLResponse: return page("Research catalogue", {"items": [item.model_dump(mode="json") for item in load_seed_catalog(ROOT).knowledge_products], "execution": "catalogue only"})
+def research() -> HTMLResponse: return page("Research catalogue", {"items": [item.model_dump(mode="json") for item in load_seed_catalog(CATALOG_ROOT).knowledge_products], "execution": "catalogue only"})
 @app.get("/notebooks")
 def notebooks() -> HTMLResponse: return page("Notebook catalogue", {"items": [], "execution": "notebooks are not executed"})

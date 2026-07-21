@@ -130,10 +130,19 @@ class NewsClassification(CapabilityContract):
 
 class AlertDraft(CapabilityContract):
     alert_id: str
+    status: Literal["draft"] = "draft"
     summary: str
     suggested_next_steps: tuple[Literal["investigation", "scenario_analysis", "watch_status", "rebalance_analysis"], ...]
     human_review_required: Literal[True] = True
     executable_order_recommendation: Literal[False] = False
+    effects: tuple[str, ...] = ()
+
+    @field_validator("effects")
+    @classmethod
+    def alert_draft_has_no_effects(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        if values:
+            raise ValueError("alert drafts must not generate effects")
+        return values
 
 
 class AlertSynthesisRequest(CapabilityContract):

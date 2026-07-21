@@ -18,14 +18,20 @@ jobs:
           python-version: '3.11'
       - name: Install Day 0 dependencies
         run: python -m pip install --require-hashes -r requirements/day0.lock
-      - name: Verify overlay boundaries
-        run: PYTHONPATH="$GITHUB_WORKSPACE:$GITHUB_WORKSPACE/packages" python -m pytest tests/architecture -q
-      - name: Verify available Day 0 tests
+      - name: Verify unit, architecture, integration, and journey tests
         run: |
-          for directory in tests/contracts tests/domain tests/planning tests/data tests/capabilities tests/agents tests/application tests/integration tests/journeys; do
-            if [ -d "$directory" ]; then
-              PYTHONPATH="$GITHUB_WORKSPACE:$GITHUB_WORKSPACE/packages" python -m pytest "$directory" -q
-            fi
-          done
+          export PYTHONPATH="$GITHUB_WORKSPACE:$GITHUB_WORKSPACE/packages/risk_domain/src:$GITHUB_WORKSPACE/packages/risk_planning/src:$GITHUB_WORKSPACE/packages/risk_data/src:$GITHUB_WORKSPACE/packages/risk_capabilities/src:$GITHUB_WORKSPACE/packages/risk_agents/src"
+          python -m pytest tests/contracts tests/domain tests/planning tests/data tests/capabilities tests/agents tests/application tests/architecture tests/integration tests/journeys -q
+      - name: Verify application manifests
+        run: python scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+      - name: Verify the headless synthetic journey
+        run: |
+          export PYTHONPATH="$GITHUB_WORKSPACE:$GITHUB_WORKSPACE/packages/risk_domain/src:$GITHUB_WORKSPACE/packages/risk_planning/src:$GITHUB_WORKSPACE/packages/risk_data/src:$GITHUB_WORKSPACE/packages/risk_capabilities/src:$GITHUB_WORKSPACE/packages/risk_agents/src"
+          PORTFOLIO_RISK_DATA_ROOT="$RUNNER_TEMP/portfolio-risk-day0" python scripts/day0/run_monitoring_demo.py
       - name: Check patch formatting
-        run: git diff --check HEAD^ HEAD
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git diff --check "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}"
+          else
+            git diff --check "${{ github.event.before }}" "${{ github.sha }}"
+          fi

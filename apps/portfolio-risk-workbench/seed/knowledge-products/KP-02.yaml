@@ -1,0 +1,32 @@
+work_item_id: KP-02
+knowledge_product_id: KP-02
+title: Object Kernel and Data Dictionary
+purpose: Describe Day 0 object identities, immutable snapshots, quality flags, and missing-data semantics.
+owner_lane: planning
+draft_deadline: {anchor: T0, offset_minutes: 360}
+review_deadline: {anchor: T0, offset_minutes: 480}
+status: draft
+dependencies: [KP-01]
+acceptance_criteria:
+  - Defines identity boundaries and does not invent market or portfolio observations.
+  - Records missing and synthetic data semantics.
+source_references:
+  - reference_id: ADR-0002
+    title: Day 0 runtime and storage conventions
+    uri: docs/architecture/adr/0002-day0-runtime-and-storage.md
+    relevance: Supplies immutable, UTC, Decimal, and synthetic-data conventions.
+artifact_paths: [docs/knowledge-products/KP-02-object-kernel-and-data-dictionary.md]
+artifact_links:
+  - artifact_id: KP-02-A1
+    path: docs/knowledge-products/KP-02-object-kernel-and-data-dictionary.md
+    label: Object kernel and data dictionary draft
+    purpose: Documents the implemented immutable domain kernel and its limits.
+thesis_traceability:
+  - entry_id: KP-02-T1
+    thesis: Immutable UTC-normalized snapshots with source references preserve the context required to assess Day 0 observations.
+    evidence_reference_ids: [ADR-0002]
+    assumptions: [Consumers preserve the contract fields when rendering or transporting snapshots.]
+    limitations: [The kernel does not establish the truth or completeness of a provider observation.]
+implementation_status: implemented
+implementation_summary: The Day 0 immutable object kernel, UTC handling, Decimal validation, source references, and snapshot digest validation are implemented.
+review_history: []
