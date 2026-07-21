@@ -5,6 +5,8 @@ repository_root="$(git rev-parse --show-toplevel)"
 runtime_venv="${SERVICEFABRIC_RUNTIME_VENV:?SERVICEFABRIC_RUNTIME_VENV is required}"
 : "${SERVICEFABRIC_HOME:?SERVICEFABRIC_HOME is required}"
 : "${PORTFOLIO_RISK_DATA_ROOT:?PORTFOLIO_RISK_DATA_ROOT is required}"
+manifest_digest="$(sha256sum "$repository_root/apps/portfolio-risk-workbench/servicefabric-package.json" | awk '{print $1}')"
+SERVICEFABRIC_HOME="$SERVICEFABRIC_HOME/$manifest_digest"
 export SERVICEFABRIC_HOME PORTFOLIO_RISK_DATA_ROOT
 
 "$repository_root/scripts/day0/bootstrap_servicefabric_runtime.py" --venv "$runtime_venv"
