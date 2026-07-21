@@ -1,0 +1,30 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/instrument-identifier.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "identifier_type": {
+      "enum": [
+        "ticker",
+        "permno",
+        "gvkey",
+        "cusip",
+        "cik"
+      ],
+      "title": "Identifier Type",
+      "type": "string"
+    },
+    "value": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Value",
+      "type": "string"
+    }
+  },
+  "required": [
+    "identifier_type",
+    "value"
+  ],
+  "title": "InstrumentIdentifier",
+  "type": "object"
+}

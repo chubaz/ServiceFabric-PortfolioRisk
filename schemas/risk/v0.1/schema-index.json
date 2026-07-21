@@ -1,0 +1,45 @@
+{
+  "api_version": "risk.servicefabric.ai/v0.1",
+  "schemas": [
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/cash-balance.schema.json",
+      "schema_path": "cash-balance.schema.json",
+      "sha256": "ddc52622f635bef51765f1148b2c29812107f1eb070caac8b73c701e1feef52a"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/fundamental-observation.schema.json",
+      "schema_path": "fundamental-observation.schema.json",
+      "sha256": "d1e87ba8df1d81681e23c4792ae418f8636509a9abd7f48859b58f93e95b422f"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/instrument-identifier.schema.json",
+      "schema_path": "instrument-identifier.schema.json",
+      "sha256": "d3e0d4e5843d0d1adcbc0849de65ab88ab956c7103a7578e09295c877e17bb9a"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/instrument.schema.json",
+      "schema_path": "instrument.schema.json",
+      "sha256": "cca3977a95c9a81c50aa563e5ee211dbbb39221d770a64383fd2b868a60b808d"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/market-observation.schema.json",
+      "schema_path": "market-observation.schema.json",
+      "sha256": "9a1e1718afe7560d858f97b829f6c39a1a969871c716f94a87d9211713d87a5d"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/portfolio-snapshot.schema.json",
+      "schema_path": "portfolio-snapshot.schema.json",
+      "sha256": "9fefcfdda94da1dc41b3c88ae9a4411b2d4084df4fbee8ec81899ad42edf5b97"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/position.schema.json",
+      "schema_path": "position.schema.json",
+      "sha256": "f18dfe0c9a32bca35b2c3e0989ec62e96c8816c3d82ca0da83e9799eb0a62fd6"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/source-reference.schema.json",
+      "schema_path": "source-reference.schema.json",
+      "sha256": "f6dd20259da92b69b3c4ebeea89c307f6f2168d85ed700dceeace8368539cb37"
+    }
+  ]
+}
