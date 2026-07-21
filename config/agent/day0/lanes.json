@@ -2,11 +2,11 @@
   "day": "day-0",
   "base_tag": "day0-prepared",
   "integration_order": [
+    "domain",
     "planning",
     "data",
-    "domain",
-    "application",
     "agents",
+    "application",
     "integration"
   ],
   "lanes": {
@@ -22,8 +22,11 @@
         "scripts",
         "tests/journeys",
         "tests/integration",
+        "tests/architecture",
         "Makefile",
+        "README.md",
         "pyproject.toml",
+        "requirements",
         "uv.lock"
       ],
       "may_merge": true
@@ -35,7 +38,8 @@
         "packages/risk_planning",
         "seed/knowledge-products",
         "docs/knowledge-products",
-        "tests/planning"
+        "tests/planning",
+        "docs/handoffs/day-0/planning.md"
       ],
       "may_merge": false
     },
@@ -46,7 +50,8 @@
         "packages/risk_data",
         "connectors",
         "data/schemas",
-        "tests/data"
+        "tests/data",
+        "docs/handoffs/day-0/data.md"
       ],
       "may_merge": false
     },
@@ -57,7 +62,8 @@
         "packages/risk_domain",
         "schemas/risk",
         "tests/contracts",
-        "tests/domain"
+        "tests/domain",
+        "docs/handoffs/day-0/domain.md"
       ],
       "may_merge": false
     },
@@ -66,7 +72,8 @@
       "worktree": "worktrees/day0/application",
       "allowed_paths": [
         "apps/portfolio-risk-workbench",
-        "tests/application"
+        "tests/application",
+        "docs/handoffs/day-0/application.md"
       ],
       "may_merge": false
     },
@@ -77,7 +84,8 @@
         "packages/risk_capabilities",
         "packages/risk_agents",
         "tests/capabilities",
-        "tests/agents"
+        "tests/agents",
+        "docs/handoffs/day-0/agents.md"
       ],
       "may_merge": false
     }

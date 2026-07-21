@@ -1,11 +1,11 @@
 # Current Workplan
 
-- ID: `D0-PREP`
-- Title: Day 0 Repository and Agent Preparation
-- Status: current
-- Workplan: `docs/workplans/day-0/preparation.md`
+- ID: `D0-WAVE-0A`
+- Title: Foundation Freeze and Executable Skeleton
+- Status: active
+- Workplan: `docs/workplans/day-0/wave-0a.md`
 - Configuration: `config/agent/day0/status.json`
-- Verification: `make preflight`
+- Verification: `make verify-wave-0a`
 
-No Day 0 implementation package may begin until this preparation workplan is
-closed and the `day0-prepared` tag exists.
+Wave 0A is active on `integration/day0`. The `main` branch remains the
+reviewed stable baseline.

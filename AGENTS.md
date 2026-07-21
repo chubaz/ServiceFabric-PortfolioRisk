@@ -79,6 +79,7 @@ Owns:
 - `seed/knowledge-products/**`
 - `docs/knowledge-products/**`
 - focused tests for those paths
+- `docs/handoffs/day-0/planning.md`
 
 Branch: `feature/day0-planning`
 
@@ -90,6 +91,7 @@ Owns:
 - `connectors/**`
 - `data/schemas/**`
 - focused data tests
+- `docs/handoffs/day-0/data.md`
 
 Branch: `feature/day0-data`
 
@@ -100,6 +102,7 @@ Owns:
 - `packages/risk_domain/**`
 - `schemas/risk/**`
 - contract tests
+- `docs/handoffs/day-0/domain.md`
 
 Branch: `feature/day0-domain`
 
@@ -109,6 +112,7 @@ Owns:
 
 - `apps/portfolio-risk-workbench/**`
 - focused application tests
+- `docs/handoffs/day-0/application.md`
 
 Branch: `feature/day0-application`
 
@@ -119,6 +123,7 @@ Owns:
 - `packages/risk_capabilities/**`
 - `packages/risk_agents/**`
 - focused capability and agent tests
+- `docs/handoffs/day-0/agents.md`
 
 Branch: `feature/day0-agents`
 

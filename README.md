@@ -19,9 +19,9 @@ tests, and documentation belong in this repository.
 
 ## Day 0 status
 
-The repository is in Day 0 preparation. No production hosting, live trading,
-broker connectivity, autonomous order execution, or provider-licensed data is
-included.
+Wave 0A is active on `integration/day0`. `main` remains the reviewed stable
+baseline. No production hosting, live trading, broker connectivity, autonomous
+order execution, or provider-licensed data is included.
 
 ## Data policy
 
