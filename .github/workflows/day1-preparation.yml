@@ -1,8 +1,8 @@
-name: Day 1 preparation
+name: Day 1 lifecycle
 
 on:
   push:
-    branches: [chore/day1-preparation, integration/day1]
+    branches: [integration/day1]
   pull_request:
     branches: [main]
 
@@ -21,12 +21,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Bootstrap from committed Day 0 lock
-        run: python -m pip install --require-hashes -r requirements/day0.lock
-      - name: Verify Day 1 preparation
-        run: make verify-day1-prep
+      - name: Bootstrap from committed Day 1 lock
+        run: python -m pip install --require-hashes -r requirements/day1.lock
+      - name: Verify current Day 1 lifecycle gate
+        run: make verify-day1-current
       - name: Run Day 0 regression gate
         run: make verify-day0
+      - name: Validate Day 1 control-plane manifests
+        run: python scripts/day1/check_preparation.py
       - name: Check whitespace
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then

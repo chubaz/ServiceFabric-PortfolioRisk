@@ -7,7 +7,9 @@ canonical runtime ownership, immutable evidence, profile separation, provider
 rights, and human review.
 
 Acceptance: manifests, current workplan, cross-lane tests, repository/manifest
-checks, and wave gates pass. Exclude product implementation outside owned
+checks, and the lifecycle-appropriate completed-wave gates pass. Wave 1A is
+active; do not require the historical queued preparation state after activation.
+Exclude product implementation outside owned
 paths, dependency additions, provider access, broker/order/rebalance effects,
 notebook execution, and upstream edits. Run focused tests plus `make
-verify-day1-prep`; record evidence and exact handoff. Stop without merge.
+verify-day1-current`; record evidence and exact handoff. Stop without merge.

@@ -4,7 +4,10 @@ import json
 import re
 from pathlib import Path
 
-from scripts.day1.check_preparation import validate
+import pytest
+
+from scripts.day1.check_preparation import PREPARED_STATUS, status_errors, validate, workplan_errors
+from scripts.day1.verify_current import verification_target
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -13,17 +16,68 @@ def payload(relative: str) -> dict:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
 
 
-def test_preparation_checker_passes() -> None:
+def test_lifecycle_aware_checker_passes_for_active_wave_1a() -> None:
     assert validate() == []
 
 
 def test_status_schema_and_day0_unchanged() -> None:
     assert payload("config/agent/day1/status.json") == {
-        "current": "D1-WAVE-1A", "preparation": "complete", "wave_1a": "queued",
+        "current": "D1-WAVE-1A", "preparation": "complete", "wave_1a": "in_progress",
         "wave_1b": "queued", "wave_1c": "queued", "soft_qa": "queued", "base_tag": "day0-complete",
     }
     assert payload("config/agent/day0/status.json")["current"] == "D0-COMPLETE"
     assert payload("config/agent/day0/status.json")["soft_qa"] == "passed"
+
+
+def test_prepared_baseline_remains_strict() -> None:
+    assert status_errors(PREPARED_STATUS, require_prepared=True) == []
+    assert status_errors(payload("config/agent/day1/status.json"), require_prepared=True)
+
+
+def test_all_supported_lifecycle_states_are_valid() -> None:
+    states = [
+        PREPARED_STATUS,
+        {**PREPARED_STATUS, "wave_1a": "in_progress"},
+        {**PREPARED_STATUS, "current": "D1-WAVE-1B", "wave_1a": "complete", "wave_1b": "in_progress"},
+        {**PREPARED_STATUS, "current": "D1-WAVE-1C", "wave_1a": "complete", "wave_1b": "complete", "wave_1c": "in_progress"},
+        {**PREPARED_STATUS, "current": "D1-QA", "wave_1a": "complete", "wave_1b": "complete", "wave_1c": "complete"},
+        {**PREPARED_STATUS, "current": "D1-COMPLETE", "wave_1a": "complete", "wave_1b": "complete", "wave_1c": "complete", "soft_qa": "passed"},
+    ]
+    assert all(status_errors(state) == [] for state in states)
+
+
+@pytest.mark.parametrize(
+    ("status", "workplan_id", "workplan_status"),
+    [
+        (PREPARED_STATUS, "D1-WAVE-1A", "queued; implementation has not started"),
+        ({**PREPARED_STATUS, "wave_1a": "in_progress"}, "D1-WAVE-1A", "in progress"),
+        ({**PREPARED_STATUS, "current": "D1-WAVE-1B", "wave_1a": "complete", "wave_1b": "in_progress"}, "D1-WAVE-1B", "in progress"),
+        ({**PREPARED_STATUS, "current": "D1-WAVE-1C", "wave_1a": "complete", "wave_1b": "complete", "wave_1c": "in_progress"}, "D1-WAVE-1C", "in progress"),
+        ({**PREPARED_STATUS, "current": "D1-QA", "wave_1a": "complete", "wave_1b": "complete", "wave_1c": "complete"}, "D1-QA", "ready for soft QA"),
+        ({**PREPARED_STATUS, "current": "D1-COMPLETE", "wave_1a": "complete", "wave_1b": "complete", "wave_1c": "complete", "soft_qa": "passed"}, "D1-COMPLETE", "complete"),
+    ],
+)
+def test_workplan_validation_tracks_lifecycle(status: dict, workplan_id: str, workplan_status: str) -> None:
+    text = f"# Current Workplan\n\n- ID: `{workplan_id}`\n- Status: {workplan_status}\n"
+    assert workplan_errors(status, text) == []
+
+
+def test_workplan_validation_rejects_stale_wave_1a_pointer() -> None:
+    status = {**PREPARED_STATUS, "current": "D1-WAVE-1B", "wave_1a": "complete", "wave_1b": "in_progress"}
+    text = "# Current Workplan\n\n- ID: `D1-WAVE-1A`\n- Status: in progress\n"
+    assert workplan_errors(status, text)
+
+
+def test_verification_target_rejects_inconsistent_later_state() -> None:
+    status = {**PREPARED_STATUS, "current": "D1-WAVE-1B", "wave_1a": "complete", "wave_1b": "in_progress", "wave_1c": "complete", "soft_qa": "passed"}
+    with pytest.raises(ValueError, match="valid lifecycle"):
+        verification_target(status)
+
+
+def test_verification_targets_only_completed_wave_gates() -> None:
+    assert verification_target({**PREPARED_STATUS, "wave_1a": "in_progress"}) is None
+    assert verification_target({**PREPARED_STATUS, "current": "D1-WAVE-1B", "wave_1a": "complete", "wave_1b": "in_progress"}) == "verify-wave-1a"
+    assert verification_target({**PREPARED_STATUS, "current": "D1-WAVE-1C", "wave_1a": "complete", "wave_1b": "complete", "wave_1c": "in_progress"}) == "verify-wave-1b"
 
 
 def test_wave_dependency_structure() -> None:
