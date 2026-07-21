@@ -6,4 +6,6 @@ import sys
 from pathlib import Path
 
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "packages" / "risk_capabilities" / "src"))
+ROOT = Path(__file__).resolve().parents[2]
+for package in ("risk_domain", "risk_data", "risk_planning", "risk_capabilities"):
+    sys.path.insert(0, str(ROOT / "packages" / package / "src"))

@@ -17,7 +17,7 @@ def context() -> AgentRunContext:
 
 def test_role_ids_are_unique_and_capability_grants_are_bounded() -> None:
     assert len({role.role_id for role in AGENT_ROLES}) == 4
-    assert all(len(role.allowed_capability_ids) == 1 for role in AGENT_ROLES)
+    assert all(role.allowed_capability_ids for role in AGENT_ROLES)
     assert all("order_submission" in role.denied_effects for role in AGENT_ROLES)
     assert all("broker_connectivity" in role.denied_effects for role in AGENT_ROLES)
 

@@ -21,12 +21,13 @@ def _role(role_id: str, objective: str, capability_id: str) -> AgentRole:
 
 AGENT_ROLES = (
     _role("risk.agent.news_sentiment", "News & Sentiment Agent: summarize supplied news evidence.", "risk.capability.news_sentiment"),
-    _role("risk.agent.market_data", "Market Data Agent: describe supplied market-data evidence.", "risk.capability.market_data"),
-    _role("risk.agent.portfolio_exposure", "Portfolio Exposure Agent: describe supplied exposure evidence.", "risk.capability.portfolio_exposure"),
+    AgentRole(role_id="risk.agent.market_data", objective="Market Data Agent: invoke registered synthetic-data and anomaly capabilities.", allowed_capability_ids=("data.synthetic.ingest", "market.anomaly.detect"), denied_effects=ORDER_AND_BROKER_EFFECTS + ("trade_execution", "automatic_rebalancing"), input_contracts=("SyntheticIngestRequest", "AnomalyDetectionRequest", "EvidenceReference[]"), output_contracts=("CapabilityResult",), evidence_requirements=("At least one supplied evidence reference is required.",), escalation_policy="Escalate missing, partial, stale, or consequential findings to a human reviewer.", human_review_required=True),
+    AgentRole(role_id="risk.agent.portfolio_exposure", objective="Portfolio Exposure Agent: invoke registered snapshot and exposure capabilities.", allowed_capability_ids=("portfolio.snapshot.create", "portfolio.exposure.summarize"), denied_effects=ORDER_AND_BROKER_EFFECTS + ("trade_execution", "automatic_rebalancing"), input_contracts=("PortfolioSnapshotRequest", "ExposureSummaryRequest", "EvidenceReference[]"), output_contracts=("CapabilityResult",), evidence_requirements=("At least one supplied evidence reference is required.",), escalation_policy="Escalate missing, partial, stale, or consequential findings to a human reviewer.", human_review_required=True),
     _role("risk.agent.alert_recommendation", "Alert & Recommendation Agent: draft a review-required, non-advisory alert.", "risk.capability.alert_recommendation"),
 )
 
 ROLE_BY_ID = {role.role_id: role for role in AGENT_ROLES}
+ACTIVE_AGENT_ROLE_IDS = ("risk.agent.market_data", "risk.agent.portfolio_exposure")
 
 
 def validate_role_cards() -> None:

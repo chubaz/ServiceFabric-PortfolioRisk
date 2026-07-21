@@ -7,5 +7,5 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "packages" / "risk_capabilities" / "src"))
-sys.path.insert(0, str(ROOT / "packages" / "risk_agents" / "src"))
+for package in ("risk_domain", "risk_data", "risk_planning", "risk_capabilities", "risk_agents"):
+    sys.path.insert(0, str(ROOT / "packages" / package / "src"))
