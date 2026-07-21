@@ -1,0 +1,63 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/position.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "currency": {
+      "pattern": "^[A-Z]{3}$",
+      "title": "Currency",
+      "type": "string"
+    },
+    "instrument_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Instrument Id",
+      "type": "string"
+    },
+    "market_value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Market Value"
+    },
+    "price": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Price"
+    },
+    "quantity": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Quantity"
+    }
+  },
+  "required": [
+    "instrument_id",
+    "quantity",
+    "price",
+    "market_value",
+    "currency"
+  ],
+  "title": "Position",
+  "type": "object"
+}

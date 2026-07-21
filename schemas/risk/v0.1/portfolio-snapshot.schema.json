@@ -1,0 +1,359 @@
+{
+  "$defs": {
+    "CashBalance": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Amount"
+        },
+        "currency": {
+          "pattern": "^[A-Z]{3}$",
+          "title": "Currency",
+          "type": "string"
+        }
+      },
+      "required": [
+        "currency",
+        "amount"
+      ],
+      "title": "CashBalance",
+      "type": "object"
+    },
+    "FundamentalObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "instrument_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Instrument Id",
+          "type": "string"
+        },
+        "metric": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Metric",
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "quality_flags": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/QualityFlag"
+          },
+          "title": "Quality Flags",
+          "type": "array"
+        },
+        "sources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SourceReference"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "synthetic": {
+          "title": "Synthetic",
+          "type": "boolean"
+        },
+        "unit": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "instrument_id",
+        "metric",
+        "observed_at",
+        "unit",
+        "synthetic"
+      ],
+      "title": "FundamentalObservation",
+      "type": "object"
+    },
+    "MarketObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "currency": {
+          "pattern": "^[A-Z]{3}$",
+          "title": "Currency",
+          "type": "string"
+        },
+        "instrument_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Instrument Id",
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "price": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price"
+        },
+        "quality_flags": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/QualityFlag"
+          },
+          "title": "Quality Flags",
+          "type": "array"
+        },
+        "sources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SourceReference"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "synthetic": {
+          "title": "Synthetic",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "instrument_id",
+        "observed_at",
+        "currency",
+        "synthetic"
+      ],
+      "title": "MarketObservation",
+      "type": "object"
+    },
+    "Position": {
+      "additionalProperties": false,
+      "properties": {
+        "currency": {
+          "pattern": "^[A-Z]{3}$",
+          "title": "Currency",
+          "type": "string"
+        },
+        "instrument_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Instrument Id",
+          "type": "string"
+        },
+        "market_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Market Value"
+        },
+        "price": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Price"
+        },
+        "quantity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Quantity"
+        }
+      },
+      "required": [
+        "instrument_id",
+        "quantity",
+        "price",
+        "market_value",
+        "currency"
+      ],
+      "title": "Position",
+      "type": "object"
+    },
+    "QualityFlag": {
+      "enum": [
+        "complete",
+        "partial",
+        "missing",
+        "stale",
+        "estimated"
+      ],
+      "title": "QualityFlag",
+      "type": "string"
+    },
+    "SourceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "reference": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "source_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_type": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "source_type",
+        "reference",
+        "retrieved_at"
+      ],
+      "title": "SourceReference",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/portfolio-snapshot.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "as_of": {
+      "format": "date-time",
+      "title": "As Of",
+      "type": "string"
+    },
+    "base_currency": {
+      "pattern": "^[A-Z]{3}$",
+      "title": "Base Currency",
+      "type": "string"
+    },
+    "cash_balances": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/CashBalance"
+      },
+      "title": "Cash Balances",
+      "type": "array"
+    },
+    "digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Digest"
+    },
+    "fundamental_observations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/FundamentalObservation"
+      },
+      "title": "Fundamental Observations",
+      "type": "array"
+    },
+    "market_observations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/MarketObservation"
+      },
+      "title": "Market Observations",
+      "type": "array"
+    },
+    "positions": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Position"
+      },
+      "title": "Positions",
+      "type": "array"
+    },
+    "snapshot_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Snapshot Id",
+      "type": "string"
+    },
+    "sources": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SourceReference"
+      },
+      "title": "Sources",
+      "type": "array"
+    }
+  },
+  "required": [
+    "snapshot_id",
+    "as_of",
+    "base_currency"
+  ],
+  "title": "PortfolioSnapshot",
+  "type": "object"
+}
