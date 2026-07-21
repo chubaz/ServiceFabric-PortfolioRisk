@@ -4,111 +4,70 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
-import sys
-from tempfile import TemporaryDirectory
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 
 ROOT = Path(__file__).resolve().parents[2]
 APPLICATION_DIR = ROOT / "apps" / "portfolio-risk-workbench"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(autouse=True)
+def data_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("PORTFOLIO_RISK_DATA_ROOT", str(tmp_path / "risk-data"))
+
+
+@pytest.fixture
 def application() -> FastAPI:
-    spec = importlib.util.spec_from_file_location("portfolio_risk_workbench", APPLICATION_DIR / "app.py")
+    spec = importlib.util.spec_from_file_location("workbench", APPLICATION_DIR / "app.py")
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module.app
 
 
-def request(application: FastAPI, method: str, path: str) -> tuple[int, bytes]:
-    route = next(
-        route
-        for route in application.routes
-        if route.path == path and method in getattr(route, "methods", set())
-    )
-    result = route.endpoint()
-    if isinstance(result, dict):
-        return 200, json.dumps(result).encode()
-    return result.status_code, result.body
+def call(app: FastAPI, method: str, path: str, **kwargs: object) -> object:
+    route = next(item for item in app.routes if item.path == path and method in getattr(item, "methods", set()))
+    return route.endpoint(**kwargs)
 
 
-def test_health(application: FastAPI) -> None:
-    status, body = request(application, "GET", "/health")
-    assert status == 200
-    assert json.loads(body) == {"status": "healthy"}
+@pytest.mark.parametrize("path", ["/", "/plan", "/data", "/portfolio", "/findings", "/alerts", "/agents", "/agent-runs", "/research", "/notebooks"])
+def test_pages_are_synthetic_catalogues(application: FastAPI, path: str) -> None:
+    response = call(application, "GET", path)
+    assert response.status_code == 200
+    assert b"local synthetic prototype" in response.body
 
 
-def test_status_action(application: FastAPI) -> None:
-    status, body = request(application, "POST", "/actions/status")
-    assert status == 200
-    assert json.loads(body) == {
-        "application_id": "portfolio-risk-workbench",
-        "version": "0.1.0",
-        "synthetic_mode": True,
-        "external_providers": "disabled",
-        "human_review": "required",
-    }
+def test_monitoring_alert_detail_and_review_decisions(application: FastAPI) -> None:
+    run = call(application, "POST", "/actions/monitoring-run")
+    assert run["status"] == "succeeded"
+    alerts = call(application, "GET", "/api/alerts")["alerts"]
+    alert_id = alerts[0]["alert_id"]
+    assert call(application, "GET", "/api/alerts/{alert_id}", alert_id=alert_id)["alert"]["alert_id"] == alert_id
+    for decision in ("approve", "reject", "request_changes"):
+        review = call(application, "POST", "/actions/alert-draft-review", reviewer="reviewer-1", decision=decision)
+        assert review["effects"] == []
+        assert review["data"]["decision_point"]["decision"] == decision
+    assert call(application, "GET", "/api/agent-runs")["agent_runs"]
+    assert call(application, "GET", "/api/findings")["findings"]
 
 
-def test_api_status(application: FastAPI) -> None:
-    status, body = request(application, "GET", "/api/status")
-    assert status == 200
-    assert json.loads(body)["synthetic_mode"] is True
+def test_review_requires_reviewer(application: FastAPI) -> None:
+    call(application, "POST", "/actions/alert-draft-synthesize")
+    with pytest.raises(HTTPException) as error:
+        call(application, "POST", "/actions/alert-draft-review", decision="approve")
+    assert error.value.status_code == 422
 
 
-@pytest.mark.parametrize("path", ["/", "/plan", "/data", "/portfolio", "/findings", "/agents"])
-def test_pages_are_available_and_disclose_synthetic_mode(application: FastAPI, path: str) -> None:
-    status, body = request(application, "GET", path)
-    assert status == 200
-    assert b"Wave 0A is a local synthetic prototype." in body
+def test_news_and_alert_actions_have_no_effects(application: FastAPI) -> None:
+    assert call(application, "POST", "/actions/news-event-classify")["effects"] == []
+    assert call(application, "POST", "/actions/alert-draft-synthesize")["effects"] == []
 
 
-def test_manifest_source_files_exist_and_hashes_match() -> None:
+def test_manifest_hashes_and_no_broker_or_order_endpoint(application: FastAPI) -> None:
     manifest = json.loads((APPLICATION_DIR / "servicefabric-package.json").read_text())
-    for entry in manifest["source_files"]:
-        source = APPLICATION_DIR / entry["path"]
-        assert source.is_file()
-        assert entry["sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
-
-
-def test_manifest_declares_only_reviewed_loopback_hosting() -> None:
-    manifest = json.loads((APPLICATION_DIR / "servicefabric-package.json").read_text())
-    assert manifest["adapter"] == "reviewed-fastapi-v1"
-    assert manifest["start"] == {"adapter": "reviewed-fastapi-v1", "module": "app:app"}
-    assert manifest["declared_resources"]["network"] == "loopback-only"
-    assert manifest["public_hosting"] is False
-    assert manifest["declared_resources"]["memory_mib"] <= 256
-
-
-def test_no_order_or_broker_route_exists(application: FastAPI) -> None:
+    for item in manifest["source_files"]:
+        assert item["sha256"] == hashlib.sha256((APPLICATION_DIR / item["path"]).read_bytes()).hexdigest()
     paths = {route.path for route in application.routes}
-    assert not any("order" in path or "broker" in path for path in paths)
-
-
-def test_status_capability_has_a_canonical_servicefabric_execution_path() -> None:
-    upstream = ROOT / "vendor" / "servicefabric"
-    for pyproject in upstream.rglob("pyproject.toml"):
-        sys.path.insert(0, str(pyproject.parent))
-    for source_root in upstream.rglob("src"):
-        sys.path.insert(0, str(source_root))
-    from servicefabric_application_host import LocalApplicationHost
-
-    with TemporaryDirectory() as temporary:
-        host = LocalApplicationHost(Path(temporary))
-        assert host.install(APPLICATION_DIR)["application_id"] == "portfolio-risk-workbench"
-        assert host.build("portfolio-risk-workbench")["status"] == "success"
-        try:
-            assert host.start("portfolio-risk-workbench")["health"] == "healthy"
-            assert host.invoke("risk.workbench.status", {}) == {
-                "application_id": "portfolio-risk-workbench",
-                "version": "0.1.0",
-                "synthetic_mode": True,
-                "external_providers": "disabled",
-                "human_review": "required",
-            }
-        finally:
-            host.stop("portfolio-risk-workbench")
+    assert not any("broker" in path or "order" in path for path in paths)

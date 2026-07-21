@@ -15,7 +15,7 @@
   "source_files": [
     {
       "path": "app.py",
-      "sha256": "901b5f25a14affe7da0fabb467081bc5907669e31f3a14a3a2690b496827b8e0"
+      "sha256": "973a65b4113a7a7cdbf9ea6fb14f0abe0877e4aff66aa449de96b926bbed72e8"
     },
     {
       "path": "pyproject.toml",
@@ -38,6 +38,22 @@
     {
       "tool_id": "risk.workbench.status",
       "path": "/actions/status"
+    },
+    {
+      "tool_id": "news.event.classify",
+      "path": "/actions/news-event-classify"
+    },
+    {
+      "tool_id": "alert.draft.synthesize",
+      "path": "/actions/alert-draft-synthesize"
+    },
+    {
+      "tool_id": "alert.draft.review",
+      "path": "/actions/alert-draft-review"
+    },
+    {
+      "tool_id": "monitoring.run",
+      "path": "/actions/monitoring-run"
     }
   ]
 }
