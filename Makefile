@@ -9,7 +9,8 @@ SERVICEFABRIC_DOCTOR := $(BOOTSTRAP_VENV)/bin/servicefabric
 
 DAY0_VENV ?= $(CURDIR)/.venv-day0
 DAY0_PYTHON := $(DAY0_VENV)/bin/python
-DAY0_PYTEST := PYTHONPATH="$(CURDIR):$(CURDIR)/packages" $(DAY0_PYTHON) -m pytest
+DAY0_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src
+DAY0_PYTEST := PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS)" $(DAY0_PYTHON) -m pytest
 
 .PHONY: env-check
 env-check:
@@ -87,12 +88,14 @@ test-journeys: day0-env
 > $(DAY0_PYTEST) tests/journeys -q
 
 .PHONY: verify-wave-0a
-verify-wave-0a: test-architecture
+verify-wave-0a: test-architecture test-integration
 > git diff --check
 > @echo "D0-WAVE-0A verification: PASS"
 
 .PHONY: verify-wave-0b
 verify-wave-0b: \
+  preflight \
+  test-architecture \
   test-domain \
   test-planning \
   test-data \
