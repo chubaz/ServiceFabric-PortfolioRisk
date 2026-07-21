@@ -1,0 +1,19 @@
+work_item_id: KP-00
+knowledge_product_id: KP-00
+title: Day 0 Charter and Supervisor Promise
+purpose: Set the bounded Day 0 mission, human-review promise, and evidence standard.
+owner_lane: planning
+draft_deadline: {anchor: T0, offset_minutes: 90}
+review_deadline: {anchor: T0, offset_minutes: 180}
+status: draft
+dependencies: []
+acceptance_criteria:
+  - States the Day 0 scope, exclusions, and supervisor review boundary.
+  - Separates current evidence from planned work.
+source_references:
+  - reference_id: ADR-0002
+    title: Day 0 runtime and storage conventions
+    uri: docs/architecture/adr/0002-day0-runtime-and-storage.md
+    relevance: Establishes immutable snapshots, explicit approval, and data handling constraints.
+artifact_paths: [docs/knowledge-products/KP-00-day-0-charter-and-supervisor-promise.md]
+review_history: []

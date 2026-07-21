@@ -1,0 +1,19 @@
+work_item_id: KP-04
+knowledge_product_id: KP-04
+title: Capability Catalogue, Agent Roles, and Thesis Traceability
+purpose: Describe the planned evidence-bearing capability and agent surface without representing it as implemented.
+owner_lane: planning
+draft_deadline: {anchor: T0, offset_minutes: 840}
+review_deadline: {anchor: T0, offset_minutes: 1020}
+status: draft
+dependencies: [KP-01, KP-02, KP-03]
+acceptance_criteria:
+  - Identifies evidence, assumptions, warnings, and limitations as required agent output.
+  - Preserves explicit human review for consequential actions.
+source_references:
+  - reference_id: WAVE-0A
+    title: Wave 0A workplan
+    uri: docs/workplans/day-0/wave-0a.md
+    relevance: Defines lane sequencing and excludes executable agent actions.
+artifact_paths: [docs/knowledge-products/KP-04-capability-catalogue-agent-roles-and-thesis-traceability.md]
+review_history: []
