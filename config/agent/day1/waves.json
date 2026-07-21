@@ -1,0 +1,10 @@
+{
+  "base_tag": "day0-complete",
+  "waves": [
+    {"id": "D1-WAVE-1A", "objective": "Human-readable profile-aware Workbench with semantic server-rendered pages, navigation, disclosures, and preserved JSON APIs.", "lanes": ["knowledge", "experience", "integration"], "depends_on": [], "acceptance_gates": ["HTML is the primary presentation; JSON APIs remain available", "accessible responsive screens show synthetic/profile/human-review state", "notebook pages are catalogue-only"], "exclusions": ["frontend framework or Node build", "remote UI assets", "notebook execution"]},
+    {"id": "D1-WAVE-1B", "objective": "Local CSV/YAML portfolio input, immutable snapshot preview/validation/confirmation, source catalogue, provider state, query manifests, and rights boundaries.", "lanes": ["data", "experience", "integration"], "depends_on": ["D1-WAVE-1A"], "acceptance_gates": ["invalid input is visible and cannot create a snapshot", "confirmation creates a new immutable snapshot", "all external providers are disabled by default and arbitrary SQL is unavailable"], "exclusions": ["broker connectivity", "licensed or personal data in Git", "arbitrary user SQL"]},
+    {"id": "D1-WAVE-1C", "objective": "Explainable risk analytics contracts, limitations-aware reports, agent timelines, and explicit human review.", "lanes": ["domain-analytics", "agents", "experience", "integration"], "depends_on": ["D1-WAVE-1A", "D1-WAVE-1B"], "acceptance_gates": ["analytics include methodology metadata and evidence", "small samples carry tail-risk warnings", "reports and agent runs expose assumptions, warnings, limitations, and review state"], "exclusions": ["optimization or recommendations", "trade/order/rebalance effects", "PDF export and notebook execution"]}
+  ],
+  "integration_order": ["domain-analytics", "knowledge", "data", "agents", "experience", "integration"],
+  "rollback": "Revert accepted lane commits in reverse integration order to the day0-complete tag; immutable Day 0 records and the ServiceFabric submodule are untouched."
+}

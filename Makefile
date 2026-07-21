@@ -142,3 +142,17 @@ servicefabric-smoke:
 > SERVICEFABRIC_HOME="$(SERVICEFABRIC_HOME)" \
 > PORTFOLIO_RISK_DATA_ROOT="$(PORTFOLIO_RISK_DATA_ROOT)" \
 > ./scripts/day0/servicefabric_smoke.sh
+
+.PHONY: day1-prep-context
+day1-prep-context:
+> $(PYTHON) scripts/day1/show_context.py
+
+.PHONY: verify-day1-prep
+verify-day1-prep: day0-env
+> $(PYTHON) scripts/day1/check_preparation.py
+> $(DAY0_PYTEST) tests/architecture/test_day1_preparation.py -q
+> $(MAKE) repo-check
+> $(MAKE) test-architecture
+> $(PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+> git diff --check
+> @echo "Day 1 preparation verification: PASS"

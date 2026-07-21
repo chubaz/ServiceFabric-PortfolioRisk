@@ -1,0 +1,36 @@
+name: Day 1 preparation
+
+on:
+  push:
+    branches: [chore/day1-preparation, integration/day1]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bootstrap from committed Day 0 lock
+        run: python -m pip install --require-hashes -r requirements/day0.lock
+      - name: Verify Day 1 preparation
+        run: make verify-day1-prep
+      - name: Run Day 0 regression gate
+        run: make verify-day0
+      - name: Check whitespace
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git diff --check "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}"
+          else
+            git diff --check "${{ github.event.before }}" "${{ github.sha }}"
+          fi
