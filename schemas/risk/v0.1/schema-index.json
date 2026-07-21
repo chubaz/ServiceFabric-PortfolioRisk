@@ -7,6 +7,31 @@
       "sha256": "ddc52622f635bef51765f1148b2c29812107f1eb070caac8b73c701e1feef52a"
     },
     {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/concentration-measure.schema.json",
+      "schema_path": "concentration-measure.schema.json",
+      "sha256": "2988c53dfebcb5ef94fc7c843b84793bd67ed5827a63733f8223a31614c7c41e"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/dataset-file.schema.json",
+      "schema_path": "dataset-file.schema.json",
+      "sha256": "c4681f1c28a3d8356b6abf310a2eaef02a59be5d0b2f5a5f8860b9f5e1578781"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/dataset-provenance.schema.json",
+      "schema_path": "dataset-provenance.schema.json",
+      "sha256": "ac25bcf3859ac15098654429eece71a8f82531bcbfaa6dd5b023e817e3560c4a"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/dataset-snapshot.schema.json",
+      "schema_path": "dataset-snapshot.schema.json",
+      "sha256": "23d4cc793862876fea85819c8021db5a3643fbfb63911da5f31c6c93a275f2b0"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/exposure-snapshot.schema.json",
+      "schema_path": "exposure-snapshot.schema.json",
+      "sha256": "3edeec2bcbbd1e91c1da229324904d05c3758bec05b5b21dc6b66c829e082e54"
+    },
+    {
       "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/fundamental-observation.schema.json",
       "schema_path": "fundamental-observation.schema.json",
       "sha256": "d1e87ba8df1d81681e23c4792ae418f8636509a9abd7f48859b58f93e95b422f"
@@ -30,6 +55,11 @@
       "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/portfolio-snapshot.schema.json",
       "schema_path": "portfolio-snapshot.schema.json",
       "sha256": "9fefcfdda94da1dc41b3c88ae9a4411b2d4084df4fbee8ec81899ad42edf5b97"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/position-exposure.schema.json",
+      "schema_path": "position-exposure.schema.json",
+      "sha256": "e1c66e7c5fe02c98198300809126ab75050f2c1079027abc1770cf02936ae358"
     },
     {
       "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/position.schema.json",

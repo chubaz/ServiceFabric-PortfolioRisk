@@ -1,0 +1,32 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/concentration-measure.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A named Decimal concentration statistic for an exposure snapshot.",
+  "properties": {
+    "name": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Value"
+    }
+  },
+  "required": [
+    "name",
+    "value"
+  ],
+  "title": "ConcentrationMeasure",
+  "type": "object"
+}
