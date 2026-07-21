@@ -6,7 +6,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from decimal import Decimal, localcontext
 from statistics import mean, pstdev
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import Field, field_validator, model_validator
 
@@ -24,13 +24,15 @@ ResultValue = TypeVar("ResultValue")
 class CapabilityResult(CapabilityContract, Generic[ResultValue]):
     """A local capability result with explicit evidence and no effects."""
 
-    capability_id: str = Field(pattern=r"^(planning|data|portfolio|market)\.[a-z_]+\.[a-z_]+$")
-    data: ResultValue
+    capability_id: str = Field(pattern=r"^(planning|data|portfolio|market|news|alert)\.[a-z_]+\.[a-z_]+$")
+    status: Literal["succeeded", "failed", "stopped"] = "succeeded"
+    data: ResultValue | None = None
     evidence_references: tuple[EvidenceReference, ...]
     assumptions: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
     limitations: tuple[str, ...] = ()
     effects: tuple[str, ...] = ()
+    findings: tuple["MonitoringFinding", ...] = ()
 
     @field_validator("effects")
     @classmethod
@@ -95,6 +97,71 @@ class AnomalyReport(CapabilityContract):
     evaluated_returns: int
 
 
+class MonitoringFinding(CapabilityContract):
+    finding_id: str
+    kind: Literal["market_anomaly", "concentration", "news_event"]
+    summary: str
+    evidence_references: tuple[EvidenceReference, ...]
+    severity: Literal["info", "warning", "high"] = "warning"
+
+
+class SyntheticNewsEvent(CapabilityContract):
+    event_id: str
+    instrument_id: str
+    headline: str
+    sentiment: Literal["positive", "negative", "neutral"]
+    relevance: Literal["low", "medium", "high"]
+    synthetic: Literal[True] = True
+    synthetic_label: Literal["synthetic"] = "synthetic"
+
+
+class NewsClassificationRequest(CapabilityContract):
+    event: SyntheticNewsEvent
+    evidence_references: tuple[EvidenceReference, ...] = Field(min_length=1)
+
+
+class NewsClassification(CapabilityContract):
+    event_id: str
+    instrument_id: str
+    sentiment: Literal["positive", "negative", "neutral"]
+    relevance: Literal["low", "medium", "high"]
+    synthetic_disclosure: str
+
+
+class AlertDraft(CapabilityContract):
+    alert_id: str
+    summary: str
+    suggested_next_steps: tuple[Literal["investigation", "scenario_analysis", "watch_status", "rebalance_analysis"], ...]
+    human_review_required: Literal[True] = True
+    executable_order_recommendation: Literal[False] = False
+
+
+class AlertSynthesisRequest(CapabilityContract):
+    market_output: CapabilityResult[Any]
+    exposure_output: CapabilityResult[Any]
+    news_output: CapabilityResult[Any]
+    evidence_references: tuple[EvidenceReference, ...] = Field(min_length=1)
+
+
+class DecisionPoint(CapabilityContract):
+    decision_id: str
+    alert_id: str
+    decision: Literal["approve", "reject", "request_changes"]
+    rationale: str
+    human_reviewer_id: str
+
+
+class AlertReviewRequest(CapabilityContract):
+    draft: AlertDraft
+    decision_point: DecisionPoint
+    evidence_references: tuple[EvidenceReference, ...] = Field(min_length=1)
+
+
+class AlertReview(CapabilityContract):
+    draft: AlertDraft
+    decision_point: DecisionPoint
+
+
 class KnowledgeDueRequest(CapabilityContract):
     catalog: PlanningCatalog
     offset_minutes: int = Field(ge=0)
@@ -146,7 +213,9 @@ def summarize_exposure(request: ExposureSummaryRequest) -> CapabilityResult[Expo
         largest = max((abs(item.weight) for item in position_exposures), default=Decimal("0"))
         cash_weight = sum((balance.amount for balance in portfolio.cash_balances), start=Decimal("0")) / nav
     exposure = ExposureSnapshot(snapshot_id=request.snapshot_id, as_of=portfolio.as_of, portfolio_snapshot=portfolio, nav=nav, gross_exposure=gross, net_exposure=net, largest_position_weight=largest, cash_weight=cash_weight, position_exposures=position_exposures)
-    return CapabilityResult(capability_id="portfolio.exposure.summarize", data=exposure, evidence_references=request.evidence_references, assumptions=("All position and cash values are already in the portfolio base currency.",), limitations=("This is a deterministic arithmetic summary, not investment advice.",))
+    largest = max(exposure.position_exposures, key=lambda item: abs(item.weight), default=None)
+    findings = () if largest is None or abs(largest.weight) <= Decimal("0.40") else (MonitoringFinding(finding_id=f"concentration:{largest.instrument_id}:{request.snapshot_id}", kind="concentration", summary=f"{largest.instrument_id} weight {largest.weight} exceeds the 40% largest-position limit.", evidence_references=request.evidence_references, severity="high"),)
+    return CapabilityResult(capability_id="portfolio.exposure.summarize", data=exposure, evidence_references=request.evidence_references, assumptions=("All position and cash values are already in the portfolio base currency.",), limitations=("This is a deterministic arithmetic summary, not investment advice.",), findings=findings)
 
 
 def detect_market_anomalies(request: AnomalyDetectionRequest) -> CapabilityResult[AnomalyReport]:
@@ -189,7 +258,29 @@ def detect_market_anomalies(request: AnomalyDetectionRequest) -> CapabilityResul
             if triggers:
                 anomalies.append(Anomaly(instrument_id=instrument_id, observed_at=record.observed_at, simple_return=simple_return, triggered_by=tuple(triggers), z_score=z_score))
     report = AnomalyReport(anomalies=tuple(sorted(anomalies, key=lambda item: (item.instrument_id, item.observed_at))), evaluated_returns=evaluated_returns)
-    return CapabilityResult(capability_id="market.anomaly.detect", data=report, evidence_references=request.evidence_references, assumptions=("Simple returns use adjacent complete supplied observations only.",), warnings=tuple(warnings), limitations=("No missing observation is converted to a zero return; no external market data is used.",))
+    findings = tuple(MonitoringFinding(finding_id=f"anomaly:{item.instrument_id}:{item.observed_at.isoformat()}", kind="market_anomaly", summary=f"{item.instrument_id} simple return {item.simple_return} triggered {', '.join(item.triggered_by)}.", evidence_references=request.evidence_references, severity="high") for item in report.anomalies)
+    return CapabilityResult(capability_id="market.anomaly.detect", data=report, evidence_references=request.evidence_references, assumptions=("Simple returns use adjacent complete supplied observations only.",), warnings=tuple(warnings), limitations=("No missing observation is converted to a zero return; no external market data is used.",), findings=findings)
+
+
+def classify_news_event(request: NewsClassificationRequest) -> CapabilityResult[NewsClassification]:
+    event = request.event
+    classification = NewsClassification(event_id=event.event_id, instrument_id=event.instrument_id, sentiment=event.sentiment, relevance=event.relevance, synthetic_disclosure="This news event and classification are synthetic.")
+    finding = MonitoringFinding(finding_id=f"news:{event.event_id}", kind="news_event", summary=f"Synthetic {event.sentiment} news event for {event.instrument_id} with {event.relevance} relevance.", evidence_references=request.evidence_references, severity="warning")
+    return CapabilityResult(capability_id="news.event.classify", data=classification, evidence_references=request.evidence_references, assumptions=("Classification uses explicitly supplied synthetic labels only.",), limitations=("No news provider or sentiment model was called.",), findings=(finding,))
+
+
+def synthesize_alert_draft(request: AlertSynthesisRequest) -> CapabilityResult[AlertDraft]:
+    inputs = (request.market_output, request.exposure_output, request.news_output)
+    if any(item.status != "succeeded" for item in inputs):
+        return CapabilityResult(capability_id="alert.draft.synthesize", status="stopped", evidence_references=request.evidence_references, warnings=("Alert synthesis stopped because an upstream capability did not succeed.",))
+    draft = AlertDraft(alert_id="alert:" + "-".join(item.capability_id.replace(".", "-") for item in inputs), summary="Review required: synthetic market anomaly, concentration, and news findings require investigation.", suggested_next_steps=("investigation", "scenario_analysis", "watch_status", "rebalance_analysis"))
+    return CapabilityResult(capability_id="alert.draft.synthesize", data=draft, evidence_references=request.evidence_references, assumptions=("Alert content is synthesized only from supplied capability outputs.",), limitations=("The draft is not investment advice and cannot submit an order.",))
+
+
+def review_alert_draft(request: AlertReviewRequest) -> CapabilityResult[AlertReview]:
+    if request.decision_point.alert_id != request.draft.alert_id:
+        raise ValueError("decision point must reference the reviewed alert draft")
+    return CapabilityResult(capability_id="alert.draft.review", data=AlertReview(draft=request.draft, decision_point=request.decision_point), evidence_references=request.evidence_references, limitations=("Review records a decision only and creates no external effect.",))
 
 
 def list_due_knowledge(request: KnowledgeDueRequest) -> CapabilityResult[tuple[Any, ...]]:
@@ -204,6 +295,17 @@ def ingest_synthetic(request: SyntheticIngestRequest) -> CapabilityResult[Ingest
 CapabilityHandler = Callable[[Any], CapabilityResult[Any]]
 
 
+class CapabilityStopped(Exception):
+    """A deterministic signal that a capability could not continue."""
+
+
+class CapabilityInvocationRecord(CapabilityContract):
+    sequence: int
+    capability_id: str
+    status: Literal["succeeded", "failed", "stopped"]
+    evidence_references: tuple[EvidenceReference, ...]
+
+
 class CapabilityRegistry:
     """Finite deterministic dispatcher for registered Wave 0B capabilities."""
 
@@ -214,6 +316,9 @@ class CapabilityRegistry:
             "portfolio.snapshot.create": create_portfolio_snapshot,
             "portfolio.exposure.summarize": summarize_exposure,
             "market.anomaly.detect": detect_market_anomalies,
+            "news.event.classify": classify_news_event,
+            "alert.draft.synthesize": synthesize_alert_draft,
+            "alert.draft.review": review_alert_draft,
         }
         if len(self._handlers) != len(set(self._handlers)):
             raise ValueError("capability IDs must be unique")
@@ -223,11 +328,19 @@ class CapabilityRegistry:
             "portfolio.snapshot.create": PortfolioSnapshotRequest,
             "portfolio.exposure.summarize": ExposureSummaryRequest,
             "market.anomaly.detect": AnomalyDetectionRequest,
+            "news.event.classify": NewsClassificationRequest,
+            "alert.draft.synthesize": AlertSynthesisRequest,
+            "alert.draft.review": AlertReviewRequest,
         }
+        self._history: list[CapabilityInvocationRecord] = []
 
     @property
     def capability_ids(self) -> tuple[str, ...]:
         return tuple(sorted(self._handlers))
+
+    @property
+    def invocation_history(self) -> tuple[CapabilityInvocationRecord, ...]:
+        return tuple(self._history)
 
     def invoke(self, capability_id: str, request: Any) -> CapabilityResult[Any]:
         try:
@@ -237,9 +350,15 @@ class CapabilityRegistry:
         request_type = self._request_types.get(capability_id)
         if request_type is not None and not isinstance(request, request_type):
             raise TypeError(f"{capability_id} requires {request_type.__name__}")
-        result = handler(request)
+        try:
+            result = handler(request)
+        except CapabilityStopped as error:
+            result = CapabilityResult(capability_id=capability_id, status="stopped", evidence_references=getattr(request, "evidence_references", ()), warnings=(str(error),))
+        except Exception as error:
+            result = CapabilityResult(capability_id=capability_id, status="failed", evidence_references=getattr(request, "evidence_references", ()), warnings=(str(error),))
         if result.capability_id != capability_id:
             raise ValueError("capability handler returned a mismatched capability ID")
+        self._history.append(CapabilityInvocationRecord(sequence=len(self._history), capability_id=capability_id, status=result.status, evidence_references=result.evidence_references))
         return result
 
 

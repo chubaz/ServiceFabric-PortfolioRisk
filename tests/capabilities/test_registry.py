@@ -22,7 +22,7 @@ def snapshot_request() -> PortfolioSnapshotRequest:
 
 def test_registry_has_exactly_the_required_unique_capability_ids() -> None:
     registry = CapabilityRegistry()
-    assert registry.capability_ids == ("data.synthetic.ingest", "market.anomaly.detect", "planning.knowledge.list_due", "portfolio.exposure.summarize", "portfolio.snapshot.create")
+    assert registry.capability_ids == ("alert.draft.review", "alert.draft.synthesize", "data.synthetic.ingest", "market.anomaly.detect", "news.event.classify", "planning.knowledge.list_due", "portfolio.exposure.summarize", "portfolio.snapshot.create")
     with pytest.raises(TypeError, match="PortfolioSnapshotRequest"):
         registry.invoke("portfolio.snapshot.create", object())
 
@@ -33,8 +33,9 @@ def test_snapshot_creation_requires_explicit_timestamp_and_retains_evidence() ->
     assert outcome.data.as_of == NOW
     assert outcome.evidence_references == EVIDENCE
     assert outcome.effects == ()
-    with pytest.raises(ValueError, match="missing price"):
-        registry.invoke("portfolio.snapshot.create", snapshot_request().model_copy(update={"normalized_observations": (record("instrument-alpha", "ALPHA", 0, None), record("instrument-beta", "BETA", 0, "100"))}))
+    failed = registry.invoke("portfolio.snapshot.create", snapshot_request().model_copy(update={"normalized_observations": (record("instrument-alpha", "ALPHA", 0, None), record("instrument-beta", "BETA", 0, "100"))}))
+    assert failed.status == "failed"
+    assert "missing price" in failed.warnings[0]
 
 
 def test_exposure_summary_calculates_fixed_nav_and_largest_position_weight() -> None:

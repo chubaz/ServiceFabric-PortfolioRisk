@@ -3,6 +3,7 @@
 from .contracts import AgentProvider, AgentRole, AgentRunContext, DeterministicProviderDraft
 from .provider import DeterministicAgentProvider
 from .active import RegisteredCapabilityAgent
+from .monitoring import DeterministicMonitoringOrchestrator, MonitoringRun, MonitoringRunRequest
 from .roles import ACTIVE_AGENT_ROLE_IDS, AGENT_ROLES, ROLE_BY_ID, validate_role_cards
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "DeterministicProviderDraft",
     "DeterministicAgentProvider",
     "RegisteredCapabilityAgent",
+    "DeterministicMonitoringOrchestrator", "MonitoringRun", "MonitoringRunRequest",
     "validate_role_cards",
 ]
