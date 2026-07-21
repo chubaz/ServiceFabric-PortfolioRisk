@@ -1,0 +1,88 @@
+{
+  "day": "day-0",
+  "base_tag": "day0-prepared",
+  "integration_order": [
+    "planning",
+    "data",
+    "domain",
+    "application",
+    "agents",
+    "integration"
+  ],
+  "lanes": {
+    "integration": {
+      "branch": "integration/day0",
+      "worktree": "worktrees/day0/integration",
+      "allowed_paths": [
+        ".github",
+        "config",
+        "docs/architecture",
+        "docs/handoffs",
+        "docs/workplans",
+        "scripts",
+        "tests/journeys",
+        "tests/integration",
+        "Makefile",
+        "pyproject.toml",
+        "uv.lock"
+      ],
+      "may_merge": true
+    },
+    "planning": {
+      "branch": "feature/day0-planning",
+      "worktree": "worktrees/day0/planning",
+      "allowed_paths": [
+        "packages/risk_planning",
+        "seed/knowledge-products",
+        "docs/knowledge-products",
+        "tests/planning"
+      ],
+      "may_merge": false
+    },
+    "data": {
+      "branch": "feature/day0-data",
+      "worktree": "worktrees/day0/data",
+      "allowed_paths": [
+        "packages/risk_data",
+        "connectors",
+        "data/schemas",
+        "tests/data"
+      ],
+      "may_merge": false
+    },
+    "domain": {
+      "branch": "feature/day0-domain",
+      "worktree": "worktrees/day0/domain",
+      "allowed_paths": [
+        "packages/risk_domain",
+        "schemas/risk",
+        "tests/contracts",
+        "tests/domain"
+      ],
+      "may_merge": false
+    },
+    "application": {
+      "branch": "feature/day0-application",
+      "worktree": "worktrees/day0/application",
+      "allowed_paths": [
+        "apps/portfolio-risk-workbench",
+        "tests/application"
+      ],
+      "may_merge": false
+    },
+    "agents": {
+      "branch": "feature/day0-agents",
+      "worktree": "worktrees/day0/agents",
+      "allowed_paths": [
+        "packages/risk_capabilities",
+        "packages/risk_agents",
+        "tests/capabilities",
+        "tests/agents"
+      ],
+      "may_merge": false
+    }
+  },
+  "frozen_paths": [
+    "vendor/servicefabric"
+  ]
+}

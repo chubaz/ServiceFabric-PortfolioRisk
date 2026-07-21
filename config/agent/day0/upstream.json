@@ -1,0 +1,9 @@
+{
+  "repository": "chubaz/ServiceFabric-Public",
+  "url": "https://github.com/chubaz/ServiceFabric-Public.git",
+  "path": "vendor/servicefabric",
+  "commit": "7632b61d94a966346f95eb6c5bb2a5ea27f3bc14",
+  "verified_on": "2026-07-20",
+  "integration_mode": "git-submodule",
+  "mutable": false
+}

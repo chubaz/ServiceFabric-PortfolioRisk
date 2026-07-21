@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments
+.venv/
+.venv-*/
+venv/
+env/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+secrets/
+.local/
+.agent-runs/
+codex/runs/
+
+# ServiceFabric runtime state
+.servicefabric/
+servicefabric-home/
+
+# Local databases and analytical state
+*.duckdb
+*.duckdb.wal
+*.sqlite
+*.sqlite3
+*.db
+
+# Provider and portfolio data
+data/*
+!data/README.md
+!data/fixtures/
+data/fixtures/*
+!data/fixtures/synthetic/
+!data/fixtures/synthetic/**
+
+# Common provider file formats
+*.sas7bdat
+*.xpt
+*.feather
+*.arrow
+*.parquet
+*.csv.gz
+
+# Permit explicitly reviewed synthetic fixtures
+!data/fixtures/synthetic/**/*.parquet
+!data/fixtures/synthetic/**/*.feather
+!data/fixtures/synthetic/**/*.arrow
+!data/fixtures/synthetic/**/*.csv
+!data/fixtures/synthetic/**/*.json
+
+# Reports generated locally
+reports/generated/
+artifacts/
+tmp/

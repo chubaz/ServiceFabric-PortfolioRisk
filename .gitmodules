@@ -1,0 +1,3 @@
+[submodule "vendor/servicefabric"]
+	path = vendor/servicefabric
+	url = https://github.com/chubaz/ServiceFabric-Public.git

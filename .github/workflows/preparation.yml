@@ -1,0 +1,52 @@
+name: preparation
+
+on:
+  push:
+    branches:
+      - main
+      - chore/day0-preparation
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  repository-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository and submodule
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate repository boundaries
+        run: ./scripts/bootstrap/check_repository.sh
+
+      - name: Install ServiceFabric release doctor
+        run: |
+          python -m venv .venv-bootstrap
+          .venv-bootstrap/bin/python -m pip install \
+            -e vendor/servicefabric/packages/servicefabric_release_readiness
+
+      - name: Run ServiceFabric release doctor
+        run: |
+          .venv-bootstrap/bin/servicefabric doctor \
+            --repository-root vendor/servicefabric
+
+      - name: Validate shell scripts
+        run: |
+          shellcheck scripts/bootstrap/*.sh
+
+      - name: Validate Git whitespace
+        run: git diff --check
