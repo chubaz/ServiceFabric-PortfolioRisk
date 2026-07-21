@@ -1,0 +1,19 @@
+work_item_id: KP-05
+knowledge_product_id: KP-05
+title: Supervisor Demo Pack and Day 1–3 Backlog
+purpose: Provide a reviewable Day 0 demonstration narrative and bounded follow-on backlog.
+owner_lane: planning
+draft_deadline: {anchor: T0, offset_minutes: 1200}
+review_deadline: {anchor: T0, offset_minutes: 1440}
+status: draft
+dependencies: [KP-00, KP-01, KP-02, KP-03, KP-04]
+acceptance_criteria:
+  - Demonstrates only verified Day 0 behavior and labels planned work.
+  - Includes human review, limitations, and no-investment-advice framing.
+source_references:
+  - reference_id: AGENTS-SAFETY
+    title: Financial safety boundary
+    uri: AGENTS.md
+    relevance: Prohibits live orders, broker connectivity, automatic rebalancing, and investment-advice claims.
+artifact_paths: [docs/knowledge-products/KP-05-supervisor-demo-pack-and-day-1-3-backlog.md]
+review_history: []
