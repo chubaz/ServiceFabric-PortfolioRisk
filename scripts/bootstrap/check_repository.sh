@@ -47,10 +47,30 @@ fi
 
 forbidden_tracked="$(
   git ls-files \
-    | grep -E \
-      '(^|/)(\.env|secrets|state|servicefabric-home)(/|$)|^data/(landing|normalized|curated|snapshots)/' \
+    | grep -Ei \
+      '(^|/)(\.env(\..*)?|secrets?|credentials?|state|servicefabric-home)(/|$)|\.(pem|key|p12|pfx)$|(^|/)(crsp|compustat|bloomberg|ravenpack|accern)(/|$)|^data/(landing|normalized|curated|snapshots)/' \
     || true
 )"
+
+local_data_tracked="$(
+  while IFS= read -r tracked_path; do
+    case "$tracked_path" in
+      *.duckdb|*.duckdb.wal|*.sqlite|*.sqlite3|*.db)
+        printf '%s\n' "$tracked_path"
+        ;;
+      *.parquet|*.arrow|*.feather)
+        case "$tracked_path" in
+          data/fixtures/synthetic/*) ;;
+          *) printf '%s\n' "$tracked_path" ;;
+        esac
+        ;;
+    esac
+  done < <(git ls-files)
+)"
+
+if [[ -n "$local_data_tracked" ]]; then
+  forbidden_tracked="${forbidden_tracked}${forbidden_tracked:+$'\n'}${local_data_tracked}"
+fi
 
 if [[ -n "$forbidden_tracked" ]]; then
   echo "Forbidden private or mutable paths are tracked:" >&2
