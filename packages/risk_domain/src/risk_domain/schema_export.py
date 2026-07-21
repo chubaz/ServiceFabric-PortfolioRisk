@@ -8,14 +8,20 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from .models import CashBalance, FundamentalObservation, Instrument, InstrumentIdentifier, MarketObservation, PortfolioSnapshot, Position, SourceReference
+from .models import CashBalance, ConcentrationMeasure, DatasetFile, DatasetProvenance, DatasetSnapshot, ExposureSnapshot, FundamentalObservation, Instrument, InstrumentIdentifier, MarketObservation, PortfolioSnapshot, Position, PositionExposure, SourceReference
 
 
 SCHEMA_RESOURCES: dict[str, tuple[type[BaseModel], str]] = {
+    "concentration-measure.schema.json": (ConcentrationMeasure, "https://schemas.servicefabric.ai/risk/v0.1/concentration-measure.schema.json"),
+    "dataset-file.schema.json": (DatasetFile, "https://schemas.servicefabric.ai/risk/v0.1/dataset-file.schema.json"),
+    "dataset-provenance.schema.json": (DatasetProvenance, "https://schemas.servicefabric.ai/risk/v0.1/dataset-provenance.schema.json"),
+    "dataset-snapshot.schema.json": (DatasetSnapshot, "https://schemas.servicefabric.ai/risk/v0.1/dataset-snapshot.schema.json"),
+    "exposure-snapshot.schema.json": (ExposureSnapshot, "https://schemas.servicefabric.ai/risk/v0.1/exposure-snapshot.schema.json"),
     "source-reference.schema.json": (SourceReference, "https://schemas.servicefabric.ai/risk/v0.1/source-reference.schema.json"),
     "instrument-identifier.schema.json": (InstrumentIdentifier, "https://schemas.servicefabric.ai/risk/v0.1/instrument-identifier.schema.json"),
     "instrument.schema.json": (Instrument, "https://schemas.servicefabric.ai/risk/v0.1/instrument.schema.json"),
     "position.schema.json": (Position, "https://schemas.servicefabric.ai/risk/v0.1/position.schema.json"),
+    "position-exposure.schema.json": (PositionExposure, "https://schemas.servicefabric.ai/risk/v0.1/position-exposure.schema.json"),
     "cash-balance.schema.json": (CashBalance, "https://schemas.servicefabric.ai/risk/v0.1/cash-balance.schema.json"),
     "market-observation.schema.json": (MarketObservation, "https://schemas.servicefabric.ai/risk/v0.1/market-observation.schema.json"),
     "fundamental-observation.schema.json": (FundamentalObservation, "https://schemas.servicefabric.ai/risk/v0.1/fundamental-observation.schema.json"),

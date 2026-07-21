@@ -1,0 +1,46 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/position-exposure.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A position market value and its signed share of portfolio NAV.",
+  "properties": {
+    "instrument_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Instrument Id",
+      "type": "string"
+    },
+    "market_value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Market Value"
+    },
+    "weight": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "description": "Signed market value divided by portfolio NAV, which includes cash.",
+      "title": "Weight"
+    }
+  },
+  "required": [
+    "instrument_id",
+    "market_value",
+    "weight"
+  ],
+  "title": "PositionExposure",
+  "type": "object"
+}

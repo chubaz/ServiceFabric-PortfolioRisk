@@ -1,0 +1,44 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/dataset-file.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A materialized dataset artifact referenced by an immutable snapshot.",
+  "properties": {
+    "digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Digest",
+      "type": "string"
+    },
+    "media_type": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Media Type",
+      "type": "string"
+    },
+    "path": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Path",
+      "type": "string"
+    },
+    "row_count": {
+      "minimum": 0,
+      "title": "Row Count",
+      "type": "integer"
+    },
+    "size": {
+      "minimum": 0,
+      "title": "Size",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "path",
+    "media_type",
+    "size",
+    "digest",
+    "row_count"
+  ],
+  "title": "DatasetFile",
+  "type": "object"
+}
