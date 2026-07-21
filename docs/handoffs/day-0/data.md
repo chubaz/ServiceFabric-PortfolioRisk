@@ -4,19 +4,18 @@
 - Branch: `feature/day0-data`
 - Base: `day0-prepared`
 - Head: `c05e48c` (working tree changes are intentionally uncommitted)
-- Status: complete pending integration review
+- Status: Wave 0B complete pending integration review
 
 ## Objective
 
-Provide provider-neutral ingestion contracts and deterministic in-memory,
-explicitly synthetic fixtures without any real provider access or local data
-storage.
+Materialize the deterministic, explicitly synthetic Day 0 data flow from
+schema-validated provider rows through normalized records into local-only
+Parquet, DuckDB views, and immutable domain snapshot manifests.
 
 ## Changed paths
 
 - `packages/risk_data/**`
 - `connectors/**`
-- `data/schemas/README.md`
 - `tests/data/**`
 - `docs/handoffs/day-0/data.md`
 
@@ -24,6 +23,8 @@ storage.
 
 - `risk_domain.MarketObservation` and `risk_domain.FundamentalObservation`
 - `risk_domain.InstrumentIdentifier`, `QualityFlag`, and `SourceReference`
+- `risk_domain.DatasetFile`, `DatasetProvenance`, and canonical
+  `DatasetSnapshot`
 - canonical digest helpers from `risk_domain.digests`
 
 ## Commands executed
@@ -37,42 +38,53 @@ storage.
 Focused data tests cover deterministic output, disabled WRDS stubs, explicit
 missing observations (including empty query coverage), duplicate detection,
 stale flags, identifier and ISO 4217 currency validation, synthetic provenance
-enforcement, domain mapping, and the in-memory no-write boundary. `make
-test-data` passed: 11 tests in 0.23s.
+enforcement, domain mapping, actual Parquet output, DuckDB views, immutable
+artifact manifests, CLI execution, and the external temporary-directory write
+boundary. `make test-data` passed: 13 tests in 0.91s.
 
 ## Evidence
 
-- Fixed fixture seed `20260721`; fixtures use fictional `NOVA`, `ORBIT`, and
-  `QUASAR` symbols.
-- Fixture timestamps are timezone-aware UTC values.
-- Market fixture retains one missing value, one duplicate candidate, one stale
-  value, and a final `NOVA` negative move from `101.25` to `57.00`.
+- Fixed fixture seed `20260721`; persisted fixtures use fictional `ALPHA`,
+  `BETA`, and `GAMMA` symbols with UTC timestamps and explicit synthetic
+  metadata.
+- Five daily prices per instrument support return calculations. The final
+  `ALPHA` daily return is exactly -12%; `BETA` and `GAMMA` retain normal-range
+  movements.
+- Validation evidence records 25 input rows, 21 accepted rows, 4 rejected
+  candidates, and one each of duplicate, missing identifier, stale observation,
+  and missing value. Manifests retain source and artifact SHA-256 digests.
+- The pipeline writes only beneath `PORTFOLIO_RISK_DATA_ROOT` (or the explicit
+  `--output` root) and rejects repository-local output and pre-existing target
+  artifacts.
 - WRDS adapters immediately raise `ConnectorDisabledError`; they contain no
   network client or provider credential handling.
 
 ## Deviations
 
-No persisted schema snapshot was generated: Wave 0A contracts are Python-first
-and generated snapshots are integration-owned.
+The Day 0 synthetic provider is intentionally in-memory. Its deliberate invalid
+candidates are rejected before Parquet materialization solely to demonstrate
+quality evidence.
 
 ## Blockers
 
-`make preflight` cannot complete locally because `gh` reports the configured
-GitHub token has expired during `env-check`. This is unrelated to the data
+`make preflight` remains unavailable because `gh` reports the configured GitHub
+token has expired during `env-check`. This is unrelated to the data
 implementation.
 
 ## Limitations
 
-No real network access, provider authentication, Parquet, DuckDB, cache, or
-other persistence exists. Duplicate candidates are retained for validation and
-future rejection flow testing rather than silently overwritten.
+No real network access, provider authentication, licensed data, cache, broker
+connectivity, or mutable-update path exists. Artifacts are immutable at their
+target paths; a new root or revision is needed for a subsequent ingestion.
 
 ## Rollback
 
-Remove the listed uncommitted data-lane paths or revert the future focused
-integration commit. No external state or data file is created.
+Delete the explicitly selected external data root if it was created for a local
+run, then remove the listed uncommitted data-lane paths or revert the future
+focused integration commit.
 
 ## Recommended next action
 
-Run `make test-data` and `git diff --check` in integration, then accept the
-focused data-lane change after the preflight GitHub authentication is repaired.
+Run `make test-data` and `git diff --check` in integration, then exercise
+`python -m risk_data.cli ingest-synthetic --output ROOT` with an external data
+root before accepting the focused data-lane change.
