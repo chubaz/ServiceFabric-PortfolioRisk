@@ -21,6 +21,7 @@ from starlette.formparsers import MultiPartException
 ROOT = Path(__file__).resolve().parents[2]
 APPLICATION_DIR = ROOT / "apps" / "portfolio-risk-workbench"
 PACKAGE_PATHS = (
+    "apps/portfolio-risk-workbench/analysis_service.py",
     "apps/portfolio-risk-workbench/app.py",
     "apps/portfolio-risk-workbench/presentation.py",
     "apps/portfolio-risk-workbench/pyproject.toml",
@@ -73,8 +74,8 @@ def application() -> FastAPI:
     return module.app
 
 
-def call(app: FastAPI, method: str, path: str, **kwargs: object) -> object:
-    route = next(item for item in app.routes if item.path == path and method in getattr(item, "methods", set()))
+def call(app: FastAPI, http_method: str, path: str, **kwargs: object) -> object:
+    route = next(item for item in app.routes if item.path == path and http_method in getattr(item, "methods", set()))
     result = route.endpoint(**kwargs)
     return asyncio.run(result) if inspect.isawaitable(result) else result
 
@@ -132,15 +133,167 @@ def test_dashboard_and_portfolio_render_day0_snapshot_metrics(application: FastA
     assert "Snapshot history" in portfolio
 
 
-def test_risk_page_separates_exposure_from_unimplemented_analytics(application: FastAPI) -> None:
+def test_risk_page_renders_reviewed_analysis_metadata_and_accessible_returns(application: FastAPI) -> None:
     body = html(application, "/risk")
-    assert "Current Day 0 exposure arithmetic" in body
-    assert "Position weights" in body
+    assert "Explainable risk analysis" in body
+    assert "Registered reviewed methodology" in body
+    assert "Simple returns" in body
+    assert "Simple-Return" in body
+    assert "Observation count" in body and "Horizon" in body and "Sample" in body
+    assert "Output digest" in body and "sha256:" in body
+    assert "Evidence, assumptions, warnings, and limitations" in body
+    assert "Return path supporting the analysis" in body
+    assert "Underlying accessible return observations" in body
     assert 'role="img" aria-label=' in body
     widths = [float(value) for value in re.findall(r'style="width: ([0-9.]+)%"', body)]
     assert widths and all(0 <= value <= 100 for value in widths)
-    assert "Risk analytics arrive in Wave 1C" in body
-    assert "not VaR, stress testing, factor analysis, a forecast" in body
+    assert "do not predict outcomes, claim certainty" in body
+
+
+@pytest.mark.parametrize(
+    ("method", "expected"),
+    (
+        ("simple_returns", "Simple returns"),
+        ("log_returns", "Log returns"),
+        ("annualized_volatility", "Annualized volatility"),
+        ("maximum_drawdown", "Maximum drawdown"),
+        ("historical_var", "Historical VaR"),
+        ("historical_expected_shortfall", "Historical expected shortfall"),
+        ("contribution_summary", "Contribution summary"),
+        ("fixed_scenario", "Scenario portfolio P&amp;L"),
+    ),
+)
+def test_each_reviewed_risk_method_renders(application: FastAPI, method: str, expected: str) -> None:
+    body = html(application, "/risk", method=method)
+    assert expected in body
+    assert "Registered capability" in body
+    assert "Human review" in body and "Effects" in body and ">Empty<" in body
+
+
+def test_tail_warning_and_fixed_scenario_shocks_are_prominent(application: FastAPI) -> None:
+    for method in ("historical_var", "historical_expected_shortfall"):
+        body = html(application, "/risk", method=method, confidence="0.95")
+        assert 'class="tail-warning" role="alert"' in body
+        assert "Inadequate historical tail sample" in body
+        assert "inadequate-tail-sample" in body
+        assert "no prediction or certainty claim" in body
+
+    body = html(application, "/risk", method="fixed_scenario", scenario="concentrated_holding_minus_20")
+    for scenario_id in (
+        "broad_market_minus_10",
+        "concentrated_holding_minus_20",
+        "rates_sensitive_assets_minus_5",
+    ):
+        assert scenario_id in body
+    for shock in ("-10.0%", "-20.0%", "-5.0%"):
+        assert shock in body
+    assert "No free-form executable scenario language" in body
+
+
+def test_analysis_observations_and_evidence_are_bounded_by_snapshot_as_of(application: FastAPI) -> None:
+    older_csv = VALID_CSV.replace(b"2026-07-21T00:00:00Z", b"2026-07-15T00:00:00Z")
+    preview = call(
+        application,
+        "POST",
+        "/api/portfolio/previews",
+        file=upload("older-portfolio.csv", older_csv, "text/csv"),
+        profile="personal_portfolio",
+        base_currency="USD",
+        as_of="2026-07-15T00:00:00Z",
+    )
+    snapshot = call(
+        application,
+        "POST",
+        "/api/portfolio/previews/{preview_id}/confirm",
+        preview_id=preview["preview_id"],
+        request=PortfolioConfirmationRequest(confirm=True, preview_digest=preview["preview_id"]),
+    )["snapshot"]
+    envelope = call(
+        application,
+        "GET",
+        "/api/risk/analyses/{method_id}",
+        method_id="simple_returns",
+        profile="personal_portfolio",
+        snapshot_id=snapshot["snapshot_id"],
+    )
+    analysis = envelope.analysis
+    assert analysis.sample_period.end.isoformat() == "2026-07-15T00:00:00+00:00"
+    assert all(item.observed_at <= analysis.sample_period.end for item in analysis.observations)
+    assert analysis.observation_count == 2
+    assert "bounded by the selected snapshot as-of" in analysis.evidence[0].description
+
+
+def test_personal_scenarios_use_only_snapshot_instruments_and_timeline_completes(application: FastAPI) -> None:
+    preview = call(
+        application,
+        "POST",
+        "/api/portfolio/previews",
+        file=upload("portfolio.csv", VALID_CSV, "text/csv"),
+        profile="personal_portfolio",
+        base_currency="USD",
+        as_of="2026-07-21T00:00:00Z",
+    )
+    snapshot = call(
+        application,
+        "POST",
+        "/api/portfolio/previews/{preview_id}/confirm",
+        preview_id=preview["preview_id"],
+        request=PortfolioConfirmationRequest(confirm=True, preview_digest=preview["preview_id"]),
+    )["snapshot"]
+    envelope = call(
+        application,
+        "GET",
+        "/api/risk/analyses/{method_id}",
+        method_id="fixed_scenario",
+        profile="personal_portfolio",
+        snapshot_id=snapshot["snapshot_id"],
+        scenario="broad_market_minus_10",
+    )
+    assert [(item.instrument_id, str(item.percentage_shock)) for item in envelope.analysis.shocks] == [
+        ("instrument-alpha", "-0.10")
+    ]
+    timeline = call(
+        application,
+        "GET",
+        "/api/agent-timelines",
+        profile="personal_portfolio",
+        snapshot_id=snapshot["snapshot_id"],
+    ).agent_timelines[0].timeline
+    assert timeline.status == "succeeded"
+    assert [step.sequence for step in timeline.steps] == [1, 2, 3, 4]
+    assert all(step.effects == () for step in timeline.steps)
+
+    with pytest.raises(HTTPException) as unavailable:
+        call(
+            application,
+            "GET",
+            "/api/risk/analyses/{method_id}",
+            method_id="fixed_scenario",
+            profile="personal_portfolio",
+            snapshot_id=snapshot["snapshot_id"],
+            scenario="rates_sensitive_assets_minus_5",
+        )
+    assert unavailable.value.status_code == 422
+    assert "unavailable for the selected snapshot instruments" in unavailable.value.detail
+
+
+def test_unknown_scenario_is_rejected_without_default_substitution(application: FastAPI) -> None:
+    with pytest.raises(HTTPException) as detail:
+        call(
+            application,
+            "GET",
+            "/api/risk/analyses/{method_id}",
+            method_id="fixed_scenario",
+            scenario="unreviewed_scenario",
+        )
+    assert detail.value.status_code == 422
+    assert "reviewed fixed catalogue" in detail.value.detail
+
+    response = call(application, "GET", "/risk", method="fixed_scenario", scenario="unreviewed_scenario")
+    assert response.status_code == 422
+    body = response.body.decode()
+    assert "reviewed fixed catalogue" in body
+    assert "Scenario portfolio P&amp;L" not in body
 
 
 def test_profile_selection_is_local_private_and_profile_aware(application: FastAPI) -> None:
@@ -325,9 +478,162 @@ def test_json_apis_and_day0_capabilities_are_preserved(application: FastAPI) -> 
     assert news["effects"] == alert["effects"] == exposure["effects"] == anomaly["effects"] == []
 
 
-def test_no_broker_order_trade_or_rebalance_route(application: FastAPI) -> None:
+def test_wave_1c_typed_apis_preserve_analyses_timelines_and_reports(application: FastAPI) -> None:
+    analyses = call(application, "GET", "/api/risk/analyses")
+    assert len(analyses.analyses) == 8
+    assert {item.capability_id for item in analyses.analyses} == {
+        "risk.returns.simple",
+        "risk.returns.log",
+        "risk.volatility.annualized",
+        "risk.drawdown.maximum",
+        "risk.var.historical",
+        "risk.expected_shortfall.historical",
+        "risk.scenario.evaluate",
+        "risk.contribution.summarize",
+    }
+    assert all(item.analysis.output_digest.startswith("sha256:") for item in analyses.analyses)
+    assert all(item.effects == () and item.human_review_required for item in analyses.analyses)
+
+    timelines = call(application, "GET", "/api/agent-timelines")
+    timeline = timelines.agent_timelines[0].timeline
+    assert [step.sequence for step in timeline.steps] == [1, 2, 3, 4]
+    assert {step.role for step in timeline.steps} == {
+        "risk.agent.market_data",
+        "risk.agent.portfolio_exposure",
+        "risk.agent.news_sentiment",
+        "risk.agent.alert_recommendation",
+    }
+    assert all(step.receipt.capability_id == step.capability_id for step in timeline.steps)
+    assert all(step.evidence and step.output_digest.startswith("sha256:") for step in timeline.steps)
+    assert all(step.review.state == "pending" and step.effects == () for step in timeline.steps)
+    assert timeline.effects == ()
+
+    reports = call(application, "GET", "/api/reports")
+    report = reports.reports[0]
+    assert report.report.markdown.startswith("# Simple returns review report")
+    assert report.report.html.startswith('<article class="risk-report"')
+    assert report.publication_available is False and report.review_state == "pending"
+
+
+def test_wave_1c_api_response_models_serialize_concrete_contracts(application: FastAPI) -> None:
+    analyses = call(application, "GET", "/api/risk/analyses")
+    timelines = call(application, "GET", "/api/agent-timelines")
+    reports = call(application, "GET", "/api/reports")
+    payloads = analyses.model_dump(mode="json")["analyses"]
+    assert len(payloads) == 8
+    simple = next(item for item in payloads if item["capability_id"] == "risk.returns.simple")
+    assert simple["analysis"]["observations"]
+    scenario = next(item for item in payloads if item["capability_id"] == "risk.scenario.evaluate")
+    assert scenario["analysis"]["shocks"]
+    assert len(timelines.model_dump(mode="json")["agent_timelines"][0]["timeline"]["steps"]) == 4
+    assert reports.model_dump(mode="json")["reports"][0]["report"]["markdown"].startswith("# Simple returns")
+
+
+def test_wave_1c_collection_apis_translate_expected_query_and_empty_states(application: FastAPI) -> None:
+    cases = (
+        ("/api/risk/analyses", {"confidence": "not-reviewed"}, "reviewed values"),
+        ("/api/risk/analyses", {"scenario": "not-reviewed"}, "reviewed fixed catalogue"),
+        ("/api/risk/analyses", {"profile": "personal_portfolio"}, "No immutable portfolio snapshot"),
+        ("/api/agent-timelines", {"profile": "personal_portfolio"}, "No immutable portfolio snapshot"),
+        ("/api/reports", {"method": "not-reviewed"}, "registered reviewed capability"),
+        ("/api/reports", {"profile": "personal_portfolio"}, "No immutable portfolio snapshot"),
+    )
+    for path, arguments, expected in cases:
+        with pytest.raises(HTTPException) as error:
+            call(application, "GET", path, **arguments)
+        assert error.value.status_code == 422
+        assert expected in error.value.detail
+
+
+def test_reviewed_servicefabric_action_paths_match_manifest_and_remain_effect_free(application: FastAPI) -> None:
+    manifest = json.loads((APPLICATION_DIR / "servicefabric-package.json").read_text())
+    declared = {item["tool_id"]: item["path"] for item in manifest["capabilities"]}
+    reviewed = {
+        "risk.returns.simple": "/actions/risk-returns-simple",
+        "risk.returns.log": "/actions/risk-returns-log",
+        "risk.volatility.annualized": "/actions/risk-volatility-annualized",
+        "risk.drawdown.maximum": "/actions/risk-drawdown-maximum",
+        "risk.var.historical": "/actions/risk-var-historical",
+        "risk.expected_shortfall.historical": "/actions/risk-expected-shortfall-historical",
+        "risk.scenario.evaluate": "/actions/risk-scenario-evaluate",
+        "risk.contribution.summarize": "/actions/risk-contribution-summarize",
+        "risk.report.render": "/actions/risk-report-render",
+    }
+    assert reviewed.items() <= declared.items()
+    available = {(method, route.path) for route in application.routes for method in getattr(route, "methods", set())}
+    assert all(("POST", path) in available for path in reviewed.values())
+    for capability_id, path in reviewed.items():
+        result = call(application, "POST", path)
+        assert result["capability_id"] == capability_id
+        assert result["effects"] == []
+
+
+def test_agent_screen_renders_four_ordered_capability_receipts(application: FastAPI) -> None:
+    body = html(application, "/agents")
+    assert "Four-role analysis timeline" in body
+    for sequence in range(1, 5):
+        assert f"Step {sequence} ·" in body
+    for role in ("risk.agent.market_data", "risk.agent.portfolio_exposure", "risk.agent.news_sentiment", "risk.agent.alert_recommendation"):
+        assert role in body
+    assert body.count("Capability receipt") == 4
+    assert body.count(">Empty<") >= 4
+    assert body.count("Pending · human review required") == 4
+
+
+def test_human_readable_html_and_downloadable_markdown_reports(application: FastAPI) -> None:
+    report = call(application, "GET", "/reports/{method_id}", method_id="historical_var")
+    body = report.body.decode()
+    assert report.status_code == 200
+    assert body.startswith("<!doctype html>")
+    assert "Historical VaR review report" in body
+    assert "Source output digest" in body and "Report output digest" in body
+    assert "Human review is pending" in body
+    assert "not investment advice" in body
+
+    markdown = call(application, "GET", "/reports/{method_id}.md", method_id="simple_returns")
+    assert markdown.status_code == 200
+    assert markdown.media_type.startswith("text/markdown")
+    assert "attachment;" in markdown.headers["content-disposition"]
+    assert markdown.body.decode().startswith("# Simple returns review report")
+    assert "## Evidence" in markdown.body.decode()
+
+
+def test_personal_profile_report_cannot_publish(application: FastAPI) -> None:
+    preview = call(
+        application,
+        "POST",
+        "/api/portfolio/previews",
+        file=upload("portfolio.csv", VALID_CSV, "text/csv"),
+        profile="personal_portfolio",
+        base_currency="USD",
+        as_of="2026-07-21T00:00:00Z",
+    )
+    snapshot = call(
+        application,
+        "POST",
+        "/api/portfolio/previews/{preview_id}/confirm",
+        preview_id=preview["preview_id"],
+        request=PortfolioConfirmationRequest(confirm=True, preview_digest=preview["preview_id"]),
+    )["snapshot"]
+    response = call(
+        application,
+        "GET",
+        "/reports/{method_id}",
+        method_id="simple_returns",
+        profile="personal_portfolio",
+        snapshot_id=snapshot["snapshot_id"],
+    )
+    body = response.body.decode()
+    assert response.status_code == 200
+    assert "Private · local · no publication" in body
+    assert "Unavailable for personal profile" in body
+    assert "no publication action is available" in body
+    assert not any("publish" in route.path.lower() for route in application.routes)
+
+
+def test_no_prohibited_effect_pdf_or_notebook_execution_route(application: FastAPI) -> None:
     paths = {route.path.lower() for route in application.routes}
-    prohibited = ("broker", "order", "trade", "rebalance")
+    prohibited = ("broker", "order", "trade", "rebalance", "optimization", "hedge", ".pdf", "notebook-run", "notebook_run")
     assert not any(term in path for path in paths for term in prohibited)
 
 
@@ -593,6 +899,19 @@ def test_manifest_declares_every_application_file_with_matching_hashes(applicati
     assert set(PACKAGE_PATHS) <= {f"apps/portfolio-risk-workbench/{path}" for path in declared}
     for item in manifest["source_files"]:
         assert item["sha256"] == hashlib.sha256((APPLICATION_DIR / item["path"]).read_bytes()).hexdigest()
+
+
+def test_hosted_package_lock_includes_integrated_reviewed_analytics_sources() -> None:
+    package_lock = json.loads((APPLICATION_DIR / "risk-package-lock.json").read_text())
+    assert set(package_lock["packages"]) == {
+        "risk_agents",
+        "risk_analytics",
+        "risk_capabilities",
+        "risk_data",
+        "risk_domain",
+        "risk_planning",
+    }
+    assert re.fullmatch(r"[0-9a-f]{64}", package_lock["packages"]["risk_analytics"])
 
 
 def test_packaged_catalogues_match_reviewed_sources(application: FastAPI) -> None:

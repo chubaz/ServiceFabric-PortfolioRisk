@@ -11,7 +11,7 @@ from urllib.parse import quote, urlencode
 
 import pyarrow.parquet as pq
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette import requests as starlette_requests
 from starlette.formparsers import MultiPartException, MultiPartParser
@@ -36,6 +36,21 @@ if str(APPLICATION_ROOT) not in sys.path:
     sys.path.insert(0, str(APPLICATION_ROOT))
 
 from presentation import profile_view, render_page  # noqa: E402  (the hosted app directory is resolved above)
+from analysis_service import (  # noqa: E402
+    DEFAULT_CONFIDENCE_LEVEL,
+    DEFAULT_SCENARIO_ID,
+    METHOD_BY_ID,
+    REVIEWED_CONFIDENCE_LEVELS,
+    REVIEWED_METHODS,
+    SCENARIO_CATALOGUE,
+    AgentTimelineCollection,
+    AgentTimelineEnvelope,
+    ReportCollection,
+    ReportEnvelope,
+    ReviewedRiskAnalysisService,
+    RiskAnalysisCollection,
+    RiskAnalysisEnvelope,
+)
 from workspace_service import MAX_INPUT_BYTES, PortfolioWorkspace, WorkspaceRecordNotFound, provider_views  # noqa: E402
 
 
@@ -297,6 +312,40 @@ def uploaded_content(file: UploadFile) -> bytes:
 
 def market_observations() -> tuple[MarketObservation, ...]:
     return tuple(item.to_market_observation() for item in records())
+
+
+def analysis_snapshots(profile: str) -> tuple[PortfolioSnapshot, ...]:
+    selected_profile = profile_view(profile).profile_id
+    if selected_profile == "personal_portfolio":
+        return workspace().snapshots()
+    return (portfolio(),)
+
+
+def selected_analysis_snapshot(profile: str, snapshot_id: str = "") -> PortfolioSnapshot:
+    snapshots = analysis_snapshots(profile)
+    if not snapshots:
+        raise ValueError("No immutable portfolio snapshot is available for the selected profile.")
+    if not snapshot_id:
+        return snapshots[-1]
+    selected = next((item for item in snapshots if item.snapshot_id == snapshot_id), None)
+    if selected is None:
+        raise ValueError("The selected immutable portfolio snapshot is unavailable.")
+    return selected
+
+
+def risk_analysis_service(profile: str, snapshot_id: str = "") -> ReviewedRiskAnalysisService:
+    return ReviewedRiskAnalysisService(REGISTRY, selected_analysis_snapshot(profile, snapshot_id), market_observations())
+
+
+def analysis_envelope(profile: str, capability_result: object) -> RiskAnalysisEnvelope:
+    selected_profile = profile_view(profile).profile_id
+    return RiskAnalysisEnvelope(
+        profile=selected_profile,
+        data_state="synthetic-reviewed" if selected_profile == "research" else "local-private",
+        capability_id=capability_result.capability_id,
+        effects=capability_result.effects,
+        analysis=capability_result.data,
+    )
 
 
 def _review(draft: AlertDraft, reviewer: str, decision: str, comment: str) -> dict[str, object]:
@@ -615,11 +664,137 @@ def api_portfolio_comparisons(left_snapshot_id: str = "", right_snapshot_id: str
 
 
 @app.get("/risk")
-def risk(profile: str = "research") -> HTMLResponse:
+def risk(
+    profile: str = "research",
+    snapshot_id: str = "",
+    method: str = "simple_returns",
+    confidence: str = DEFAULT_CONFIDENCE_LEVEL,
+    scenario: str = DEFAULT_SCENARIO_ID,
+) -> HTMLResponse:
     try:
-        return render_page("risk.html", active_page="risk", profile=profile, exposure=current_exposure(), error=None)
-    except (HTTPException, OSError, ValueError, KeyError, TypeError):
-        return render_page("risk.html", active_page="risk", profile=profile, exposure=None, error=_screen_error())
+        selected_profile = profile_view(profile).profile_id
+        service = risk_analysis_service(selected_profile, snapshot_id)
+        result = service.analyze(method, confidence_level=confidence, scenario_id=scenario)
+        source = result.data if method in {"simple_returns", "log_returns"} else service.analyze("simple_returns").data
+        store("risk-analyses", result.data)
+        return render_page(
+            "risk.html",
+            active_page="risk",
+            profile=selected_profile,
+            snapshots=[dumped(item) for item in analysis_snapshots(selected_profile)],
+            selected_snapshot_id=service.snapshot.snapshot_id,
+            methods=REVIEWED_METHODS,
+            selected_method=method,
+            selected_method_label=METHOD_BY_ID[method][0],
+            confidence_levels=REVIEWED_CONFIDENCE_LEVELS,
+            selected_confidence=confidence,
+            scenarios=SCENARIO_CATALOGUE,
+            selected_scenario=scenario,
+            capability_id=result.capability_id,
+            analysis=dumped(result.data),
+            series=getattr(source, "observations", ()),
+            effects=result.effects,
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        message = str(error) if isinstance(error, ValueError) else _screen_error()
+        return render_page(
+            "risk.html",
+            active_page="risk",
+            profile=profile,
+            snapshots=(),
+            methods=REVIEWED_METHODS,
+            confidence_levels=REVIEWED_CONFIDENCE_LEVELS,
+            scenarios=SCENARIO_CATALOGUE,
+            error=message,
+            status_code=422 if isinstance(error, ValueError) else 200,
+        )
+
+
+@app.get("/api/risk/analyses", response_model=RiskAnalysisCollection)
+def api_risk_analyses(
+    profile: str = "research",
+    snapshot_id: str = "",
+    confidence: str = DEFAULT_CONFIDENCE_LEVEL,
+    scenario: str = DEFAULT_SCENARIO_ID,
+) -> RiskAnalysisCollection:
+    try:
+        service = risk_analysis_service(profile, snapshot_id)
+        analyses = tuple(
+            analysis_envelope(
+                profile,
+                service.analyze(method_id, confidence_level=confidence, scenario_id=scenario),
+            )
+            for method_id, _, _ in REVIEWED_METHODS
+        )
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+    return RiskAnalysisCollection(analyses=analyses)
+
+
+@app.get("/api/risk/analyses/{method_id}", response_model=RiskAnalysisEnvelope)
+def api_risk_analysis(
+    method_id: str,
+    profile: str = "research",
+    snapshot_id: str = "",
+    confidence: str = DEFAULT_CONFIDENCE_LEVEL,
+    scenario: str = DEFAULT_SCENARIO_ID,
+) -> RiskAnalysisEnvelope:
+    try:
+        result = risk_analysis_service(profile, snapshot_id).analyze(
+            method_id, confidence_level=confidence, scenario_id=scenario
+        )
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+    return analysis_envelope(profile, result)
+
+
+def _reviewed_action(method_id: str, confidence: str, scenario: str) -> dict[str, object]:
+    result = risk_analysis_service("research").analyze(
+        method_id, confidence_level=confidence, scenario_id=scenario
+    )
+    store("risk-analyses", result.data)
+    return dumped(result)
+
+
+@app.post("/actions/risk-returns-simple")
+def risk_returns_simple_action() -> dict[str, object]:
+    return _reviewed_action("simple_returns", DEFAULT_CONFIDENCE_LEVEL, DEFAULT_SCENARIO_ID)
+
+
+@app.post("/actions/risk-returns-log")
+def risk_returns_log_action() -> dict[str, object]:
+    return _reviewed_action("log_returns", DEFAULT_CONFIDENCE_LEVEL, DEFAULT_SCENARIO_ID)
+
+
+@app.post("/actions/risk-volatility-annualized")
+def risk_volatility_annualized_action() -> dict[str, object]:
+    return _reviewed_action("annualized_volatility", DEFAULT_CONFIDENCE_LEVEL, DEFAULT_SCENARIO_ID)
+
+
+@app.post("/actions/risk-drawdown-maximum")
+def risk_drawdown_maximum_action() -> dict[str, object]:
+    return _reviewed_action("maximum_drawdown", DEFAULT_CONFIDENCE_LEVEL, DEFAULT_SCENARIO_ID)
+
+
+@app.post("/actions/risk-var-historical")
+def risk_var_historical_action(confidence: str = DEFAULT_CONFIDENCE_LEVEL) -> dict[str, object]:
+    return _reviewed_action("historical_var", confidence, DEFAULT_SCENARIO_ID)
+
+
+@app.post("/actions/risk-expected-shortfall-historical")
+def risk_expected_shortfall_historical_action(confidence: str = DEFAULT_CONFIDENCE_LEVEL) -> dict[str, object]:
+    return _reviewed_action("historical_expected_shortfall", confidence, DEFAULT_SCENARIO_ID)
+
+
+@app.post("/actions/risk-scenario-evaluate")
+def risk_scenario_evaluate_action(scenario: str = DEFAULT_SCENARIO_ID) -> dict[str, object]:
+    return _reviewed_action("fixed_scenario", DEFAULT_CONFIDENCE_LEVEL, scenario)
+
+
+@app.post("/actions/risk-contribution-summarize")
+def risk_contribution_summarize_action() -> dict[str, object]:
+    return _reviewed_action("contribution_summary", DEFAULT_CONFIDENCE_LEVEL, DEFAULT_SCENARIO_ID)
 
 
 @app.get("/findings")
@@ -749,6 +924,9 @@ def notebooks(profile: str = "research") -> HTMLResponse:
 @app.get("/agents")
 def agents(profile: str = "research") -> HTMLResponse:
     try:
+        selected_profile = profile_view(profile).profile_id
+        timeline = risk_analysis_service(selected_profile).timeline()
+        store("agent-timelines", timeline)
         runs = files("agent-runs")
         roles = []
         for role in AGENT_ROLES:
@@ -764,17 +942,134 @@ def agents(profile: str = "research") -> HTMLResponse:
             item["name"] = role.objective.split(":", 1)[0]
             item["evidence_summaries"] = summaries
             roles.append(item)
-        return render_page("agents.html", active_page="agents", profile=profile, roles=roles, error=None)
+        return render_page("agents.html", active_page="agents", profile=selected_profile, roles=roles, timeline=dumped(timeline), error=None)
     except (HTTPException, OSError, ValueError, KeyError, TypeError):
-        return render_page("agents.html", active_page="agents", profile=profile, roles=(), error=_screen_error())
+        return render_page("agents.html", active_page="agents", profile=profile, roles=(), timeline=None, error=_screen_error())
+
+
+@app.get("/api/agent-timelines", response_model=AgentTimelineCollection)
+def api_agent_timelines(profile: str = "research", snapshot_id: str = "") -> AgentTimelineCollection:
+    selected_profile = profile_view(profile).profile_id
+    try:
+        timeline = risk_analysis_service(selected_profile, snapshot_id).timeline()
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+    store("agent-timelines", timeline)
+    return AgentTimelineCollection(
+        agent_timelines=(
+            AgentTimelineEnvelope(
+                profile=selected_profile,
+                data_state="synthetic-reviewed" if selected_profile == "research" else "local-private",
+                timeline=timeline,
+            ),
+        )
+    )
 
 
 @app.get("/agent-runs")
 def agent_runs(profile: str = "research") -> HTMLResponse:
     try:
-        return render_page("agent_runs.html", active_page="agents", profile=profile, runs=files("agent-runs"), error=None)
+        return render_page("agent_runs.html", active_page="agents", profile=profile, runs=files("agent-runs"), timelines=files("agent-timelines"), error=None)
     except (HTTPException, OSError, ValueError, KeyError, TypeError):
-        return render_page("agent_runs.html", active_page="agents", profile=profile, runs=(), error=_screen_error())
+        return render_page("agent_runs.html", active_page="agents", profile=profile, runs=(), timelines=(), error=_screen_error())
+
+
+def _report_values(profile: str, snapshot_id: str, method_id: str, confidence: str, scenario: str):
+    selected_profile = profile_view(profile).profile_id
+    service = risk_analysis_service(selected_profile, snapshot_id)
+    analysis, report = service.report(method_id, confidence_level=confidence, scenario_id=scenario)
+    store("risk-analyses", analysis.data)
+    store("reports", report.data)
+    return selected_profile, analysis, report
+
+
+@app.get("/reports/{method_id}.md")
+def markdown_report(
+    method_id: str,
+    profile: str = "research",
+    snapshot_id: str = "",
+    confidence: str = DEFAULT_CONFIDENCE_LEVEL,
+    scenario: str = DEFAULT_SCENARIO_ID,
+) -> Response:
+    try:
+        _, _, report = _report_values(profile, snapshot_id, method_id, confidence, scenario)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+    filename = f"{method_id}-review-report.md"
+    return Response(
+        content=report.data.markdown,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/reports/{method_id}")
+def report_page(
+    method_id: str,
+    profile: str = "research",
+    snapshot_id: str = "",
+    confidence: str = DEFAULT_CONFIDENCE_LEVEL,
+    scenario: str = DEFAULT_SCENARIO_ID,
+) -> HTMLResponse:
+    try:
+        selected_profile, analysis, report = _report_values(
+            profile, snapshot_id, method_id, confidence, scenario
+        )
+        return render_page(
+            "report.html",
+            active_page="risk",
+            profile=selected_profile,
+            report=dumped(report.data),
+            source=dumped(analysis.data),
+            method_id=method_id,
+            snapshot_id=analysis.data.snapshot_id,
+            confidence=confidence,
+            scenario=scenario,
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return render_page(
+            "report.html",
+            active_page="risk",
+            profile=profile,
+            report=None,
+            source=None,
+            error=str(error),
+            status_code=422,
+        )
+
+
+@app.get("/api/reports", response_model=ReportCollection)
+def api_reports(
+    profile: str = "research",
+    snapshot_id: str = "",
+    method: str = "simple_returns",
+    confidence: str = DEFAULT_CONFIDENCE_LEVEL,
+    scenario: str = DEFAULT_SCENARIO_ID,
+) -> ReportCollection:
+    try:
+        selected_profile, _, result = _report_values(
+            profile, snapshot_id, method, confidence, scenario
+        )
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+    return ReportCollection(
+        reports=(
+            ReportEnvelope(
+                profile=selected_profile,
+                data_state="synthetic-reviewed" if selected_profile == "research" else "local-private",
+                report=result.data,
+            ),
+        )
+    )
+
+
+@app.post("/actions/risk-report-render")
+def risk_report_render_action() -> dict[str, object]:
+    _, _, result = _report_values(
+        "research", "", "simple_returns", DEFAULT_CONFIDENCE_LEVEL, DEFAULT_SCENARIO_ID
+    )
+    return dumped(result)
 
 
 @app.get("/plan")

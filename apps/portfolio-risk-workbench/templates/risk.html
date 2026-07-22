@@ -1,26 +1,106 @@
 {% extends "base.html" %}
-{% from "components.html" import disclosure, empty_state, error_state, metric %}
-{% block title %}Risk{% endblock %}
-{% block heading %}Risk{% endblock %}
-{% block intro %}<p class="lead">Current Day 0 exposure arithmetic, clearly separated from analytics that do not yet exist.</p>{% endblock %}
+{% from "components.html" import badge, disclosure, error_state, evidence_drawer, metric %}
+{% block title %}Risk analysis{% endblock %}
+{% block heading %}Explainable risk analysis{% endblock %}
+{% block intro %}<p class="lead">Reviewed descriptive analytics invoked through registered ServiceFabric capabilities, with evidence and limitations kept visible.</p>{% endblock %}
 {% block content %}
-  {% if error %}{{ error_state('Exposure summary is unavailable', error) }}{% else %}
-    <section class="metric-grid" aria-label="Current exposure summary">
-      {{ metric('Net asset value', exposure.nav|currency(exposure.portfolio_snapshot.base_currency)) }}
-      {{ metric('Gross exposure', exposure.gross_exposure|percentage) }}
-      {{ metric('Net exposure', exposure.net_exposure|percentage) }}
-      {{ metric('Cash weight', exposure.cash_weight|percentage) }}
-      {{ metric('Largest position', exposure.largest_position_weight|percentage) }}
-    </section>
-    <section aria-labelledby="exposure-visual-heading">
-      <h2 id="exposure-visual-heading">Position weights</h2>
-      <div class="bar-list">
-        {% for item in exposure.position_exposures %}
-          <div class="bar-row"><span>{{ item.instrument_id }}</span><div class="bar-track" role="img" aria-label="{{ item.instrument_id }} represents {{ item.weight|percentage }} of NAV"><span style="width: {{ item.weight|bar_width }}%"></span></div><strong>{{ item.weight|percentage }}</strong></div>
-        {% endfor %}
+  {{ disclosure('Interpretation boundary', 'Historical results and fixed scenarios describe supplied evidence. They do not predict outcomes, claim certainty, provide investment advice, or authorize a portfolio effect.', 'critical') }}
+  {% if error %}{{ error_state('Risk analysis is unavailable', error) }}{% else %}
+    <form method="get" action="/risk" class="selector-panel" aria-label="Risk analysis selectors">
+      <input type="hidden" name="profile" value="{{ profile.profile_id }}">
+      <div class="field">
+        <label for="snapshot_id">Portfolio snapshot</label>
+        <select id="snapshot_id" name="snapshot_id">
+          {% for snapshot in snapshots %}<option value="{{ snapshot.snapshot_id }}"{% if snapshot.snapshot_id == selected_snapshot_id %} selected{% endif %}>{{ snapshot.snapshot_id }} · {{ snapshot.as_of|timestamp }}</option>{% endfor %}
+        </select>
       </div>
+      <div class="field">
+        <label for="method">Registered reviewed methodology</label>
+        <select id="method" name="method">
+          {% for method_id, label, capability in methods %}<option value="{{ method_id }}"{% if method_id == selected_method %} selected{% endif %}>{{ label }} · {{ capability }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="confidence">Reviewed confidence value</label>
+        <select id="confidence" name="confidence">
+          {% for value in confidence_levels %}<option value="{{ value }}"{% if value == selected_confidence %} selected{% endif %}>{{ value|percentage }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="scenario">Reviewed fixed scenario</label>
+        <select id="scenario" name="scenario">
+          {% for item in scenarios %}<option value="{{ item.scenario_id }}"{% if item.scenario_id == selected_scenario %} selected{% endif %}>{{ item.label }}</option>{% endfor %}
+        </select>
+      </div>
+      <button type="submit">View reviewed analysis</button>
+    </form>
+
+    {% if selected_method in ('historical_var', 'historical_expected_shortfall') and analysis.warnings %}
+      <section class="tail-warning" role="alert" aria-labelledby="tail-warning-heading">
+        <h2 id="tail-warning-heading">Inadequate historical tail sample</h2>
+        {% for warning in analysis.warnings %}<p><strong>{{ warning.code }}:</strong> {{ warning.message }}</p>{% endfor %}
+        <p>This warning is a primary result disclosure. The estimate is descriptive only and makes no prediction or certainty claim.</p>
+      </section>
+    {% endif %}
+
+    <section class="metric-grid" aria-label="Selected risk metrics">
+      {% if selected_method in ('simple_returns', 'log_returns') %}
+        {{ metric(selected_method_label, analysis.observations[-1].value|percentage(2), analysis.observation_count|string + ' return observations') }}
+      {% elif selected_method == 'annualized_volatility' %}
+        {{ metric('Annualized volatility', analysis.annualized_volatility|percentage(2), analysis.periods_per_year|string + ' periods per year') }}
+      {% elif selected_method == 'maximum_drawdown' %}
+        {{ metric('Maximum drawdown', analysis.maximum_drawdown|percentage(2), 'Peak ' + (analysis.peak_at|timestamp) + ' · trough ' + (analysis.trough_at|timestamp)) }}
+      {% elif selected_method == 'historical_var' %}
+        {{ metric('Historical VaR', analysis.value_at_risk|percentage(2), selected_confidence|percentage + ' reviewed confidence', 'warning') }}
+      {% elif selected_method == 'historical_expected_shortfall' %}
+        {{ metric('Historical expected shortfall', analysis.expected_shortfall|percentage(2), selected_confidence|percentage + ' reviewed confidence', 'warning') }}
+      {% elif selected_method == 'fixed_scenario' %}
+        {{ metric('Scenario portfolio P&L', analysis.portfolio_profit_and_loss|currency(analysis.currency), selected_scenario) }}
+      {% elif selected_method == 'contribution_summary' %}
+        {{ metric('Contribution sum', analysis.contribution_sum|percentage(2), analysis.observation_count|string + ' present constituent returns') }}
+      {% endif %}
+      {{ metric('Observation count', analysis.observation_count, 'Missing observations are never represented as zero.') }}
+      {{ metric('Horizon', analysis.horizon.label, analysis.horizon.periods|string + ' period(s)') }}
     </section>
-    {{ disclosure('Methodology boundary', 'These values are deterministic arithmetic summaries from the current snapshot. They are not VaR, stress testing, factor analysis, a forecast, or investment advice.', 'warning') }}
+
+    <section aria-labelledby="methodology-heading">
+      <h2 id="methodology-heading">Methodology and result metadata</h2>
+      <dl class="definition-grid">
+        <div><dt>Registered capability</dt><dd class="identifier">{{ capability_id }}</dd></div>
+        <div><dt>Methodology</dt><dd>{{ analysis.methodology|humanize }}</dd></div>
+        <div><dt>Sample</dt><dd>{{ analysis.sample_period.start|timestamp }} to {{ analysis.sample_period.end|timestamp }}</dd></div>
+        <div><dt>Output digest</dt><dd class="identifier">{{ analysis.output_digest }}</dd></div>
+        <div><dt>Human review</dt><dd>Required · pending</dd></div>
+        <div><dt>Effects</dt><dd>{% if effects %}Unexpected effects recorded{% else %}Empty{% endif %}</dd></div>
+      </dl>
+    </section>
+
+    {% if selected_method == 'fixed_scenario' %}
+      <section aria-labelledby="selected-shocks-heading">
+        <h2 id="selected-shocks-heading">Selected scenario shocks</h2>
+        <div class="table-scroll"><table><thead><tr><th scope="col">Instrument</th><th scope="col" class="numeric">Exact shock</th></tr></thead><tbody>{% for shock in analysis.shocks %}<tr><th scope="row">{{ shock.instrument_id }}</th><td class="numeric">{{ shock.percentage_shock|percentage(1) }}</td></tr>{% endfor %}</tbody></table></div>
+      </section>
+    {% endif %}
+
+    {% if selected_method == 'contribution_summary' %}
+      <section aria-labelledby="contributions-heading"><h2 id="contributions-heading">Contribution summary</h2><div class="table-scroll"><table><thead><tr><th scope="col">Instrument</th><th scope="col" class="numeric">Weight</th><th scope="col" class="numeric">Return</th><th scope="col" class="numeric">Contribution</th></tr></thead><tbody>{% for item in analysis['items'] %}<tr><th scope="row">{{ item.instrument_id }}</th><td class="numeric">{{ item.weight|percentage(2) }}</td><td class="numeric">{{ item.instrument_return|percentage(2) }}</td><td class="numeric">{{ item.contribution|percentage(2) }}</td></tr>{% endfor %}</tbody></table></div></section>
+    {% endif %}
+
+    <section aria-labelledby="returns-visual-heading">
+      <h2 id="returns-visual-heading">Return path supporting the analysis</h2>
+      <div class="return-plot" role="img" aria-label="Signed return observations; every bar includes a positive or negative text label and the same values follow in a table">
+        {% for item in series %}<div class="return-row"><span>{{ item.observed_at|timestamp }}</span><div class="return-track"><span class="return-bar {% if item.value < 0 %}return-negative{% else %}return-positive{% endif %}" style="width: {{ item.value|return_bar_width }}%"></span></div><strong>{% if item.value >= 0 %}+{% endif %}{{ item.value|percentage(2) }}</strong></div>{% endfor %}
+      </div>
+      <div class="table-scroll"><table><caption>Underlying accessible return observations</caption><thead><tr><th scope="col">Observed at</th><th scope="col" class="numeric">Signed return</th></tr></thead><tbody>{% for item in series %}<tr><th scope="row">{{ item.observed_at|timestamp }}</th><td class="numeric">{% if item.value >= 0 %}+{% endif %}{{ item.value|percentage(4) }}</td></tr>{% endfor %}</tbody></table></div>
+    </section>
+
+    <section aria-labelledby="scenario-catalogue-heading">
+      <h2 id="scenario-catalogue-heading">Fixed reviewed scenario catalogue</h2>
+      <p>No free-form executable scenario language is accepted. Every exact shock is visible below.</p>
+      <div class="table-scroll"><table><thead><tr><th scope="col">Scenario</th><th scope="col">Exact reviewed shocks</th></tr></thead><tbody>{% for item in scenarios %}<tr><th scope="row"><span class="identifier">{{ item.scenario_id }}</span><br>{{ item.label }}</th><td><ul>{% for instrument_id, shock in item.shocks %}<li>{{ instrument_id }}: {{ shock|percentage(1) }}</li>{% endfor %}</ul></td></tr>{% endfor %}</tbody></table></div>
+    </section>
+
+    {{ evidence_drawer(analysis.evidence, analysis.assumptions, analysis.warnings, analysis.limitations) }}
+    <p><a class="button-link" href="/reports/{{ selected_method }}?profile={{ profile.profile_id }}&amp;snapshot_id={{ selected_snapshot_id }}&amp;confidence={{ selected_confidence }}&amp;scenario={{ selected_scenario }}">Open human-readable report</a></p>
   {% endif %}
-  {{ empty_state('Risk analytics arrive in Wave 1C', 'Methodology, horizon, sample windows, scenarios, and explainability views are not implemented. No analytics result is implied by this empty state.') }}
 {% endblock %}
