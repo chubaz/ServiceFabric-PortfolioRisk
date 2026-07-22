@@ -136,6 +136,39 @@ the `day0-complete` evidence, or `vendor/servicefabric/**`. To roll back merged
 Day 1 product work, revert accepted candidates in reverse integration order as
 recorded in `config/agent/day1/waves.json`.
 
+## Pull request 16 CI repair addendum
+
+- Lane and branch: integration authority on `integration/day1`.
+- Repair base: `1994a1a9f610bdb94e0bd2fceea35dacb62981fb`.
+- Implementation head: `c7857ae` (`fix(ci): expose risk analytics to day0
+  workflow`); this handoff update is the documentation-only successor.
+- Changed paths: `.github/workflows/day0.yml` and
+  `tests/architecture/test_day1_runtime_boundaries.py`, plus this exact handoff.
+- Failure evidence: PR 16 run `29923176407`, job `88933506974`, passed 228
+  tests and manifest validation before the Day 0 headless journey failed with
+  `ModuleNotFoundError: No module named 'risk_analytics'`.
+- Fix: both Day 0 workflow execution blocks now expose the additive
+  `packages/risk_analytics/src` tree; an architecture test prevents either
+  workflow path from silently dropping it.
+- Tests executed: the exact failed headless journey — PASS with all six
+  artifacts; focused runtime-boundary tests — PASS, 9 tests; `make verify-day0`
+  — PASS; `make verify-day1-current` — PASS; `git diff --check` — PASS.
+- Evidence produced: synthetic Day 0 repair-run artifacts under
+  `/tmp/servicefabric-day0-ci-fix/day0-monitoring`; no repository data artifact
+  was added.
+- Deviations: the local `gh` credential was expired, so failure metadata and
+  logs were read through the connected GitHub integration and public Actions
+  API. This did not affect repository verification.
+- Blockers: none for the implementation. Publishing and remote recheck remain
+  the next actions.
+- Limitations: local verification reproduces the failing command and all
+  deterministic repository gates; GitHub-hosted runner success is confirmed
+  only after the pushed commit completes CI.
+- Rollback: revert `c7857ae` and its documentation-only successor; do not
+  change `vendor/servicefabric/**` or delete immutable repository evidence.
+- Recommended next action: push the two focused commits, watch all PR 16
+  checks, and inspect any residual failure before declaring CI green.
+
 ## Exact Part 6/6 entry point
 
 An identified human reviewer starts Part 6/6 at
