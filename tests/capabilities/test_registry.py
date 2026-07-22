@@ -22,7 +22,15 @@ def snapshot_request() -> PortfolioSnapshotRequest:
 
 def test_registry_has_exactly_the_required_unique_capability_ids() -> None:
     registry = CapabilityRegistry()
-    assert registry.capability_ids == ("alert.draft.review", "alert.draft.synthesize", "data.synthetic.ingest", "market.anomaly.detect", "news.event.classify", "planning.knowledge.list_due", "portfolio.exposure.summarize", "portfolio.snapshot.create")
+    assert registry.capability_ids == (
+        "alert.draft.review", "alert.draft.synthesize", "data.synthetic.ingest",
+        "market.anomaly.detect", "news.event.classify", "planning.knowledge.list_due",
+        "portfolio.exposure.summarize", "portfolio.snapshot.create",
+        "risk.contribution.summarize", "risk.drawdown.maximum",
+        "risk.expected_shortfall.historical", "risk.report.render",
+        "risk.returns.log", "risk.returns.simple", "risk.scenario.evaluate",
+        "risk.var.historical", "risk.volatility.annualized",
+    )
     with pytest.raises(TypeError, match="PortfolioSnapshotRequest"):
         registry.invoke("portfolio.snapshot.create", object())
 

@@ -2,7 +2,8 @@
 
 from .catalog import CAPABILITY_BY_ID, CAPABILITY_DESCRIPTORS, ORDER_AND_BROKER_EFFECTS
 from .contracts import CapabilityDescriptor, CapabilityInput, CapabilityInvocation, CapabilityOutcome, EvidenceReference
-from .registry import AlertDraft, AlertReviewRequest, AlertSynthesisRequest, Anomaly, AnomalyDetectionRequest, AnomalyReport, CapabilityInvocationRecord, CapabilityRegistry, CapabilityResult, CapabilityStopped, DEFAULT_CAPABILITY_REGISTRY, DecisionPoint, ExposureSummaryRequest, MonitoringFinding, NewsClassificationRequest, PortfolioSnapshotRequest, PositionSpecification, SyntheticNewsEvent
+from .analytics import ContributionSummaryRequest, ContributionValue, DerivedReturnsRequest, HistoricalTailRiskRequest, ReportRequest, ReturnsRequest, ScenarioRequest, VolatilityRequest
+from .registry import AlertDraft, AlertReviewRequest, AlertSynthesisRequest, Anomaly, AnomalyDetectionRequest, AnomalyReport, CAPABILITY_REQUEST_TYPES, CapabilityInvocationRecord, CapabilityRegistry, CapabilityResult, CapabilityStopped, DEFAULT_CAPABILITY_REGISTRY, DecisionPoint, ExposureSummaryRequest, MonitoringFinding, NewsClassificationRequest, PortfolioSnapshotRequest, PositionSpecification, SyntheticNewsEvent
 
 __all__ = [
     "CAPABILITY_BY_ID",
@@ -13,10 +14,19 @@ __all__ = [
     "CapabilityInvocation",
     "CapabilityOutcome",
     "EvidenceReference",
+    "ContributionSummaryRequest",
+    "ContributionValue",
+    "DerivedReturnsRequest",
+    "HistoricalTailRiskRequest",
+    "ReportRequest",
+    "ReturnsRequest",
+    "ScenarioRequest",
+    "VolatilityRequest",
     "Anomaly",
     "AnomalyDetectionRequest",
     "AnomalyReport",
     "CapabilityRegistry",
+    "CAPABILITY_REQUEST_TYPES",
     "CapabilityResult",
     "DEFAULT_CAPABILITY_REGISTRY",
     "ExposureSummaryRequest",
