@@ -48,6 +48,12 @@ def test_cumulative_gates_do_not_apply_the_integration_lane_to_all_changes() -> 
     assert cumulative_check not in workflow
 
 
+def test_day0_workflow_exposes_additive_analytics_to_tests_and_journey() -> None:
+    workflow = (ROOT / ".github/workflows/day0.yml").read_text(encoding="utf-8")
+    analytics_source = "$GITHUB_WORKSPACE/packages/risk_analytics/src"
+    assert workflow.count(analytics_source) == 2
+
+
 def test_wave_1a_runs_workbench_tests_in_the_day_1_environment() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     wave_1a = makefile.split(".PHONY: verify-wave-1a", maxsplit=1)[1].split(
