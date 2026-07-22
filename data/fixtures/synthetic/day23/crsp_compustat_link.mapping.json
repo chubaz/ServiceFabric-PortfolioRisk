@@ -1,0 +1,29 @@
+{
+  "manifest_id": "synthetic-crsp-compustat-link-v1",
+  "dataset_kind": "identifier_crosswalk",
+  "target_dataset": "identifier_crosswalk",
+  "key_fields": ["gvkey", "permno", "effective_from"],
+  "fields": [
+    {"source_field": "gvkey", "target_field": "gvkey", "data_type": "string", "nullable": false},
+    {"source_field": "permno", "target_field": "permno", "data_type": "string", "nullable": false},
+    {"source_field": "linkdt", "target_field": "observed_at", "data_type": "date", "nullable": false},
+    {"source_field": "available_at", "target_field": "available_at", "data_type": "datetime", "nullable": false},
+    {"source_field": "linkdt", "target_field": "effective_from", "data_type": "date", "nullable": false},
+    {"source_field": "linkenddt", "target_field": "effective_to", "data_type": "date", "nullable": true, "transformation_ids": ["explicit-open-end"]},
+    {"source_field": "linktype", "target_field": "link_type", "data_type": "string", "nullable": false},
+    {"source_field": "linkprim", "target_field": "link_primary", "data_type": "string", "nullable": false}
+  ],
+  "field_definitions": [
+    {"field_name": "gvkey", "data_type": "string", "nullable": false},
+    {"field_name": "permno", "data_type": "string", "nullable": false},
+    {"field_name": "observed_at", "data_type": "date", "nullable": false},
+    {"field_name": "available_at", "data_type": "datetime", "nullable": false},
+    {"field_name": "effective_from", "data_type": "date", "nullable": false},
+    {"field_name": "effective_to", "data_type": "date", "nullable": true}
+  ],
+  "transformations": [
+    {"transformation_id": "explicit-open-end", "operation": "open_end_date", "source_field": "linkenddt", "target_field": "effective_to", "parameters": {"empty_means": "open_ended"}, "disclosure": "An empty end date is retained as null and accompanied by open_ended=true."}
+  ],
+  "point_in_time_policy": {"observed_at_field": "observed_at", "available_at_field": "available_at", "missing_available_at": "block", "query_filter": "available_at_lte_as_of"},
+  "link_overlap_policy": "reject"
+}
