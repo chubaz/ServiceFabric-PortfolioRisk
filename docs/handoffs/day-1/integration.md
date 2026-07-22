@@ -82,3 +82,23 @@ Revert this integration candidate back to `day1-prepared`; leave Day 0 records
 and `vendor/servicefabric` untouched. Next, accept only focused Wave 1A lane
 candidate changes after the lane-path checker and the appropriate completed
 wave gate pass.
+
+## Wave 1A closure (2026-07-22)
+
+- Lane and branch: integration / `integration/day1`
+- Base and head: `day1-prepared` (`01ff31a3daa0db815da51da16ca19099005149e7`) to the current uncommitted integration worktree; no commit, push, or merge was performed.
+
+### Changed paths
+
+- `tests/integration/test_day1_wave1a.py`: independent acceptance coverage for HTML-first user pages, retained JSON APIs, both profiles, visible profile/data/review badges, complete navigation, evidence disclosure, disabled notebook/provider execution paths, and absence of broker/order/trade/rebalance routes.
+- `requirements/day0.in`, `requirements/day0.lock`, `requirements/day1.in`, and `requirements/day1.lock`: the hosted Day 0 ServiceFabric runtime now installs the Workbench's declared Jinja2 and form-parsing dependencies; Day 1 inherits them from the common reviewed lock.
+- `apps/portfolio-risk-workbench/risk-package-lock.json` and `apps/portfolio-risk-workbench/servicefabric-package.json`: refreshed generated reviewed-package and manifest digests after the accepted Day 1 planning catalogue changed.
+- `tests/architecture/test_day1_preparation.py`: lifecycle harness now asserts the completed Wave 1A / active Wave 1B control-plane state.
+- `config/agent/day1/status.json` and `docs/workplans/current.md`: Wave 1A is complete and Wave 1B is in progress.
+- `docs/handoffs/day-1/integration.md`: this closure record.
+
+### Evidence, deviations, blockers, limitations, and rollback
+
+The Wave 1A gate passed before and after lifecycle advancement, including 42 application, 13 integration, 2 journey, 22 planning, 6 research, and 28 Day 1 architecture tests, alongside the retained Day 0 focused suites. `make verify-day1-current` selected and passed `verify-wave-1a`; `make verify-day0` passed. The isolated Day 0 ServiceFabric smoke rebuilt from the reviewed common lock and passed. Manifest validation reported every packaged source digest valid; the integration acceptance test separately requires every template and static asset to be declared. `git diff --check` passed.
+
+No product feature, provider enablement, notebook execution, broker connectivity, order, trade, rebalance, external LLM, or ServiceFabric submodule change was added. The only packaging correction moves dependencies already declared by the reviewed Workbench into the lock consumed by the hosted runtime. Final Day 0 and hosted-smoke evidence is recorded after their requested commands complete. Rollback is a focused revert of these integration-owned files, leaving immutable records and `vendor/servicefabric/**` untouched. The recommended next action is the scoped Wave 1B data-lane work; Wave 1C remains unavailable.

@@ -1,8 +1,8 @@
 {
-  "current": "D1-WAVE-1A",
+  "current": "D1-WAVE-1B",
   "preparation": "complete",
-  "wave_1a": "in_progress",
-  "wave_1b": "queued",
+  "wave_1a": "complete",
+  "wave_1b": "in_progress",
   "wave_1c": "queued",
   "soft_qa": "queued",
   "base_tag": "day0-complete"
