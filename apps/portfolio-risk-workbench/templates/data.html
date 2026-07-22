@@ -12,8 +12,9 @@
       {{ metric('Latest observation', summary.latest_observation|timestamp, 'Timestamp, not a freshness guarantee') }}
       {{ metric('Missing values', summary.missing_count, 'Explicitly retained; never zero-filled', 'warning' if summary.missing_count else 'neutral') }}
     </section>
+    <section aria-labelledby="files-heading"><h2 id="files-heading">Dataset files</h2><div class="table-scroll" tabindex="0" role="region" aria-label="Dataset file catalogue"><table><thead><tr><th scope="col">Logical file</th><th scope="col" class="numeric">Rows</th><th scope="col">Media type</th><th scope="col">Digest</th><th scope="col">Freshness</th></tr></thead><tbody>{% for item in dataset_files %}<tr><th scope="row">{{ item.path }}</th><td class="numeric">{{ item.row_count }}</td><td>{{ item.media_type }}</td><td>{{ item.digest }}</td><td>{{ summary.latest_observation|timestamp if 'market' in item.path else 'Fixture-dated' }}</td></tr>{% else %}<tr><td colspan="5">Dataset file manifest unavailable; this is not a zero-row result.</td></tr>{% endfor %}</tbody></table></div></section>
     <section aria-labelledby="quality-heading">
-      <h2 id="quality-heading">Quality and provenance</h2>
+      <h2 id="quality-heading">Dataset files, quality, and provenance</h2>
       <div class="table-scroll" tabindex="0" role="region" aria-label="Data quality and provenance table">
         <table><thead><tr><th scope="col">Instrument</th><th scope="col">Observed at</th><th scope="col">Value</th><th scope="col">Quality flags</th><th scope="col">Provenance</th></tr></thead>
         <tbody>{% for item in observations %}<tr><th scope="row">{{ item.instrument_id }}</th><td>{{ item.observed_at|timestamp }}</td><td>{{ item.price|currency(item.currency) }}</td><td><span class="badge badge-{{ 'warning' if item.price is none else 'success' }}">{{ 'Missing' if item.price is none else 'Complete' }}</span></td><td>{{ item.source_id }} · synthetic fixture {{ item.fixture_seed }}</td></tr>{% endfor %}</tbody></table>
@@ -25,5 +26,6 @@
       <p><span>Publication</span><strong>No private or licensed extracts</strong></p>
       <p><span>Freshness</span><strong>As observed; no live refresh</strong></p>
     </section>
+    <section aria-labelledby="manifest-heading"><h2 id="manifest-heading">Fixed query manifests</h2><div class="table-scroll" tabindex="0" role="region" aria-label="Fixed query manifests"><table><thead><tr><th scope="col">Manifest</th><th scope="col">Source / view</th><th scope="col">Fields</th><th scope="col">Access / rights / zone</th><th scope="col">Freshness / quality</th><th scope="col">Provenance / publication</th></tr></thead><tbody>{% for item in manifests %}<tr><th scope="row">{{ item.manifest_id }}</th><td>{{ item.source_id }} · {{ item.view_name }}</td><td>{{ item.requested_fields|join(', ') }}</td><td>{{ item.access_state|humanize }} · {{ item.rights_state|humanize }} · {{ item.data_zone|humanize }}</td><td>{{ item.freshness }} · {{ item.quality_flags|join(', ') }}</td><td>{{ item.provenance }} · {{ item.publication_restriction }}</td></tr>{% else %}<tr><td colspan="6">No reviewed fixed manifest is available; this is not a zero-row result.</td></tr>{% endfor %}</tbody></table></div><p class="help-text">Only these reviewed fixed views are exposed. Arbitrary SQL remains unavailable.</p></section>
   {% endif %}
 {% endblock %}

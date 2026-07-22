@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure, error_state %}
+{% block title %}Portfolio preview{% endblock %}
+{% block heading %}Portfolio validation preview{% endblock %}
+{% block intro %}<p class="lead">Review format, digest, validation issues, quality flags, and evidence before confirmation.</p>{% endblock %}
+{% block content %}
+  {% if error %}{{ error_state('Preview unavailable', error) }}{% endif %}
+  {% if preview %}
+    <section class="metadata-strip" aria-label="Preview metadata"><p><span>Preview ID</span><strong>{{ preview.preview_id }}</strong></p><p><span>Format</span><strong>{{ preview.format }}</strong></p><p><span>Preview digest</span><strong>{{ preview.digest }}</strong></p><p><span>Input digest</span><strong>{{ preview.content_digest|display }}</strong></p><p><span>Validation</span><strong>{{ preview.validation_state }}</strong></p><p><span>Quality flags</span><strong>{{ preview.quality_flags|join(', ') if preview.quality_flags else 'None reported' }}</strong></p></section>
+    <section aria-labelledby="issues-heading"><h2 id="issues-heading">Validation issues</h2><ul class="plain-list">{% for issue in preview.issues %}<li><span>{{ issue.message }}</span><strong>{{ issue.severity }}</strong></li>{% else %}<li>No validation issues reported.</li>{% endfor %}</ul></section>
+    {% if preview.confirmable %}<form method="post" action="/portfolio/import/confirm/{{ preview.preview_id }}{{ profile_query }}"><input type="hidden" name="confirm_digest" value="{{ preview.digest }}"><label class="choice-card"><input type="checkbox" name="confirm_snapshot" value="confirmed" required> <span><strong>I confirm this exact digest</strong><small>Confirmation creates a new immutable snapshot; it cannot edit or overwrite an existing one.</small></span></label><button type="submit">Create immutable snapshot</button></form>{% else %}{{ disclosure('Confirmation blocked', 'This preview is invalid or incomplete. Correct the input and create a new preview; no confirmation control is available.', 'critical') }}{% endif %}
+  {% else %}{{ disclosure('No preview record', 'No raw upload or partial portfolio data is shown. A reviewed data-service response is required before a preview can be displayed.', 'warning') }}{% endif %}
+{% endblock %}

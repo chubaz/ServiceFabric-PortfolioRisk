@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% from "components.html" import empty_state, error_state %}
+{% block title %}Portfolio snapshots{% endblock %}{% block heading %}Portfolio snapshots{% endblock %}
+{% block intro %}<p class="lead">Immutable snapshot history. Corrections create new snapshots; existing snapshots are never edited or deleted.</p>{% endblock %}
+{% block content %}{% if error %}{{ error_state('Snapshot history unavailable', error) }}{% endif %}{% if snapshots %}<div class="table-scroll" tabindex="0" role="region" aria-label="Portfolio snapshots"><table><thead><tr><th>Snapshot ID</th><th>As of</th><th>NAV</th><th>Digest / evidence</th></tr></thead><tbody>{% for item in snapshots %}<tr><th><a href="/portfolio/snapshots/{{ item.snapshot_id }}{{ profile_query }}">{{ item.snapshot_id }}</a></th><td>{{ item.as_of|timestamp }}</td><td>{{ item.nav|currency(item.base_currency) }}</td><td>{{ item.digest }}</td></tr>{% endfor %}</tbody></table></div>{% else %}{{ empty_state('No local snapshots available', 'A valid reviewed preview is required before an immutable local snapshot can exist.') }}{% endif %}{% endblock %}

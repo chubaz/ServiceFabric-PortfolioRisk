@@ -2,29 +2,32 @@
 {% from "components.html" import disclosure, empty_state, error_state %}
 {% block title %}Portfolio{% endblock %}
 {% block heading %}Portfolio{% endblock %}
-{% block intro %}<p class="lead">Readable holdings from one immutable, locally stored synthetic snapshot.</p>{% endblock %}
+{% block intro %}<p class="lead">Holdings and immutable snapshot history for review. Personal inputs stay private and local.</p>{% endblock %}
+{% block heading_action %}<a class="button-link" href="/portfolio/import?profile=personal_portfolio">{% if profile.profile_id == 'research' %}Switch to personal profile to import{% else %}Import portfolio{% endif %}</a>{% endblock %}
 {% block content %}
-  {% if error %}{{ error_state('Portfolio snapshot is unavailable', error) }}{% else %}
+  {% if error %}{{ error_state('Portfolio snapshot is unavailable', error) }}{% elif snapshot %}
     <section class="metadata-strip" aria-label="Snapshot metadata">
       <p><span>Snapshot ID</span><strong>{{ snapshot.snapshot_id }}</strong></p>
       <p><span>As of</span><strong>{{ snapshot.as_of|timestamp }}</strong></p>
       <p><span>Base currency</span><strong>{{ snapshot.base_currency }}</strong></p>
-      <p><span>State</span><strong>Synthetic · immutable</strong></p>
+      <p><span>Net asset value</span><strong>{{ snapshot.nav|currency(snapshot.base_currency) }}</strong></p>
+      <p><span>State</span><strong>{% if profile.profile_id == 'personal_portfolio' %}Private · local · immutable{% else %}Synthetic · immutable · reviewed{% endif %}</strong></p>
     </section>
     <section aria-labelledby="holdings-heading">
       <div class="section-heading"><div><p class="eyebrow">Current snapshot</p><h2 id="holdings-heading">Holdings</h2></div></div>
-      <div class="table-scroll" tabindex="0" role="region" aria-label="Portfolio holdings table">
-        <table>
-          <thead><tr><th scope="col">Instrument</th><th scope="col" class="numeric">Quantity</th><th scope="col" class="numeric">Price</th><th scope="col" class="numeric">Market value</th></tr></thead>
-          <tbody>{% for position in snapshot.positions %}<tr><th scope="row">{{ position.instrument_id }}</th><td class="numeric">{{ position.quantity|number }}</td><td class="numeric">{{ position.price|currency(position.currency) }}</td><td class="numeric">{{ position.market_value|currency(position.currency) }}</td></tr>{% endfor %}</tbody>
-        </table>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Portfolio holdings table"><table>
+        <thead><tr><th scope="col">Instrument</th><th scope="col" class="numeric">Quantity</th><th scope="col" class="numeric">Price</th><th scope="col" class="numeric">Market value</th><th scope="col" class="numeric">Weight</th></tr></thead>
+        <tbody>{% for position in snapshot.positions %}<tr><th scope="row">{{ position.instrument_id }}</th><td class="numeric">{{ position.quantity|number }}</td><td class="numeric">{{ position.price|currency(position.currency) }}</td><td class="numeric">{{ position.market_value|currency(position.currency) }}</td><td class="numeric">{{ snapshot.position_weights.get(position.instrument_id)|percentage }}</td></tr>{% endfor %}</tbody>
+      </table>
       </div>
     </section>
     <section aria-labelledby="cash-heading">
       <h2 id="cash-heading">Cash balances</h2>
       <ul class="plain-list">{% for balance in snapshot.cash_balances %}<li><span>{{ balance.currency }}</span><strong>{{ balance.amount|currency(balance.currency) }}</strong></li>{% else %}<li>Not available</li>{% endfor %}</ul>
     </section>
-    {{ disclosure('Synthetic evidence', 'This snapshot is constructed only from reviewed synthetic fixture observations. Missing prices stop snapshot creation; they are never presented as zero.', 'info') }}
-  {% endif %}
-  {{ empty_state('Portfolio import arrives in Wave 1B', 'Upload, validation preview, and confirmation are intentionally unavailable in this foundation pass. No file has been imported.') }}
+    {% if profile.profile_id == 'personal_portfolio' %}{{ disclosure('Private local evidence', 'This immutable snapshot was confirmed from a matching normalized preview digest and dated synthetic market evidence. Raw upload content is not retained.', 'info') }}{% else %}{{ disclosure('Synthetic evidence', 'This snapshot is constructed only from reviewed synthetic fixture observations. Missing prices stop snapshot creation; they are never presented as zero.', 'info') }}{% endif %}
+    <section aria-labelledby="history-heading"><div class="section-heading"><div><p class="eyebrow">Immutable records</p><h2 id="history-heading">Snapshot history</h2></div><a class="button-link secondary" href="/portfolio/snapshots{{ profile_query }}">View all snapshots</a></div>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Portfolio snapshot history"><table><thead><tr><th scope="col">Snapshot ID</th><th scope="col">As of</th><th scope="col">Evidence</th><th scope="col">State</th></tr></thead><tbody>{% for item in snapshots %}<tr><th scope="row">{{ item.snapshot_id }}</th><td>{{ item.as_of|timestamp }}</td><td>Synthetic fixture · reviewed</td><td>Immutable</td></tr>{% endfor %}</tbody></table></div>
+      <a class="button-link secondary" href="/portfolio/compare{{ profile_query }}">Compare explicit snapshots</a></section>
+  {% else %}{{ empty_state('No personal portfolio snapshot', 'Import a CSV or YAML file to request a validation preview. Raw content is not retained by the Workbench, and only a reviewed valid preview can be confirmed into a new immutable snapshot.') }}{% endif %}
 {% endblock %}

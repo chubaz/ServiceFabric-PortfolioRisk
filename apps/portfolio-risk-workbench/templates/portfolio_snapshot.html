@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure, error_state %}
+{% block title %}Portfolio snapshot{% endblock %}{% block heading %}Portfolio snapshot{% endblock %}
+{% block intro %}<p class="lead">Read-only snapshot detail; no edit or delete action is provided.</p>{% endblock %}
+{% block content %}
+  {% if error %}{{ error_state('Snapshot unavailable', error) }}{% endif %}
+  {% if snapshot %}
+    {% if created == 'true' %}{{ disclosure('New immutable snapshot created', 'The confirmed preview and digest produced this new local snapshot.', 'info') }}{% elif created == 'false' %}{{ disclosure('Snapshot already existed', 'Repeated confirmation returned the same immutable snapshot without mutation.', 'info') }}{% endif %}
+    <section class="metadata-strip" aria-label="Snapshot metadata"><p><span>Snapshot ID</span><strong>{{ snapshot.snapshot_id }}</strong></p><p><span>As of</span><strong>{{ snapshot.as_of|timestamp }}</strong></p><p><span>Base currency</span><strong>{{ snapshot.base_currency }}</strong></p><p><span>NAV</span><strong>{{ snapshot.nav|currency(snapshot.base_currency) }}</strong></p><p><span>Digest</span><strong>{{ snapshot.digest }}</strong></p><p><span>State</span><strong>Private · local · immutable</strong></p></section>
+    <section aria-labelledby="snapshot-holdings"><h2 id="snapshot-holdings">Holdings</h2><div class="table-scroll" tabindex="0" role="region" aria-label="Snapshot holdings"><table><thead><tr><th>Instrument</th><th class="numeric">Quantity</th><th class="numeric">Price</th><th class="numeric">Market value</th><th class="numeric">Weight</th></tr></thead><tbody>{% for position in snapshot.positions %}<tr><th>{{ position.instrument_id }}</th><td class="numeric">{{ position.quantity|number }}</td><td class="numeric">{{ position.price|currency(position.currency) }}</td><td class="numeric">{{ position.market_value|currency(position.currency) }}</td><td class="numeric">{{ snapshot.position_weights.get(position.instrument_id)|percentage }}</td></tr>{% endfor %}</tbody></table></div></section>
+    <section aria-labelledby="snapshot-cash"><h2 id="snapshot-cash">Cash</h2><ul class="plain-list">{% for balance in snapshot.cash_balances %}<li><span>{{ balance.currency }}</span><strong>{{ balance.amount|currency(balance.currency) }}</strong></li>{% else %}<li>No cash balance supplied.</li>{% endfor %}</ul></section>
+    {{ disclosure('Evidence and limitations', 'Values use the dated complete market observations retained in this immutable snapshot. No FX conversion, provider refresh, trading, or rebalancing was performed.', 'info') }}
+  {% else %}<p class="identifier">Requested snapshot: {{ snapshot_id|default('Not available') }}</p>{% endif %}
+{% endblock %}
