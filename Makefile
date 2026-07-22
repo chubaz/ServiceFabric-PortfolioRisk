@@ -206,7 +206,20 @@ test-day1-journeys: day1-env
 > $(DAY1_PYTEST) tests/journeys -q
 
 .PHONY: verify-wave-1a
-verify-wave-1a: verify-day0 test-day1-knowledge test-day1-experience test-day1-architecture test-day1-integration
+verify-wave-1a: \
+  preflight \
+  test-architecture \
+  test-domain \
+  test-planning \
+  test-data \
+  test-capabilities \
+  test-agents \
+  test-day1-experience \
+  test-day1-integration \
+  test-day1-journeys \
+  test-day1-knowledge \
+  test-day1-architecture
+> $(DAY1_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
 > git diff --check
 > @echo "D1-WAVE-1A verification: PASS"
 

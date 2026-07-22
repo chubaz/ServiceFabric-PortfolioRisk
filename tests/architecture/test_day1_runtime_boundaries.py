@@ -46,3 +46,14 @@ def test_cumulative_gates_do_not_apply_the_integration_lane_to_all_changes() -> 
     cumulative_check = "--lane integration --base day1-prepared --head HEAD"
     assert cumulative_check not in makefile
     assert cumulative_check not in workflow
+
+
+def test_wave_1a_runs_workbench_tests_in_the_day_1_environment() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    wave_1a = makefile.split(".PHONY: verify-wave-1a", maxsplit=1)[1].split(
+        ".PHONY: verify-wave-1b", maxsplit=1
+    )[0]
+    assert "verify-day0" not in wave_1a
+    assert "test-day1-experience" in wave_1a
+    assert "test-day1-integration" in wave_1a
+    assert "test-day1-journeys" in wave_1a

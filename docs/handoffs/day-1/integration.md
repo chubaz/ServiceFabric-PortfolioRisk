@@ -2,8 +2,8 @@
 
 - Lane and branch: integration / `integration/day1`
 - Base: `day1-prepared` (`01ff31a3daa0db815da51da16ca19099005149e7`)
-- Head: `HEAD`; the environment-path correction is a focused candidate atop
-  `0768a20064099f6e6e7282266931a289bc3034ff`
+- Head: `HEAD`; the Wave 1A gate correction is a focused candidate atop
+  `003010c`
 
 ## Changed paths
 
@@ -54,6 +54,20 @@ Executed for the correction: `make preflight`, `DAY1_VENV= make
 test-day1-architecture` (27 passed), `DAY1_VENV= make verify-day1-current`,
 and `git diff --check`. The current-wave verifier passed preparation and
 correctly reported Wave 1A as still in progress.
+
+### Wave 1A environment-boundary correction (2026-07-22)
+
+The cumulative Wave 1A target inherited `verify-day0`, which executes every
+application-importing suite with the Day 0 environment. The Day 1 Workbench
+correctly depends on Jinja2, a Day 1-only locked dependency, so that path
+failed before test execution. Wave 1A now retains the Day 0 architecture,
+domain, planning, data, capability, and agent suites, while running the
+Workbench, integration, and journey suites with the Day 1 environment.
+
+Executed: `make test-day1-architecture` (28 passed), `make verify-wave-1a`
+(PASS), and `git diff --check`. The full gate included 42 application, 10
+integration, 2 journey, 22 planning, 6 research, and 28 Day 1 architecture
+tests, in addition to the retained Day 0 suites.
 
 ## Deviations, blockers, limitations
 
