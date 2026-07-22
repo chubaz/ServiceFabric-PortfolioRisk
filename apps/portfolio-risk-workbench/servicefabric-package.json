@@ -14,8 +14,12 @@
   "health_path": "/health",
   "source_files": [
     {
+      "path": "analysis_service.py",
+      "sha256": "f8244d347b19d44845c88b8f6f2cc7c4afe84eef9e55827165c8c0c8707b2fa0"
+    },
+    {
       "path": "app.py",
-      "sha256": "291921fa71424b6678836bca880e8c1365551cf5dcbbdb1768fc9f8a36c28121"
+      "sha256": "a1fbd5de6e40cb767177c19c47e95c03d2d4274e78d85ea5d6dd63fd33e2e22c"
     },
     {
       "path": "workspace_service.py",
@@ -31,15 +35,15 @@
     },
     {
       "path": "presentation.py",
-      "sha256": "c5ffcea7a0fc8977ff77ae257801e846248f9377fadfba296ffe3208fc500ade"
+      "sha256": "5004560c64c4fe5ab41253ac616c4d70f5dd97abb91fa267175143871a2f9cf5"
     },
     {
       "path": "pyproject.toml",
-      "sha256": "e27c43966e48f6d8c30442f0ddd9b2087769fe455bd6b1b58a3c0195a20cc7a8"
+      "sha256": "d5c24eaba41cf0fa8136d7b0c2177fe7eab7533cdaec462c9773d4be8f3b52f6"
     },
     {
       "path": "risk-package-lock.json",
-      "sha256": "8daf5d61b0634e92ce1f21a7aba720d1f126582ed0cd85f7886793bbd75ae8ea"
+      "sha256": "dddf21cee3120c8cac6084cd1ee9e4b8a11dde9302c2064e6a3280b92268f784"
     },
     {
       "path": "seed/knowledge-products/KP-00.yaml",
@@ -87,15 +91,15 @@
     },
     {
       "path": "static/workbench.css",
-      "sha256": "ecb6d1429762225fe5f6ef838c92ae2d28c1ee1715e18d07600f4e351dfab4a2"
+      "sha256": "7204a3f15a89f5d7e9ca226c6e0ed6b26455c34ca3b97ba57181fe333a4f6b3a"
     },
     {
       "path": "templates/agent_runs.html",
-      "sha256": "a5e3db39e24cb7a3c2185ddab24be71ffd444877076c07be11df4d413c1c91cc"
+      "sha256": "7cfa72f4d7039a49d81fb1300c36bcad73f139a236a281e709a921f2814410ea"
     },
     {
       "path": "templates/agents.html",
-      "sha256": "2194b9d025577979ab0e340179af683d525988f18d439fd0dfa0d600573354db"
+      "sha256": "ecb241957c9f427ef5ddaf16fdb01e7cf0abd1c5b67666f4bf94f1d83dd4d161"
     },
     {
       "path": "templates/alert_detail.html",
@@ -111,7 +115,7 @@
     },
     {
       "path": "templates/components.html",
-      "sha256": "d64d6858d6553e95847d6982cdc729aba427379f42d0e90895ddfc4592c5af64"
+      "sha256": "1101bb8583feee6d69eee5d8f6cbc6edb1919382085ff4917611c918a6bbf3fc"
     },
     {
       "path": "templates/dashboard.html",
@@ -166,12 +170,16 @@
       "sha256": "c95a0e1c5b238b605062a55253867cba305f5f958bcd3eb7dac2a58aa5c21cac"
     },
     {
+      "path": "templates/report.html",
+      "sha256": "1e2de2a98e81d5d133bec5f90d9bf9c2bbd63ae0e85d3e5a09047bc50cf1fd45"
+    },
+    {
       "path": "templates/research.html",
       "sha256": "c6b220a4610b54c21c9348a527518600a7ae1eee259680af019a0146a75f3f74"
     },
     {
       "path": "templates/risk.html",
-      "sha256": "521a0eccbad9bc00b7b00b2b8d97927a7977da0ea08815238abde06c787fceaf"
+      "sha256": "23d515753f76517f2d2142310deb3c3277a39b55607902a97b6dc4d172db1a38"
     },
     {
       "path": "templates/settings.html",
@@ -218,6 +226,42 @@
     {
       "tool_id": "monitoring.run",
       "path": "/actions/monitoring-run"
+    },
+    {
+      "tool_id": "risk.returns.simple",
+      "path": "/actions/risk-returns-simple"
+    },
+    {
+      "tool_id": "risk.returns.log",
+      "path": "/actions/risk-returns-log"
+    },
+    {
+      "tool_id": "risk.volatility.annualized",
+      "path": "/actions/risk-volatility-annualized"
+    },
+    {
+      "tool_id": "risk.drawdown.maximum",
+      "path": "/actions/risk-drawdown-maximum"
+    },
+    {
+      "tool_id": "risk.var.historical",
+      "path": "/actions/risk-var-historical"
+    },
+    {
+      "tool_id": "risk.expected_shortfall.historical",
+      "path": "/actions/risk-expected-shortfall-historical"
+    },
+    {
+      "tool_id": "risk.scenario.evaluate",
+      "path": "/actions/risk-scenario-evaluate"
+    },
+    {
+      "tool_id": "risk.contribution.summarize",
+      "path": "/actions/risk-contribution-summarize"
+    },
+    {
+      "tool_id": "risk.report.render",
+      "path": "/actions/risk-report-render"
     }
   ]
 }

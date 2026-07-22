@@ -1,5 +1,65 @@
 # Day 1 Experience Handoff
 
+## Wave 1C — risk analysis and explainability
+
+### Lane, branch, base, and head
+
+- Lane: `experience`; branch: `feature/day1-experience`.
+- Base and current head: `1a4dd29d3663502fcc6e7bbe9adaf499b27bb42a` (`Merge branch 'feature/day1-agents' into integration/day1`).
+- Candidate state: uncommitted and unstaged, with no push or specialist merge, as explicitly requested.
+- Date: 2026-07-22.
+
+### Changed paths
+
+- `apps/portfolio-risk-workbench/{app.py,analysis_service.py,presentation.py,pyproject.toml,risk-package-lock.json,servicefabric-package.json}`
+- `apps/portfolio-risk-workbench/static/workbench.css`
+- `apps/portfolio-risk-workbench/templates/{risk,report,agents,agent_runs,components}.html`
+- `tests/application/{conftest.py,test_workbench.py}`
+- `docs/handoffs/day-1/experience.md`
+
+No path outside the experience lane allowance and this exact handoff was changed. Root configuration, shared wave state, other lane packages/tests, and `vendor/servicefabric/**` remain untouched.
+
+### Delivered behavior and evidence
+
+- Replaced the Wave 1C placeholder with a semantic, server-rendered Risk screen. It provides an immutable portfolio-snapshot selector; a methodology selector containing only the eight reviewed registered analytics capabilities; reviewed confidence values `0.90`, `0.95`, and `0.99`; and the three fixed scenario examples `broad_market_minus_10`, `concentrated_holding_minus_20`, and `rates_sensitive_assets_minus_5`.
+- Renders simple/log returns, annualized volatility, maximum drawdown, historical VaR, historical expected shortfall, contributions, and fixed scenarios as readable metrics with horizon, sample, observation count, methodology, assumptions, warnings, limitations, evidence, output digest, pending human review, and empty effects. The return path uses local CSS with signed text/pattern state plus an underlying accessible table; there is no remote chart dependency or color-only state.
+- Displays the inadequate historical-tail sample warning as a prominent `role="alert"` result disclosure on both tail methods. It explicitly rejects prediction and certainty claims and is also preserved in the evidence drawer and generated report contract.
+- Shows every fixed catalogue shock in a readable table and the selected scenario's exact shocks separately. No free-form scenario language or hedge, trade, rebalance, order, optimization, broker, or portfolio-effect surface was added.
+- Added `analysis_service.py` as the presentation-facing coordination seam. It constructs typed requests and invokes only the integrated `CapabilityRegistry`, `DeterministicAnalysisOrchestrator`, and `risk.report.render` capability. Analytics arithmetic remains wholly in `risk_analytics`/registered capability handlers and is absent from route functions.
+- Review remediation bounds both the analytics observation set and its evidence digest to the selected immutable snapshot's `as_of` timestamp, preventing look-ahead and later fixture additions from changing an older snapshot's inputs.
+- Review remediation makes the fixed broad-market shock apply its reviewed `-10%` only to instruments actually present in the selected snapshot. Instrument-specific scenarios are intersected with the snapshot and return an explicit unavailable state when no reviewed shock applies; unknown scenario IDs are rejected and never substituted with a default. The one-position personal fixture now completes all four timeline receipts.
+- Expanded the Agent screen with the integrated four-step `AgentTimeline`: ordered sequence, role, capability receipt, methodology, evidence, assumptions, warnings, limitations, output digest, status, pending review checkpoint, and explicit empty effects. Timeline history remains available alongside prior monitoring runs.
+- Added human-readable `GET /reports/{method_id}` HTML and downloadable `GET /reports/{method_id}.md` Markdown. Both retain immutable report/source digests, evidence, profile state, synthetic/local state, and pending review disclosure. PDF and notebook execution are absent. Personal-profile reports show publication unavailable, and no publication action exists.
+- Added typed `GET /api/risk/analyses`, `GET /api/risk/analyses/{method_id}`, `GET /api/agent-timelines`, and `GET /api/reports` response contracts while preserving every prior JSON endpoint.
+- Collection APIs translate invalid methodology/confidence/scenario/snapshot queries and missing personal-snapshot states into deliberate HTTP 422 responses rather than server errors.
+- Declared fixed ServiceFabric action paths for the eight reviewed analytics capabilities and report renderer; tests prove manifest tool IDs match routes and every result has empty effects. No arbitrary function-invocation endpoint exists.
+- Updated the hosted app package lock with the reviewed `risk_analytics` digest and refreshed the accepted integrated `risk_agents`/`risk_capabilities` digests. Added `risk-analytics==0.1.0` to the app-local package metadata and refreshed every application source hash.
+
+### Tests executed
+
+- `make preflight` — PASS.
+- `PIP_NO_INDEX=1 .venv-day1/bin/pytest -q tests/application/test_workbench.py` — PASS, 71 tests.
+- Day 1 environment with all repository test directories — PASS, 244 tests.
+- `PIP_NO_INDEX=1 make verify-wave-1c` — PASS, including Wave 1A, Wave 1B, Day 0 regressions, 71 application tests, 14 analytics tests, 28 capability/agent tests, integration, journeys, planning/research, data, contracts/domain, architecture, environment checks, manifest validation, and `git diff --check`.
+- `.venv-day1/bin/python scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check` — PASS.
+- `git diff --check` — PASS.
+- `PIP_NO_INDEX=1 make servicefabric-day1-smoke SERVICEFABRIC_RUNTIME_VENV=/tmp/servicefabric-wave1c-runtime SERVICEFABRIC_HOME=/tmp/servicefabric-wave1c-home PORTFOLIO_RISK_DATA_ROOT=/tmp/servicefabric-wave1c-data` — BLOCKED before startup as described below; no smoke assertion ran.
+
+Application evidence covers every requested methodology, selected metadata, primary tail warning, exact scenario shocks, accessible visual/table parity, four roles and capability receipts, empty effects, HTML/Markdown reports, personal-profile publication denial, API preservation/typing, semantic HTML primacy, prohibited-route absence, package hashes, and capability path matching. Review regressions additionally cover snapshot as-of cutoffs, cutoff-bound evidence, one-position personal scenarios and four-step timelines, incompatible and unknown scenario rejection, and controlled collection-API validation/empty states.
+
+### Deviations, blockers, and limitations
+
+- `docs/workplans/current.md` is integration-owned and still identifies Wave 1B while describing Wave 1C as queued. The explicit assignment and integrated Wave 1C contracts were used without modifying that shared lifecycle pointer.
+- Hosted smoke is integration-blocked: `scripts/day0/bootstrap_servicefabric_runtime.py` still computes an exact lock from the pre-Wave-1C package tuple and neither digests nor installs `packages/risk_analytics`. It therefore rejects the correctly expanded `risk-package-lock.json` with `risk-package-lock.json does not match reviewed local package sources`. Integration must add `risk_analytics` to that reviewed local-package tuple and rebuild the hosted runtime before smoke can start. The experience lane is prohibited from changing that script.
+- Reports are local review artifacts only. No PDF, publishing, notebook execution, external provider/LLM, broker connectivity, order, trade, hedge, optimization, or rebalancing path exists.
+- Historical metrics remain descriptive and sample-bound; the reviewed fixture intentionally produces an inadequate-tail warning. Scenario results are fixed linear shocks without a pricing model. Browser, keyboard, screen-reader, and visual soft QA remain integration activities beyond automated semantic/accessibility assertions.
+
+### Rollback and recommended next action
+
+Rollback is a focused restoration of the Wave 1C Workbench adapter/service, templates, CSS, app package metadata/lock/manifest, application tests, and this Wave 1C handoff section to `1a4dd29`. No schema, analytics package, immutable portfolio snapshot, or external state migration is required; generated local test records can be discarded with their temporary data roots.
+
+Recommended next action: integration reviews the uncommitted candidate, updates the integration-owned hosted bootstrap to include the reviewed `risk_analytics` package, refreshes the hosted runtime, runs `servicefabric-day1-smoke`, and then performs browser/keyboard/screen-reader soft QA before accepting Wave 1C. Do not merge from this specialist lane.
+
 ## Wave 1B supplement — parallel presentation pass
 
 ### Lane, branch, base, and head

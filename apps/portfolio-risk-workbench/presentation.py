@@ -110,6 +110,15 @@ def bar_width(value: object) -> str:
     return f"{width:f}"
 
 
+def return_bar_width(value: object) -> str:
+    """Scale a signed return into a bounded presentation-only bar length."""
+    numeric = _decimal(value)
+    if numeric is None:
+        return "0"
+    width = min(Decimal("100"), max(Decimal("2"), abs(numeric) * Decimal("500")))
+    return f"{width:f}"
+
+
 def timestamp(value: object) -> str:
     if value is None or value == "":
         return MISSING_VALUE
@@ -142,6 +151,7 @@ environment.filters.update(
     humanize=humanize,
     number=number,
     percentage=percentage,
+    return_bar_width=return_bar_width,
     timestamp=timestamp,
 )
 
