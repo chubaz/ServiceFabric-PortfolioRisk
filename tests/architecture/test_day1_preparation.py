@@ -53,10 +53,17 @@ def test_lifecycle_aware_checker_passes_for_day1_qa() -> None:
 
 
 def test_status_schema_and_day0_unchanged() -> None:
-    assert payload("config/agent/day1/status.json") == {
-        "current": "D1-QA", "preparation": "complete", "wave_1a": "complete",
-        "wave_1b": "complete", "wave_1c": "complete", "soft_qa": "queued", "base_tag": "day0-complete",
-    }
+    day1 = payload("config/agent/day1/status.json")
+    assert day1 in [
+        {
+            "current": "D1-QA", "preparation": "complete", "wave_1a": "complete",
+            "wave_1b": "complete", "wave_1c": "complete", "soft_qa": "queued", "base_tag": "day0-complete",
+        },
+        {
+            "current": "D1-COMPLETE", "preparation": "complete", "wave_1a": "complete",
+            "wave_1b": "complete", "wave_1c": "complete", "soft_qa": "passed", "base_tag": "day0-complete",
+        },
+    ]
     assert payload("config/agent/day0/status.json")["current"] == "D0-COMPLETE"
     assert payload("config/agent/day0/status.json")["soft_qa"] == "passed"
 
