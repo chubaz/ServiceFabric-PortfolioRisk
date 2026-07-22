@@ -1,0 +1,38 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/analysis-evidence.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "description": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Digest",
+      "type": "string"
+    },
+    "evidence_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Evidence Id",
+      "type": "string"
+    },
+    "reference": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Reference",
+      "type": "string"
+    }
+  },
+  "required": [
+    "evidence_id",
+    "reference",
+    "digest",
+    "description"
+  ],
+  "title": "AnalysisEvidence",
+  "type": "object"
+}
