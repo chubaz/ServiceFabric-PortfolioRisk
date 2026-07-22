@@ -20,7 +20,15 @@ def payload(relative: str) -> dict:
 
 @pytest.mark.parametrize("from_command_line", [False, True])
 def test_empty_day1_venv_uses_repository_default(from_command_line: bool) -> None:
-    environment = {**os.environ, "DAY1_VENV": ""}
+    # A parent `make DAY1_VENV=...` encodes its command-line override in
+    # MAKEFLAGS. Remove that inherited override so this subprocess actually
+    # exercises the empty-value fallback.
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in {"MAKEFLAGS", "MAKEOVERRIDES"}
+    }
+    environment["DAY1_VENV"] = ""
     command = ["make", "--no-print-directory", "-n"]
     if from_command_line:
         command.append("DAY1_VENV=")
