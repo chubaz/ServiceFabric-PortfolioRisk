@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.day1.check_preparation import PREPARED_STATUS, status_errors, validate, workplan_errors
+from scripts.day1.check_preparation import PREPARED_STATUS, status_errors, validate, wave_1b_workbench_errors, workplan_errors
 from scripts.day1.verify_current import verification_target
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -134,6 +134,22 @@ def test_profiles_and_boundaries_are_explicit() -> None:
     assert "enabled: false" in text and "arbitrary sql" in text
     assert "notebook execution" in text
     assert "broker" in text and "order" in text and "rebalance" in text
+
+
+def test_completed_wave_1b_requires_human_readable_workbench_bindings() -> None:
+    status = payload("config/agent/day1/status.json")
+    application = (ROOT / "apps/portfolio-risk-workbench/app.py").read_text(encoding="utf-8")
+    portfolio = (ROOT / "apps/portfolio-risk-workbench/templates/portfolio.html").read_text(encoding="utf-8")
+    providers = (ROOT / "apps/portfolio-risk-workbench/templates/providers.html").read_text(encoding="utf-8")
+
+    assert wave_1b_workbench_errors(status, application, portfolio, providers) == []
+    completed = {**status, "wave_1b": "complete", "wave_1c": "in_progress", "current": "D1-WAVE-1C"}
+    assert wave_1b_workbench_errors(completed, application, portfolio, providers) == []
+
+    errors = wave_1b_workbench_errors(completed, "", "", "")
+    assert any("bindings are missing" in error for error in errors)
+    assert any("portfolio" in error.lower() for error in errors)
+    assert any("provider catalogue" in error.lower() for error in errors)
 
 
 def test_primary_interface_and_analytics_metadata() -> None:

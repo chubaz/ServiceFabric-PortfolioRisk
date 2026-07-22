@@ -145,6 +145,23 @@ back with a focused revert of this candidate; next, refresh and validate that
 reviewed package lock through the experience/integration acceptance workflow
 before relying on the hosted smoke as release evidence.
 
+## Wave 1B acceptance completion (2026-07-22)
+
+- Lane and branch: integration / `integration/day1`
+- Base and head: Wave 1B review baseline to the accepted experience candidate.
+- Evidence: `make verify-wave-1b` passed (37 architecture, 20 contract/domain,
+  22 planning, 27 data, 10 capability, 9 agent, 51 application, 13
+  integration, 4 journey, 6 research, and 29 Day 1 architecture tests).
+- Changed acceptance controls: lifecycle guard now verifies actual Workbench
+  adapter bindings; generated package-source lock and manifest digests were
+  refreshed after the accepted data sources; the validated experience candidate
+  was merged from `9ccca55`.
+- Limitation and next action: Wave 1C remains queued because
+  `packages/risk_analytics` has not yet been implemented or accepted. Do not
+  advance lifecycle state until the domain-analytics lane supplies that typed
+  contract and its focused tests. Roll back with focused reverts; no provider,
+  broker, trade, rebalance, or ServiceFabric submodule change was introduced.
+
 ## Wave 1B integration review (2026-07-22)
 
 - Lane and branch: integration / `integration/day1`

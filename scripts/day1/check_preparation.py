@@ -91,14 +91,14 @@ def wave_1b_workbench_errors(
     errors: list[str] = []
     missing_bindings = [
         binding
-        for binding in ("PortfolioInputService", "provider_catalogue", "reviewed_query_manifests")
+        for binding in ("PortfolioWorkspace", "provider_views", "query_manifests")
         if binding not in application
     ]
     if missing_bindings:
         errors.append("Wave 1B Workbench bindings are missing: " + ", ".join(missing_bindings))
     missing_portfolio = [
         concept
-        for concept in ("preview", "validation", "confirmation", "immutable", "comparison")
+        for concept in ("preview", "validation", "confirmed", "immutable", "compare")
         if concept not in portfolio.lower()
     ]
     if missing_portfolio or "intentionally unavailable" in portfolio.lower():
