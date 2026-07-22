@@ -102,3 +102,45 @@ wave gate pass.
 The Wave 1A gate passed before and after lifecycle advancement, including 42 application, 13 integration, 2 journey, 22 planning, 6 research, and 28 Day 1 architecture tests, alongside the retained Day 0 focused suites. `make verify-day1-current` selected and passed `verify-wave-1a`; `make verify-day0` passed. The isolated Day 0 ServiceFabric smoke rebuilt from the reviewed common lock and passed. Manifest validation reported every packaged source digest valid; the integration acceptance test separately requires every template and static asset to be declared. `git diff --check` passed.
 
 No product feature, provider enablement, notebook execution, broker connectivity, order, trade, rebalance, external LLM, or ServiceFabric submodule change was added. The only packaging correction moves dependencies already declared by the reviewed Workbench into the lock consumed by the hosted runtime. Final Day 0 and hosted-smoke evidence is recorded after their requested commands complete. Rollback is a focused revert of these integration-owned files, leaving immutable records and `vendor/servicefabric/**` untouched. The recommended next action is the scoped Wave 1B data-lane work; Wave 1C remains unavailable.
+
+## Wave 1A hosted-runtime dependency completion (2026-07-22)
+
+- Lane and branch: integration / `integration/day1`
+- Base and head: `18577e8` to the focused dependency-integration candidate.
+
+### Changed paths
+
+- `requirements/day0.in` and `requirements/day0.lock`: add the Workbench's
+  reviewed Jinja2 and multipart dependencies to the common hosted-runtime
+  environment without changing unrelated transitive pins.
+- `requirements/day1.in` and `requirements/day1.lock`: inherit those common
+  dependencies from Day 0 rather than declaring them twice.
+- `config/agent/day1/lanes.json`: explicitly reserve both Day 0 requirement
+  files for the integration lane, which owns root dependency locks.
+- `tests/architecture/test_day1_preparation.py`: align the lifecycle fixture
+  with the completed Wave 1A / active Wave 1B control-plane state.
+- `docs/handoffs/day-1/integration.md`: record this completion evidence.
+
+### Evidence, deviations, blockers, limitations, and rollback
+
+Executed: `make preflight`, `make verify-day1-current`, `make verify-day0`,
+and `git diff --check`. The active-wave verification selected and passed the
+completed Wave 1A gate: 36 architecture, 20 contract/domain, 22 planning, 27
+data, 10 capability, 9 agent, 42 application, 13 integration, 2 journey, 6
+research, and 28 Day 1 architecture tests passed. Both Day 0 and Day 1
+environments passed `pip check`; the Day 0 environment installed the newly
+reviewed Jinja2, MarkupSafe, and python-multipart packages from the common
+hash-locked dependency set.
+
+An incidental `certifi` refresh from the lock regeneration was removed, so
+the existing reviewed `2026.6.17` pin remains unchanged. No product feature,
+provider enablement, notebook execution, broker connectivity, order, trade,
+rebalance, external LLM, or ServiceFabric submodule change is included.
+
+`make servicefabric-smoke` remains blocked before startup because the tracked
+`apps/portfolio-risk-workbench/risk-package-lock.json` does not match the
+accepted package sources. That generated artifact is owned by the experience
+lane and is intentionally outside this focused integration candidate. Roll
+back with a focused revert of this candidate; next, refresh and validate that
+reviewed package lock through the experience/integration acceptance workflow
+before relying on the hosted smoke as release evidence.
