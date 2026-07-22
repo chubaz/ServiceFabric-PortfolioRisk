@@ -20,6 +20,24 @@ def test_role_ids_are_unique_and_capability_grants_are_bounded() -> None:
     assert all(role.allowed_capability_ids for role in AGENT_ROLES)
     assert all("order_submission" in role.denied_effects for role in AGENT_ROLES)
     assert all("broker_connectivity" in role.denied_effects for role in AGENT_ROLES)
+    prohibited = {
+        "order_submission",
+        "broker_connectivity",
+        "trade_execution",
+        "automatic_rebalancing",
+        "optimization",
+        "hedge_execution",
+        "provider_call",
+        "external_llm_call",
+    }
+    assert all(prohibited.issubset(role.denied_effects) for role in AGENT_ROLES)
+    by_id = {role.role_id: role for role in AGENT_ROLES}
+    assert {"SyntheticIngestRequest", "AnomalyDetectionRequest"}.issubset(
+        by_id["risk.agent.market_data"].input_contracts
+    )
+    assert {"PortfolioSnapshotRequest", "ExposureSummaryRequest"}.issubset(
+        by_id["risk.agent.portfolio_exposure"].input_contracts
+    )
 
 
 def test_provider_output_is_deterministic_and_preserves_evidence() -> None:
