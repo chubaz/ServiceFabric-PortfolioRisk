@@ -1,0 +1,31 @@
+{
+  "manifest_id": "synthetic-crsp-like-daily-v1",
+  "dataset_kind": "daily_market",
+  "target_dataset": "daily_market",
+  "key_fields": ["permno", "observed_at"],
+  "fields": [
+    {"source_field": "permno", "target_field": "permno", "data_type": "string", "nullable": false},
+    {"source_field": "date", "target_field": "observed_at", "data_type": "date", "nullable": false},
+    {"source_field": "available_at", "target_field": "available_at", "data_type": "datetime", "nullable": true},
+    {"source_field": "prc", "target_field": "raw_price", "data_type": "decimal", "nullable": true, "source_unit": "USD_per_share", "target_unit": "USD_per_share"},
+    {"source_field": "prc", "target_field": "valuation_price", "data_type": "decimal", "nullable": true, "source_unit": "USD_per_share", "target_unit": "USD_per_share", "transformation_ids": ["crsp-sign-normalization"]},
+    {"source_field": "ret", "target_field": "return", "data_type": "decimal", "nullable": true, "source_unit": "decimal_return", "target_unit": "decimal_return"},
+    {"source_field": "shrout", "target_field": "shares_outstanding", "data_type": "decimal", "nullable": true, "source_unit": "shares", "target_unit": "shares"},
+    {"source_field": "vol", "target_field": "volume", "data_type": "decimal", "nullable": true, "source_unit": "shares", "target_unit": "shares"},
+    {"source_field": "cusip", "target_field": "cusip", "data_type": "string", "nullable": true},
+    {"source_field": "ticker", "target_field": "ticker", "data_type": "string", "nullable": true},
+    {"source_field": "currency", "target_field": "currency", "data_type": "string", "nullable": false}
+  ],
+  "field_definitions": [
+    {"field_name": "permno", "data_type": "string", "nullable": false, "description": "Fictional security identifier"},
+    {"field_name": "observed_at", "data_type": "date", "nullable": false},
+    {"field_name": "available_at", "data_type": "datetime", "nullable": true},
+    {"field_name": "raw_price", "data_type": "decimal", "nullable": true, "unit": "USD_per_share"},
+    {"field_name": "valuation_price", "data_type": "decimal", "nullable": true, "unit": "USD_per_share"}
+  ],
+  "transformations": [
+    {"transformation_id": "crsp-sign-normalization", "operation": "sign_normalization", "source_field": "prc", "target_field": "valuation_price", "parameters": {"rule": "absolute_value"}, "disclosure": "The fictional CRSP-like signed raw price is retained in raw_price; valuation_price uses its absolute value."}
+  ],
+  "point_in_time_policy": {"observed_at_field": "observed_at", "available_at_field": "available_at", "missing_available_at": "warn", "query_filter": "available_at_lte_as_of"},
+  "link_overlap_policy": "reject"
+}
