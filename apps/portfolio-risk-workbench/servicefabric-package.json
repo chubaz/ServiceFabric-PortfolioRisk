@@ -19,7 +19,7 @@
     },
     {
       "path": "app.py",
-      "sha256": "a1fbd5de6e40cb767177c19c47e95c03d2d4274e78d85ea5d6dd63fd33e2e22c"
+      "sha256": "68a89429efa9120fd7ab20d5708516c7f0b6d035a0be1a3a686dd270d8f4d56e"
     },
     {
       "path": "workspace_service.py",
@@ -202,6 +202,14 @@
     {
       "tool_id": "risk.workbench.status",
       "path": "/actions/status"
+    },
+    {
+      "tool_id": "portfolio.input.preview",
+      "path": "/actions/portfolio-input-preview"
+    },
+    {
+      "tool_id": "provider.catalog.list",
+      "path": "/actions/provider-catalog-list"
     },
     {
       "tool_id": "portfolio.exposure.summarize",

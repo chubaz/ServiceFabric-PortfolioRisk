@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette import requests as starlette_requests
 from starlette.formparsers import MultiPartException, MultiPartParser
 from risk_agents import ACTIVE_AGENT_ROLE_IDS, AGENT_ROLES, DeterministicMonitoringOrchestrator, MonitoringRunRequest
-from risk_capabilities import AlertDraft, AlertReviewRequest, AnomalyDetectionRequest, DEFAULT_CAPABILITY_REGISTRY, DecisionPoint, EvidenceReference, ExposureSummaryRequest, NewsClassificationRequest, PortfolioSnapshotRequest, PositionSpecification, SyntheticNewsEvent
+from risk_capabilities import AlertDraft, AlertReviewRequest, AnomalyDetectionRequest, CapabilityResult, DEFAULT_CAPABILITY_REGISTRY, DecisionPoint, EvidenceReference, ExposureSummaryRequest, NewsClassificationRequest, PortfolioSnapshotRequest, PositionSpecification, SyntheticNewsEvent
 from risk_data import NormalizedMarketRecord, PortfolioConfirmationRequest, PortfolioInputPreview, ingest_synthetic
 from risk_data.pipeline import resolve_data_root
 from risk_domain import CashBalance, MarketObservation, PortfolioSnapshot
@@ -398,6 +398,54 @@ def api_status() -> dict[str, str | bool]:
 @app.post("/actions/status")
 def status_action() -> dict[str, str | bool]:
     return APPLICATION_STATUS
+
+
+@app.post("/actions/portfolio-input-preview")
+def portfolio_input_preview_action() -> dict[str, object]:
+    """Expose one bounded synthetic preview through the canonical hosted tool path."""
+    market = records()
+    as_of = max(item.observed_at for item in market)
+    content = (
+        "instrument_id,quantity,currency,as_of\n"
+        f"instrument-alpha,10,USD,{as_of.isoformat()}\n"
+    ).encode("utf-8")
+    preview = workspace().create_preview(
+        content,
+        "reviewed-synthetic-portfolio.csv",
+        profile="research",
+        base_currency="USD",
+        as_of=as_of.isoformat(),
+    )
+    return dumped(
+        CapabilityResult(
+            capability_id="portfolio.input.preview",
+            data=preview,
+            evidence_references=EVIDENCE,
+            assumptions=("The hosted smoke input is an explicitly reviewed synthetic CSV fixture.",),
+            limitations=("Preview creates no snapshot until a separate explicit confirmation.",),
+            human_review_required=True,
+        )
+    )
+
+
+@app.post("/actions/provider-catalog-list")
+def provider_catalog_list_action() -> dict[str, object]:
+    """List immutable provider metadata without enabling or contacting a provider."""
+    return {
+        "capability_id": "provider.catalog.list",
+        "status": "succeeded",
+        "data": {
+            "providers": [dumped(item) for item in workspace().providers()],
+            "fixed_query_manifests": [dumped(item) for item in workspace().query_manifests()],
+            "arbitrary_sql_available": False,
+        },
+        "evidence_references": [],
+        "assumptions": ["Catalogue state is the reviewed local Day 1 configuration."],
+        "warnings": [],
+        "limitations": ["External providers are disabled and are not contacted by this capability."],
+        "effects": [],
+        "human_review_required": True,
+    }
 
 
 @app.post("/actions/portfolio-exposure-summarize")
