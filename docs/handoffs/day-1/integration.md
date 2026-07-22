@@ -180,3 +180,13 @@ keyboard, disclosure, invalid-input, snapshot, provider-rights, analytics-
 limitation, report, timeline, and no-effect evidence. Only that separate human
 decision may change `soft_qa` from `queued`; this handoff does not claim it
 passed.
+
+## Final human soft-QA decision
+
+The explicit identified human review is recorded in
+`docs/workplans/day-1/soft-qa-result.md`.
+
+The decision is **passed**. Browser, profile, portfolio-input, provider-rights,
+analytics-methodology, sample-warning, report, agent-timeline, accessibility,
+evidence, and no-effect checks were reviewed. Merge remains conditional on all
+required GitHub checks being green and the protected pull-request merge path.

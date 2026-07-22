@@ -6,9 +6,9 @@ canonical runtime and invocation contracts; the pinned dependency under
 `vendor/servicefabric` remains read-only at commit
 `7632b61d94a966346f95eb6c5bb2a5ea27f3bc14`.
 
-Day 0 is complete and its evidence remains unchanged. Day 1 implementation is
-complete at `D1-QA`; human soft QA is pending and is not implied by automated
-verification or the local process-host smoke.
+Day 0 is complete and its evidence remains unchanged. Day 1 is complete at
+`D1-COMPLETE`; deterministic verification and explicit identified human soft QA
+have passed.
 
 ## Readable Workbench
 
@@ -133,5 +133,7 @@ The base portfolio workflow performs no FX conversion.
 There is no external provider or LLM call, notebook execution, arbitrary SQL,
 broker connectivity, live account effect, order, trade, hedge, optimization,
 automatic rebalance, PDF export, or investment advice. HTML and Markdown
-reports are local review artifacts. Browser, keyboard, screen-reader, and
-visual soft QA require a separate identified human reviewer and remain pending.
+reports are local review artifacts. Browser, keyboard, accessibility, visual,
+evidence, methodology, and user-workflow soft QA were completed by an
+identified human reviewer. The result is recorded in
+`docs/workplans/day-1/soft-qa-result.md`.
