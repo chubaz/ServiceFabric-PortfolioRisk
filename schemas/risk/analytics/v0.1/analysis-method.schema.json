@@ -1,0 +1,16 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/analysis-method.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "enum": [
+    "simple-return",
+    "log-return",
+    "annualized-volatility",
+    "maximum-drawdown",
+    "historical-tail-risk",
+    "deterministic-scenario",
+    "contribution-summary",
+    "risk-report"
+  ],
+  "title": "AnalysisMethod",
+  "type": "string"
+}

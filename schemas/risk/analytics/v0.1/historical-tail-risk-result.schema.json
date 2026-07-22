@@ -1,0 +1,271 @@
+{
+  "$defs": {
+    "AnalysisEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "evidence_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "reference": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "reference",
+        "digest",
+        "description"
+      ],
+      "title": "AnalysisEvidence",
+      "type": "object"
+    },
+    "AnalysisHorizon": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_interval_seconds": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Interval Seconds"
+        },
+        "label": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "periods": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Periods",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "AnalysisHorizon",
+      "type": "object"
+    },
+    "AnalysisWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "AnalysisWarning",
+      "type": "object"
+    },
+    "SamplePeriod": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "SamplePeriod",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/historical-tail-risk-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "analysis_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Analysis Id",
+      "type": "string"
+    },
+    "assumptions": {
+      "default": [],
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Assumptions",
+      "type": "array"
+    },
+    "confidence_level": {
+      "anyOf": [
+        {
+          "maximum": 0.99,
+          "minimum": 0.9,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Confidence Level"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/AnalysisEvidence"
+      },
+      "minItems": 1,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "expected_shortfall": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Expected Shortfall"
+    },
+    "historical_rank": {
+      "minimum": 1,
+      "title": "Historical Rank",
+      "type": "integer"
+    },
+    "horizon": {
+      "$ref": "#/$defs/AnalysisHorizon"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "methodology": {
+      "const": "historical-tail-risk",
+      "title": "Methodology",
+      "type": "string"
+    },
+    "observation_count": {
+      "minimum": 0,
+      "title": "Observation Count",
+      "type": "integer"
+    },
+    "output_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Digest"
+    },
+    "reviewed_minimum_observation_count": {
+      "minimum": 1,
+      "title": "Reviewed Minimum Observation Count",
+      "type": "integer"
+    },
+    "sample_period": {
+      "$ref": "#/$defs/SamplePeriod"
+    },
+    "snapshot_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Snapshot Id",
+      "type": "string"
+    },
+    "tail_observation_count": {
+      "minimum": 1,
+      "title": "Tail Observation Count",
+      "type": "integer"
+    },
+    "value_at_risk": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Value At Risk"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AnalysisWarning"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "analysis_id",
+    "snapshot_id",
+    "methodology",
+    "horizon",
+    "sample_period",
+    "observation_count",
+    "evidence",
+    "confidence_level",
+    "value_at_risk",
+    "expected_shortfall",
+    "historical_rank",
+    "tail_observation_count",
+    "reviewed_minimum_observation_count"
+  ],
+  "title": "HistoricalTailRiskResult",
+  "type": "object"
+}

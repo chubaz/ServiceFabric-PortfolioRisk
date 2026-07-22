@@ -1,0 +1,37 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/analysis-horizon.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "expected_interval_seconds": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Interval Seconds"
+    },
+    "label": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+    },
+    "periods": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Periods",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "label"
+  ],
+  "title": "AnalysisHorizon",
+  "type": "object"
+}
