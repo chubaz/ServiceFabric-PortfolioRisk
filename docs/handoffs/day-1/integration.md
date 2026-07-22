@@ -144,3 +144,44 @@ lane and is intentionally outside this focused integration candidate. Roll
 back with a focused revert of this candidate; next, refresh and validate that
 reviewed package lock through the experience/integration acceptance workflow
 before relying on the hosted smoke as release evidence.
+
+## Wave 1B integration review (2026-07-22)
+
+- Lane and branch: integration / `integration/day1`
+- Base and head: `day0-complete` (`de51eac`) to the current uncommitted
+  integration worktree (`15e3004`); no commit, push, or merge was performed.
+
+### Changed paths
+
+- `tests/journeys/test_day1_portfolio_workspace.py`: cross-module data-contract
+  journey for research and personal profiles, valid and invalid CSV previews,
+  explicit confirmation, immutable/idempotent snapshots, corrected revisions,
+  read-only comparison, disabled external catalogue entries, fixed manifests,
+  and absence of arbitrary SQL, provider enablement, broker, order, trade, or
+  rebalance paths.
+- `tests/architecture/test_day1_preparation.py`: lifecycle guard that prevents
+  Wave 1B completion until the Workbench binds portfolio input, the provider
+  catalogue, and fixed query manifests to human-readable surfaces.
+- `docs/handoffs/day-1/integration.md`: this integration review record.
+
+### Evidence, deviations, blockers, limitations, and rollback
+
+The data contract supplies local normalized previews and immutable confirmed
+records. The Workbench keeps profiles visible and has no provider-enable or
+financial-effect route, but its Portfolio page still says preview, validation,
+and confirmation are unavailable. Its Providers page defers catalogue binding
+instead of displaying rights, access, data-zone, freshness, quality,
+provenance, and publication states. The application manifest hash synchronizer
+found every declared source digest current. `make verify-wave-1b` and the Day 0
+regression gate passed at the service/test-harness level, including two new
+data-contract journey tests, but that evidence does not satisfy the required
+human-readable experience acceptance contract.
+
+No Wave 1C feature, provider enablement, arbitrary SQL, notebook execution,
+broker connectivity, order, trade, rebalance, external LLM, or ServiceFabric
+submodule change is included. Wave 1B remains in progress and Wave 1C remains
+queued. Roll back with a focused revert of the listed integration-owned files,
+leaving immutable local snapshots and `vendor/servicefabric/**` untouched. The
+blocker is experience-lane implementation of the portfolio preview, validation,
+confirmation, revision/comparison, and provider/query-manifest catalogue
+surfaces. Integration must rerun the gate before advancing Wave 1B.

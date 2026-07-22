@@ -81,6 +81,38 @@ def workplan_errors(status: dict[str, object], text: str) -> list[str]:
     return errors
 
 
+def wave_1b_workbench_errors(
+    status: dict[str, object], application: str, portfolio: str, providers: str
+) -> list[str]:
+    """Reject Wave 1B completion while its human-readable surfaces are absent."""
+    if status.get("wave_1b") != "complete":
+        return []
+
+    errors: list[str] = []
+    missing_bindings = [
+        binding
+        for binding in ("PortfolioInputService", "provider_catalogue", "reviewed_query_manifests")
+        if binding not in application
+    ]
+    if missing_bindings:
+        errors.append("Wave 1B Workbench bindings are missing: " + ", ".join(missing_bindings))
+    missing_portfolio = [
+        concept
+        for concept in ("preview", "validation", "confirmation", "immutable", "comparison")
+        if concept not in portfolio.lower()
+    ]
+    if missing_portfolio or "intentionally unavailable" in portfolio.lower():
+        errors.append("Wave 1B portfolio preview/confirmation/comparison surface is incomplete")
+    missing_provider_states = [
+        state
+        for state in ("rights", "access", "data zone", "freshness", "quality", "provenance", "publication")
+        if state not in providers.lower()
+    ]
+    if missing_provider_states or "catalogue binding will follow" in providers.lower():
+        errors.append("Wave 1B provider catalogue state surface is incomplete")
+    return errors
+
+
 def validate(require_prepared: bool = False) -> list[str]:
     errors: list[str] = []
     for relative in REQUIRED:
@@ -92,6 +124,15 @@ def validate(require_prepared: bool = False) -> list[str]:
         errors.append("Day 0 status is not the reviewed complete/pass record")
     status = read_json("config/agent/day1/status.json")
     errors.extend(status_errors(status, require_prepared))
+    if isinstance(status, dict):
+        errors.extend(
+            wave_1b_workbench_errors(
+                status,
+                (ROOT / "apps/portfolio-risk-workbench/app.py").read_text(encoding="utf-8"),
+                (ROOT / "apps/portfolio-risk-workbench/templates/portfolio.html").read_text(encoding="utf-8"),
+                (ROOT / "apps/portfolio-risk-workbench/templates/providers.html").read_text(encoding="utf-8"),
+            )
+        )
 
     lanes = read_json("config/agent/day1/lanes.json")
     lane_values = lanes["lanes"]
