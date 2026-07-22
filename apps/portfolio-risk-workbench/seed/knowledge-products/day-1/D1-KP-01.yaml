@@ -1,0 +1,31 @@
+work_item_id: D1-KP-01
+knowledge_product_id: D1-KP-01
+planning_day: day-1
+title: Human Workbench and Information Architecture
+purpose: Define the human-readable Workbench navigation, presentation, disclosure, and accessibility contract.
+owner_lane: knowledge
+draft_deadline: {anchor: T1, offset_minutes: 120}
+review_deadline: {anchor: T1, offset_minutes: 240}
+status: review_requested
+dependencies: []
+acceptance_criteria:
+  - Preserves JSON as an evidence API while making semantic HTML the primary presentation.
+  - Requires visible profile, evidence-state, and human-review disclosures.
+source_references:
+  - reference_id: ADR-0003
+    title: Human-readable Day 1 Workbench
+    uri: docs/architecture/adr/0003-day1-workbench-experience.md
+    relevance: Defines the server-rendered, accessible, catalogue-only Workbench boundary.
+artifact_paths: [docs/knowledge-products/D1-KP-01-human-workbench-and-information-architecture.md]
+artifact_links:
+  - artifact_id: D1-KP-01-A1
+    path: docs/knowledge-products/D1-KP-01-human-workbench-and-information-architecture.md
+    label: Workbench information architecture
+    purpose: Records navigation, presentation, disclosure, and safe-interaction requirements.
+implementation_status: implemented
+implementation_summary: The reviewed information architecture and screen constraints are structured for Workbench consumption; application implementation remains experience-lane work.
+review_history:
+  - decision_id: D1-KP-01-R1
+    state: review_requested
+    decided_by: knowledge-specialist
+    rationale: The bounded information architecture record is ready for human review.

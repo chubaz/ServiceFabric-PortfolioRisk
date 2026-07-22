@@ -19,6 +19,8 @@ class EvidenceReference(CapabilityContract):
     evidence_id: str = Field(min_length=1, max_length=256)
     reference: str = Field(min_length=1, max_length=2048)
     source_type: str = Field(min_length=1, max_length=128)
+    digest: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
+    description: str | None = Field(default=None, min_length=1, max_length=2048)
 
 
 class CapabilityInput(CapabilityContract):
@@ -39,7 +41,7 @@ class CapabilityInput(CapabilityContract):
 class CapabilityDescriptor(CapabilityContract):
     """A declared, non-executable description of a bounded capability."""
 
-    capability_id: str = Field(pattern=r"^(risk\.capability|planning\.knowledge|data\.synthetic|portfolio\.(snapshot|exposure)|market\.anomaly|news\.event|alert\.draft)\.[a-z_]+$")
+    capability_id: str = Field(pattern=r"^(risk\.(capability|returns|volatility|drawdown|var|expected_shortfall|scenario|contribution|report)|planning\.knowledge|data\.synthetic|portfolio\.(snapshot|exposure)|market\.anomaly|news\.event|alert\.draft)\.[a-z_]+$")
     objective: str = Field(min_length=1)
     input_contract: str = Field(min_length=1)
     output_contract: str = Field(min_length=1)

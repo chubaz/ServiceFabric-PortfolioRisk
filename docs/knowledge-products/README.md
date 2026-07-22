@@ -19,3 +19,14 @@ review_requested
 changes_requested
 approved
 superseded
+```
+
+Day 1 products are stored separately under `seed/knowledge-products/day-1/` so the Day 0 loader and deterministic six-product catalogue remain unchanged. Day 1 uses the `T1` epoch:
+
+| ID | Knowledge product | Draft | Review deadline |
+|---|---|---:|---:|
+| D1-KP-01 | Human Workbench and Information Architecture | T1+2h | T1+4h |
+| D1-KP-02 | Operating Profiles, Portfolio Input, and Data Rights | T1+4h | T1+6h |
+| D1-KP-03 | Risk Analytics Methodology and Limitations | T1+6h | T1+8h |
+| D1-KP-04 | Agent Explainability and Human Review Protocol | T1+10h | T1+12h |
+| D1-KP-05 | Supervisor Demo and Day 1 Soft-QA Protocol | T1+18h | T1+22h |

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "components.html" import badge, disclosure, empty_state, evidence_drawer, error_state %}
+{% block title %}Agent runs{% endblock %}
+{% block heading %}Agent run history{% endblock %}
+{% block intro %}<p class="lead">Stored local orchestration results and their evidence-bearing outputs.</p>{% endblock %}
+{% block content %}
+  {{ disclosure('Evidence inspection only', 'Run history records deterministic local capability results. It does not authorize an external effect.', 'info') }}
+  {% if error %}{{ error_state('Agent run history is unavailable', error) }}
+  {% elif runs or timelines %}
+    {% if timelines %}<section aria-labelledby="timeline-history-heading"><h2 id="timeline-history-heading">Risk analysis timelines</h2><div class="stack">{% for timeline in timelines %}<article class="run-card"><div class="card-heading"><h3>{{ timeline.timeline_id }}</h3>{{ badge(timeline.status, 'success' if timeline.status == 'succeeded' else 'warning') }}</div><p><strong>Steps:</strong> {{ timeline.steps|length }}</p><p><strong>Effects:</strong> {% if timeline.effects %}Unexpected effects recorded{% else %}Empty{% endif %}</p><ol>{% for step in timeline.steps %}<li>Step {{ step.sequence }} · {{ step.role }} · {{ step.capability_id }} · {{ step.status }} · review {{ step.review_state }}</li>{% endfor %}</ol></article>{% endfor %}</div></section>{% endif %}
+    {% if runs %}
+    <div class="stack">{% for run in runs %}<article class="run-card"><div class="card-heading"><h2>Monitoring run {{ loop.index }}</h2>{{ badge(run.status, 'success' if run.status == 'succeeded' else 'warning') }}</div><p><strong>Outputs:</strong> {{ run.outputs|length }}</p><p><strong>Human review:</strong> Required</p>{% for output in run.outputs %}<section class="output-summary"><h3>{{ output.capability_id }}</h3><p>Status: {{ output.status|humanize }}</p>{{ evidence_drawer(output.evidence_references, output.assumptions, output.warnings, output.limitations) }}</section>{% endfor %}</article>{% endfor %}</div>
+    {% endif %}
+  {% else %}{{ empty_state('No agent runs recorded', 'The local monitoring orchestrator has not produced a stored run in this data root.') }}{% endif %}
+{% endblock %}

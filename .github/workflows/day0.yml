@@ -21,13 +21,13 @@ jobs:
         run: python -m pip install --require-hashes -r requirements/day0.lock
       - name: Verify unit, architecture, integration, and journey tests
         run: |
-          export PYTHONPATH="$GITHUB_WORKSPACE:$GITHUB_WORKSPACE/packages/risk_domain/src:$GITHUB_WORKSPACE/packages/risk_planning/src:$GITHUB_WORKSPACE/packages/risk_data/src:$GITHUB_WORKSPACE/packages/risk_capabilities/src:$GITHUB_WORKSPACE/packages/risk_agents/src"
+          export PYTHONPATH="$GITHUB_WORKSPACE:$GITHUB_WORKSPACE/packages/risk_domain/src:$GITHUB_WORKSPACE/packages/risk_planning/src:$GITHUB_WORKSPACE/packages/risk_data/src:$GITHUB_WORKSPACE/packages/risk_capabilities/src:$GITHUB_WORKSPACE/packages/risk_agents/src:$GITHUB_WORKSPACE/packages/risk_analytics/src"
           python -m pytest tests/contracts tests/domain tests/planning tests/data tests/capabilities tests/agents tests/application tests/architecture tests/integration tests/journeys -q
       - name: Verify application manifests
         run: python scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
       - name: Verify the headless synthetic journey
         run: |
-          export PYTHONPATH="$GITHUB_WORKSPACE:$GITHUB_WORKSPACE/packages/risk_domain/src:$GITHUB_WORKSPACE/packages/risk_planning/src:$GITHUB_WORKSPACE/packages/risk_data/src:$GITHUB_WORKSPACE/packages/risk_capabilities/src:$GITHUB_WORKSPACE/packages/risk_agents/src"
+          export PYTHONPATH="$GITHUB_WORKSPACE:$GITHUB_WORKSPACE/packages/risk_domain/src:$GITHUB_WORKSPACE/packages/risk_planning/src:$GITHUB_WORKSPACE/packages/risk_data/src:$GITHUB_WORKSPACE/packages/risk_capabilities/src:$GITHUB_WORKSPACE/packages/risk_agents/src:$GITHUB_WORKSPACE/packages/risk_analytics/src"
           PORTFOLIO_RISK_DATA_ROOT="$RUNNER_TEMP/portfolio-risk-day0" python scripts/day0/run_monitoring_demo.py
       - name: Check patch formatting
         run: |

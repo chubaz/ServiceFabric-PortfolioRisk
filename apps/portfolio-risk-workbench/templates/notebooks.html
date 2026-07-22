@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% from "components.html" import badge, disclosure, empty_state, error_state, evidence_drawer %}
+{% block title %}Notebooks{% endblock %}
+{% block heading %}Notebooks{% endblock %}
+{% block intro %}<p class="lead">A catalogue-only view. Notebook execution is prohibited in every profile.</p>{% endblock %}
+{% block heading_action %}{{ badge('Not executable', 'critical') }}{% endblock %}
+{% block content %}
+  {{ disclosure('Not executable', 'The Workbench has no notebook execution route, kernel, arbitrary SQL surface, or run control. Catalogue entries are metadata, not results.', 'critical') }}
+  {% if error %}{{ error_state('Notebook catalogue is unavailable', error) }}
+  {% elif items %}<div class="card-grid">{% for item in items %}<article class="finding-card"><div class="card-heading"><div><p class="identifier">{{ item.notebook_id }}</p><h2>{{ item.title }}</h2></div>{{ badge(item.execution_state, 'critical') }}</div><p>{{ item.purpose }}</p><p><strong>{{ item.execution_disclosure }}</strong></p><dl class="definition-grid"><div><dt>Owner</dt><dd>{{ item.owner }}</dd></div><div><dt>Methodology</dt><dd><strong>{{ item.methodology.title }}</strong><br>{{ item.methodology.summary }}</dd></div><div><dt>Future path</dt><dd>{{ item.future_notebook_path|display }}</dd></div><div><dt>Evidence state</dt><dd>{{ item.evidence_state|humanize }} · {{ item.visibility|humanize }}</dd></div></dl><h3>Future inputs</h3><ul>{% for input in item.inputs %}<li>{{ input }}</li>{% endfor %}</ul>{{ evidence_drawer(item.evidence, (), (), item.limitations) }}</article>{% endfor %}</div>
+  {% else %}{{ empty_state('No notebook records for this profile', 'The reviewed catalogue has no notebook metadata assigned to the active profile. There is nothing to execute.') }}{% endif %}
+{% endblock %}

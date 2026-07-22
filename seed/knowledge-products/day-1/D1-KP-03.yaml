@@ -1,0 +1,31 @@
+work_item_id: D1-KP-03
+knowledge_product_id: D1-KP-03
+planning_day: day-1
+title: Risk Analytics Methodology and Limitations
+purpose: Catalogue methodology evidence, required inputs, assumptions, and limitations without owning calculations.
+owner_lane: knowledge
+draft_deadline: {anchor: T1, offset_minutes: 360}
+review_deadline: {anchor: T1, offset_minutes: 480}
+status: review_requested
+dependencies: [D1-KP-02]
+acceptance_criteria:
+  - Keeps calculations in the analytics package and records methodology as reviewable references.
+  - Requires horizons, samples, assumptions, warnings, limitations, and evidence for displayed results.
+source_references:
+  - reference_id: ADR-0005
+    title: Explainable Day 1 risk analytics
+    uri: docs/architecture/adr/0005-day1-risk-analytics-and-explainability.md
+    relevance: Defines supported analytics and required explanation metadata.
+artifact_paths: [docs/knowledge-products/D1-KP-03-risk-analytics-methodology-and-limitations.md]
+artifact_links:
+  - artifact_id: D1-KP-03-A1
+    path: docs/knowledge-products/D1-KP-03-risk-analytics-methodology-and-limitations.md
+    label: Analytics methodology catalogue protocol
+    purpose: Records how methodology and limitations are presented without calculating risk.
+implementation_status: implemented
+implementation_summary: Research and notebook catalogues can carry methodology, evidence, assumptions, and limitations; analytics implementation remains outside this lane.
+review_history:
+  - decision_id: D1-KP-03-R1
+    state: review_requested
+    decided_by: knowledge-specialist
+    rationale: The methodology and limitations record is ready for human review.

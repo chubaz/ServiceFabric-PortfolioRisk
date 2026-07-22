@@ -1,8 +1,8 @@
-name: Day 1 preparation
+name: Day 1 lifecycle
 
 on:
   push:
-    branches: [chore/day1-preparation, integration/day1]
+    branches: [integration/day1]
   pull_request:
     branches: [main]
 
@@ -21,12 +21,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Bootstrap from committed Day 0 lock
-        run: python -m pip install --require-hashes -r requirements/day0.lock
-      - name: Verify Day 1 preparation
-        run: make verify-day1-prep
-      - name: Run Day 0 regression gate
+      - name: Bootstrap from committed Day 1 lock
+        run: python -m pip install --require-hashes -r requirements/day1.lock
+      - name: Run every deterministic Day 1 test
+        run: make verify-day1
+      - name: Run every deterministic Day 0 test
         run: make verify-day0
+      - name: Produce deterministic Day 1 evidence
+        run: make demo-day1-headless
+      - name: Validate Day 1 control-plane manifests
+        run: |
+          python scripts/day1/check_preparation.py
+          python scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
       - name: Check whitespace
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -34,3 +40,5 @@ jobs:
           else
             git diff --check "${{ github.event.before }}" "${{ github.sha }}"
           fi
+      # The Linux process-host smoke remains an explicit local release gate.
+      # GitHub Actions does not claim equivalent process-host conditions.

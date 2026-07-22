@@ -1,0 +1,82 @@
+items:
+  - notebook_id: D1-NB-01
+    title: Synthetic return-method comparison
+    purpose: Reserve a catalogue entry for a future reproducible comparison of simple and log return presentations.
+    owner: knowledge
+    methodology:
+      methodology_id: METH-RETURN-COMPARISON
+      title: Return-method comparison protocol
+      summary: Compare documented simple and log return assumptions using labelled synthetic evidence supplied by an owning analytics workflow.
+      reference_uri: docs/knowledge-products/D1-KP-03-risk-analytics-methodology-and-limitations.md
+    inputs:
+      - Future labelled synthetic return series
+      - Reviewed methodology metadata
+    evidence:
+      - evidence_id: EVID-NB-RISK-PROTOCOL
+        title: Risk analytics methodology and limitations
+        uri: docs/knowledge-products/D1-KP-03-risk-analytics-methodology-and-limitations.md
+        relevance: Defines the metadata and limitations a future comparison must retain.
+    limitations:
+      - The future notebook is not present and no calculation or execution result exists.
+    artifact_links:
+      - docs/research/catalog.yaml
+    future_notebook_path: notebooks/future/synthetic-return-method-comparison.ipynb
+    execution_state: not_available
+    execution_disclosure: This is a future path only; the notebook is not run and cannot be run from the catalogue.
+    profiles: [research]
+    visibility: public
+    evidence_state: synthetic
+  - notebook_id: D1-NB-02
+    title: Historical tail-risk evidence review
+    purpose: Catalogue a future review surface for horizon, confidence, sample adequacy, and tail-risk limitations.
+    owner: knowledge
+    methodology:
+      methodology_id: METH-TAIL-REVIEW
+      title: Historical tail-risk evidence protocol
+      summary: Inspect supplied VaR and expected-shortfall evidence for sample and limitation disclosures without calculating either measure.
+      reference_uri: docs/architecture/adr/0005-day1-risk-analytics-and-explainability.md
+    inputs:
+      - Future reviewed analytics result metadata
+      - Evidence references and sample adequacy warnings
+    evidence:
+      - evidence_id: EVID-NB-ANALYTICS-ADR
+        title: Explainable Day 1 risk analytics ADR
+        uri: docs/architecture/adr/0005-day1-risk-analytics-and-explainability.md
+        relevance: Requires confidence, horizon, sample, methodology, and limitation metadata.
+    limitations:
+      - No analytical result or portfolio observation is included in this catalogue entry.
+    artifact_links:
+      - docs/knowledge-products/D1-KP-03-risk-analytics-methodology-and-limitations.md
+    future_notebook_path: notebooks/future/historical-tail-risk-evidence-review.ipynb
+    execution_state: catalogue_only
+    execution_disclosure: The entry is catalogue metadata only; the referenced notebook is not run and no execution control exists.
+    profiles: [research, personal_portfolio]
+    visibility: public
+    evidence_state: public
+  - notebook_id: D1-NB-03
+    title: Private portfolio scenario review
+    purpose: Reserve a private-local catalogue entry for a future review of supplied portfolio scenario evidence.
+    owner: knowledge
+    methodology:
+      methodology_id: METH-SCENARIO-REVIEW
+      title: Deterministic scenario disclosure protocol
+      summary: Review supplied scenario metadata and limitations while keeping personal portfolio inputs outside the repository.
+      reference_uri: docs/architecture/adr/0004-day1-operating-profiles-and-data-boundary.md
+    inputs:
+      - Future private-local immutable portfolio snapshot reference
+      - Future supplied deterministic scenario metadata
+    evidence:
+      - evidence_id: EVID-NB-PRIVATE-BOUNDARY
+        title: Operating profiles and data boundary ADR
+        uri: docs/architecture/adr/0004-day1-operating-profiles-and-data-boundary.md
+        relevance: Requires private local state and prohibits publication and broker routes.
+    limitations:
+      - No personal data, scenario value, or executable notebook is stored in the public repository.
+    artifact_links:
+      - docs/knowledge-products/D1-KP-02-operating-profiles-portfolio-input-and-data-rights.md
+    future_notebook_path: notebooks/future/private-portfolio-scenario-review.ipynb
+    execution_state: not_available
+    execution_disclosure: The future private-local notebook is not run and is unavailable from this public catalogue.
+    profiles: [personal_portfolio]
+    visibility: private_local
+    evidence_state: private

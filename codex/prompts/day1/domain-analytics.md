@@ -9,4 +9,4 @@ assumptions, warnings, limitations, and evidence; inadequate tail samples
 warn. Exclude optimization, advice, trades, hedges, rebalances, orders,
 providers, notebooks, and app edits. Run focused contract/domain/analytics
 tests and `git diff --check`, document evidence and limitations, commit a
-focused candidate, and stop without merge.
+focused candidate, validate the current lifecycle gate, and stop without merge.

@@ -9,4 +9,4 @@ states are readable, and notebook screens are catalogue-only. Exclude Node,
 remote assets, frontend framework migration, arbitrary SQL/notebook execution,
 broker/order/rebalance effects, and domain business logic. Run focused app
 tests and `git diff --check`, record evidence, commit a focused candidate, and
-stop without merge.
+validate the current lifecycle gate, and stop without merge.

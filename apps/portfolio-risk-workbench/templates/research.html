@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% from "components.html" import badge, disclosure, empty_state, error_state, evidence_drawer %}
+{% block title %}Research{% endblock %}
+{% block heading %}Research{% endblock %}
+{% block intro %}<p class="lead">A structured, read-only catalogue of reviewed research metadata for the active profile.</p>{% endblock %}
+{% block content %}
+  {{ disclosure('Catalogue only', 'Research records may describe methodology, inputs, evidence, limitations, and reviewed links. This screen cannot run code or contact an external provider.', 'info') }}
+  {% if error %}{{ error_state('Research catalogue is unavailable', error) }}
+  {% elif items %}<div class="card-grid">{% for item in items %}<article class="finding-card"><div class="card-heading"><div><p class="identifier">{{ item.research_id }}</p><h2>{{ item.title }}</h2></div>{{ badge(item.status, 'success' if item.status == 'reviewed' else 'warning') }}</div><p>{{ item.purpose }}</p><dl class="definition-grid"><div><dt>Owner</dt><dd>{{ item.owner }}</dd></div><div><dt>Methodology</dt><dd><strong>{{ item.methodology.title }}</strong><br>{{ item.methodology.summary }}</dd></div><div><dt>Profiles</dt><dd>{{ item.profiles|join(', ')|humanize }}</dd></div><div><dt>Evidence state</dt><dd>{{ item.evidence_state|humanize }} · {{ item.visibility|humanize }}</dd></div></dl><h3>Inputs</h3><ul>{% for input in item.inputs %}<li>{{ input }}</li>{% endfor %}</ul>{{ evidence_drawer(item.evidence, item.assumptions, (), item.limitations) }}<details class="evidence-drawer"><summary>Reviewed catalogue references</summary><ul><li>{{ item.methodology.reference_uri }}</li>{% for link in item.artifact_links %}<li>{{ link }}</li>{% endfor %}</ul></details></article>{% endfor %}</div>
+  {% else %}{{ empty_state('No research records for this profile', 'The reviewed catalogue has no item assigned to the active profile. Missing catalogue coverage is not represented as an empty analytical result.') }}{% endif %}
+{% endblock %}

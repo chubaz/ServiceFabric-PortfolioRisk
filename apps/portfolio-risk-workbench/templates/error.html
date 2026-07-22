@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% from "components.html" import error_state %}
+{% block title %}{{ title }}{% endblock %}
+{% block heading %}{{ title }}{% endblock %}
+{% block intro %}<p class="lead">The requested Workbench evidence view could not be shown.</p>{% endblock %}
+{% block content %}{{ error_state(title, message) }}{% endblock %}

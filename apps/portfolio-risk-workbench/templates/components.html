@@ -1,0 +1,93 @@
+{% macro badge(label, tone='neutral') -%}
+  <span class="badge badge-{{ tone }}">{{ label|humanize }}</span>
+{%- endmacro %}
+
+{% macro metric(label, value, detail='', tone='neutral') -%}
+  <article class="metric-card metric-{{ tone }}">
+    <h2>{{ label }}</h2>
+    <p class="metric-value">{{ value }}</p>
+    {% if detail %}<p class="metric-detail">{{ detail }}</p>{% endif %}
+  </article>
+{%- endmacro %}
+
+{% macro disclosure(title, text, tone='info') -%}
+  <aside class="disclosure disclosure-{{ tone }}" aria-label="{{ title }}">
+    <h2>{{ title }}</h2>
+    <p>{{ text }}</p>
+  </aside>
+{%- endmacro %}
+
+{% macro empty_state(title, text, action_href='', action_label='') -%}
+  <section class="empty-state" aria-labelledby="empty-{{ title|lower|replace(' ', '-') }}">
+    <h2 id="empty-{{ title|lower|replace(' ', '-') }}">{{ title }}</h2>
+    <p>{{ text }}</p>
+    {% if action_href and action_label %}<a class="button-link" href="{{ action_href }}">{{ action_label }}</a>{% endif %}
+  </section>
+{%- endmacro %}
+
+{% macro error_state(title, text) -%}
+  <section class="error-state" role="alert">
+    <h2>{{ title }}</h2>
+    <p>{{ text }}</p>
+    <p>No missing or failed observation has been treated as zero.</p>
+  </section>
+{%- endmacro %}
+
+{% macro evidence_drawer(evidence, assumptions=(), warnings=(), limitations=()) -%}
+  <details class="evidence-drawer">
+    <summary>Evidence, assumptions, warnings, and limitations</summary>
+    <div class="evidence-grid">
+      <section>
+        <h3>Evidence</h3>
+        {% if evidence %}
+          <ul class="evidence-list">
+            {% for item in evidence %}
+              <li>
+                <strong>{{ item.title|default(item.evidence_id|default(item.source_id|default('Evidence'))) }}</strong>
+                {% if item.reference is defined %}<span class="identifier">{{ item.reference|display }}</span>{% endif %}
+                {% if item.uri is defined %}<span class="identifier">{{ item.uri|display }}</span>{% endif %}
+                {% if item.relevance is defined %}<span>{{ item.relevance }}</span>{% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}<p>Not recorded by this Day 0 contract.</p>{% endif %}
+      </section>
+      <section>
+        <h3>Assumptions</h3>
+        {% if assumptions %}<ul>{% for item in assumptions %}<li>{{ item }}</li>{% endfor %}</ul>{% else %}<p>Not recorded by this Day 0 contract.</p>{% endif %}
+      </section>
+      <section>
+        <h3>Warnings</h3>
+        {% if warnings %}<ul>{% for item in warnings %}<li>{% if item.message is defined %}<strong>{{ item.code }}:</strong> {{ item.message }}{% else %}{{ item }}{% endif %}</li>{% endfor %}</ul>{% else %}<p>No contract warning was recorded.</p>{% endif %}
+      </section>
+      <section>
+        <h3>Limitations</h3>
+        {% if limitations %}<ul>{% for item in limitations %}<li>{{ item }}</li>{% endfor %}</ul>{% else %}<p>Per-item limitations are not available in the Day 0 contract.</p>{% endif %}
+      </section>
+    </div>
+  </details>
+{%- endmacro %}
+
+{% macro finding_card(finding) -%}
+  <article class="finding-card">
+    <div class="card-heading">
+      <h2>{{ finding.kind|humanize }}</h2>
+      {{ badge(finding.severity, finding.severity) }}
+    </div>
+    <p>{{ finding.summary }}</p>
+    <p class="identifier"><strong>Finding ID:</strong> {{ finding.finding_id }}</p>
+    {{ evidence_drawer(finding.evidence_references, finding.assumptions|default(()), finding.warnings|default(()), finding.limitations|default(())) }}
+  </article>
+{%- endmacro %}
+
+{% macro alert_card(alert, profile_query) -%}
+  <article class="alert-card">
+    <div class="card-heading">
+      <h2>{{ alert.alert_id }}</h2>
+      {{ badge(alert.status, 'warning') }}
+    </div>
+    <p>{{ alert.summary }}</p>
+    <p><strong>Human review:</strong> Required</p>
+    <a class="button-link" href="/alerts/{{ alert.alert_id }}{{ profile_query }}">Review alert evidence</a>
+  </article>
+{%- endmacro %}

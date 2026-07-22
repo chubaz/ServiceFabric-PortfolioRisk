@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "components.html" import badge, disclosure, error_state %}
+{% block title %}Plan{% endblock %}
+{% block heading %}Plan{% endblock %}
+{% block intro %}<p class="lead">Reviewed Day 0 and Day 1 knowledge-product deadlines, dependencies, and review states.</p>{% endblock %}
+{% block content %}
+  {{ disclosure('Review plan, not execution authority', 'Knowledge-product status is catalogue evidence. It does not approve an application, analytical result, provider connection, or consequential action.', 'info') }}
+  {% if error %}{{ error_state('Planning catalogue is unavailable', error) }}{% else %}
+  <section aria-labelledby="day0-plan-heading"><h2 id="day0-plan-heading">Day 0 knowledge products</h2>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Day 0 knowledge products table"><table><thead><tr><th scope="col">Product</th><th scope="col">Deadlines</th><th scope="col">Dependencies</th><th scope="col">Review status</th><th scope="col">Implementation</th></tr></thead><tbody>{% for item in day0_items %}<tr><th scope="row"><span class="identifier">{{ item.knowledge_product_id }}</span><br>{{ item.title }}</th><td>Draft {{ item.draft_deadline.anchor }} + {{ item.draft_deadline.offset_minutes }} min<br>Review {{ item.review_deadline.anchor }} + {{ item.review_deadline.offset_minutes }} min</td><td>{{ item.dependencies|join(', ') if item.dependencies else 'None' }}</td><td>{{ badge(item.status, 'warning' if item.status != 'approved' else 'success') }}</td><td>{{ item.implementation_status|humanize }}</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+  <section aria-labelledby="day1-plan-heading"><h2 id="day1-plan-heading">Day 1 knowledge products</h2>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Day 1 knowledge products table"><table><thead><tr><th scope="col">Product</th><th scope="col">Deadlines</th><th scope="col">Dependencies</th><th scope="col">Review status</th><th scope="col">Implementation</th></tr></thead><tbody>{% for item in day1_items %}<tr><th scope="row"><span class="identifier">{{ item.knowledge_product_id }}</span><br>{{ item.title }}</th><td>Draft {{ item.draft_deadline.anchor }} + {{ item.draft_deadline.offset_minutes }} min<br>Review {{ item.review_deadline.anchor }} + {{ item.review_deadline.offset_minutes }} min</td><td>{{ item.dependencies|join(', ') if item.dependencies else 'None' }}</td><td>{{ badge(item.status, 'warning' if item.status != 'approved' else 'success') }}</td><td>{{ item.implementation_status|humanize }}</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+  {% endif %}
+{% endblock %}

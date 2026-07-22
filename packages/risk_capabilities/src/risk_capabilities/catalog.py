@@ -3,7 +3,16 @@
 from .contracts import CapabilityDescriptor
 
 
-ORDER_AND_BROKER_EFFECTS = ("order_submission", "broker_connectivity")
+ORDER_AND_BROKER_EFFECTS = (
+    "order_submission",
+    "broker_connectivity",
+    "trade_execution",
+    "automatic_rebalancing",
+    "optimization",
+    "hedge_execution",
+    "provider_call",
+    "external_llm_call",
+)
 
 CAPABILITY_DESCRIPTORS = (
     CapabilityDescriptor(capability_id="news.event.classify", objective="Classify an explicitly synthetic news event.", input_contract="NewsClassificationRequest with evidence.", output_contract="CapabilityResult containing synthetic classification.", denied_effects=ORDER_AND_BROKER_EFFECTS),
@@ -79,6 +88,69 @@ CAPABILITY_DESCRIPTORS = (
         input_contract="EvidenceReference[] and JSON-safe finding context.",
         output_contract="CapabilityOutcome with preserved evidence references and human-review disclosure.",
         allowed_effects=("draft_alert",),
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="risk.returns.simple",
+        objective="Calculate reviewed simple returns from supplied observations.",
+        input_contract="ReturnsRequest with immutable prices and analysis evidence.",
+        output_contract="CapabilityResult containing ReturnSeriesResult.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="risk.returns.log",
+        objective="Calculate reviewed logarithmic returns from supplied observations.",
+        input_contract="ReturnsRequest with immutable prices and analysis evidence.",
+        output_contract="CapabilityResult containing ReturnSeriesResult.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="risk.volatility.annualized",
+        objective="Calculate reviewed annualized sample volatility from supplied returns.",
+        input_contract="VolatilityRequest with immutable returns and analysis evidence.",
+        output_contract="CapabilityResult containing VolatilityResult.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="risk.drawdown.maximum",
+        objective="Calculate reviewed maximum drawdown from supplied returns.",
+        input_contract="DerivedReturnsRequest with immutable returns and analysis evidence.",
+        output_contract="CapabilityResult containing DrawdownResult.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="risk.var.historical",
+        objective="Calculate reviewed nearest-rank historical value at risk.",
+        input_contract="HistoricalTailRiskRequest with immutable returns and analysis evidence.",
+        output_contract="CapabilityResult containing HistoricalTailRiskResult.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="risk.expected_shortfall.historical",
+        objective="Calculate reviewed historical expected shortfall.",
+        input_contract="HistoricalTailRiskRequest with immutable returns and analysis evidence.",
+        output_contract="CapabilityResult containing HistoricalTailRiskResult.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="risk.scenario.evaluate",
+        objective="Evaluate a deterministic descriptive scenario from supplied shocks.",
+        input_contract="ScenarioRequest with immutable portfolio, shocks, and analysis evidence.",
+        output_contract="CapabilityResult containing ScenarioResult.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="risk.contribution.summarize",
+        objective="Summarize and reconcile supplied weighted return contributions.",
+        input_contract="ContributionSummaryRequest with immutable values and analysis evidence.",
+        output_contract="CapabilityResult containing ContributionSummary.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="risk.report.render",
+        objective="Render evidence-backed Markdown and semantic HTML review material.",
+        input_contract="ReportRequest containing one reviewed immutable analytics result.",
+        output_contract="CapabilityResult containing RiskReport; human review is required.",
         denied_effects=ORDER_AND_BROKER_EFFECTS,
     ),
 )

@@ -10,6 +10,16 @@ def test_capability_descriptors_are_bounded_and_deny_order_and_broker_effects() 
         assert "order_submission" in descriptor.denied_effects
         assert "broker_connectivity" in descriptor.denied_effects
         assert descriptor.requires_evidence is True
+        assert {
+            "order_submission",
+            "broker_connectivity",
+            "trade_execution",
+            "automatic_rebalancing",
+            "optimization",
+            "hedge_execution",
+            "provider_call",
+            "external_llm_call",
+        }.issubset(descriptor.denied_effects)
 
 
 def test_contracts_reject_raw_secret_style_fields() -> None:

@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 from pathlib import Path
 
-from scripts.day1.check_preparation import validate
+import pytest
+
+from scripts.day1.check_preparation import PREPARED_STATUS, status_errors, validate, wave_1b_workbench_errors, workplan_errors
+from scripts.day1.verify_current import verification_target
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -13,17 +18,105 @@ def payload(relative: str) -> dict:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
 
 
-def test_preparation_checker_passes() -> None:
+@pytest.mark.parametrize("from_command_line", [False, True])
+def test_empty_day1_venv_uses_repository_default(from_command_line: bool) -> None:
+    # A parent `make DAY1_VENV=...` encodes its command-line override in
+    # MAKEFLAGS. Remove that inherited override so this subprocess actually
+    # exercises the empty-value fallback.
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in {"MAKEFLAGS", "MAKEOVERRIDES"}
+    }
+    environment["DAY1_VENV"] = ""
+    command = ["make", "--no-print-directory", "-n"]
+    if from_command_line:
+        command.append("DAY1_VENV=")
+    command.append("day1-env")
+
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    expected_python = ROOT / ".venv-day1/bin/python"
+    assert f'test -x "{expected_python}"' in result.stdout
+    assert 'test -x "/bin/python"' not in result.stdout
+
+
+def test_lifecycle_aware_checker_passes_for_day1_qa() -> None:
     assert validate() == []
 
 
 def test_status_schema_and_day0_unchanged() -> None:
-    assert payload("config/agent/day1/status.json") == {
-        "current": "D1-WAVE-1A", "preparation": "complete", "wave_1a": "queued",
-        "wave_1b": "queued", "wave_1c": "queued", "soft_qa": "queued", "base_tag": "day0-complete",
-    }
+    day1 = payload("config/agent/day1/status.json")
+    assert day1 in [
+        {
+            "current": "D1-QA", "preparation": "complete", "wave_1a": "complete",
+            "wave_1b": "complete", "wave_1c": "complete", "soft_qa": "queued", "base_tag": "day0-complete",
+        },
+        {
+            "current": "D1-COMPLETE", "preparation": "complete", "wave_1a": "complete",
+            "wave_1b": "complete", "wave_1c": "complete", "soft_qa": "passed", "base_tag": "day0-complete",
+        },
+    ]
     assert payload("config/agent/day0/status.json")["current"] == "D0-COMPLETE"
     assert payload("config/agent/day0/status.json")["soft_qa"] == "passed"
+
+
+def test_prepared_baseline_remains_strict() -> None:
+    assert status_errors(PREPARED_STATUS, require_prepared=True) == []
+    assert status_errors(payload("config/agent/day1/status.json"), require_prepared=True)
+
+
+def test_all_supported_lifecycle_states_are_valid() -> None:
+    states = [
+        PREPARED_STATUS,
+        {**PREPARED_STATUS, "wave_1a": "in_progress"},
+        {**PREPARED_STATUS, "current": "D1-WAVE-1B", "wave_1a": "complete", "wave_1b": "in_progress"},
+        {**PREPARED_STATUS, "current": "D1-WAVE-1C", "wave_1a": "complete", "wave_1b": "complete", "wave_1c": "in_progress"},
+        {**PREPARED_STATUS, "current": "D1-QA", "wave_1a": "complete", "wave_1b": "complete", "wave_1c": "complete"},
+        {**PREPARED_STATUS, "current": "D1-COMPLETE", "wave_1a": "complete", "wave_1b": "complete", "wave_1c": "complete", "soft_qa": "passed"},
+    ]
+    assert all(status_errors(state) == [] for state in states)
+
+
+@pytest.mark.parametrize(
+    ("status", "workplan_id", "workplan_status"),
+    [
+        (PREPARED_STATUS, "D1-WAVE-1A", "queued; implementation has not started"),
+        ({**PREPARED_STATUS, "wave_1a": "in_progress"}, "D1-WAVE-1A", "in progress"),
+        ({**PREPARED_STATUS, "current": "D1-WAVE-1B", "wave_1a": "complete", "wave_1b": "in_progress"}, "D1-WAVE-1B", "in progress"),
+        ({**PREPARED_STATUS, "current": "D1-WAVE-1C", "wave_1a": "complete", "wave_1b": "complete", "wave_1c": "in_progress"}, "D1-WAVE-1C", "in progress"),
+        ({**PREPARED_STATUS, "current": "D1-QA", "wave_1a": "complete", "wave_1b": "complete", "wave_1c": "complete"}, "D1-QA", "ready for soft QA"),
+        ({**PREPARED_STATUS, "current": "D1-COMPLETE", "wave_1a": "complete", "wave_1b": "complete", "wave_1c": "complete", "soft_qa": "passed"}, "D1-COMPLETE", "complete"),
+    ],
+)
+def test_workplan_validation_tracks_lifecycle(status: dict, workplan_id: str, workplan_status: str) -> None:
+    text = f"# Current Workplan\n\n- ID: `{workplan_id}`\n- Status: {workplan_status}\n"
+    assert workplan_errors(status, text) == []
+
+
+def test_workplan_validation_rejects_stale_wave_1a_pointer() -> None:
+    status = {**PREPARED_STATUS, "current": "D1-WAVE-1B", "wave_1a": "complete", "wave_1b": "in_progress"}
+    text = "# Current Workplan\n\n- ID: `D1-WAVE-1A`\n- Status: in progress\n"
+    assert workplan_errors(status, text)
+
+
+def test_verification_target_rejects_inconsistent_later_state() -> None:
+    status = {**PREPARED_STATUS, "current": "D1-WAVE-1B", "wave_1a": "complete", "wave_1b": "in_progress", "wave_1c": "complete", "soft_qa": "passed"}
+    with pytest.raises(ValueError, match="valid lifecycle"):
+        verification_target(status)
+
+
+def test_verification_targets_only_completed_wave_gates() -> None:
+    assert verification_target({**PREPARED_STATUS, "wave_1a": "in_progress"}) is None
+    assert verification_target({**PREPARED_STATUS, "current": "D1-WAVE-1B", "wave_1a": "complete", "wave_1b": "in_progress"}) == "verify-wave-1a"
+    assert verification_target({**PREPARED_STATUS, "current": "D1-WAVE-1C", "wave_1a": "complete", "wave_1b": "complete", "wave_1c": "in_progress"}) == "verify-wave-1b"
 
 
 def test_wave_dependency_structure() -> None:
@@ -56,6 +149,22 @@ def test_profiles_and_boundaries_are_explicit() -> None:
     assert "enabled: false" in text and "arbitrary sql" in text
     assert "notebook execution" in text
     assert "broker" in text and "order" in text and "rebalance" in text
+
+
+def test_completed_wave_1b_requires_human_readable_workbench_bindings() -> None:
+    status = payload("config/agent/day1/status.json")
+    application = (ROOT / "apps/portfolio-risk-workbench/app.py").read_text(encoding="utf-8")
+    portfolio = (ROOT / "apps/portfolio-risk-workbench/templates/portfolio.html").read_text(encoding="utf-8")
+    providers = (ROOT / "apps/portfolio-risk-workbench/templates/providers.html").read_text(encoding="utf-8")
+
+    assert wave_1b_workbench_errors(status, application, portfolio, providers) == []
+    completed = {**status, "wave_1b": "complete", "wave_1c": "in_progress", "current": "D1-WAVE-1C"}
+    assert wave_1b_workbench_errors(completed, application, portfolio, providers) == []
+
+    errors = wave_1b_workbench_errors(completed, "", "", "")
+    assert any("bindings are missing" in error for error in errors)
+    assert any("portfolio" in error.lower() for error in errors)
+    assert any("provider catalogue" in error.lower() for error in errors)
 
 
 def test_primary_interface_and_analytics_metadata() -> None:

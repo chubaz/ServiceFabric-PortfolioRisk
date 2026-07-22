@@ -1,0 +1,83 @@
+items:
+  - research_id: D1-RES-01
+    title: Human-readable risk evidence presentation
+    purpose: Evaluate the Workbench information architecture against semantic, accessible, evidence-first screen contracts.
+    owner: knowledge
+    status: reviewed
+    methodology:
+      methodology_id: METH-IA-REVIEW
+      title: Contract-based information architecture review
+      summary: Compare each catalogue destination and disclosure against the accepted Day 1 information architecture and screen contracts.
+      reference_uri: docs/design/day1-information-architecture.md
+    inputs:
+      - Day 1 information architecture
+      - Day 1 screen contracts
+      - Human-readable Workbench ADR
+    evidence:
+      - evidence_id: EVID-IA-CONTRACT
+        title: Day 1 screen contracts
+        uri: docs/design/day1-screen-contracts.md
+        relevance: Defines required content and safe interactions for the primary Workbench screens.
+    assumptions:
+      - Experience adapters preserve the catalogue disclosures when rendering records.
+    limitations:
+      - Catalogue review does not establish visual quality, browser compatibility, or accessibility conformance of an application implementation.
+    artifact_links:
+      - docs/knowledge-products/D1-KP-01-human-workbench-and-information-architecture.md
+    profiles: [research, personal_portfolio]
+    visibility: public
+    evidence_state: public
+  - research_id: D1-RES-02
+    title: Synthetic portfolio methodology rehearsal
+    purpose: Catalogue a reproducible research-profile rehearsal of risk methodology using only labelled synthetic inputs.
+    owner: knowledge
+    status: reviewed
+    methodology:
+      methodology_id: METH-RISK-DISCLOSURE
+      title: Risk methodology disclosure review
+      summary: Check that a proposed analytical presentation names inputs, horizon, sample, assumptions, warnings, limitations, and evidence.
+      reference_uri: docs/architecture/adr/0005-day1-risk-analytics-and-explainability.md
+    inputs:
+      - Labelled deterministic synthetic observations
+      - Reviewed analytics methodology descriptions
+    evidence:
+      - evidence_id: EVID-RISK-ADR
+        title: Explainable Day 1 risk analytics ADR
+        uri: docs/architecture/adr/0005-day1-risk-analytics-and-explainability.md
+        relevance: Records required analytics metadata and non-advisory limitations.
+    assumptions:
+      - Any future calculation is supplied by the analytics package rather than this catalogue.
+    limitations:
+      - No calculation is performed and synthetic inputs do not establish real portfolio behavior or provider coverage.
+    artifact_links:
+      - docs/knowledge-products/D1-KP-03-risk-analytics-methodology-and-limitations.md
+    profiles: [research]
+    visibility: public
+    evidence_state: synthetic
+  - research_id: D1-RES-03
+    title: Private portfolio disclosure protocol
+    purpose: Review the metadata required to display private local portfolio research without publishing personal observations.
+    owner: knowledge
+    status: reviewed
+    methodology:
+      methodology_id: METH-PRIVACY-BOUNDARY
+      title: Profile and data-rights boundary review
+      summary: Verify that personal-portfolio material remains local, private, immutable, and disconnected from broker or publication routes.
+      reference_uri: docs/architecture/adr/0004-day1-operating-profiles-and-data-boundary.md
+    inputs:
+      - Profile metadata only
+      - Data-rights and publication restrictions
+    evidence:
+      - evidence_id: EVID-PROFILE-ADR
+        title: Operating profiles and data boundary ADR
+        uri: docs/architecture/adr/0004-day1-operating-profiles-and-data-boundary.md
+        relevance: Defines private-local portfolio handling and prohibits broker connectivity.
+    assumptions:
+      - No personal portfolio values are stored in this public catalogue.
+    limitations:
+      - This protocol neither ingests a portfolio nor proves the security of a future local deployment.
+    artifact_links:
+      - docs/knowledge-products/D1-KP-02-operating-profiles-portfolio-input-and-data-rights.md
+    profiles: [personal_portfolio]
+    visibility: private_local
+    evidence_state: private

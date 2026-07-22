@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "components.html" import badge, disclosure, error_state, evidence_drawer %}
+{% block title %}Agents{% endblock %}
+{% block heading %}Agents{% endblock %}
+{% block intro %}<p class="lead">Four deterministic, review-bound roles with finite capability grants and explicit denied effects.</p>{% endblock %}
+{% block heading_action %}<a class="button-link secondary" href="/agent-runs{{ profile_query }}">View run history</a>{% endblock %}
+{% block content %}
+  {{ disclosure('Agents cannot cause portfolio effects', 'All roles deny broker connectivity, order creation or submission, trade execution, and automatic rebalancing. Canonical ServiceFabric runtime contracts remain authoritative.', 'critical') }}
+  {% if error %}{{ error_state('Agent evidence is unavailable', error) }}{% else %}
+  <section aria-labelledby="analysis-timeline-heading">
+    <div class="section-heading"><div><h2 id="analysis-timeline-heading">Four-role analysis timeline</h2><p>Ordered registered-capability receipts with a pending review checkpoint and empty effects.</p></div>{{ badge(timeline.status, 'success' if timeline.status == 'succeeded' else 'warning') }}</div>
+    <ol class="agent-timeline">
+      {% for step in timeline.steps %}
+        <li>
+          <article class="timeline-step">
+            <div class="card-heading"><h3>Step {{ step.sequence }} · {{ step.role|humanize }}</h3>{{ badge(step.status, 'success' if step.status == 'succeeded' else 'warning') }}</div>
+            <dl class="definition-grid"><div><dt>Role</dt><dd class="identifier">{{ step.role }}</dd></div><div><dt>Capability receipt</dt><dd class="identifier">{{ step.receipt.capability_id }}</dd></div><div><dt>Methodology</dt><dd>{{ step.methodology|humanize }}</dd></div><div><dt>Output digest</dt><dd class="identifier">{{ step.output_digest }}</dd></div><div><dt>Status</dt><dd>{{ step.status|humanize }}</dd></div><div><dt>Review checkpoint</dt><dd>{{ step.review.state|humanize }} · human review required</dd></div><div><dt>Effects</dt><dd>{% if step.effects %}Unexpected effects recorded{% else %}Empty{% endif %}</dd></div></dl>
+            {{ evidence_drawer(step.evidence, step.assumptions, step.warnings, step.limitations) }}
+          </article>
+        </li>
+      {% endfor %}
+    </ol>
+  </section>
+  <div class="card-grid">
+    {% for role in roles %}
+      <article class="agent-card">
+        <div class="card-heading"><h2>{{ role.name }}</h2>{{ badge('Active', 'success') }}</div>
+        <p>{{ role.objective }}</p>
+        <h3>Capability grants</h3><ul class="tag-list">{% for capability in role.allowed_capability_ids %}<li>{{ capability }}</li>{% endfor %}</ul>
+        <h3>Prohibited effects</h3><ul>{% for effect in role.denied_effects %}<li>{{ effect|humanize }}</li>{% endfor %}</ul>
+        <h3>Evidence summary</h3>
+        {% if role.evidence_summaries %}<ul>{% for summary in role.evidence_summaries %}<li>{{ summary }}</li>{% endfor %}</ul>{% else %}<p class="muted">No stored run output is available for this role.</p>{% endif %}
+        {{ evidence_drawer((), (), ('Human review is required.',), (role.escalation_policy,)) }}
+      </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endblock %}

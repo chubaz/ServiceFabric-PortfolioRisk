@@ -8,4 +8,5 @@ reviewed views, query manifests, provenance, rights/access/zone/freshness and
 quality flags are explicit; every external provider is disabled by default.
 Exclude arbitrary SQL, provider calls, credentials, licensed/personal Git
 data, broker paths, and app edits. Run focused data tests and `git diff
---check`, record evidence, commit a focused candidate, and stop without merge.
+--check`, record evidence, commit a focused candidate, validate the current
+lifecycle gate, and stop without merge.

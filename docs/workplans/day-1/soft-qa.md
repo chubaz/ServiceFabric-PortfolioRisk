@@ -11,3 +11,9 @@ Evidence must include the exact revision, commands, screenshots or equivalent
 local artifacts, findings, limitations, reviewer identity, and a separate
 decision. A failed query remains failed/missing rather than zero. The reviewer
 must not be represented as supervisor approval unless explicitly recorded.
+
+## Review outcome
+
+Human soft QA has been completed. The explicit decision, reviewed revision,
+evidence digests, accepted limitations, and merge authorization are recorded
+in `docs/workplans/day-1/soft-qa-result.md`.

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>{% block title %}{% endblock %} · Portfolio Risk Workbench</title>
+    <link rel="stylesheet" href="/static/workbench.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="brand-row">
+        <a class="brand" href="/{{ profile_query }}" aria-label="Portfolio Risk Workbench dashboard">
+          <span class="brand-mark" aria-hidden="true">SF</span>
+          <span>Portfolio Risk Workbench</span>
+        </a>
+        <div class="global-status" aria-label="Current Workbench status">
+          <span class="badge badge-profile">{{ profile.label }}</span>
+          <span class="badge badge-data">{{ profile.data_state }}</span>
+          <span class="badge badge-neutral">As-of evidence · no live refresh</span>
+          <span class="badge badge-review">Human review required</span>
+        </div>
+      </div>
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <ul>
+          {% for item_id, label, href in navigation %}
+            <li><a href="{{ href }}{{ profile_query }}"{% if active_page == item_id %} aria-current="page"{% endif %}>{{ label }}</a></li>
+          {% endfor %}
+        </ul>
+      </nav>
+    </header>
+    <main id="main-content" tabindex="-1">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">{{ profile.label }}</p>
+          <h1>{% block heading %}{% endblock %}</h1>
+          {% block intro %}{% endblock %}
+        </div>
+        {% block heading_action %}{% endblock %}
+      </div>
+      {% block content %}{% endblock %}
+    </main>
+    <footer>
+      <p><strong>Local review environment.</strong> No live data, broker connectivity, orders, trades, automatic rebalancing, or investment advice.</p>
+      <p>{{ profile.publication_state }} Every consequential interpretation requires explicit human review.</p>
+    </footer>
+  </body>
+</html>

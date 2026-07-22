@@ -6,7 +6,7 @@
     "integration": {
       "branch": "integration/day1",
       "allowed_directories": [".github", "config/agent/day1", "docs/architecture", "docs/design", "docs/contracts", "docs/rights", "docs/workplans/day-1", "scripts/day1", "tests/architecture", "tests/integration", "tests/journeys", "codex/prompts/day1"],
-      "allowed_files": ["AGENTS.md", "README.md", "Makefile", "pyproject.toml", "requirements/day1.in", "requirements/day1.lock", "docs/workplans/current.md", "docs/handoffs/day-1/integration.md", "docs/handoffs/day-1/preparation.md"]
+      "allowed_files": ["AGENTS.md", "README.md", "Makefile", "pyproject.toml", "requirements/day0.in", "requirements/day0.lock", "requirements/day1.in", "requirements/day1.lock", "docs/workplans/current.md", "docs/handoffs/day-1/integration.md", "docs/handoffs/day-1/preparation.md"]
     },
     "domain-analytics": {
       "branch": "feature/day1-domain-analytics",

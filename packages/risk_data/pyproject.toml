@@ -7,7 +7,7 @@ name = "risk-data"
 version = "0.1.0"
 description = "Provider-neutral ingestion contracts for portfolio-risk data."
 requires-python = ">=3.11,<3.12"
-dependencies = ["pydantic>=2,<3", "risk-domain>=0.1.0"]
+dependencies = ["pydantic>=2,<3", "PyYAML>=6,<7", "risk-domain>=0.1.0"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

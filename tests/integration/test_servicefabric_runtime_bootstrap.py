@@ -1,6 +1,11 @@
 from pathlib import Path
+import json
 
 from scripts.day0.bootstrap_servicefabric_runtime import digest_tree
+from scripts.day1.bootstrap_servicefabric_runtime import LOCAL_PACKAGE_NAMES
+
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_package_digest_ignores_generated_build_metadata(tmp_path: Path) -> None:
@@ -34,3 +39,25 @@ def test_package_digest_changes_with_source(tmp_path: Path) -> None:
     source.write_text("VALUE = 2\n", encoding="utf-8")
 
     assert digest_tree((package,)) != reviewed_digest
+
+
+def test_day1_hosted_runtime_uses_the_complete_reviewed_package_set() -> None:
+    assert LOCAL_PACKAGE_NAMES == (
+        "risk_domain",
+        "risk_planning",
+        "risk_data",
+        "risk_capabilities",
+        "risk_agents",
+        "risk_analytics",
+    )
+    lock = json.loads(
+        (ROOT / "apps/portfolio-risk-workbench/risk-package-lock.json").read_text(encoding="utf-8")
+    )
+    assert tuple(sorted(lock["packages"])) == tuple(sorted(LOCAL_PACKAGE_NAMES))
+
+
+def test_day1_host_adaptation_is_external_and_uses_the_day1_lock() -> None:
+    source = (ROOT / "scripts/day1/bootstrap_servicefabric_runtime.py").read_text(encoding="utf-8")
+    assert 'requirement_lock = REPOSITORY / "requirements" / "day1.lock"' in source
+    assert "shutil.copytree" in source
+    assert "risk-package-lock.json does not match reviewed Day 1 package sources" in source

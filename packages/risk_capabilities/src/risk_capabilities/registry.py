@@ -6,15 +6,34 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from decimal import Decimal, localcontext
 from statistics import mean, pstdev
+from types import MappingProxyType
 from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import Field, field_validator, model_validator
 
+from risk_analytics import AnalysisMethod
 from risk_data import IngestionRun, NormalizedMarketRecord
 from risk_domain import CashBalance, ExposureSnapshot, PortfolioSnapshot, Position, PositionExposure, SourceReference
 from risk_planning import PlanningCatalog
 
 from .contracts import CapabilityContract, EvidenceReference
+from .analytics import (
+    ContributionSummaryRequest,
+    DerivedReturnsRequest,
+    HistoricalTailRiskRequest,
+    ReportRequest,
+    ReturnsRequest,
+    ScenarioRequest,
+    VolatilityRequest,
+    contributions,
+    drawdown,
+    log_returns,
+    report,
+    scenario,
+    simple_returns,
+    tail_risk,
+    volatility,
+)
 
 
 DECIMAL_CONTEXT_PRECISION = 34
@@ -24,7 +43,7 @@ ResultValue = TypeVar("ResultValue")
 class CapabilityResult(CapabilityContract, Generic[ResultValue]):
     """A local capability result with explicit evidence and no effects."""
 
-    capability_id: str = Field(pattern=r"^(planning|data|portfolio|market|news|alert)\.[a-z_]+\.[a-z_]+$")
+    capability_id: str = Field(pattern=r"^(planning|data|portfolio|market|news|alert|risk)\.[a-z_]+\.[a-z_]+$")
     status: Literal["succeeded", "failed", "stopped"] = "succeeded"
     data: ResultValue | None = None
     evidence_references: tuple[EvidenceReference, ...]
@@ -33,6 +52,9 @@ class CapabilityResult(CapabilityContract, Generic[ResultValue]):
     limitations: tuple[str, ...] = ()
     effects: tuple[str, ...] = ()
     findings: tuple["MonitoringFinding", ...] = ()
+    methodology: AnalysisMethod | None = None
+    output_digest: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
+    human_review_required: bool = False
 
     @field_validator("effects")
     @classmethod
@@ -182,6 +204,29 @@ class SyntheticIngestRequest(CapabilityContract):
     evidence_references: tuple[EvidenceReference, ...] = Field(min_length=1)
 
 
+CAPABILITY_REQUEST_TYPES = MappingProxyType(
+    {
+        "planning.knowledge.list_due": KnowledgeDueRequest,
+        "data.synthetic.ingest": SyntheticIngestRequest,
+        "portfolio.snapshot.create": PortfolioSnapshotRequest,
+        "portfolio.exposure.summarize": ExposureSummaryRequest,
+        "market.anomaly.detect": AnomalyDetectionRequest,
+        "news.event.classify": NewsClassificationRequest,
+        "alert.draft.synthesize": AlertSynthesisRequest,
+        "alert.draft.review": AlertReviewRequest,
+        "risk.returns.simple": ReturnsRequest,
+        "risk.returns.log": ReturnsRequest,
+        "risk.volatility.annualized": VolatilityRequest,
+        "risk.drawdown.maximum": DerivedReturnsRequest,
+        "risk.var.historical": HistoricalTailRiskRequest,
+        "risk.expected_shortfall.historical": HistoricalTailRiskRequest,
+        "risk.scenario.evaluate": ScenarioRequest,
+        "risk.contribution.summarize": ContributionSummaryRequest,
+        "risk.report.render": ReportRequest,
+    }
+)
+
+
 def _source_references(observations: tuple[NormalizedMarketRecord, ...]) -> tuple[SourceReference, ...]:
     sources = [record.to_market_observation().sources[0] for record in observations]
     unique = {(item.source_id, item.reference): item for item in sources}
@@ -301,6 +346,67 @@ def ingest_synthetic(request: SyntheticIngestRequest) -> CapabilityResult[Ingest
     return CapabilityResult(capability_id="data.synthetic.ingest", data=request.ingestion_run, evidence_references=request.evidence_references, assumptions=("The supplied ingestion run is already local and synthetic.",), limitations=("This registry does not contact providers or perform ingestion itself.",))
 
 
+def _analytics_result(
+    capability_id: str, request: Any, output: Any
+) -> CapabilityResult[Any]:
+    """Wrap one immutable analytics result without weakening its metadata."""
+    return CapabilityResult(
+        capability_id=capability_id,
+        data=output,
+        evidence_references=request.evidence_references,
+        assumptions=output.assumptions,
+        warnings=tuple(f"{item.code}: {item.message}" for item in output.warnings),
+        limitations=output.limitations,
+        methodology=output.methodology,
+        output_digest=output.output_digest,
+        human_review_required=True,
+    )
+
+
+def calculate_simple_returns(request: ReturnsRequest) -> CapabilityResult[Any]:
+    return _analytics_result("risk.returns.simple", request, simple_returns(request))
+
+
+def calculate_log_returns(request: ReturnsRequest) -> CapabilityResult[Any]:
+    return _analytics_result("risk.returns.log", request, log_returns(request))
+
+
+def calculate_annualized_volatility(request: VolatilityRequest) -> CapabilityResult[Any]:
+    return _analytics_result("risk.volatility.annualized", request, volatility(request))
+
+
+def calculate_maximum_drawdown(request: DerivedReturnsRequest) -> CapabilityResult[Any]:
+    return _analytics_result("risk.drawdown.maximum", request, drawdown(request))
+
+
+def calculate_historical_var(request: HistoricalTailRiskRequest) -> CapabilityResult[Any]:
+    return _analytics_result("risk.var.historical", request, tail_risk(request))
+
+
+def calculate_historical_expected_shortfall(
+    request: HistoricalTailRiskRequest,
+) -> CapabilityResult[Any]:
+    return _analytics_result(
+        "risk.expected_shortfall.historical", request, tail_risk(request)
+    )
+
+
+def evaluate_scenario(request: ScenarioRequest) -> CapabilityResult[Any]:
+    return _analytics_result("risk.scenario.evaluate", request, scenario(request))
+
+
+def summarize_risk_contributions(
+    request: ContributionSummaryRequest,
+) -> CapabilityResult[Any]:
+    return _analytics_result(
+        "risk.contribution.summarize", request, contributions(request)
+    )
+
+
+def render_risk_report(request: ReportRequest) -> CapabilityResult[Any]:
+    return _analytics_result("risk.report.render", request, report(request))
+
+
 CapabilityHandler = Callable[[Any], CapabilityResult[Any]]
 
 
@@ -328,19 +434,19 @@ class CapabilityRegistry:
             "news.event.classify": classify_news_event,
             "alert.draft.synthesize": synthesize_alert_draft,
             "alert.draft.review": review_alert_draft,
+            "risk.returns.simple": calculate_simple_returns,
+            "risk.returns.log": calculate_log_returns,
+            "risk.volatility.annualized": calculate_annualized_volatility,
+            "risk.drawdown.maximum": calculate_maximum_drawdown,
+            "risk.var.historical": calculate_historical_var,
+            "risk.expected_shortfall.historical": calculate_historical_expected_shortfall,
+            "risk.scenario.evaluate": evaluate_scenario,
+            "risk.contribution.summarize": summarize_risk_contributions,
+            "risk.report.render": render_risk_report,
         }
         if len(self._handlers) != len(set(self._handlers)):
             raise ValueError("capability IDs must be unique")
-        self._request_types: dict[str, type[CapabilityContract]] = {
-            "planning.knowledge.list_due": KnowledgeDueRequest,
-            "data.synthetic.ingest": SyntheticIngestRequest,
-            "portfolio.snapshot.create": PortfolioSnapshotRequest,
-            "portfolio.exposure.summarize": ExposureSummaryRequest,
-            "market.anomaly.detect": AnomalyDetectionRequest,
-            "news.event.classify": NewsClassificationRequest,
-            "alert.draft.synthesize": AlertSynthesisRequest,
-            "alert.draft.review": AlertReviewRequest,
-        }
+        self._request_types = CAPABILITY_REQUEST_TYPES
         self._history: list[CapabilityInvocationRecord] = []
 
     @property

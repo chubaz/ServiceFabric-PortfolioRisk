@@ -1,4 +1,4 @@
-"""Pydantic v2 contracts for immutable Day 0 planning records."""
+"""Pydantic v2 contracts for immutable Day 0 and Day 1 planning records."""
 
 from __future__ import annotations
 
@@ -30,23 +30,23 @@ class ImplementationStatus(str, Enum):
 
 
 class Deadline(ImmutablePlanningModel):
-    """A deterministic deadline measured from the shared Day 0 anchor."""
+    """A deterministic deadline measured from an explicitly supplied epoch."""
 
-    anchor: Literal["T0"] = "T0"
+    anchor: Literal["T0", "T1"] = "T0"
     offset_minutes: int = Field(ge=0)
 
     def at(self, t0: datetime) -> datetime:
-        """Resolve this deterministic deadline from an explicitly supplied T0."""
+        """Resolve this deadline from an explicit epoch, preserving the Day 0 keyword."""
         if t0.tzinfo is None or t0.utcoffset() is None:
-            raise ValueError("T0 must be timezone-aware")
+            raise ValueError(f"{self.anchor} must be timezone-aware")
         return t0.astimezone(UTC) + timedelta(minutes=self.offset_minutes)
 
 
 class WorkItem(ImmutablePlanningModel):
-    work_item_id: str = Field(pattern=r"^[A-Z]{2,}-[0-9]{2}(?:-[A-Z0-9]+)*$")
+    work_item_id: str = Field(pattern=r"^(?:[A-Z]{2,}-[0-9]{2}(?:-[A-Z0-9]+)*|D1-KP-0[1-5])$")
     title: str = Field(min_length=1, max_length=256)
     purpose: str = Field(min_length=1, max_length=2000)
-    owner_lane: Literal["planning"] = "planning"
+    owner_lane: Literal["planning", "knowledge"] = "planning"
     status: ReviewState = ReviewState.DRAFT
     dependencies: tuple[str, ...] = ()
 
@@ -59,14 +59,14 @@ class SourceReferenceLink(ImmutablePlanningModel):
 
 
 class ArtifactLink(ImmutablePlanningModel):
-    artifact_id: str = Field(pattern=r"^KP-[0-9]{2}-A[0-9]+$")
+    artifact_id: str = Field(pattern=r"^(?:KP-0[0-5]|D1-KP-0[1-5])-A[0-9]+$")
     path: str = Field(min_length=1, max_length=2048)
     label: str = Field(min_length=1, max_length=256)
     purpose: str = Field(min_length=1, max_length=2000)
 
 
 class ThesisTraceabilityEntry(ImmutablePlanningModel):
-    entry_id: str = Field(pattern=r"^KP-[0-9]{2}-T[0-9]+$")
+    entry_id: str = Field(pattern=r"^(?:KP-0[0-5]|D1-KP-0[1-5])-T[0-9]+$")
     thesis: str = Field(min_length=1, max_length=2000)
     evidence_reference_ids: tuple[str, ...] = Field(min_length=1)
     assumptions: tuple[str, ...] = ()
@@ -76,14 +76,15 @@ class ThesisTraceabilityEntry(ImmutablePlanningModel):
 class ReviewDecision(ImmutablePlanningModel):
     """An append-only review event; updates create a new knowledge product value."""
 
-    decision_id: str = Field(pattern=r"^[A-Z]{2}-[0-9]{2}-R[0-9]+$")
+    decision_id: str = Field(pattern=r"^(?:KP-0[0-5]|D1-KP-0[1-5])-R[0-9]+$")
     state: ReviewState
     decided_by: str = Field(min_length=1, max_length=256)
     rationale: str = Field(min_length=1, max_length=2000)
 
 
 class KnowledgeProduct(WorkItem):
-    knowledge_product_id: str = Field(pattern=r"^KP-[0-9]{2}$")
+    knowledge_product_id: str = Field(pattern=r"^(?:KP-0[0-5]|D1-KP-0[1-5])$")
+    planning_day: Literal["day-0", "day-1"] = "day-0"
     draft_deadline: Deadline
     review_deadline: Deadline
     acceptance_criteria: tuple[str, ...] = Field(min_length=1)
@@ -99,6 +100,16 @@ class KnowledgeProduct(WorkItem):
     def product_invariants(self) -> "KnowledgeProduct":
         if self.work_item_id != self.knowledge_product_id:
             raise ValueError("work_item_id must equal knowledge_product_id")
+        is_day_1 = self.knowledge_product_id.startswith("D1-")
+        expected_day = "day-1" if is_day_1 else "day-0"
+        expected_anchor = "T1" if is_day_1 else "T0"
+        expected_lane = "knowledge" if is_day_1 else "planning"
+        if self.planning_day != expected_day:
+            raise ValueError("planning_day must match the knowledge product epoch")
+        if self.draft_deadline.anchor != expected_anchor or self.review_deadline.anchor != expected_anchor:
+            raise ValueError("deadline anchors must match the knowledge product epoch")
+        if self.owner_lane != expected_lane:
+            raise ValueError("owner_lane must match the knowledge product epoch")
         if self.review_deadline.offset_minutes < self.draft_deadline.offset_minutes:
             raise ValueError("review deadline must not precede draft deadline")
         if len(self.dependencies) != len(set(self.dependencies)):
@@ -146,6 +157,9 @@ class PlanningCatalog(ImmutablePlanningModel):
         identifiers = [item.knowledge_product_id for item in self.knowledge_products]
         if len(identifiers) != len(set(identifiers)):
             raise ValueError("knowledge product IDs must be unique")
+        planning_days = {item.planning_day for item in self.knowledge_products}
+        if len(planning_days) != 1:
+            raise ValueError("knowledge products in a catalogue must share one planning epoch")
         known = set(identifiers)
         unknown = sorted({dependency for item in self.knowledge_products for dependency in item.dependencies if dependency not in known})
         if unknown:

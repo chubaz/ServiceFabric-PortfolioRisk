@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure, empty_state, finding_card, metric %}
+{% block title %}Dashboard{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+{% block intro %}<p class="lead">A review-first summary of the current immutable synthetic portfolio and its evidence.</p>{% endblock %}
+{% block content %}
+  {{ disclosure('No trading or investment advice', 'This Workbench can summarize local evidence and record review decisions. It cannot connect to a broker, place an order, execute a trade, or rebalance a portfolio.', 'critical') }}
+  {% if error %}
+    {% from "components.html" import error_state %}{{ error_state('Dashboard data is unavailable', error) }}
+  {% else %}
+    <section class="metric-grid" aria-label="Portfolio metrics">
+      {{ metric('Net asset value', cards['portfolio NAV']|currency(currency_code), 'Current synthetic snapshot') }}
+      {{ metric('Cash', cards.cash|currency(currency_code), 'Cash balance') }}
+      {{ metric('Largest position', cards['largest position weight']|percentage, 'Share of NAV') }}
+      {{ metric('Concentration limit', cards['concentration limit']|percentage, 'Day 0 review threshold') }}
+      {{ metric('Findings', cards['active finding count'], 'Evidence-backed observations') }}
+      {{ metric('Pending review', cards['pending human review count'], 'Alert drafts awaiting a decision', 'warning') }}
+    </section>
+    <section class="section-heading">
+      <div><p class="eyebrow">Review queue</p><h2>Recent findings</h2></div>
+      <a href="/findings{{ profile_query }}">View all findings</a>
+    </section>
+    {% if recent_findings %}
+      <div class="card-grid">{% for finding in recent_findings %}{{ finding_card(finding) }}{% endfor %}</div>
+    {% else %}
+      {{ empty_state('No findings recorded', 'Run the existing local monitoring capability to create evidence-backed synthetic findings. Absence of a finding is not evidence of zero risk.') }}
+    {% endif %}
+  {% endif %}
+{% endblock %}

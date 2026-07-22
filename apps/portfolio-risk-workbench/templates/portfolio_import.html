@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure %}
+{% block title %}Import portfolio{% endblock %}
+{% block heading %}Import portfolio{% endblock %}
+{% block intro %}<p class="lead">Create a local validation preview before any immutable portfolio snapshot is created.</p>{% endblock %}
+{% block content %}
+  {{ disclosure('Private local input', 'Accepted files are CSV or YAML only. The reviewed data service enforces the displayed maximum size, does not interpret spreadsheet formulas, and does not retain raw upload content by default.', 'critical') }}
+  <form method="post" action="/portfolio/import/preview{{ profile_query }}" enctype="multipart/form-data">
+    <fieldset><legend>Select a portfolio file</legend><label class="field" for="portfolio-file"><span>CSV or YAML file</span><input id="portfolio-file" name="file" type="file" accept=".csv,.yaml,.yml,text/csv,application/yaml,text/yaml" required aria-describedby="file-help"><small id="file-help" class="help-text">Maximum reviewed size: {{ maximum_upload_bytes|number(0) }} bytes. A server filesystem path is never accepted.</small></label><label class="field" for="base-currency"><span>CSV base currency</span><input id="base-currency" name="base_currency" type="text" value="USD" maxlength="3" aria-describedby="csv-context-help"></label><label class="field" for="portfolio-as-of"><span>CSV as-of timestamp</span><input id="portfolio-as-of" name="as_of" type="text" value="2026-07-21T00:00:00Z" aria-describedby="csv-context-help"></label><small id="csv-context-help" class="help-text">CSV requires an ISO currency and timezone-aware as-of timestamp. YAML carries this context inside the document.</small></fieldset>
+    <button type="submit">Validate and create preview</button>
+  </form>
+  <section aria-labelledby="format-heading"><h2 id="format-heading">Expected format</h2><dl class="definition-grid"><div><dt>CSV</dt><dd><code>instrument_id</code>, <code>quantity</code>, optional <code>currency</code> and <code>as_of</code>.</dd></div><div><dt>YAML</dt><dd><code>profile</code>, <code>as_of</code>, <code>base_currency</code>, <code>positions</code>, and <code>cash_balances</code>.</dd></div><div><dt>Confirmation</dt><dd>A valid preview displays its digest and requires an explicit checked confirmation.</dd></div></dl></section>
+{% endblock %}

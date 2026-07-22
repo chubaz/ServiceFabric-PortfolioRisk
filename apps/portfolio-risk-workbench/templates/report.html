@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure, error_state, evidence_drawer %}
+{% block title %}Risk report{% endblock %}
+{% block heading %}{% if report %}{{ report.title }}{% else %}Risk report unavailable{% endif %}{% endblock %}
+{% block intro %}<p class="lead">Human-readable, evidence-linked review material rendered from an immutable registered analytics result.</p>{% endblock %}
+{% block content %}
+  {{ disclosure('Review and publication state', 'This report is synthetic or local-profile review material. Human review is pending. It is not investment advice and no publication action is available.', 'critical') }}
+  {% if error %}{{ error_state('Report is unavailable', error) }}{% else %}
+    <section aria-labelledby="report-summary-heading"><h2 id="report-summary-heading">Analysis summary</h2><dl class="definition-grid"><div><dt>Analysis ID</dt><dd class="identifier">{{ source.analysis_id }}</dd></div><div><dt>Snapshot ID</dt><dd class="identifier">{{ source.snapshot_id }}</dd></div><div><dt>Methodology</dt><dd>{{ source.methodology|humanize }}</dd></div><div><dt>Horizon</dt><dd>{{ source.horizon.label }} · {{ source.horizon.periods }} period(s)</dd></div><div><dt>Sample</dt><dd>{{ source.sample_period.start|timestamp }} to {{ source.sample_period.end|timestamp }}</dd></div><div><dt>Observation count</dt><dd>{{ source.observation_count }}</dd></div><div><dt>Source output digest</dt><dd class="identifier">{{ report.source_output_digest }}</dd></div><div><dt>Report output digest</dt><dd class="identifier">{{ report.output_digest }}</dd></div><div><dt>Review state</dt><dd>Pending · human review required</dd></div><div><dt>Publication</dt><dd>Unavailable{% if profile.profile_id == 'personal_portfolio' %} for personal profile{% endif %}</dd></div></dl></section>
+    {{ evidence_drawer(report.evidence, report.assumptions, report.warnings, report.limitations) }}
+    <p><a class="button-link" href="/reports/{{ method_id }}.md?profile={{ profile.profile_id }}&amp;snapshot_id={{ snapshot_id }}&amp;confidence={{ confidence }}&amp;scenario={{ scenario }}" download>Download Markdown report</a></p>
+    <p class="muted">PDF export and notebook execution are not available.</p>
+  {% endif %}
+{% endblock %}
