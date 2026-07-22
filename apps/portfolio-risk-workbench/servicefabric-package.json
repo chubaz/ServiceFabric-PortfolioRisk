@@ -15,7 +15,11 @@
   "source_files": [
     {
       "path": "app.py",
-      "sha256": "72e949a2901e89f01c8376a11b2feb4f9dc03b52511e6750eeb7e5c0f83ab1f0"
+      "sha256": "291921fa71424b6678836bca880e8c1365551cf5dcbbdb1768fc9f8a36c28121"
+    },
+    {
+      "path": "workspace_service.py",
+      "sha256": "b9a2a0b6535cdc48134b7e7590d8bb3fdc2b6af547049373d374e46397083e80"
     },
     {
       "path": "catalog/notebooks.yaml",
@@ -35,7 +39,7 @@
     },
     {
       "path": "risk-package-lock.json",
-      "sha256": "713b05a34ca700ad95d64f4c2f5ddd7871ce32da98bb80be2257b426b911518b"
+      "sha256": "2e9f2e9ae9d0bb74df5c59c0845e1afbefe6d887b920ee076c3eb62eb82ce14f"
     },
     {
       "path": "seed/knowledge-products/KP-00.yaml",
@@ -115,7 +119,7 @@
     },
     {
       "path": "templates/data.html",
-      "sha256": "ccd63b2596d69b567061e28b49877cb0ab7d597ab30c9fe739ba2949e8918074"
+      "sha256": "5e76aeaaba20b201b773ae306976d1e1a4e0671136ed37e24bf0510de9df2dbf"
     },
     {
       "path": "templates/error.html",
@@ -135,11 +139,31 @@
     },
     {
       "path": "templates/portfolio.html",
-      "sha256": "b154ee756fc9fcbfcd2a57a9cd65f5cb26d119aa3dcbc8694f08277371dcd932"
+      "sha256": "121889e251727b015905b26fabcb981de1c1c1a8a4539b47059ad7720cccffaa"
+    },
+    {
+      "path": "templates/portfolio_import.html",
+      "sha256": "5ff8f7a8fad2321183cf888a84e0946a04dffff993cabf0f8767a36e7e608b8e"
+    },
+    {
+      "path": "templates/portfolio_preview.html",
+      "sha256": "6336fa74cc179ffe6ab0b78cc9f2b09afad8e784a85ec935e64446d709d51ae5"
+    },
+    {
+      "path": "templates/portfolio_snapshots.html",
+      "sha256": "dee0b8fffbce291d67978966e0c39739d88788d1d3f455ad3f10bf0b5b7f3ab9"
+    },
+    {
+      "path": "templates/portfolio_snapshot.html",
+      "sha256": "c0c7dc752cce61e76408004ef0bb5e3d7c1ddd86883ef2db712c53020bd82957"
+    },
+    {
+      "path": "templates/portfolio_compare.html",
+      "sha256": "2efbe55d63b0205ad433ceaa195e069b8a0208380377d0f60aa18c36cf95c21d"
     },
     {
       "path": "templates/providers.html",
-      "sha256": "35f7fcbdc149451edede3ae287664fb00bfc36be0f35cb32ae558410aaeb5bb7"
+      "sha256": "c95a0e1c5b238b605062a55253867cba305f5f958bcd3eb7dac2a58aa5c21cac"
     },
     {
       "path": "templates/research.html",
@@ -151,7 +175,7 @@
     },
     {
       "path": "templates/settings.html",
-      "sha256": "683355fb357ed80cf786bea96cd439a956c7b32c7349bd1ce85929952501819a"
+      "sha256": "db8bbe66480c76b2b9e37f6b742ce0b7c970c26587aee49c25b8ef971428ee67"
     }
   ],
   "declared_resources": {

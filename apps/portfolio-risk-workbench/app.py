@@ -10,14 +10,16 @@ from typing import Annotated
 from urllib.parse import quote, urlencode
 
 import pyarrow.parquet as pq
-from fastapi import FastAPI, Form, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette import requests as starlette_requests
+from starlette.formparsers import MultiPartException, MultiPartParser
 from risk_agents import ACTIVE_AGENT_ROLE_IDS, AGENT_ROLES, DeterministicMonitoringOrchestrator, MonitoringRunRequest
 from risk_capabilities import AlertDraft, AlertReviewRequest, AnomalyDetectionRequest, DEFAULT_CAPABILITY_REGISTRY, DecisionPoint, EvidenceReference, ExposureSummaryRequest, NewsClassificationRequest, PortfolioSnapshotRequest, PositionSpecification, SyntheticNewsEvent
-from risk_data import NormalizedMarketRecord, ingest_synthetic
+from risk_data import NormalizedMarketRecord, PortfolioConfirmationRequest, PortfolioInputPreview, ingest_synthetic
 from risk_data.pipeline import resolve_data_root
-from risk_domain import CashBalance, PortfolioSnapshot
+from risk_domain import CashBalance, MarketObservation, PortfolioSnapshot
 from risk_domain.digests import sha256_digest
 from risk_planning import load_day1_seed_catalog, load_notebook_catalogue, load_research_catalogue, load_seed_catalog
 
@@ -34,6 +36,31 @@ if str(APPLICATION_ROOT) not in sys.path:
     sys.path.insert(0, str(APPLICATION_ROOT))
 
 from presentation import profile_view, render_page  # noqa: E402  (the hosted app directory is resolved above)
+from workspace_service import MAX_INPUT_BYTES, PortfolioWorkspace, WorkspaceRecordNotFound, provider_views  # noqa: E402
+
+
+class BoundedPortfolioMultiPartParser(MultiPartParser):
+    """Reject an oversized file part before Starlette queues or spools it."""
+
+    spool_max_size = MAX_INPUT_BYTES
+    max_file_size = MAX_INPUT_BYTES
+
+    def on_part_begin(self) -> None:
+        super().on_part_begin()
+        self._current_file_size = 0
+
+    def on_part_data(self, data: bytes, start: int, end: int) -> None:
+        if self._current_part.file is not None:
+            message_size = end - start
+            if self._current_file_size + message_size > self.max_file_size:
+                raise MultiPartException(f"File exceeded maximum size of {self.max_file_size} bytes.")
+            self._current_file_size += message_size
+        super().on_part_data(data, start, end)
+
+
+# FastAPI resolves File()/Form() dependencies through Request.form(). Replace
+# Starlette's request-level parser so the limit applies before UploadFile exists.
+starlette_requests.MultiPartParser = BoundedPortfolioMultiPartParser
 
 
 EVIDENCE = (
@@ -202,6 +229,76 @@ def _screen_error() -> str:
     return "The local evidence could not be loaded. Check the configured data root and try again."
 
 
+def workspace() -> PortfolioWorkspace:
+    return PortfolioWorkspace(root())
+
+
+def preview_view(preview: PortfolioInputPreview) -> dict[str, object]:
+    document = preview.document
+    return {
+        "preview_id": preview.preview_digest,
+        "format": document.input_format.value if document is not None else "Not available",
+        "digest": preview.preview_digest,
+        "content_digest": document.content_digest if document is not None else None,
+        "validation_state": "Valid" if preview.valid else "Invalid",
+        "confirmable": preview.valid,
+        "issues": [dumped(item) for item in preview.issues],
+        "quality_flags": preview.quality_flags,
+        "document": dumped(document) if document is not None else None,
+    }
+
+
+def snapshot_view(snapshot: PortfolioSnapshot) -> dict[str, object]:
+    payload = dumped(snapshot)
+    if not isinstance(payload, dict):
+        raise TypeError("portfolio snapshot must render as an object")
+    try:
+        result = REGISTRY.invoke(
+            "portfolio.exposure.summarize",
+            ExposureSummaryRequest(
+                snapshot_id=f"display-{snapshot.snapshot_id}",
+                portfolio_snapshot=snapshot,
+                evidence_references=(EvidenceReference(evidence_id=snapshot.snapshot_id, reference=f"local-private://{snapshot.snapshot_id}", source_type="local-private-snapshot"),),
+            ),
+        )
+        exposure = dumped(result.data)
+        payload["nav"] = exposure["nav"]
+        payload["cash_weight"] = exposure["cash_weight"]
+        payload["position_weights"] = {item["instrument_id"]: item["weight"] for item in exposure["position_exposures"]}
+    except (ValueError, KeyError, TypeError):
+        payload["nav"] = None
+        payload["cash_weight"] = None
+        payload["position_weights"] = {}
+    payload["evidence"] = snapshot.digest
+    return payload
+
+
+def _upload_boundary_message(file: UploadFile) -> str | None:
+    """Validate only the transport boundary; data parsing remains data-owned."""
+    if not (file.filename or "").lower().endswith((".csv", ".yaml", ".yml")):
+        return "Only CSV and YAML files are accepted. No input was retained."
+    if file.size is not None and file.size > MAX_INPUT_BYTES:
+        return f"The upload exceeds the reviewed maximum of {MAX_INPUT_BYTES} bytes. No input was retained."
+    return None
+
+
+def uploaded_content(file: UploadFile) -> bytes:
+    try:
+        # Read the bounded upload stream directly. This also keeps the adapter
+        # testable with in-memory UploadFile instances without an async
+        # threadpool dependency; no raw content is persisted.
+        content = file.file.read(MAX_INPUT_BYTES + 1)
+    finally:
+        file.file.close()
+    if len(content) > MAX_INPUT_BYTES:
+        raise ValueError(f"The upload exceeds the reviewed maximum of {MAX_INPUT_BYTES} bytes. No input was retained.")
+    return content
+
+
+def market_observations() -> tuple[MarketObservation, ...]:
+    return tuple(item.to_market_observation() for item in records())
+
+
 def _review(draft: AlertDraft, reviewer: str, decision: str, comment: str) -> dict[str, object]:
     if not reviewer.strip():
         raise HTTPException(422, "reviewer is required")
@@ -351,9 +448,170 @@ def alert_draft_review(reviewer: str = "", decision: str = "", comment: str = ""
 @app.get("/portfolio")
 def portfolio_page(profile: str = "research") -> HTMLResponse:
     try:
-        return render_page("portfolio.html", active_page="portfolio", profile=profile, snapshot=dumped(portfolio()), error=None)
+        selected_profile = profile_view(profile).profile_id
+        if selected_profile == "personal_portfolio":
+            personal_snapshots = workspace().snapshots()
+            current = snapshot_view(personal_snapshots[-1]) if personal_snapshots else None
+            history = tuple(snapshot_view(item) for item in personal_snapshots)
+        else:
+            current = snapshot_view(portfolio())
+            history = (current,)
+        return render_page("portfolio.html", active_page="portfolio", profile=selected_profile, snapshot=current, snapshots=history, error=None)
     except (HTTPException, OSError, ValueError, KeyError, TypeError):
-        return render_page("portfolio.html", active_page="portfolio", profile=profile, snapshot=None, error=_screen_error())
+        return render_page("portfolio.html", active_page="portfolio", profile=profile, snapshot=None, snapshots=(), error=_screen_error())
+
+
+@app.get("/portfolio/import")
+def portfolio_import(profile: str = "personal_portfolio") -> HTMLResponse:
+    return render_page("portfolio_import.html", active_page="portfolio", profile="personal_portfolio", maximum_upload_bytes=MAX_INPUT_BYTES)
+
+
+@app.post("/portfolio/import/preview")
+async def portfolio_import_preview(
+    file: UploadFile = File(...),
+    base_currency: Annotated[str, Form()] = "USD",
+    as_of: Annotated[str, Form()] = "",
+    profile: str = "personal_portfolio",
+) -> HTMLResponse:
+    boundary_error = _upload_boundary_message(file)
+    if boundary_error:
+        return render_page("portfolio_preview.html", active_page="portfolio", profile="personal_portfolio", preview=None, error=boundary_error, status_code=422)
+    try:
+        preview = workspace().create_preview(uploaded_content(file), file.filename or "", base_currency=base_currency, as_of=as_of)
+    except (OSError, ValueError) as error:
+        return render_page("portfolio_preview.html", active_page="portfolio", profile="personal_portfolio", preview=None, error=str(error), status_code=422)
+    return render_page("portfolio_preview.html", active_page="portfolio", profile="personal_portfolio", preview=preview_view(preview), error=None, status_code=200 if preview.valid else 422)
+
+
+@app.get("/portfolio/import/preview/{preview_id}")
+def portfolio_preview(preview_id: str, profile: str = "personal_portfolio") -> HTMLResponse:
+    try:
+        preview = workspace().get_preview(preview_id)
+    except WorkspaceRecordNotFound as error:
+        return render_page("portfolio_preview.html", active_page="portfolio", profile="personal_portfolio", preview=None, preview_id=preview_id, error=str(error), status_code=404)
+    return render_page("portfolio_preview.html", active_page="portfolio", profile="personal_portfolio", preview=preview_view(preview), error=None)
+
+
+@app.post("/portfolio/import/confirm/{preview_id}")
+def portfolio_confirm(
+    preview_id: str,
+    confirm_digest: Annotated[str, Form()] = "",
+    confirm_snapshot: Annotated[str, Form()] = "",
+    profile: str = "personal_portfolio",
+) -> HTMLResponse:
+    current_workspace = workspace()
+    try:
+        result, snapshot = current_workspace.confirm(preview_id, preview_digest=confirm_digest, confirm=confirm_snapshot == "confirmed", observations=market_observations())
+    except (WorkspaceRecordNotFound, OSError, ValueError) as error:
+        try:
+            preview = current_workspace.get_preview(preview_id)
+        except (WorkspaceRecordNotFound, OSError, ValueError):
+            preview = None
+        return render_page("portfolio_preview.html", active_page="portfolio", profile="personal_portfolio", preview=preview_view(preview) if preview else None, preview_id=preview_id, error=str(error), status_code=422)
+    location = f"/portfolio/snapshots/{quote(snapshot.snapshot_id, safe='')}?{urlencode({'profile': 'personal_portfolio', 'created': str(result.created).lower()})}"
+    return RedirectResponse(location, status_code=303)
+
+
+@app.get("/portfolio/snapshots")
+def portfolio_snapshots(profile: str = "personal_portfolio") -> HTMLResponse:
+    try:
+        snapshots = tuple(snapshot_view(item) for item in workspace().snapshots())
+        return render_page("portfolio_snapshots.html", active_page="portfolio", profile="personal_portfolio", snapshots=snapshots, error=None)
+    except (HTTPException, OSError, ValueError, TypeError):
+        return render_page("portfolio_snapshots.html", active_page="portfolio", profile="personal_portfolio", snapshots=(), error=_screen_error(), status_code=409)
+
+
+@app.get("/portfolio/snapshots/{snapshot_id}")
+def portfolio_snapshot(snapshot_id: str, profile: str = "personal_portfolio", created: str = "") -> HTMLResponse:
+    try:
+        snapshot = snapshot_view(workspace().get_snapshot(snapshot_id))
+    except WorkspaceRecordNotFound as error:
+        return render_page("portfolio_snapshot.html", active_page="portfolio", profile="personal_portfolio", snapshot=None, snapshot_id=snapshot_id, created=None, error=str(error), status_code=404)
+    return render_page("portfolio_snapshot.html", active_page="portfolio", profile="personal_portfolio", snapshot=snapshot, snapshot_id=snapshot_id, created=created, error=None)
+
+
+@app.get("/portfolio/compare")
+def portfolio_compare(profile: str = "personal_portfolio") -> HTMLResponse:
+    try:
+        snapshots = tuple(snapshot_view(item) for item in workspace().snapshots())
+        return render_page("portfolio_compare.html", active_page="portfolio", profile="personal_portfolio", comparison=None, snapshots=snapshots, error=None)
+    except (HTTPException, OSError, ValueError, TypeError):
+        return render_page("portfolio_compare.html", active_page="portfolio", profile="personal_portfolio", comparison=None, snapshots=(), error=_screen_error(), status_code=409)
+
+
+@app.post("/portfolio/compare/result")
+def portfolio_compare_result(
+    left_snapshot_id: Annotated[str, Form()],
+    right_snapshot_id: Annotated[str, Form()],
+    profile: str = "personal_portfolio",
+) -> HTMLResponse:
+    try:
+        comparison = workspace().compare(left_snapshot_id, right_snapshot_id)
+    except (WorkspaceRecordNotFound, OSError, ValueError) as error:
+        return render_page("portfolio_compare.html", active_page="portfolio", profile="personal_portfolio", comparison=None, snapshots=(), left_snapshot_id=left_snapshot_id, right_snapshot_id=right_snapshot_id, error=str(error), status_code=422)
+    return render_page("portfolio_compare.html", active_page="portfolio", profile="personal_portfolio", comparison=dumped(comparison), snapshots=(), left_snapshot_id=left_snapshot_id, right_snapshot_id=right_snapshot_id, error=None)
+
+
+@app.post("/api/portfolio/previews")
+async def api_portfolio_preview(
+    file: UploadFile = File(...),
+    profile: Annotated[str, Form()] = "personal_portfolio",
+    base_currency: Annotated[str, Form()] = "USD",
+    as_of: Annotated[str, Form()] = "",
+) -> dict[str, object]:
+    if profile != "personal_portfolio":
+        raise HTTPException(422, "portfolio input is available only in the personal_portfolio profile")
+    boundary_error = _upload_boundary_message(file)
+    if boundary_error:
+        raise HTTPException(422, boundary_error)
+    try:
+        preview = workspace().create_preview(uploaded_content(file), file.filename or "", profile=profile, base_currency=base_currency, as_of=as_of)
+    except (OSError, ValueError) as error:
+        raise HTTPException(422, str(error)) from error
+    return {"preview_id": preview.preview_digest, "valid": preview.valid, "preview": dumped(preview)}
+
+
+@app.get("/api/portfolio/previews/{preview_id}")
+def api_portfolio_preview_get(preview_id: str) -> dict[str, object]:
+    try:
+        preview = workspace().get_preview(preview_id)
+    except WorkspaceRecordNotFound as error:
+        raise HTTPException(404, str(error)) from error
+    return {"preview_id": preview.preview_digest, "valid": preview.valid, "preview": dumped(preview)}
+
+
+@app.post("/api/portfolio/previews/{preview_id}/confirm")
+def api_portfolio_preview_confirm(preview_id: str, request: PortfolioConfirmationRequest) -> dict[str, object]:
+    try:
+        result, snapshot = workspace().confirm(preview_id, preview_digest=request.preview_digest, confirm=request.confirm, observations=market_observations())
+    except WorkspaceRecordNotFound as error:
+        raise HTTPException(404, str(error)) from error
+    except (OSError, ValueError) as error:
+        raise HTTPException(422, str(error)) from error
+    return {"confirmation": dumped(result), "snapshot": dumped(snapshot)}
+
+
+@app.get("/api/portfolio/snapshots")
+def api_portfolio_snapshots() -> dict[str, object]:
+    return {"snapshots": [dumped(item) for item in workspace().snapshots()]}
+
+
+@app.get("/api/portfolio/snapshots/{snapshot_id}")
+def api_portfolio_snapshot(snapshot_id: str) -> dict[str, object]:
+    try:
+        snapshot = workspace().get_snapshot(snapshot_id)
+    except WorkspaceRecordNotFound as error:
+        raise HTTPException(404, str(error)) from error
+    return {"snapshot": dumped(snapshot)}
+
+
+@app.get("/api/portfolio/comparisons")
+def api_portfolio_comparisons(left_snapshot_id: str = "", right_snapshot_id: str = "") -> dict[str, object]:
+    try:
+        comparison = workspace().compare(left_snapshot_id, right_snapshot_id)
+    except WorkspaceRecordNotFound as error:
+        raise HTTPException(404, str(error)) from error
+    return {"comparison": dumped(comparison)}
 
 
 @app.get("/risk")
@@ -435,14 +693,27 @@ def data(profile: str = "research") -> HTMLResponse:
             "latest_observation": max(observed_times) if observed_times else None,
             "missing_count": sum(item["price"] is None for item in observations),
         }
-        return render_page("data.html", active_page="data", profile=profile, observations=observations, summary=summary, error=None)
+        current_workspace = workspace()
+        dataset = current_workspace.dataset_snapshot()
+        return render_page(
+            "data.html",
+            active_page="data",
+            profile=profile,
+            observations=observations,
+            summary=summary,
+            dataset_files=[dumped(item) for item in dataset.files] if dataset is not None else (),
+            manifests=[dumped(item) for item in current_workspace.query_manifests()],
+            error=None,
+        )
     except (HTTPException, OSError, ValueError, KeyError, TypeError):
-        return render_page("data.html", active_page="data", profile=profile, observations=(), summary=None, error=_screen_error())
+        return render_page("data.html", active_page="data", profile=profile, observations=(), summary=None, dataset_files=(), manifests=(), error=_screen_error())
 
 
 @app.get("/providers")
 def providers(profile: str = "research") -> HTMLResponse:
-    return render_page("providers.html", active_page="providers", profile=profile)
+    current_workspace = workspace()
+    manifests = current_workspace.query_manifests()
+    return render_page("providers.html", active_page="providers", profile=profile, providers=provider_views(current_workspace.providers(), manifests))
 
 
 @app.get("/research")

@@ -1,5 +1,50 @@
 # Day 1 Experience Handoff
 
+## Wave 1B supplement — parallel presentation pass
+
+### Lane, branch, base, and head
+
+- Lane: `experience`; branch: `feature/day1-experience`.
+- Base and current head: `8cf77e5` (`chore(day1): close Wave 1A gate`).
+- Candidate state: uncommitted, with no push or specialist merge, as required.
+
+### Changed paths
+
+- `apps/portfolio-risk-workbench/app.py`
+- `apps/portfolio-risk-workbench/workspace_service.py`
+- `apps/portfolio-risk-workbench/servicefabric-package.json`
+- `apps/portfolio-risk-workbench/templates/{portfolio,data,providers,settings,portfolio_import,portfolio_preview,portfolio_snapshots,portfolio_snapshot,portfolio_compare}.html`
+- `tests/application/test_workbench.py`
+- `docs/handoffs/day-1/experience.md`
+
+### Delivered presentation and route boundary
+
+- Added semantic Portfolio import, preview, immutable-snapshot history/detail, and explicit-ID comparison screens, plus all requested HTML and developer API route boundaries.
+- Import uses `UploadFile`, accepts only CSV/YAML filename formats, rejects a declared upload larger than 1 MiB, accepts no filesystem path, and never reads, parses, stores, or displays raw input in the application.
+- Preview presentation reserves format, digest, validation issues, quality flags, and a checkbox-plus-digest confirmation control. Invalid previews have no confirmation control; existing snapshots have no edit or delete control.
+- Expanded Portfolio, Data, Providers, and Settings to show readable holdings/history, fixed query manifests, dataset/provenance/rights states, a disabled external-provider catalogue, and opaque secret-reference examples.
+- Added `workspace_service.py` as the only Workbench-to-data-service adapter. It binds typed `PortfolioInputService`, `PortfolioSnapshot`, `SnapshotComparison`, `ProviderCatalogueEntry`, and `FixedQueryManifest` values without duplicating their business logic.
+- Replaced temporary unavailable route stubs with end-to-end preview, typed reload, confirmation, immutable snapshot, idempotency, correction, comparison, provider catalogue, and fixed-manifest flows. Raw upload bytes remain in memory and are never persisted by the app.
+- Browser confirmation and comparison fields bind from form bodies; import is forced to the `personal_portfolio` profile; provider and manifest metadata are rendered from reviewed typed catalogue records.
+- Review remediation installs a request-level bounded multipart parser that rejects file bytes before they can be queued or spooled, rejects YAML documents whose embedded profile is not `personal_portfolio` before preview persistence, and renders comparison-storage failures through the semantic HTML error state.
+
+### Tests and evidence
+
+- `make preflight` — PASS.
+- `.venv-day1/bin/pytest -q tests/application/test_workbench.py tests/integration/test_day1_wave1a.py tests/data` — PASS, 81 tests.
+- Day 0 monitoring regression using the existing locked Day 1 environment and explicit package paths — PASS, 2 tests.
+- `scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check` — PASS.
+- `git diff --check` — PASS.
+- `make verify-day1-current` — preparation and preflight stages passed, then Wave 1A bootstrap was blocked by package-index DNS while attempting to fetch pinned `certifi`; no application test failure was observed.
+
+### Deviations, blockers, limitations, rollback, next action
+
+- This was intentionally a presentation-only parallel pass. Functional preview parsing, validation, immutable persistence, confirmation digest checks, comparison results, data catalogue binding, and provider records remain exclusively data-lane work.
+- The user-requested functional test matrix cannot be claimed until the data candidate is integrated. The application tests cover route shape, semantic forms, safety disclosures, absence of arbitrary SQL, and the isolated seam only.
+- No raw portfolio input, provider extract, local database, secret, or provider endpoint was added to Git.
+- Rollback is a focused revert of the Wave 1B application adapter/templates/tests and manifest changes. Existing immutable data-root records are not mutated or deleted by rollback.
+- Recommended next action: integration runs the complete Wave 1B functional matrix and clean hosted-runtime/browser/keyboard/assistive-technology soft QA.
+
 ## Lane and branch
 
 - Lane: `experience`
@@ -39,7 +84,7 @@ No path outside the experience lane allowance and this exact handoff was changed
 - Kept research as the default profile and implemented `personal_portfolio` as request-local presentation state with private/local/no-publication disclosures only.
 - Bound Plan, Research, and Notebooks to the integrated immutable `risk_planning` contracts. Hosted catalogue copies exactly match the reviewed repository sources and are declared in the application manifest.
 - Kept notebooks catalogue-only, providers disabled, and review decisions effect-free. Added no provider enablement, notebook execution, arbitrary SQL, broker, order, trade, or rebalance route.
-- Kept Wave 1B portfolio import and Wave 1C analytics explicitly unavailable without implying a zero or completed result.
+- Bound Wave 1B portfolio/data workspace behavior to the integrated typed data service; Wave 1C analytics remain unavailable by design.
 - Renders research and notebook evidence title, URI/reference, and relevance as explicit readable fields rather than falling back to a raw mapping representation.
 - Distinguishes a missing alert (404) from unavailable local alert storage (for example, 409), preserving the original status without claiming absent evidence.
 - Treats an empty observation result as unavailable evidence and never renders it as an established zero-row dataset summary.
@@ -76,7 +121,7 @@ No path outside the experience lane allowance and this exact handoff was changed
 ## Limitations
 
 - Profile selection is query-string presentation state only and is intentionally not persisted.
-- Portfolio upload/validation/confirmation remains Wave 1B work.
+- The Wave 1B data service is integrated and exercised end-to-end; no application-owned parsing, persistence, comparison, provider, SQL, broker, order, trade, or rebalance logic was added.
 - VaR, expected shortfall, stress, scenario, correlation, contribution, and other risk analytics remain Wave 1C work; the Risk screen makes no methodology claim for them.
 - External providers and notebook execution remain disabled in every profile.
 - Browser-specific visual and assistive-technology QA remains an integration/soft-QA activity; focused tests validate the rendered contracts and accessibility primitives.
@@ -88,4 +133,4 @@ Restore the modified Workbench app files and `tests/application/test_workbench.p
 
 ## Recommended next action
 
-Integration should first install Jinja2 and python-multipart through the canonical runtime/verification lock, then run clean runtime bootstrap, `verify-wave-1a`, and browser/keyboard/assistive-technology soft QA before accepting or rejecting the candidate. Do not begin Wave 1B portfolio import or Wave 1C analytics through this lane.
+Integration should run the complete Wave 1B functional matrix, clean runtime/bootstrap, and browser/keyboard/assistive-technology soft QA. Do not begin Wave 1C analytics through this lane.
