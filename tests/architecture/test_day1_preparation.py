@@ -40,14 +40,14 @@ def test_empty_day1_venv_uses_repository_default(from_command_line: bool) -> Non
     assert 'test -x "/bin/python"' not in result.stdout
 
 
-def test_lifecycle_aware_checker_passes_for_active_wave_1b() -> None:
+def test_lifecycle_aware_checker_passes_for_day1_qa() -> None:
     assert validate() == []
 
 
 def test_status_schema_and_day0_unchanged() -> None:
     assert payload("config/agent/day1/status.json") == {
-        "current": "D1-WAVE-1B", "preparation": "complete", "wave_1a": "complete",
-        "wave_1b": "in_progress", "wave_1c": "queued", "soft_qa": "queued", "base_tag": "day0-complete",
+        "current": "D1-QA", "preparation": "complete", "wave_1a": "complete",
+        "wave_1b": "complete", "wave_1c": "complete", "soft_qa": "queued", "base_tag": "day0-complete",
     }
     assert payload("config/agent/day0/status.json")["current"] == "D0-COMPLETE"
     assert payload("config/agent/day0/status.json")["soft_qa"] == "passed"

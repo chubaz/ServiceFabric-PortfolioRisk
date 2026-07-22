@@ -23,6 +23,8 @@ REQUIRED = [
     "docs/rights/day1-provider-access-boundary.md", "docs/handoffs/day-1/preparation.md",
     *(f"codex/prompts/day1/{lane}.md" for lane in ("integration", "domain-analytics", "data", "experience", "knowledge", "agents")),
     "scripts/day1/show_context.py", "scripts/day1/check_lane_paths.py", "scripts/day1/verify_current.py",
+    "scripts/day1/run_day1_demo.py", "scripts/day1/bootstrap_servicefabric_runtime.py", "scripts/day1/servicefabric_smoke.sh",
+    "tests/journeys/test_day1_workbench_journey.py",
     "tests/architecture/test_day1_preparation.py", "tests/architecture/test_day1_runtime_boundaries.py", ".github/workflows/day1-preparation.yml",
 ]
 PREPARED_STATUS = {"current": "D1-WAVE-1A", "preparation": "complete", "wave_1a": "queued", "wave_1b": "queued", "wave_1c": "queued", "soft_qa": "queued", "base_tag": "day0-complete"}

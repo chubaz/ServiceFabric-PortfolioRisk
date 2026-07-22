@@ -9,19 +9,23 @@ SERVICEFABRIC_DOCTOR := $(BOOTSTRAP_VENV)/bin/servicefabric
 
 DAY0_VENV ?= $(CURDIR)/.venv-day0
 DAY0_PYTHON := $(DAY0_VENV)/bin/python
-DAY0_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src
+DAY0_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src:$(CURDIR)/packages/risk_analytics/src
 DAY0_PYTEST := PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS)" $(DAY0_PYTHON) -m pytest
 DAY1_VENV ?= $(CURDIR)/.venv-day1
 ifeq ($(strip $(DAY1_VENV)),)
 override DAY1_VENV := $(CURDIR)/.venv-day1
 endif
 DAY1_PYTHON := $(DAY1_VENV)/bin/python
-DAY1_PACKAGE_PATHS := $(DAY0_PACKAGE_PATHS):$(CURDIR)/packages/risk_analytics/src
+DAY1_PACKAGE_PATHS := $(DAY0_PACKAGE_PATHS)
 DAY1_PYTEST := PYTHONPATH="$(CURDIR):$(DAY1_PACKAGE_PATHS)" $(DAY1_PYTHON) -m pytest
 DAY0_STATE_ROOT := $(abspath $(CURDIR)/../../../state/day0/integration)
 PORTFOLIO_RISK_DATA_ROOT := $(DAY0_STATE_ROOT)/portfolio-risk-data
 SERVICEFABRIC_RUNTIME_VENV := $(abspath $(CURDIR)/../../../state/venvs/day0/servicefabric-runtime)
 SERVICEFABRIC_HOME := $(DAY0_STATE_ROOT)/servicefabric-home-day0-immutable
+DAY1_STATE_ROOT := $(abspath $(CURDIR)/../../../state/day1/integration)
+DAY1_PORTFOLIO_RISK_DATA_ROOT ?= $(DAY1_STATE_ROOT)/portfolio-risk-data
+DAY1_SERVICEFABRIC_RUNTIME_VENV ?= $(abspath $(CURDIR)/../../../state/venvs/day1/servicefabric-runtime)
+DAY1_SERVICEFABRIC_HOME ?= $(DAY1_STATE_ROOT)/servicefabric-home-day1
 
 .PHONY: env-check
 env-check:
@@ -246,8 +250,11 @@ verify-day1: verify-wave-1c test-day1-journeys
 
 .PHONY: demo-day1-headless
 demo-day1-headless: day1-env
-> PORTFOLIO_RISK_DATA_ROOT="$(PORTFOLIO_RISK_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(DAY1_PACKAGE_PATHS)" $(DAY1_PYTHON) scripts/day0/run_monitoring_demo.py
+> PORTFOLIO_RISK_DATA_ROOT="$(DAY1_PORTFOLIO_RISK_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(DAY1_PACKAGE_PATHS)" $(DAY1_PYTHON) scripts/day1/run_day1_demo.py
 
 .PHONY: servicefabric-day1-smoke
 servicefabric-day1-smoke:
-> SERVICEFABRIC_RUNTIME_VENV="$(SERVICEFABRIC_RUNTIME_VENV)" SERVICEFABRIC_HOME="$(SERVICEFABRIC_HOME)" PORTFOLIO_RISK_DATA_ROOT="$(PORTFOLIO_RISK_DATA_ROOT)" ./scripts/day0/servicefabric_smoke.sh
+> SERVICEFABRIC_RUNTIME_VENV="$(DAY1_SERVICEFABRIC_RUNTIME_VENV)" \
+> SERVICEFABRIC_HOME="$(DAY1_SERVICEFABRIC_HOME)" \
+> PORTFOLIO_RISK_DATA_ROOT="$(DAY1_PORTFOLIO_RISK_DATA_ROOT)" \
+> ./scripts/day1/servicefabric_smoke.sh
