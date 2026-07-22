@@ -1,0 +1,9 @@
+{
+  "current": "D23-PHASE-1",
+  "phase_1": "in_progress",
+  "phase_2": "queued",
+  "phase_3": "queued",
+  "phase_4": "queued",
+  "soft_qa": "queued",
+  "base_tag": "day1-complete"
+}

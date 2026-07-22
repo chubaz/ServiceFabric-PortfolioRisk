@@ -200,6 +200,27 @@ Do not use:
 
 No secret directory is granted to Codex.
 
+## Day 2–3 programme and Phase 1
+
+The active workplan is `docs/workplans/day-2-3/phase-1-local-research-data-plane.md`
+and lifecycle state is authoritative in `config/agent/day23/status.json`.
+Day 2–3 has exactly three lanes: `integration/day2-3`,
+`feature/day2-data-platform`, and `feature/day2-data-experience`. Ownership
+and exact handoff allowances are frozen in `config/agent/day23/lanes.json`.
+Specialist lanes stop without merge.
+
+Phase 1 is a governed local research data plane, not provider-data product
+implementation. Its landing, normalized, curated, manifests, quality, and
+evidence zones are mutable outside Git. Fixed query manifests are required;
+user SQL, notebook execution, external API calls, provider network access,
+broker connectivity, orders, trades, and automatic rebalancing are prohibited.
+Every record preserves provider/dataset identity and revision, rights and
+access state, source digest/schema/mapping/units/transformations,
+`observed_at`, `available_at`, `retrieved_at`, point-in-time `as_of`, quality,
+immutable snapshot, date-effective crosswalk, manifest, and publication
+restriction. Point-in-time filtering uses `available_at`; missing availability
+blocks or warns and is never guessed. Credentials remain opaque references.
+
 ## Completion report
 
 Every handoff must record:

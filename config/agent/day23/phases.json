@@ -1,0 +1,36 @@
+{
+  "programme": "day-2-3",
+  "current": "D23-PHASE-1",
+  "phases": [
+    {
+      "id": "D23-PHASE-1",
+      "title": "Governed local research data plane",
+      "status": "in_progress",
+      "depends_on": [],
+      "lanes": ["integration", "data-platform", "experience"]
+    },
+    {
+      "id": "D23-PHASE-2",
+      "title": "Portfolio mapping and local-data risk analysis",
+      "status": "queued",
+      "depends_on": ["D23-PHASE-1"],
+      "lanes": ["integration", "data-platform", "experience"]
+    },
+    {
+      "id": "D23-PHASE-3",
+      "title": "Event ingestion and monitoring orchestration",
+      "status": "queued",
+      "depends_on": ["D23-PHASE-2"],
+      "lanes": ["integration", "data-platform", "experience"]
+    },
+    {
+      "id": "D23-PHASE-4",
+      "title": "Historical replay, evaluation, QA and reviewed release",
+      "status": "queued",
+      "depends_on": ["D23-PHASE-3"],
+      "lanes": ["integration", "data-platform", "experience"]
+    }
+  ],
+  "storage_zones": ["landing", "normalized", "curated", "manifests", "quality", "evidence"],
+  "mutable_zones_external_to_git": true
+}

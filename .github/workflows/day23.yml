@@ -1,0 +1,37 @@
+name: day23
+
+on:
+  push:
+    branches: [integration/day2-3]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install locked Day 1 environment
+        run: python -m pip install --require-hashes -r requirements/day1.lock
+      - name: Day 0 and Day 1 regression gates
+        run: |
+          make verify-day0
+          make verify-day1
+      - name: Available Phase 1 control-plane tests
+        run: make test-d23-control
+      - name: Complete Phase 1 verification when activated
+        run: |
+          if python -c 'import json; raise SystemExit(json.load(open("config/agent/day23/status.json"))["phase_1"] != "complete")'; then
+            make verify-d23-phase1
+          else
+            echo "Phase 1 is in progress; product-data tests are not yet activated"
+          fi
+      - name: Validate whitespace
+        run: git diff --check
