@@ -1,0 +1,23 @@
+# Day 1 data handoff
+
+- Lane and branch: data / `feature/day1-data`
+- Base and head: `8cf77e5eb0c9c69db333339d0bdd68896bf3053c` / uncommitted working tree (per instruction not to commit or push)
+- Changed paths:
+  - `packages/risk_data/pyproject.toml`
+  - `packages/risk_data/src/risk_data/__init__.py`
+  - `packages/risk_data/src/risk_data/contracts.py`
+  - `packages/risk_data/src/risk_data/portfolio.py`
+  - `packages/risk_data/src/risk_data/catalogue.py`
+  - `tests/data/test_portfolio_input.py`
+  - `docs/handoffs/day-1/data.md`
+- Tests executed:
+  - `PYTHONPATH="$PWD:$PWD/packages/risk_data/src:$PWD/packages/risk_domain/src" /tmp/day1-wave1a-servicefabric-runtime/bin/python -m pytest tests/data -q` — 27 passed.
+  - `git diff --check` — passed.
+  - `make preflight` — environment and repository checks passed, but the isolated bootstrap could not resolve the package index for `setuptools==80.9.0`.
+  - `DAY1_VENV=/tmp/day1-wave1a-servicefabric-runtime make test-day1-data` — bootstrap could not resolve the package index for the locked `certifi==2026.6.17`; the test command did not start. The equivalent focused test command above used that already-provisioned runtime and passed.
+- Evidence produced: content-digested normalized previews; immutable content-addressed portfolio snapshots; repository-local data-root rejection; sanitized YAML parser issues; confirmation checks for matching instrument evidence, no future observations, and complete quality state; persisted normalized JSON only under `PORTFOLIO_RISK_DATA_ROOT`; fixed catalogue/manifests carrying explicit provenance, rights, access, zone, freshness, quality, and publication state.
+- Deviations: no candidate commit was made because the assigned instruction explicitly prohibited committing and pushing.
+- Blockers: sandbox DNS/package-index access prevents the Make bootstrap commands from completing.
+- Limitations: confirmation intentionally requires same-day complete market observations in the base currency; FX conversion and all external provider access remain unavailable. Raw inputs are parsed in memory and are not persisted.
+- Rollback: remove the listed uncommitted data-lane files/edits only; no existing snapshot is modified.
+- Recommended next action: integration should run `make test-day1-data` in a provisioned/network-capable Day 1 environment, review the uncommitted data-lane diff, then accept it as appropriate.

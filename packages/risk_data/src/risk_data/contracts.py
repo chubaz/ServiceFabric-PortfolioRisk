@@ -22,6 +22,146 @@ class ConnectorDisabledError(RuntimeError):
     """Raised when a connector is intentionally unavailable in the current wave."""
 
 
+class PortfolioInputFormat(str, Enum):
+    CSV = "csv"
+    YAML = "yaml"
+
+
+def _portfolio_utc(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("timestamps must be timezone-aware")
+    return value.astimezone(UTC)
+
+
+class PortfolioInputContract(BaseModel):
+    """Strict frozen base for Day 1 portfolio-input contracts."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+
+class PortfolioInputIssue(PortfolioInputContract):
+    """A visible parsing, validation, or data-quality issue for a portfolio preview."""
+
+    code: str
+    message: str
+    severity: Literal["warning", "error"]
+    location: str | None = None
+
+
+class PortfolioInputPosition(PortfolioInputContract):
+    """An unvalued user-supplied holding; a price is deliberately absent."""
+
+    instrument_id: str
+    quantity: Decimal
+    currency: str | None = None
+
+    @field_validator("instrument_id")
+    @classmethod
+    def instrument_id_is_present(cls, value: str) -> str:
+        if not value or len(value) > 128:
+            raise ValueError("instrument_id must be present and at most 128 characters")
+        return value
+
+    @field_validator("quantity")
+    @classmethod
+    def quantity_is_finite(cls, value: Decimal) -> Decimal:
+        if not value.is_finite():
+            raise ValueError("quantity must be a finite Decimal")
+        return value
+
+    @field_validator("currency")
+    @classmethod
+    def optional_currency_is_valid(cls, value: str | None) -> str | None:
+        return validate_currency(value) if value is not None else None
+
+
+class PortfolioInputCashBalance(PortfolioInputContract):
+    currency: str
+    amount: Decimal
+
+    _currency = field_validator("currency")(validate_currency)
+
+    @field_validator("amount")
+    @classmethod
+    def amount_is_finite(cls, value: Decimal) -> Decimal:
+        if not value.is_finite():
+            raise ValueError("cash amount must be a finite Decimal")
+        return value
+
+
+class PortfolioInputDocument(PortfolioInputContract):
+    """Normalized input only: it intentionally retains no raw personal bytes."""
+
+    input_format: PortfolioInputFormat
+    profile: Literal["research", "personal_portfolio"]
+    as_of: datetime
+    base_currency: str
+    positions: tuple[PortfolioInputPosition, ...]
+    cash_balances: tuple[PortfolioInputCashBalance, ...] = ()
+    content_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+    _as_of = field_validator("as_of")(_portfolio_utc)
+    _base_currency = field_validator("base_currency")(validate_currency)
+
+    @field_validator("positions")
+    @classmethod
+    def positions_are_unique_and_ordered(cls, values: tuple[PortfolioInputPosition, ...]) -> tuple[PortfolioInputPosition, ...]:
+        ids = [value.instrument_id for value in values]
+        if not values:
+            raise ValueError("portfolio input requires at least one position")
+        if len(ids) != len(set(ids)):
+            raise ValueError("portfolio input positions must have distinct instrument IDs")
+        return tuple(sorted(values, key=lambda value: value.instrument_id))
+
+    @field_validator("cash_balances")
+    @classmethod
+    def cash_is_unique_and_ordered(cls, values: tuple[PortfolioInputCashBalance, ...]) -> tuple[PortfolioInputCashBalance, ...]:
+        currencies = [value.currency for value in values]
+        if len(currencies) != len(set(currencies)):
+            raise ValueError("cash balances must have distinct currencies")
+        return tuple(sorted(values, key=lambda value: value.currency))
+
+
+class PortfolioInputPreview(PortfolioInputContract):
+    document: PortfolioInputDocument | None = None
+    issues: tuple[PortfolioInputIssue, ...] = ()
+    quality_flags: tuple[str, ...] = ()
+    preview_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+    @property
+    def valid(self) -> bool:
+        return self.document is not None and not any(issue.severity == "error" for issue in self.issues)
+
+
+class PortfolioConfirmationRequest(PortfolioInputContract):
+    confirm: bool
+    preview_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class PortfolioConfirmationResult(PortfolioInputContract):
+    snapshot_id: str
+    snapshot_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    created: bool
+    quality_flags: tuple[str, ...] = ()
+
+
+class SnapshotPositionChange(PortfolioInputContract):
+    instrument_id: str
+    change_type: Literal["added", "removed", "changed"]
+    left_quantity: Decimal | None = None
+    right_quantity: Decimal | None = None
+
+
+class SnapshotComparison(PortfolioInputContract):
+    left_snapshot_id: str
+    right_snapshot_id: str
+    position_changes: tuple[SnapshotPositionChange, ...]
+    cash_changes: tuple[PortfolioInputCashBalance, ...] = ()
+    valuation_context: str
+    evidence: tuple[str, ...]
+    limitations: tuple[str, ...]
+
+
 class DataQualityCode(str, Enum):
     DUPLICATE = "duplicate"
     STALE = "stale"
