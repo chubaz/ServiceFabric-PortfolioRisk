@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure, error_state %}
+{% block title %}Identifier crosswalks{% endblock %}
+{% block heading %}Date-effective identifier crosswalks{% endblock %}
+{% block intro %}<p class="lead">Immutable identifier links preserve effective dates, availability, open-ended state, and deterministic overlap policy.</p>{% endblock %}
+{% block content %}
+  {{ disclosure('Point-in-time links', 'Crosswalk availability is never guessed. A link is only eligible under the package-owned date-effective and available-at rules.', 'info') }}
+  {% if error %}{{ error_state('Crosswalk catalogue unavailable', error) }}{% endif %}
+  {% for crosswalk in crosswalks %}<section aria-labelledby="crosswalk-{{ loop.index }}"><h2 id="crosswalk-{{ loop.index }}">{{ crosswalk.snapshot_id }}</h2><p class="identifier">Source digest {{ crosswalk.source_digest }} · overlap policy {{ crosswalk.overlap_policy }}</p><div class="table-scroll" tabindex="0" role="region" aria-label="Identifier links"><table><thead><tr><th scope="col">Source</th><th scope="col">Target</th><th scope="col">Effective from</th><th scope="col">Effective to</th><th scope="col">Available at</th><th scope="col">Link quality state</th></tr></thead><tbody>{% for record in crosswalk.records %}<tr><th scope="row">{{ record.source_identifier.identifier_type }}:{{ record.source_identifier.identifier_value }}</th><td>{{ record.target_identifier.identifier_type }}:{{ record.target_identifier.identifier_value }}</td><td>{{ record.effective_from }}</td><td>{{ 'Open ended' if record.open_ended else record.effective_to }}</td><td>{{ record.available_at|timestamp }}</td><td>{{ record.link_type }} · {{ record.link_primary }}</td></tr>{% endfor %}</tbody></table></div></section>{% else %}{{ disclosure('No crosswalk snapshot', 'No date-effective identifier crosswalk has been confirmed. Missing links are not inferred.', 'warning') }}{% endfor %}
+{% endblock %}

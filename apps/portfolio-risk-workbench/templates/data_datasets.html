@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure, error_state %}
+{% block title %}Research datasets{% endblock %}
+{% block heading %}Immutable dataset snapshots{% endblock %}
+{% block intro %}<p class="lead">Content-addressed research revisions are additive and never overwritten in place.</p>{% endblock %}
+{% block heading_action %}<a class="button-link" href="/data/import{{ profile_query }}">Preview import</a>{% endblock %}
+{% block content %}
+  {{ disclosure('Immutable local evidence', 'Each confirmation creates or resolves to an immutable snapshot. Licensed rows are not rendered on this catalogue page.', 'info') }}
+  {% if error %}{{ error_state('Dataset catalogue unavailable', error) }}{% endif %}
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Immutable dataset snapshots"><table><thead><tr><th scope="col">Snapshot</th><th scope="col">Created</th><th scope="col">Providers</th><th scope="col">Datasets / revisions</th><th scope="col">Rows</th><th scope="col">Quality</th><th scope="col">Publication</th></tr></thead><tbody>{% for snapshot in snapshots %}<tr><th scope="row"><a href="/data/datasets/{{ snapshot.snapshot_id }}{{ profile_query }}">{{ snapshot.snapshot_id }}</a></th><td>{{ snapshot.created_at|timestamp }}</td><td>{% for provider in snapshot.providers %}{{ provider.provider_id }}{% if not loop.last %}, {% endif %}{% endfor %}</td><td>{% for revision in snapshot.dataset_revisions %}{{ revision.dataset_id }} · {{ revision.revision_id }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td><td class="numeric">{{ snapshot.row_count }}</td><td>{{ snapshot.quality|length }} report(s)</td><td>{{ snapshot.publication_restrictions|join(', ')|humanize }}</td></tr>{% else %}<tr><td colspan="7">No immutable research snapshot exists. This is missing state, not a zero-row observation.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}
