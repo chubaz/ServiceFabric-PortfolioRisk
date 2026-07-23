@@ -17,7 +17,7 @@ from starlette import requests as starlette_requests
 from starlette.formparsers import MultiPartException, MultiPartParser
 from risk_agents import ACTIVE_AGENT_ROLE_IDS, AGENT_ROLES, DeterministicMonitoringOrchestrator, MonitoringRunRequest
 from risk_capabilities import AlertDraft, AlertReviewRequest, AnomalyDetectionRequest, CapabilityResult, DEFAULT_CAPABILITY_REGISTRY, DecisionPoint, EvidenceReference, ExposureSummaryRequest, NewsClassificationRequest, PortfolioSnapshotRequest, PositionSpecification, SyntheticNewsEvent
-from risk_data import NormalizedMarketRecord, PortfolioConfirmationRequest, PortfolioInputPreview, ingest_synthetic
+from risk_data import FixedQueryRequest, LocalImportConfirmation, LocalImportError, NormalizedMarketRecord, PortfolioConfirmationRequest, PortfolioInputPreview, ingest_synthetic
 from risk_data.pipeline import resolve_data_root
 from risk_domain import CashBalance, MarketObservation, PortfolioSnapshot
 from risk_domain.digests import sha256_digest
@@ -52,6 +52,16 @@ from analysis_service import (  # noqa: E402
     RiskAnalysisEnvelope,
 )
 from workspace_service import MAX_INPUT_BYTES, PortfolioWorkspace, WorkspaceRecordNotFound, provider_views  # noqa: E402
+from data_workspace_service import (  # noqa: E402
+    MAX_RESEARCH_UPLOAD_BYTES,
+    ResearchDataWorkspace,
+    ResearchWorkspaceRecordNotFound,
+    action_envelope,
+    confirmation_view as research_confirmation_view,
+    preview_view as research_preview_view,
+    provider_register_views,
+    snapshot_view as research_snapshot_view,
+)
 
 
 class BoundedPortfolioMultiPartParser(MultiPartParser):
@@ -248,6 +258,10 @@ def workspace() -> PortfolioWorkspace:
     return PortfolioWorkspace(root())
 
 
+def research_workspace() -> ResearchDataWorkspace:
+    return ResearchDataWorkspace(root(), REPOSITORY_ROOT)
+
+
 def preview_view(preview: PortfolioInputPreview) -> dict[str, object]:
     document = preview.document
     return {
@@ -308,6 +322,118 @@ def uploaded_content(file: UploadFile) -> bytes:
     if len(content) > MAX_INPUT_BYTES:
         raise ValueError(f"The upload exceeds the reviewed maximum of {MAX_INPUT_BYTES} bytes. No input was retained.")
     return content
+
+
+def _research_upload_boundary_message(file: UploadFile) -> str | None:
+    if not (file.filename or "").lower().endswith((".csv", ".parquet")):
+        return "Only bounded CSV or Parquet uploads are accepted. No input was retained."
+    if file.size is not None and file.size > MAX_RESEARCH_UPLOAD_BYTES:
+        return f"The upload exceeds the reviewed maximum of {MAX_RESEARCH_UPLOAD_BYTES} bytes. No input was retained."
+    return None
+
+
+def research_uploaded_content(file: UploadFile) -> bytes:
+    try:
+        content = file.file.read(MAX_RESEARCH_UPLOAD_BYTES + 1)
+    finally:
+        file.file.close()
+    if len(content) > MAX_RESEARCH_UPLOAD_BYTES:
+        raise ValueError(f"The upload exceeds the reviewed maximum of {MAX_RESEARCH_UPLOAD_BYTES} bytes. No input was retained.")
+    return content
+
+
+def _create_research_preview(
+    file: UploadFile,
+    *,
+    provider_profile: str,
+    provider_id: str,
+    provider_name: str,
+    dataset_id: str,
+    dataset_kind: str,
+    dataset_description: str,
+    revision_id: str,
+    rights_state: str,
+    publication_restriction: str,
+    workbench_profile: str,
+    retrieved_at: str,
+) -> object:
+    boundary_error = _research_upload_boundary_message(file)
+    if boundary_error:
+        raise ValueError(boundary_error)
+    return research_workspace().create_preview(
+        research_uploaded_content(file),
+        file.filename or "",
+        provider_profile=provider_profile,
+        provider_id=provider_id,
+        provider_name=provider_name,
+        dataset_id=dataset_id,
+        dataset_kind=dataset_kind,
+        dataset_description=dataset_description,
+        revision_id=revision_id,
+        rights_state=rights_state,
+        publication_restriction=publication_restriction,
+        workbench_profile=workbench_profile,
+        retrieved_at=retrieved_at,
+    )
+
+
+def _research_storage_error() -> str:
+    return "The local research-data storage is unavailable. No server filesystem path is displayed."
+
+
+def _research_error_message(error: Exception) -> str:
+    return _research_storage_error() if isinstance(error, OSError) else str(error)
+
+
+def _snapshot_has_licensed_data(snapshot: object) -> bool:
+    return any(getattr(state, "value", state) == "licensed_restricted" for state in snapshot.rights_states)
+
+
+def _governed_data_profile(requested_profile: str, snapshots: tuple[object, ...] = ()) -> str:
+    selected = profile_view(requested_profile).profile_id
+    return "personal_portfolio" if any(_snapshot_has_licensed_data(item) for item in snapshots) else selected
+
+
+def _visible_research_snapshots(current: ResearchDataWorkspace, requested_profile: str) -> tuple[object, ...]:
+    snapshots = current.snapshots()
+    if profile_view(requested_profile).profile_id == "research":
+        return tuple(item for item in snapshots if not _snapshot_has_licensed_data(item))
+    return snapshots
+
+
+def _structured_query_request(
+    manifest_id: str,
+    *,
+    as_of: str = "",
+    identifier_type: str = "",
+    identifier: str = "",
+    start_date: str = "",
+    end_date: str = "",
+    limit: int = 100,
+) -> FixedQueryRequest:
+    manifest = next((item for item in research_workspace().query_manifests() if item.manifest_id == manifest_id), None)
+    if manifest is None:
+        raise LocalImportError("unknown fixed query manifest ID; arbitrary SQL is prohibited")
+    parameters: dict[str, str] = {}
+    identifier_names = tuple(name for name in ("entity_id", "permno", "gvkey", "dataset_id") if name in manifest.parameter_names)
+    if identifier:
+        if identifier_type:
+            if identifier_type not in identifier_names:
+                raise LocalImportError("the selected identifier type is not reviewed for this fixed manifest")
+            identifier_name = identifier_type
+        elif len(identifier_names) == 1:
+            identifier_name = identifier_names[0]
+        else:
+            raise LocalImportError("select one reviewed identifier type for this fixed manifest")
+        parameters[identifier_name] = identifier
+    if start_date and "start_at" in manifest.parameter_names:
+        parameters["start_at"] = start_date
+    if end_date and "end_at" in manifest.parameter_names:
+        parameters["end_at"] = end_date
+    request_values: dict[str, object] = {"manifest_id": manifest_id, "parameters": parameters, "limit": limit}
+    if as_of:
+        request_values["as_of"] = as_of
+    return FixedQueryRequest.model_validate(request_values)
 
 
 def market_observations() -> tuple[MarketObservation, ...]:
@@ -918,6 +1044,8 @@ def data(profile: str = "research") -> HTMLResponse:
         }
         current_workspace = workspace()
         dataset = current_workspace.dataset_snapshot()
+        governed_workspace = research_workspace()
+        visible_snapshots = _visible_research_snapshots(governed_workspace, profile)
         return render_page(
             "data.html",
             active_page="data",
@@ -926,17 +1054,286 @@ def data(profile: str = "research") -> HTMLResponse:
             summary=summary,
             dataset_files=[dumped(item) for item in dataset.files] if dataset is not None else (),
             manifests=[dumped(item) for item in current_workspace.query_manifests()],
+            research_snapshots=[research_snapshot_view(governed_workspace, item) for item in visible_snapshots],
+            research_manifests=[dumped(item) for item in governed_workspace.query_manifests()],
             error=None,
         )
     except (HTTPException, OSError, ValueError, KeyError, TypeError):
-        return render_page("data.html", active_page="data", profile=profile, observations=(), summary=None, dataset_files=(), manifests=(), error=_screen_error())
+        return render_page("data.html", active_page="data", profile=profile, observations=(), summary=None, dataset_files=(), manifests=(), research_snapshots=(), research_manifests=(), error=_screen_error())
+
+
+@app.get("/data/import")
+def data_import(profile: str = "research") -> HTMLResponse:
+    return render_page("data_import.html", active_page="data", profile=profile_view(profile).profile_id, maximum_upload_bytes=MAX_RESEARCH_UPLOAD_BYTES)
+
+
+@app.post("/data/import")
+async def data_import_preview(
+    file: UploadFile = File(...),
+    provider_profile: Annotated[str, Form()] = "synthetic_local",
+    provider_id: Annotated[str, Form()] = "fictional-local-provider",
+    provider_name: Annotated[str, Form()] = "Fictional Local Provider",
+    dataset_id: Annotated[str, Form()] = "fictional-daily-market",
+    dataset_kind: Annotated[str, Form()] = "daily_market",
+    dataset_description: Annotated[str, Form()] = "Reviewed local research dataset",
+    revision_id: Annotated[str, Form()] = "revision-1",
+    rights_state: Annotated[str, Form()] = "",
+    publication_restriction: Annotated[str, Form()] = "",
+    retrieved_at: Annotated[str, Form()] = "",
+    profile: str = "research",
+) -> HTMLResponse:
+    selected_profile = profile_view(profile).profile_id
+    try:
+        preview = _create_research_preview(file, provider_profile=provider_profile, provider_id=provider_id, provider_name=provider_name, dataset_id=dataset_id, dataset_kind=dataset_kind, dataset_description=dataset_description, revision_id=revision_id, rights_state=rights_state, publication_restriction=publication_restriction, workbench_profile=selected_profile, retrieved_at=retrieved_at)
+    except (OSError, ValueError) as error:
+        return render_page("data_import_preview.html", active_page="data", profile=selected_profile, preview=None, error=_research_error_message(error), status_code=422)
+    view = research_preview_view(preview)
+    rendered_profile = "personal_portfolio" if preview.provider.profile == "licensed_local" else selected_profile
+    return render_page("data_import_preview.html", active_page="data", profile=rendered_profile, preview=view, error=None, status_code=200 if view["confirmable"] else 422)
+
+
+@app.get("/data/import/previews/{preview_id}")
+def data_import_preview_page(preview_id: str, profile: str = "research") -> HTMLResponse:
+    try:
+        preview_record = research_workspace().get_preview(preview_id)
+        preview = research_preview_view(preview_record)
+    except ResearchWorkspaceRecordNotFound as error:
+        return render_page("data_import_preview.html", active_page="data", profile=profile, preview=None, error=str(error), status_code=404)
+    rendered_profile = "personal_portfolio" if preview_record.provider.profile == "licensed_local" else profile_view(profile).profile_id
+    return render_page("data_import_preview.html", active_page="data", profile=rendered_profile, preview=preview, error=None)
+
+
+@app.post("/data/import/previews/{preview_id}/confirm")
+def data_import_confirm(
+    preview_id: str,
+    preview_digest: Annotated[str, Form()] = "",
+    source_digest: Annotated[str, Form()] = "",
+    confirm_import: Annotated[str, Form()] = "",
+    profile: str = "research",
+) -> HTMLResponse:
+    current = research_workspace()
+    rendered_profile = profile_view(profile).profile_id
+    try:
+        preview_record = current.get_preview(preview_id)
+        if preview_record.provider.profile == "licensed_local":
+            rendered_profile = "personal_portfolio"
+        result = current.confirm(preview_id, preview_digest=preview_digest, source_digest=source_digest, confirm=confirm_import == "confirmed")
+    except (ResearchWorkspaceRecordNotFound, OSError, ValueError) as error:
+        try:
+            preview_record = current.get_preview(preview_id)
+            preview = research_preview_view(preview_record)
+            if preview_record.provider.profile == "licensed_local":
+                rendered_profile = "personal_portfolio"
+        except (ResearchWorkspaceRecordNotFound, OSError, ValueError):
+            preview = None
+        return render_page("data_import_preview.html", active_page="data", profile=rendered_profile, preview=preview, error=_research_error_message(error), status_code=422)
+    location = f"/data/datasets/{quote(result.snapshot_id, safe='')}?{urlencode({'profile': rendered_profile, 'created': str(result.created).lower()})}"
+    return RedirectResponse(location, status_code=303)
+
+
+@app.get("/data/datasets")
+def data_datasets(profile: str = "research") -> HTMLResponse:
+    current = research_workspace()
+    snapshots = [research_snapshot_view(current, item) for item in _visible_research_snapshots(current, profile)]
+    return render_page("data_datasets.html", active_page="data", profile=profile_view(profile).profile_id, snapshots=snapshots, error=None)
+
+
+@app.get("/data/datasets/{snapshot_id}")
+def data_dataset(snapshot_id: str, profile: str = "research", created: str = "") -> HTMLResponse:
+    current = research_workspace()
+    try:
+        snapshot_record = current.get_snapshot(snapshot_id)
+        snapshot = research_snapshot_view(current, snapshot_record)
+    except (ResearchWorkspaceRecordNotFound, OSError, ValueError) as error:
+        return render_page("data_dataset.html", active_page="data", profile=profile, snapshot=None, error=_research_error_message(error), status_code=404)
+    rendered_profile = _governed_data_profile(profile, (snapshot_record,))
+    return render_page("data_dataset.html", active_page="data", profile=rendered_profile, snapshot=snapshot, created=created, error=None)
+
+
+@app.get("/data/crosswalks")
+def data_crosswalks(profile: str = "research") -> HTMLResponse:
+    current = research_workspace()
+    rendered_profile = _governed_data_profile(profile, current.snapshots())
+    return render_page("data_crosswalks.html", active_page="data", profile=rendered_profile, crosswalks=[dumped(item) for item in current.crosswalks()], error=None)
+
+
+@app.get("/data/query-manifests")
+def data_query_manifests(profile: str = "research") -> HTMLResponse:
+    return render_page("data_query_manifests.html", active_page="data", profile=profile, manifests=[dumped(item) for item in research_workspace().query_manifests()])
+
+
+@app.get("/data/query/{manifest_id}")
+def data_query(manifest_id: str, profile: str = "research") -> HTMLResponse:
+    current = research_workspace()
+    rendered_profile = _governed_data_profile(profile, current.snapshots())
+    manifest = next((item for item in current.query_manifests() if item.manifest_id == manifest_id), None)
+    if manifest is None:
+        return render_page("data_query.html", active_page="data", profile=rendered_profile, manifest=None, result=None, error="Unknown reviewed fixed query manifest.", status_code=404)
+    return render_page("data_query.html", active_page="data", profile=rendered_profile, manifest=dumped(manifest), result=None, error=None)
+
+
+@app.post("/data/query/{manifest_id}")
+def data_query_result(
+    manifest_id: str,
+    as_of: Annotated[str, Form()] = "",
+    identifier_type: Annotated[str, Form()] = "",
+    identifier: Annotated[str, Form()] = "",
+    start_date: Annotated[str, Form()] = "",
+    end_date: Annotated[str, Form()] = "",
+    limit: Annotated[int, Form()] = 100,
+    profile: str = "research",
+) -> HTMLResponse:
+    current = research_workspace()
+    rendered_profile = _governed_data_profile(profile, current.snapshots())
+    manifest = next((item for item in current.query_manifests() if item.manifest_id == manifest_id), None)
+    try:
+        request = _structured_query_request(manifest_id, as_of=as_of, identifier_type=identifier_type, identifier=identifier, start_date=start_date, end_date=end_date, limit=limit)
+        result = current.run_query(request)
+    except (OSError, ValueError) as error:
+        return render_page("data_query.html", active_page="data", profile=rendered_profile, manifest=dumped(manifest) if manifest else None, result=None, error=_research_error_message(error), status_code=422)
+    return render_page("data_query.html", active_page="data", profile=rendered_profile, manifest=dumped(manifest), result=dumped(result), error=None)
+
+
+@app.post("/api/data/import/previews")
+async def api_data_import_preview(
+    file: UploadFile = File(...),
+    provider_profile: Annotated[str, Form()] = "synthetic_local",
+    provider_id: Annotated[str, Form()] = "fictional-local-provider",
+    provider_name: Annotated[str, Form()] = "Fictional Local Provider",
+    dataset_id: Annotated[str, Form()] = "fictional-daily-market",
+    dataset_kind: Annotated[str, Form()] = "daily_market",
+    dataset_description: Annotated[str, Form()] = "Reviewed local research dataset",
+    revision_id: Annotated[str, Form()] = "revision-1",
+    rights_state: Annotated[str, Form()] = "",
+    publication_restriction: Annotated[str, Form()] = "",
+    workbench_profile: Annotated[str, Form()] = "research",
+    retrieved_at: Annotated[str, Form()] = "",
+) -> dict[str, object]:
+    try:
+        preview = _create_research_preview(file, provider_profile=provider_profile, provider_id=provider_id, provider_name=provider_name, dataset_id=dataset_id, dataset_kind=dataset_kind, dataset_description=dataset_description, revision_id=revision_id, rights_state=rights_state, publication_restriction=publication_restriction, workbench_profile=workbench_profile, retrieved_at=retrieved_at)
+    except (OSError, ValueError) as error:
+        raise HTTPException(422, _research_error_message(error)) from error
+    view = research_preview_view(preview)
+    return {"preview_id": preview.preview_digest, "valid": view["confirmable"], "preview": view}
+
+
+@app.get("/api/data/import/previews/{preview_id}")
+def api_data_import_preview_get(preview_id: str) -> dict[str, object]:
+    try:
+        preview = research_workspace().get_preview(preview_id)
+    except ResearchWorkspaceRecordNotFound as error:
+        raise HTTPException(404, str(error)) from error
+    view = research_preview_view(preview)
+    return {"preview_id": preview.preview_digest, "valid": view["confirmable"], "preview": view}
+
+
+@app.post("/api/data/import/previews/{preview_id}/confirm")
+def api_data_import_confirm(preview_id: str, request: LocalImportConfirmation) -> dict[str, object]:
+    current = research_workspace()
+    try:
+        result = current.confirm(preview_id, preview_digest=request.preview_digest, source_digest=request.source_digest, confirm=request.confirm)
+        snapshot = research_snapshot_view(current, current.get_snapshot(result.snapshot_id))
+    except ResearchWorkspaceRecordNotFound as error:
+        raise HTTPException(404, str(error)) from error
+    except (OSError, ValueError) as error:
+        raise HTTPException(422, _research_error_message(error)) from error
+    return {"confirmation": research_confirmation_view(result), "snapshot": snapshot}
+
+
+@app.get("/api/data/datasets")
+def api_data_datasets() -> dict[str, object]:
+    current = research_workspace()
+    datasets = [research_snapshot_view(current, item) for item in current.snapshots()]
+    return {"datasets": datasets, "snapshots": datasets}
+
+
+@app.get("/api/data/datasets/{snapshot_id}")
+def api_data_dataset(snapshot_id: str) -> dict[str, object]:
+    current = research_workspace()
+    try:
+        snapshot = current.get_snapshot(snapshot_id)
+    except ResearchWorkspaceRecordNotFound as error:
+        raise HTTPException(404, str(error)) from error
+    return {"snapshot": research_snapshot_view(current, snapshot)}
+
+
+@app.get("/api/data/crosswalks")
+def api_data_crosswalks() -> dict[str, object]:
+    return {"crosswalks": [dumped(item) for item in research_workspace().crosswalks()]}
+
+
+@app.get("/api/data/query-manifests")
+def api_data_query_manifests() -> dict[str, object]:
+    return {"query_manifests": [dumped(item) for item in research_workspace().query_manifests()], "arbitrary_sql_available": False}
+
+
+@app.post("/api/data/query/{manifest_id}")
+def api_data_query(manifest_id: str, request: FixedQueryRequest) -> dict[str, object]:
+    if request.manifest_id != manifest_id:
+        raise HTTPException(422, "route manifest ID must match the typed request manifest ID")
+    try:
+        result = research_workspace().run_query(request)
+    except (OSError, ValueError) as error:
+        raise HTTPException(422, _research_error_message(error)) from error
+    return {"result": dumped(result), "point_in_time_disclosure": "Eligible records satisfy available_at <= as_of; missing availability is excluded and never inferred."}
+
+
+@app.get("/api/data/quality/{snapshot_id}")
+def api_data_quality(snapshot_id: str) -> dict[str, object]:
+    try:
+        reports = research_workspace().quality(snapshot_id)
+    except ResearchWorkspaceRecordNotFound as error:
+        raise HTTPException(404, str(error)) from error
+    return {"snapshot_id": snapshot_id, "quality_reports": [dumped(item) for item in reports]}
+
+
+@app.post("/actions/data-provider-catalog")
+def data_provider_catalog_action() -> dict[str, object]:
+    return action_envelope("data.provider.catalog", {"providers": provider_register_views(workspace().providers())}, limitations=("Catalogue records do not enable or contact a provider.",))
+
+
+@app.post("/actions/data-dataset-list")
+def data_dataset_list_action() -> dict[str, object]:
+    current = research_workspace()
+    return action_envelope("data.dataset.list", {"snapshots": [research_snapshot_view(current, item) for item in current.snapshots()]}, limitations=("Only immutable local snapshot metadata is returned.",))
+
+
+@app.post("/actions/data-query-fixed")
+def data_query_fixed_action(request: FixedQueryRequest) -> dict[str, object]:
+    try:
+        result = research_workspace().run_query(request)
+    except (OSError, ValueError) as error:
+        raise HTTPException(422, _research_error_message(error)) from error
+    return action_envelope("data.query.fixed", dumped(result), limitations=("Only a reviewed fixed manifest and bounded structured parameters are accepted.",))
+
+
+@app.post("/actions/data-import-preview")
+async def data_import_preview_action(
+    file: UploadFile = File(...),
+    provider_profile: Annotated[str, Form()] = "synthetic_local",
+    provider_id: Annotated[str, Form()] = "fictional-local-provider",
+    provider_name: Annotated[str, Form()] = "Fictional Local Provider",
+    dataset_id: Annotated[str, Form()] = "fictional-daily-market",
+    dataset_kind: Annotated[str, Form()] = "daily_market",
+    dataset_description: Annotated[str, Form()] = "Reviewed local research dataset",
+    revision_id: Annotated[str, Form()] = "revision-1",
+    rights_state: Annotated[str, Form()] = "",
+    publication_restriction: Annotated[str, Form()] = "",
+    workbench_profile: Annotated[str, Form()] = "research",
+    retrieved_at: Annotated[str, Form()] = "",
+) -> dict[str, object]:
+    try:
+        preview = _create_research_preview(file, provider_profile=provider_profile, provider_id=provider_id, provider_name=provider_name, dataset_id=dataset_id, dataset_kind=dataset_kind, dataset_description=dataset_description, revision_id=revision_id, rights_state=rights_state, publication_restriction=publication_restriction, workbench_profile=workbench_profile, retrieved_at=retrieved_at)
+    except (OSError, ValueError) as error:
+        raise HTTPException(422, _research_error_message(error)) from error
+    return action_envelope("data.import.preview", research_preview_view(preview), limitations=("A preview creates no dataset snapshot and raw bytes are not retained in the landing zone.",))
 
 
 @app.get("/providers")
 def providers(profile: str = "research") -> HTMLResponse:
     current_workspace = workspace()
     manifests = current_workspace.query_manifests()
-    return render_page("providers.html", active_page="providers", profile=profile, providers=provider_views(current_workspace.providers(), manifests))
+    return render_page("providers.html", active_page="providers", profile=profile, providers=provider_views(current_workspace.providers(), manifests), provider_register=provider_register_views(current_workspace.providers()))
 
 
 @app.get("/research")

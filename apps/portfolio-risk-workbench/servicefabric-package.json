@@ -18,8 +18,12 @@
       "sha256": "f8244d347b19d44845c88b8f6f2cc7c4afe84eef9e55827165c8c0c8707b2fa0"
     },
     {
+      "path": "data_workspace_service.py",
+      "sha256": "d420ee976ab3df157a23606317d734a9c1d26fc4d1b5fac82737fe29830513b6"
+    },
+    {
       "path": "app.py",
-      "sha256": "68a89429efa9120fd7ab20d5708516c7f0b6d035a0be1a3a686dd270d8f4d56e"
+      "sha256": "c9a76921c282f0f727fc23fa2ec76e36a2b33c56e0518c27308ad802b4df8891"
     },
     {
       "path": "workspace_service.py",
@@ -28,6 +32,18 @@
     {
       "path": "catalog/notebooks.yaml",
       "sha256": "9c9698f4c3b63b93ded7a6b1ad8c3b50f8c49bb7fa859107a0b18fa8bee9fa45"
+    },
+    {
+      "path": "catalog/data-mappings/compustat_like_annual.mapping.json",
+      "sha256": "1e581b607a1f0301bda24c5e95eda2c49c882e69f48db712a87a52f2828a31ed"
+    },
+    {
+      "path": "catalog/data-mappings/crsp_compustat_link.mapping.json",
+      "sha256": "b25c4a9e731850b8aa0c18e7f66aee0b8a15ef30f7e18975be6898aab15ede69"
+    },
+    {
+      "path": "catalog/data-mappings/crsp_like_daily.mapping.json",
+      "sha256": "08b917582aa86b8b023ef1d8cca31538cda22ec06a2a7e353c3fe57e8fbf11a2"
     },
     {
       "path": "catalog/research.yaml",
@@ -43,7 +59,7 @@
     },
     {
       "path": "risk-package-lock.json",
-      "sha256": "dddf21cee3120c8cac6084cd1ee9e4b8a11dde9302c2064e6a3280b92268f784"
+      "sha256": "3dac3350a7b04ffcf1249721df9924533507b704dc0a0511311fc872d439d2eb"
     },
     {
       "path": "seed/knowledge-products/KP-00.yaml",
@@ -123,7 +139,35 @@
     },
     {
       "path": "templates/data.html",
-      "sha256": "5e76aeaaba20b201b773ae306976d1e1a4e0671136ed37e24bf0510de9df2dbf"
+      "sha256": "ab02f0e82e80d682c4eb6bc76592939e52720fbeb74e89ca0cbd4aeb1a6c703b"
+    },
+    {
+      "path": "templates/data_crosswalks.html",
+      "sha256": "d595ea55c05af76d66dd8856be38d0234b4480d3b4ba63a7415596da2bb0b366"
+    },
+    {
+      "path": "templates/data_dataset.html",
+      "sha256": "b9f34480d3041af1cd99945a1bcb361d08747820e63548ceeb7789aef2b39e27"
+    },
+    {
+      "path": "templates/data_datasets.html",
+      "sha256": "a4793fd50e4f43153ecad8d3a71f78a5faa8332f919875ef95c76df0595c68f1"
+    },
+    {
+      "path": "templates/data_import.html",
+      "sha256": "f9cc7ef1f6ee61a2b287ab087b0a93849f52d0d688d644334401e445868801dd"
+    },
+    {
+      "path": "templates/data_import_preview.html",
+      "sha256": "d84cea58c57019d38f43be307e1800120ebd6c36a859d4412d6209990b62ac1c"
+    },
+    {
+      "path": "templates/data_query.html",
+      "sha256": "5914fb4663f3a18d466ccf9d43cd565a7491a5d5d63f431b9e349a5d28862607"
+    },
+    {
+      "path": "templates/data_query_manifests.html",
+      "sha256": "01b61b9bf2bc8d61993cdcd030417e987965bbc55ebb642837d687785a50d1e9"
     },
     {
       "path": "templates/error.html",
@@ -167,7 +211,7 @@
     },
     {
       "path": "templates/providers.html",
-      "sha256": "c95a0e1c5b238b605062a55253867cba305f5f958bcd3eb7dac2a58aa5c21cac"
+      "sha256": "59e9f1f547876583f47343e3fa8fc88ad39db6ae22f5db5023d221782bf9e7ba"
     },
     {
       "path": "templates/report.html",
@@ -210,6 +254,22 @@
     {
       "tool_id": "provider.catalog.list",
       "path": "/actions/provider-catalog-list"
+    },
+    {
+      "tool_id": "data.provider.catalog",
+      "path": "/actions/data-provider-catalog"
+    },
+    {
+      "tool_id": "data.import.preview",
+      "path": "/actions/data-import-preview"
+    },
+    {
+      "tool_id": "data.dataset.list",
+      "path": "/actions/data-dataset-list"
+    },
+    {
+      "tool_id": "data.query.fixed",
+      "path": "/actions/data-query-fixed"
     },
     {
       "tool_id": "portfolio.exposure.summarize",

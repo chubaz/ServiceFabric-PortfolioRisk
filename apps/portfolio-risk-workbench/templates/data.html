@@ -2,7 +2,8 @@
 {% from "components.html" import disclosure, error_state, metric %}
 {% block title %}Data{% endblock %}
 {% block heading %}Data{% endblock %}
-{% block intro %}<p class="lead">Synthetic dataset coverage, quality, freshness, and provenance without exposing local storage paths.</p>{% endblock %}
+{% block intro %}<p class="lead">Governed local datasets, immutable revisions, freshness, quality, and evidence without exposing local storage paths.</p>{% endblock %}
+{% block heading_action %}<a class="button-link" href="/data/import{{ profile_query }}">Preview local import</a>{% endblock %}
 {% block content %}
   {{ disclosure('External data is disabled', 'No WRDS, CRSP, Compustat, Bloomberg, RavenPack, Accern, or other external provider is queried. Failed or incomplete data is never represented as zero.', 'critical') }}
   {% if error %}{{ error_state('Dataset summary is unavailable', error) }}{% else %}
@@ -27,5 +28,10 @@
       <p><span>Freshness</span><strong>As observed; no live refresh</strong></p>
     </section>
     <section aria-labelledby="manifest-heading"><h2 id="manifest-heading">Fixed query manifests</h2><div class="table-scroll" tabindex="0" role="region" aria-label="Fixed query manifests"><table><thead><tr><th scope="col">Manifest</th><th scope="col">Source / view</th><th scope="col">Fields</th><th scope="col">Access / rights / zone</th><th scope="col">Freshness / quality</th><th scope="col">Provenance / publication</th></tr></thead><tbody>{% for item in manifests %}<tr><th scope="row">{{ item.manifest_id }}</th><td>{{ item.source_id }} · {{ item.view_name }}</td><td>{{ item.requested_fields|join(', ') }}</td><td>{{ item.access_state|humanize }} · {{ item.rights_state|humanize }} · {{ item.data_zone|humanize }}</td><td>{{ item.freshness }} · {{ item.quality_flags|join(', ') }}</td><td>{{ item.provenance }} · {{ item.publication_restriction }}</td></tr>{% else %}<tr><td colspan="6">No reviewed fixed manifest is available; this is not a zero-row result.</td></tr>{% endfor %}</tbody></table></div><p class="help-text">Only these reviewed fixed views are exposed. Arbitrary SQL remains unavailable.</p></section>
+    <section aria-labelledby="research-plane-heading">
+      <div class="section-heading"><div><h2 id="research-plane-heading">Governed research data plane</h2><p class="muted">Immutable snapshots preserve provider, revision, rights, quality, point-in-time policy, and evidence.</p></div><a class="button-link secondary" href="/data/datasets{{ profile_query }}">All snapshots</a></div>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Governed research snapshots"><table><thead><tr><th scope="col">Snapshot</th><th scope="col">Datasets / revisions</th><th scope="col">Rows</th><th scope="col">Freshness</th><th scope="col">Quality</th><th scope="col">Evidence / publication</th></tr></thead><tbody>{% for item in research_snapshots %}<tr><th scope="row"><a href="/data/datasets/{{ item.snapshot_id }}{{ profile_query }}">{{ item.snapshot_id }}</a></th><td>{% for revision in item.dataset_revisions %}{{ revision.dataset_id }} · {{ revision.revision_id }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td><td class="numeric">{{ item.row_count }}</td><td>{{ item.created_at|timestamp }}</td><td>{{ 'Blocking issue' if item.quality|selectattr('blocking')|list else 'Reviewed reports available' }}</td><td>{{ item.evidence|length }} evidence record(s) · {{ item.publication_restrictions|join(', ') }}</td></tr>{% else %}<tr><td colspan="6">No governed research snapshot exists. Missing data is not represented as zero.</td></tr>{% endfor %}</tbody></table></div>
+      <nav aria-label="Research data tools"><ul class="tag-list"><li><a href="/data/import{{ profile_query }}">Import preview</a></li><li><a href="/data/crosswalks{{ profile_query }}">Identifier crosswalks</a></li><li><a href="/data/query-manifests{{ profile_query }}">Fixed query catalogue</a></li></ul></nav>
+    </section>
   {% endif %}
 {% endblock %}
