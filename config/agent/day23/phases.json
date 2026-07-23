@@ -1,11 +1,11 @@
 {
   "programme": "day-2-3",
-  "current": "D23-PHASE-1",
+  "current": "D23-PHASE-2",
   "phases": [
     {
       "id": "D23-PHASE-1",
       "title": "Governed local research data plane",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [],
       "lanes": ["integration", "data-platform", "experience"]
     },

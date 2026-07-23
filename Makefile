@@ -266,6 +266,10 @@ endif
 DAY23_PYTHON := $(DAY23_VENV)/bin/python
 DAY23_PACKAGE_PATHS := $(DAY0_PACKAGE_PATHS)
 DAY23_PYTEST := PYTHONPATH="$(CURDIR):$(DAY23_PACKAGE_PATHS)" $(DAY23_PYTHON) -m pytest
+DAY23_STATE_ROOT := $(abspath $(CURDIR)/../../../state/day23/integration)
+DAY23_PORTFOLIO_RISK_DATA_ROOT ?= $(DAY23_STATE_ROOT)/portfolio-risk-data
+DAY23_SERVICEFABRIC_RUNTIME_VENV ?= $(abspath $(CURDIR)/../../../state/venvs/day23/servicefabric-runtime)
+DAY23_SERVICEFABRIC_HOME ?= $(DAY23_STATE_ROOT)/servicefabric-home-phase1
 
 .PHONY: day23-env
 day23-env:
@@ -301,9 +305,12 @@ verify-d23-phase1: verify-day1 verify-day0 test-d23-control test-d23-data test-d
 > @echo "D23 Phase 1 verification: PASS"
 
 .PHONY: demo-d23-phase1
-demo-d23-phase1: test-d23-control
-> @echo "D23 Phase 1 demo: governed local research data-plane control plane is active; provider calls are disabled"
+demo-d23-phase1: day23-env
+> PORTFOLIO_RISK_DATA_ROOT="$(DAY23_PORTFOLIO_RISK_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(DAY23_PACKAGE_PATHS)" $(DAY23_PYTHON) scripts/day23/run_phase1_demo.py
 
 .PHONY: servicefabric-d23-phase1-smoke
-servicefabric-d23-phase1-smoke: test-d23-control
-> @echo "ServiceFabric D23 Phase 1 smoke: PASS (control-plane only; process-host smoke is not run)"
+servicefabric-d23-phase1-smoke: demo-d23-phase1
+> DAY23_SERVICEFABRIC_RUNTIME_VENV="$(DAY23_SERVICEFABRIC_RUNTIME_VENV)" \
+> DAY23_SERVICEFABRIC_HOME="$(DAY23_SERVICEFABRIC_HOME)" \
+> PORTFOLIO_RISK_DATA_ROOT="$(DAY23_PORTFOLIO_RISK_DATA_ROOT)" \
+> ./scripts/day23/servicefabric_phase1_smoke.sh

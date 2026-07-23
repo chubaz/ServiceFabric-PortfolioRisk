@@ -1,14 +1,17 @@
 # Current Workplan
 
-- ID: D23-PHASE-1
-- Title: Governed local research data plane
-- Status: in progress
-- Workplan: docs/workplans/day-2-3/phase-1-local-research-data-plane.md
+- ID: D23-PHASE-2
+- Title: Portfolio mapping and local-data risk analysis
+- Status: queued; not started
+- Workplan: docs/workplans/day-2-3/phase-2-portfolio-data-analysis.md
 - Human review: docs/workplans/day-1/soft-qa-result.md
-- Verification: make verify-d23-phase1
+- Completed prerequisite verification: make verify-d23-phase1
 
-Day 0 and Day 1 remain the reviewed baseline. Day 2–3 Phase 1 is active;
-provider-data product implementation is not activated by this record.
+Day 0 and Day 1 remain the reviewed baseline. Day 2–3 Phase 1 is complete.
+Phase 2 is queued and has not started; provider-data product implementation is
+not activated by this record.
 
-Phase 1 is limited to a governed local research data plane, fixed manifests,
-point-in-time contracts, rights and access boundaries, and verification.
+Activation of Phase 2 requires a separate reviewed lifecycle transition and
+explicit lane handoffs. The completed Phase 1 boundary remains limited to a
+governed local research data plane, fixed manifests, point-in-time contracts,
+rights and access boundaries, and deterministic verification.

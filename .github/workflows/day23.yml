@@ -24,14 +24,11 @@ jobs:
         run: |
           make verify-day0
           make verify-day1
-      - name: Available Phase 1 control-plane tests
-        run: make test-d23-control
-      - name: Complete Phase 1 verification when activated
-        run: |
-          if python -c 'import json; raise SystemExit(json.load(open("config/agent/day23/status.json"))["phase_1"] != "complete")'; then
-            make verify-d23-phase1
-          else
-            echo "Phase 1 is in progress; product-data tests are not yet activated"
-          fi
+      - name: Complete deterministic Phase 1 verification
+        run: make verify-d23-phase1
+      - name: Build deterministic Phase 1 evidence
+        run: make demo-d23-phase1
+      # The loopback process-host smoke is a local acceptance gate. CI does not
+      # execute it or claim its evidence.
       - name: Validate whitespace
         run: git diff --check

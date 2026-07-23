@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from risk_data.schema_generation import CONTRACTS, generate as generate_day23_schemas
 from scripts.day23.check_lane_paths import validate_changes, validate_manifest_changes
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,14 +27,15 @@ def lifecycle_errors(status: object) -> list[str]:
     current = status["current"]
     if current in {f"D23-PHASE-{number}" for number in range(1, 5)}:
         active = int(str(current).rsplit("-", maxsplit=1)[1]) - 1
+        active_state = status[PHASE_KEYS[active]]
         expected = tuple(
             "complete" if index < active else
-            status[PHASE_KEYS[index]] if index == active else
+            active_state if index == active else
             "queued"
             for index in range(4)
         )
-        if status[PHASE_KEYS[active]] not in {"in_progress", "complete"}:
-            return ["current phase must be in progress or complete"]
+        if active_state not in {"queued", "in_progress", "complete"}:
+            return ["current phase must be queued, in progress, or complete"]
         if tuple(status[key] for key in PHASE_KEYS) != expected or status["soft_qa"] != "queued":
             return ["phase states are inconsistent with current"]
         return []
@@ -57,6 +59,7 @@ def test_current_lifecycle_state_is_valid_and_matches_phase_manifest() -> None:
     [
         {"current": "D23-PHASE-1", "phase_1": "in_progress", "phase_2": "queued", "phase_3": "queued", "phase_4": "queued", "soft_qa": "queued", "base_tag": "day1-complete"},
         {"current": "D23-PHASE-1", "phase_1": "complete", "phase_2": "queued", "phase_3": "queued", "phase_4": "queued", "soft_qa": "queued", "base_tag": "day1-complete"},
+        {"current": "D23-PHASE-2", "phase_1": "complete", "phase_2": "queued", "phase_3": "queued", "phase_4": "queued", "soft_qa": "queued", "base_tag": "day1-complete"},
         {"current": "D23-PHASE-2", "phase_1": "complete", "phase_2": "in_progress", "phase_3": "queued", "phase_4": "queued", "soft_qa": "queued", "base_tag": "day1-complete"},
         {"current": "D23-PHASE-4", "phase_1": "complete", "phase_2": "complete", "phase_3": "complete", "phase_4": "complete", "soft_qa": "queued", "base_tag": "day1-complete"},
         {"current": "D23-QA", "phase_1": "complete", "phase_2": "complete", "phase_3": "complete", "phase_4": "complete", "soft_qa": "queued", "base_tag": "day1-complete"},
@@ -129,6 +132,62 @@ def test_completion_gate_uses_all_lanes_and_ci_fetches_base_tag() -> None:
     workflow = (ROOT / ".github/workflows/day23.yml").read_text(encoding="utf-8")
     assert "fetch-depth: 0" in workflow
     assert "fetch-tags: true" in workflow
+    assert "make demo-d23-phase1" in workflow
+    assert "servicefabric-d23-phase1-smoke" not in workflow
+
+
+def test_phase_1_closure_is_complete_and_phase_2_is_only_queued() -> None:
+    status = read_json("config/agent/day23/status.json")
+    assert status == {
+        "current": "D23-PHASE-2",
+        "phase_1": "complete",
+        "phase_2": "queued",
+        "phase_3": "queued",
+        "phase_4": "queued",
+        "soft_qa": "queued",
+        "base_tag": "day1-complete",
+    }
+    current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8").lower()
+    assert "status: queued; not started" in current
+    assert "phase 2 is queued and has not started" in current
+
+
+def test_phase_1_demo_and_local_servicefabric_smoke_are_real_gates() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert "scripts/day23/run_phase1_demo.py" in makefile
+    assert "scripts/day23/servicefabric_phase1_smoke.sh" in makefile
+    assert "control-plane only; process-host smoke is not run" not in makefile
+
+    smoke = (ROOT / "scripts/day23/servicefabric_phase1_smoke.sh").read_text(
+        encoding="utf-8"
+    )
+    for tool_id in (
+        "data.provider.catalog",
+        "data.import.preview",
+        "data.dataset.list",
+        "data.query.fixed",
+    ):
+        assert tool_id in smoke
+    assert "capability returned non-empty or missing effects" in smoke
+    assert "unexpectedly executed after Workbench stop" in smoke
+    assert "Workbench process remains alive after stop" in smoke
+
+
+def test_phase_1_contract_schema_snapshots_are_complete_and_reproducible(
+    tmp_path: Path,
+) -> None:
+    committed = ROOT / "data" / "schemas" / "day23"
+    generated = tmp_path / "day23"
+    generate_day23_schemas(generated)
+
+    committed_schemas = {
+        path.name: path.read_bytes() for path in committed.glob("*.schema.json")
+    }
+    generated_schemas = {
+        path.name: path.read_bytes() for path in generated.glob("*.schema.json")
+    }
+    assert len(committed_schemas) == len(CONTRACTS)
+    assert committed_schemas == generated_schemas
 
 
 def test_phase_1_contract_vocabulary_and_boundaries_are_present() -> None:

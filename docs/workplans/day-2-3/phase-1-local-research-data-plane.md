@@ -1,6 +1,6 @@
 # D23-PHASE-1 — Governed local research data plane
 
-- Status: in progress
+- Status: complete
 - Base: `day1-complete`
 - Lanes: integration, data-platform, experience
 

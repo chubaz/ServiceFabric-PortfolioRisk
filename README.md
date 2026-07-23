@@ -38,9 +38,42 @@ overwrites either snapshot.
 The provider catalogue exposes rights, access, data-zone, provenance,
 freshness, quality, credential-reference, and publication states. WRDS, CRSP,
 Compustat, RavenPack, Accern, Bloomberg, and every other external provider are
-disabled and unavailable. Credentials are opaque local references. Only four
-reviewed fixed local query manifests are available; arbitrary SQL is not an
-interface.
+disabled and unavailable. Credentials are opaque local references. The Day 1
+workspace retains four reviewed local query manifests. The completed Day 2–3
+Phase 1 data plane adds five fixed research query manifests; arbitrary SQL is
+not an interface.
+
+## Day 2–3 Phase 1 local research data plane
+
+Phase 1 is complete. It previews and explicitly confirms three fictional,
+synthetic local exports: CRSP-like daily market data, Compustat-like annual
+fundamentals, and a date-effective CRSP-Compustat-like identifier link. It
+writes immutable normalized Parquet and curated DuckDB snapshots only beneath
+the external `PORTFOLIO_RISK_DATA_ROOT`. Curated reads use reviewed fixed
+manifests, and point-in-time eligibility requires `available_at <= as_of`.
+Ticker-based guessed joins, missing-availability inference, arbitrary SQL, and
+external provider network access remain unavailable.
+
+`make demo-d23-phase1` writes the following deterministic evidence siblings
+beneath `PORTFOLIO_RISK_DATA_ROOT/day23-phase1`:
+
+```text
+provider-register.json
+import-previews.json
+import-confirmations.json
+dataset-snapshots.json
+quality-reports.json
+identifier-crosswalk.json
+fixed-query-results.json
+point-in-time-proof.json
+evidence-manifest.json
+```
+
+The evidence manifest records the SHA-256 digest of every other sibling
+artifact. The same directory contains the external mutable data-plane zones;
+Parquet, DuckDB, quality, manifest, and evidence state remain outside Git.
+Reviewable JSON Schema snapshots for all Phase 1 data-plane contracts are
+tracked under `data/schemas/day23/` and checked against fresh generation.
 
 ## Analytics, evidence, and reports
 
@@ -91,6 +124,9 @@ make preflight
 make verify-day1
 make demo-day1-headless
 make servicefabric-day1-smoke
+make verify-d23-phase1
+make demo-d23-phase1
+make servicefabric-d23-phase1-smoke
 make verify-day0
 git diff --check
 ```
@@ -121,6 +157,14 @@ The Linux process-host smoke is deliberately local-only. CI runs every
 deterministic Day 0 and Day 1 test, the Day 1 headless demo, manifest checks,
 and whitespace checks; CI does not claim process-host smoke evidence.
 
+The Day 2–3 Phase 1 smoke is also deliberately local-only. It installs, builds,
+starts, calls, and stops the Workbench through ServiceFabric. It calls
+`data.provider.catalog`, `data.import.preview`, `data.dataset.list`, and
+`data.query.fixed`, requires empty effects, proves external providers remain
+network-disabled, verifies a post-stop call fails, and checks that the hosted
+process is cleaned up. CI runs the deterministic Phase 1 journey and demo but
+does not run or claim the local process-host smoke.
+
 ## Limitations and safety boundary
 
 The checked-in observations, news, and portfolio examples are fictional and
@@ -137,3 +181,6 @@ reports are local review artifacts. Browser, keyboard, accessibility, visual,
 evidence, methodology, and user-workflow soft QA were completed by an
 identified human reviewer. The result is recorded in
 `docs/workplans/day-1/soft-qa-result.md`.
+
+Day 2–3 Phase 2 is queued and has not started. Its behavior requires a separate
+reviewed activation and is not implied by the Phase 1 closure artifacts.
