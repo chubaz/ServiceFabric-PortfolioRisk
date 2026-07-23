@@ -200,14 +200,24 @@ Do not use:
 
 No secret directory is granted to Codex.
 
-## Day 2–3 programme and Phase 1
+## Day 2–3 three-part programme
 
-The active workplan is `docs/workplans/day-2-3/phase-1-local-research-data-plane.md`
+The completed Part 1 workplan is
+`docs/workplans/day-2-3/phase-1-local-research-data-plane.md`. The active
+workplan is `docs/workplans/day-2-3/part-2-portfolio-event-monitoring-replay.md`
 and lifecycle state is authoritative in `config/agent/day23/status.json`.
+The former four-phase plan is superseded. The programme has exactly three
+parts: Part 1, the complete governed local research data plane; Part 2, in
+progress, for portfolio-linked datasets, local event intelligence, monitoring
+policies, four-agent monitoring, historical replay, evaluation, reports, and
+Workbench workflows; and Part 3, queued, for final human QA, evidence review,
+release decision, and merge.
+
 Day 2–3 has exactly three lanes: `integration/day2-3`,
-`feature/day2-data-platform`, and `feature/day2-data-experience`. Ownership
-and exact handoff allowances are frozen in `config/agent/day23/lanes.json`.
-Specialist lanes stop without merge.
+`feature/day23-monitoring-core`, and `feature/day23-monitoring-experience`.
+Ownership and exact handoff allowances are frozen in
+`config/agent/day23/lanes.json`. Specialist lanes stop without merge. The
+integration order is `monitoring-core` -> `experience` -> `integration`.
 
 Phase 1 is a governed local research data plane, not provider-data product
 implementation. Its landing, normalized, curated, manifests, quality, and
@@ -220,6 +230,12 @@ access state, source digest/schema/mapping/units/transformations,
 immutable snapshot, date-effective crosswalk, manifest, and publication
 restriction. Point-in-time filtering uses `available_at`; missing availability
 blocks or warns and is never guessed. Credentials remain opaque references.
+
+Part 2 additionally prohibits a background scheduler, arbitrary policy
+expressions, fuzzy or ticker-based entity matching, look-ahead, external
+providers, external LLMs, broker connectivity, orders, trades, and automatic
+rebalancing. Cadence is metadata only; all consequential actions require
+explicit human review.
 
 ## Completion report
 

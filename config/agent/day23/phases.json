@@ -1,34 +1,29 @@
 {
   "programme": "day-2-3",
-  "current": "D23-PHASE-2",
-  "phases": [
+  "current": "D23-PART-2",
+  "programme_version": "3-part-v1",
+  "prior_plan": "The former four-phase plan is superseded by this three-part programme; its completed Part 1 evidence is preserved.",
+  "parts": [
     {
-      "id": "D23-PHASE-1",
+      "id": "D23-PART-1",
       "title": "Governed local research data plane",
       "status": "complete",
       "depends_on": [],
-      "lanes": ["integration", "data-platform", "experience"]
+      "lanes": ["integration", "monitoring-core", "experience"]
     },
     {
-      "id": "D23-PHASE-2",
-      "title": "Portfolio mapping and local-data risk analysis",
-      "status": "queued",
-      "depends_on": ["D23-PHASE-1"],
-      "lanes": ["integration", "data-platform", "experience"]
+      "id": "D23-PART-2",
+      "title": "Portfolio-linked event monitoring, replay, evaluation, reports, and Workbench workflows",
+      "status": "in_progress",
+      "depends_on": ["D23-PART-1"],
+      "lanes": ["integration", "monitoring-core", "experience"]
     },
     {
-      "id": "D23-PHASE-3",
-      "title": "Event ingestion and monitoring orchestration",
+      "id": "D23-PART-3",
+      "title": "Final human QA, evidence review, release decision, and merge",
       "status": "queued",
-      "depends_on": ["D23-PHASE-2"],
-      "lanes": ["integration", "data-platform", "experience"]
-    },
-    {
-      "id": "D23-PHASE-4",
-      "title": "Historical replay, evaluation, QA and reviewed release",
-      "status": "queued",
-      "depends_on": ["D23-PHASE-3"],
-      "lanes": ["integration", "data-platform", "experience"]
+      "depends_on": ["D23-PART-2"],
+      "lanes": ["integration"]
     }
   ],
   "storage_zones": ["landing", "normalized", "curated", "manifests", "quality", "evidence"],

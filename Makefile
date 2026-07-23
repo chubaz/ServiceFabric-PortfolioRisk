@@ -270,6 +270,7 @@ DAY23_STATE_ROOT := $(abspath $(CURDIR)/../../../state/day23/integration)
 DAY23_PORTFOLIO_RISK_DATA_ROOT ?= $(DAY23_STATE_ROOT)/portfolio-risk-data
 DAY23_SERVICEFABRIC_RUNTIME_VENV ?= $(abspath $(CURDIR)/../../../state/venvs/day23/servicefabric-runtime)
 DAY23_SERVICEFABRIC_HOME ?= $(DAY23_STATE_ROOT)/servicefabric-home-phase1
+D23_PART1_HEAD := 0b12e198abc1713f0a286aee817491ffbfe15b17
 
 .PHONY: day23-env
 day23-env:
@@ -299,8 +300,8 @@ test-d23-journeys: day23-env
 > $(DAY23_PYTEST) tests/journeys -q
 
 .PHONY: verify-d23-phase1
-verify-d23-phase1: verify-day1 verify-day0 test-d23-control test-d23-data test-d23-experience test-d23-integration test-d23-journeys
-> $(PYTHON) scripts/day23/check_lane_paths.py --all-lanes --base day1-complete --head HEAD --manifest config/agent/day23/lanes.json
+verify-d23-phase1: day23-env verify-day1 verify-day0 test-d23-control test-d23-data test-d23-experience test-d23-integration test-d23-journeys
+> $(PYTHON) scripts/day23/check_lane_paths.py --all-lanes --base day1-complete --head $(D23_PART1_HEAD) --manifest config/agent/day23/part1-lanes.json
 > git diff --check
 > @echo "D23 Phase 1 verification: PASS"
 
@@ -314,3 +315,44 @@ servicefabric-d23-phase1-smoke: demo-d23-phase1
 > DAY23_SERVICEFABRIC_HOME="$(DAY23_SERVICEFABRIC_HOME)" \
 > PORTFOLIO_RISK_DATA_ROOT="$(DAY23_PORTFOLIO_RISK_DATA_ROOT)" \
 > ./scripts/day23/servicefabric_phase1_smoke.sh
+
+.PHONY: test-d23-monitoring-core
+test-d23-monitoring-core: day23-env
+> $(DAY23_PYTEST) tests/contracts tests/domain tests/data tests/analytics tests/capabilities tests/agents -q
+
+.PHONY: test-d23-monitoring-experience
+test-d23-monitoring-experience: day23-env
+> $(DAY23_PYTEST) tests/application -q
+
+.PHONY: test-d23-part2-integration
+test-d23-part2-integration: day23-env
+> $(DAY23_PYTEST) tests/integration -q
+
+.PHONY: test-d23-part2-journeys
+test-d23-part2-journeys: day23-env
+> $(DAY23_PYTEST) tests/journeys -q
+
+.PHONY: verify-d23-current
+verify-d23-current: verify-d23-phase1 test-d23-monitoring-core test-d23-monitoring-experience test-d23-part2-integration test-d23-part2-journeys
+> $(PYTHON) scripts/day23/check_lane_paths.py --all-lanes --base $(D23_PART1_HEAD) --head HEAD --manifest config/agent/day23/lanes.json
+> git diff --check
+> @echo "D23 current verification: PASS"
+
+.PHONY: verify-d23-part2
+verify-d23-part2: verify-d23-phase1 test-d23-monitoring-core test-d23-monitoring-experience test-d23-part2-integration test-d23-part2-journeys
+> $(PYTHON) scripts/day23/check_lane_paths.py --all-lanes --base $(D23_PART1_HEAD) --head HEAD --manifest config/agent/day23/lanes.json
+> git diff --check
+> @echo "D23 Part 2 verification: PASS"
+
+.PHONY: demo-d23-part2
+demo-d23-part2: day23-env
+> test -f scripts/day23/run_part2_demo.py || { echo "ERROR: Part 2 demo is unavailable until implementation is complete" >&2; exit 1; }
+> PORTFOLIO_RISK_DATA_ROOT="$(DAY23_PORTFOLIO_RISK_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(DAY23_PACKAGE_PATHS)" $(DAY23_PYTHON) scripts/day23/run_part2_demo.py
+
+.PHONY: servicefabric-d23-part2-smoke
+servicefabric-d23-part2-smoke: demo-d23-part2
+> test -f scripts/day23/servicefabric_part2_smoke.sh || { echo "ERROR: Part 2 local process-host smoke is unavailable until implementation is complete" >&2; exit 1; }
+> DAY23_SERVICEFABRIC_RUNTIME_VENV="$(DAY23_SERVICEFABRIC_RUNTIME_VENV)" \
+> DAY23_SERVICEFABRIC_HOME="$(DAY23_SERVICEFABRIC_HOME)" \
+> PORTFOLIO_RISK_DATA_ROOT="$(DAY23_PORTFOLIO_RISK_DATA_ROOT)" \
+> ./scripts/day23/servicefabric_part2_smoke.sh

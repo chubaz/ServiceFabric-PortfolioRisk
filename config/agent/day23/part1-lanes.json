@@ -1,0 +1,29 @@
+{
+  "day": "day-2-3-part-1",
+  "base_tag": "day1-complete",
+  "completed_head": "0b12e198abc1713f0a286aee817491ffbfe15b17",
+  "integration_order": ["integration", "data-platform", "experience"],
+  "lanes": {
+    "integration": {
+      "branch": "integration/day2-3",
+      "allowed_directories": [".github", "config/agent/day23", "docs/workplans/day-2-3", "docs/contracts", "docs/rights", "scripts/day23", "tests/architecture", "tests/integration", "tests/journeys"],
+      "allowed_files": ["AGENTS.md", "README.md", "Makefile", "docs/workplans/current.md", "docs/handoffs/day-2-3/integration.md", "scripts/day1/check_preparation.py"]
+    },
+    "data-platform": {
+      "branch": "feature/day2-data-platform",
+      "allowed_directories": ["packages/risk_data", "connectors", "data/schemas", "data/fixtures/synthetic", "tests/data"],
+      "allowed_files": ["docs/handoffs/day-2-3/data-platform.md"]
+    },
+    "experience": {
+      "branch": "feature/day2-data-experience",
+      "allowed_directories": ["apps/portfolio-risk-workbench", "tests/application"],
+      "allowed_files": ["docs/handoffs/day-2-3/experience.md"]
+    }
+  },
+  "frozen_directories": ["vendor/servicefabric"],
+  "rules": {
+    "handoff_allowances_are_exact_files": true,
+    "specialist_may_merge": false,
+    "archived_for_part_1_verification": true
+  }
+}

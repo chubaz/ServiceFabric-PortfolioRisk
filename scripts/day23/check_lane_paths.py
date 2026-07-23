@@ -81,6 +81,38 @@ def validate_manifest_changes(
     return errors
 
 
+def validate_manifest(manifest: object) -> list[str]:
+    """Reject ambiguous or overlapping lane ownership before checking a diff."""
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("lanes"), dict):
+        return ["manifest must contain a lanes object"]
+    if "allowed_paths" in json.dumps(manifest):
+        return ["ambiguous allowed_paths key is present"]
+
+    errors: list[str] = []
+    owned: dict[str, str] = {}
+    for lane_name, lane in manifest["lanes"].items():
+        if not isinstance(lane, dict):
+            errors.append(f"{lane_name}: lane record must be an object")
+            continue
+        allowed_directories = lane.get("allowed_directories")
+        allowed_files = lane.get("allowed_files")
+        if not isinstance(allowed_directories, list) or not isinstance(allowed_files, list):
+            errors.append(
+                f"{lane_name}: explicit allowed_directories and allowed_files are required"
+            )
+            continue
+        for path in (*allowed_directories, *allowed_files):
+            if not isinstance(path, str) or not safe_path(path):
+                errors.append(f"{lane_name}: invalid allowance {path!r}")
+                continue
+            previous = owned.setdefault(path, lane_name)
+            if previous != lane_name:
+                errors.append(
+                    f"{lane_name}: allowance {path!r} overlaps lane {previous!r}"
+                )
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     selection = parser.add_mutually_exclusive_group(required=True)
@@ -92,6 +124,11 @@ def main() -> int:
     args = parser.parse_args()
     try:
         manifest = json.loads(open(args.manifest, encoding="utf-8").read())
+        manifest_errors = validate_manifest(manifest)
+        if manifest_errors:
+            print("Day 2–3 lane manifest: FAIL", file=sys.stderr)
+            print("\n".join(f"- {error}" for error in manifest_errors), file=sys.stderr)
+            return 1
         lanes = manifest["lanes"]
         changes = changed_paths(args.base, args.head)
         if args.all_lanes:

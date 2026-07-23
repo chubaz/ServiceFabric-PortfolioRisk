@@ -1,9 +1,8 @@
-# D23-PHASE-4 — Evaluation, QA and reviewed release
+# Superseded: D23-PHASE-4 — Evaluation, QA and reviewed release
 
-- Status: queued
+- Status: superseded by `D23-PART-2` and `D23-PART-3`
 - Depends on: `D23-PHASE-3`
 
-Phase 4 will cover historical replay, deterministic evaluation, soft QA,
-evidence inspection, limitations, and a reviewed release decision. A release
-cannot imply investment advice or authorize broker, order, trade, hedge, or
-rebalance effects.
+Replay and evaluation are now Part 2; final QA and release are Part 3. See the
+two replacement workplans. This historical record contains no completed
+evidence.

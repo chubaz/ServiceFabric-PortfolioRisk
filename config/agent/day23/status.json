@@ -1,9 +1,9 @@
 {
-  "current": "D23-PHASE-2",
-  "phase_1": "complete",
-  "phase_2": "queued",
-  "phase_3": "queued",
-  "phase_4": "queued",
+  "current": "D23-PART-2",
+  "part_1": "complete",
+  "part_2": "in_progress",
+  "part_3": "queued",
   "soft_qa": "queued",
-  "base_tag": "day1-complete"
+  "base_tag": "day1-complete",
+  "programme_version": "3-part-v1"
 }

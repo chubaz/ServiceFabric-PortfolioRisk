@@ -1,17 +1,17 @@
 # Current Workplan
 
-- ID: D23-PHASE-2
-- Title: Portfolio mapping and local-data risk analysis
-- Status: queued; not started
-- Workplan: docs/workplans/day-2-3/phase-2-portfolio-data-analysis.md
+- ID: D23-PART-2
+- Title: Portfolio-linked datasets, event intelligence, monitoring, replay, evaluation, reports, and Workbench workflows
+- Status: in progress
+- Workplan: docs/workplans/day-2-3/part-2-portfolio-event-monitoring-replay.md
 - Human review: docs/workplans/day-1/soft-qa-result.md
 - Completed prerequisite verification: make verify-d23-phase1
 
-Day 0 and Day 1 remain the reviewed baseline. Day 2–3 Phase 1 is complete.
-Phase 2 is queued and has not started; provider-data product implementation is
-not activated by this record.
+Day 0 and Day 1 remain the reviewed baseline. Part 1 is complete and Part 2 is
+in progress. Part 3 is queued; this record makes no final QA or release claim.
 
-Activation of Phase 2 requires a separate reviewed lifecycle transition and
-explicit lane handoffs. The completed Phase 1 boundary remains limited to a
-governed local research data plane, fixed manifests, point-in-time contracts,
-rights and access boundaries, and deterministic verification.
+The completed Part 1 boundary remains preserved as a governed local research
+data plane, fixed manifests, point-in-time contracts, rights and access
+boundaries, and deterministic verification. Part 2 remains local-only and
+effect-free while specialist implementation is reviewed through the frozen
+lane manifest.

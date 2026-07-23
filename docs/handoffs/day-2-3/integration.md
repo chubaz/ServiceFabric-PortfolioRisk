@@ -1,14 +1,42 @@
-# Day 2–3 Phase 1 integration handoff
+# Day 2–3 integration handoff — Part 2 activation
 
 - Lane: `integration`
 - Branch: `integration/day2-3`
 - Base: `day1-complete` (`627a08b`)
-- Head before the CI repair: `225eb6a`; the repair is recorded by the commit
-  containing this handoff
-- Status: Phase 1 complete; Phase 2 queued and not started
+- Completed Part 1 head: `0b12e198abc1713f0a286aee817491ffbfe15b17`
+- Part 2 migration head: uncommitted by instruction
+- Status: Part 1 complete; Part 2 in progress; Part 3 queued; no final QA claim
+
+## Three-part migration
+
+The former four-phase programme is superseded by `3-part-v1`. Lifecycle state
+now activates `D23-PART-2`, while the completed Part 1 workplan, immutable
+evidence, deterministic demo, and local process-host smoke record remain
+preserved. The retired future Phase 2–4 workplans are marked superseded and
+contain no completed evidence.
+
+The active manifest now has only `integration`, `monitoring-core`, and
+`experience`, in the order `monitoring-core` -> `experience` -> `integration`.
+It uses only explicit `allowed_directories` and `allowed_files`; the existing
+strict lane checker now validates that shape and rejects ambiguous or
+overlapping allowances. The former lane manifest is archived only to verify
+the completed Part 1 diff at its pinned head.
+
+Part 2 contract records freeze portfolio data context, explicit-identity local
+events, typed immutable monitoring policies, and deterministic point-in-time
+replay evaluation. No product behavior, dependency, provider, LLM, scheduler,
+policy expression language, fuzzy matching, look-ahead, broker, order, trade,
+or rebalance effect is activated by this migration.
 
 ## Changed paths
 
+- Part 2 migration control plane: `AGENTS.md`, `Makefile`,
+  `.github/workflows/day23.yml`, `config/agent/day23/**`,
+  `docs/workplans/current.md`, the Day 2–3 workplans, the four Part 2 contract
+  records, the existing lane checker, and its architecture tests.
+- No application, package, connector, fixture, dependency, or
+  `vendor/servicefabric/**` path changed.
+- Historical Part 1 record follows.
 - Root integration surfaces: `Makefile` and `README.md`.
 - Lifecycle and CI: `.github/workflows/day23.yml`,
   `config/agent/day23/status.json`, `config/agent/day23/phases.json`,
@@ -151,14 +179,15 @@ None for Phase 1 closure.
 
 ## Rollback
 
-Restore the lifecycle records to Phase 1 in progress, revert the integration
-scripts/tests/docs/CI/Make targets and hosted JSON adapter plus manifest hash,
-and remove owner-controlled external `day23-phase1` state if desired. Rollback
-does not overwrite immutable snapshots and does not require any edit beneath
-`vendor/servicefabric/**`.
+Revert only the Part 2 activation edits to restore the prior Phase 2 queued
+pointer and lane manifest. Preserve the completed Part 1 commit, archived
+verification manifest, immutable snapshots, and external `day23-phase1`
+evidence. Rollback requires no application, package, connector, fixture, or
+`vendor/servicefabric/**` edit.
 
 ## Recommended next action
 
-Confirm the replacement PR checks pass, then review the Phase 1 closure for
-merge. Keep Phase 2 queued until a separate explicit activation and fresh lane
-handoffs are approved.
+Issue the two fresh specialist handoffs. Integrate `monitoring-core`, then
+`experience`, then run the integration, journey, deterministic demo, and local
+process-host smoke gates before considering Part 2 complete. Part 3 remains
+queued until a separate human QA and release decision.

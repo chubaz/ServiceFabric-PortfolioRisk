@@ -1,22 +1,22 @@
 {
   "day": "day-2-3",
   "base_tag": "day1-complete",
-  "integration_order": ["integration", "data-platform", "experience"],
+  "integration_order": ["monitoring-core", "experience", "integration"],
   "lanes": {
     "integration": {
       "branch": "integration/day2-3",
       "allowed_directories": [".github", "config/agent/day23", "docs/workplans/day-2-3", "docs/contracts", "docs/rights", "scripts/day23", "tests/architecture", "tests/integration", "tests/journeys"],
-      "allowed_files": ["AGENTS.md", "README.md", "Makefile", "docs/workplans/current.md", "docs/handoffs/day-2-3/integration.md", "scripts/day1/check_preparation.py"]
+      "allowed_files": ["AGENTS.md", "README.md", "Makefile", "docs/workplans/current.md", "docs/handoffs/day-2-3/integration.md"]
     },
-    "data-platform": {
-      "branch": "feature/day2-data-platform",
-      "allowed_directories": ["packages/risk_data", "connectors", "data/schemas", "data/fixtures/synthetic", "tests/data"],
-      "allowed_files": ["docs/handoffs/day-2-3/data-platform.md"]
+    "monitoring-core": {
+      "branch": "feature/day23-monitoring-core",
+      "allowed_directories": ["packages/risk_domain", "packages/risk_data", "packages/risk_analytics", "packages/risk_capabilities", "packages/risk_agents", "connectors", "schemas/risk", "data/schemas", "data/fixtures/synthetic", "tests/contracts", "tests/domain", "tests/data", "tests/analytics", "tests/capabilities", "tests/agents"],
+      "allowed_files": ["docs/handoffs/day-2-3/monitoring-core.md"]
     },
     "experience": {
-      "branch": "feature/day2-data-experience",
+      "branch": "feature/day23-monitoring-experience",
       "allowed_directories": ["apps/portfolio-risk-workbench", "tests/application"],
-      "allowed_files": ["docs/handoffs/day-2-3/experience.md"]
+      "allowed_files": ["docs/handoffs/day-2-3/monitoring-experience.md"]
     }
   },
   "frozen_directories": ["vendor/servicefabric"],
