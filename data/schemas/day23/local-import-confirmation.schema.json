@@ -1,0 +1,26 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "confirm": {
+      "title": "Confirm",
+      "type": "boolean"
+    },
+    "preview_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Preview Digest",
+      "type": "string"
+    },
+    "source_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Source Digest",
+      "type": "string"
+    }
+  },
+  "required": [
+    "confirm",
+    "preview_digest",
+    "source_digest"
+  ],
+  "title": "LocalImportConfirmation",
+  "type": "object"
+}

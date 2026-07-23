@@ -1,0 +1,8 @@
+{
+  "enum": [
+    "reviewed_synthetic",
+    "licensed_restricted"
+  ],
+  "title": "RightsState",
+  "type": "string"
+}

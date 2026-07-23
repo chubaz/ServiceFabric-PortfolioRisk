@@ -1047,6 +1047,23 @@ def test_phase1_servicefabric_actions_are_declared_effect_free_and_rights_disclo
         assert "rights" in json.dumps(result).lower() and "network" in json.dumps(result).lower()
 
 
+def test_phase1_hosted_json_preview_advertises_text_csv_only(application: FastAPI) -> None:
+    route = next(
+        item
+        for item in application.routes
+        if item.path == "/actions/data-import-preview" and "POST" in item.methods
+    )
+    request_type = inspect.get_annotations(route.endpoint, eval_str=True)["request"]
+    filename_pattern = next(
+        item.pattern
+        for item in request_type.model_fields["filename"].metadata
+        if hasattr(item, "pattern")
+    )
+
+    assert re.fullmatch(filename_pattern, "reviewed-export.csv")
+    assert not re.fullmatch(filename_pattern, "binary-export.parquet")
+
+
 def test_phase1_missing_availability_crosswalk_and_network_boundaries(application: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
     daily = (ROOT / "data" / "fixtures" / "synthetic" / "day23" / "crsp_like_daily.csv").read_bytes().replace(b"2026-06-30T21:00:00Z,-41.00", b",-41.00", 1)
     warning = research_preview(application, content=daily)

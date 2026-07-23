@@ -1,0 +1,8 @@
+{
+  "enum": [
+    "available",
+    "disabled"
+  ],
+  "title": "ProviderAccessState",
+  "type": "string"
+}

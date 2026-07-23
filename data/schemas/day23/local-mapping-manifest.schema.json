@@ -1,0 +1,292 @@
+{
+  "$defs": {
+    "FieldDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "data_type": {
+          "enum": [
+            "string",
+            "integer",
+            "decimal",
+            "date",
+            "datetime",
+            "boolean"
+          ],
+          "title": "Data Type",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "field_name": {
+          "title": "Field Name",
+          "type": "string"
+        },
+        "nullable": {
+          "default": true,
+          "title": "Nullable",
+          "type": "boolean"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "field_name",
+        "data_type"
+      ],
+      "title": "FieldDefinition",
+      "type": "object"
+    },
+    "FieldMapping": {
+      "additionalProperties": false,
+      "properties": {
+        "data_type": {
+          "enum": [
+            "string",
+            "integer",
+            "decimal",
+            "date",
+            "datetime",
+            "boolean"
+          ],
+          "title": "Data Type",
+          "type": "string"
+        },
+        "nullable": {
+          "default": true,
+          "title": "Nullable",
+          "type": "boolean"
+        },
+        "source_field": {
+          "title": "Source Field",
+          "type": "string"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Unit"
+        },
+        "target_field": {
+          "title": "Target Field",
+          "type": "string"
+        },
+        "target_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Unit"
+        },
+        "transformation_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Transformation Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_field",
+        "target_field",
+        "data_type"
+      ],
+      "title": "FieldMapping",
+      "type": "object"
+    },
+    "PointInTimePolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "available_at_field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Available At Field"
+        },
+        "missing_available_at": {
+          "default": "block",
+          "enum": [
+            "block",
+            "warn"
+          ],
+          "title": "Missing Available At",
+          "type": "string"
+        },
+        "observed_at_field": {
+          "title": "Observed At Field",
+          "type": "string"
+        },
+        "query_filter": {
+          "const": "available_at_lte_as_of",
+          "default": "available_at_lte_as_of",
+          "title": "Query Filter",
+          "type": "string"
+        }
+      },
+      "required": [
+        "observed_at_field",
+        "available_at_field"
+      ],
+      "title": "PointInTimePolicy",
+      "type": "object"
+    },
+    "TransformationRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "disclosure": {
+          "title": "Disclosure",
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "identity",
+            "absolute_value",
+            "scale",
+            "sign_normalization",
+            "open_end_date"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Parameters",
+          "type": "object"
+        },
+        "source_field": {
+          "title": "Source Field",
+          "type": "string"
+        },
+        "target_field": {
+          "title": "Target Field",
+          "type": "string"
+        },
+        "transformation_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Transformation Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "transformation_id",
+        "operation",
+        "source_field",
+        "target_field",
+        "disclosure"
+      ],
+      "title": "TransformationRecord",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "dataset_kind": {
+      "enum": [
+        "security_master",
+        "daily_market",
+        "fundamentals_annual",
+        "identifier_crosswalk"
+      ],
+      "title": "Dataset Kind",
+      "type": "string"
+    },
+    "field_definitions": {
+      "items": {
+        "$ref": "#/$defs/FieldDefinition"
+      },
+      "title": "Field Definitions",
+      "type": "array"
+    },
+    "fields": {
+      "items": {
+        "$ref": "#/$defs/FieldMapping"
+      },
+      "title": "Fields",
+      "type": "array"
+    },
+    "key_fields": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Key Fields",
+      "type": "array"
+    },
+    "link_overlap_policy": {
+      "default": "reject",
+      "enum": [
+        "reject",
+        "latest_start"
+      ],
+      "title": "Link Overlap Policy",
+      "type": "string"
+    },
+    "manifest_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Manifest Id",
+      "type": "string"
+    },
+    "point_in_time_policy": {
+      "$ref": "#/$defs/PointInTimePolicy"
+    },
+    "target_dataset": {
+      "enum": [
+        "security_master",
+        "daily_market",
+        "fundamentals_annual",
+        "identifier_crosswalk"
+      ],
+      "title": "Target Dataset",
+      "type": "string"
+    },
+    "transformations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/TransformationRecord"
+      },
+      "title": "Transformations",
+      "type": "array"
+    }
+  },
+  "required": [
+    "manifest_id",
+    "dataset_kind",
+    "target_dataset",
+    "fields",
+    "field_definitions",
+    "key_fields",
+    "point_in_time_policy"
+  ],
+  "title": "LocalMappingManifest",
+  "type": "object"
+}

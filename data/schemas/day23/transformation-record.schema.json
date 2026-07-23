@@ -1,0 +1,49 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "disclosure": {
+      "title": "Disclosure",
+      "type": "string"
+    },
+    "operation": {
+      "enum": [
+        "identity",
+        "absolute_value",
+        "scale",
+        "sign_normalization",
+        "open_end_date"
+      ],
+      "title": "Operation",
+      "type": "string"
+    },
+    "parameters": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Parameters",
+      "type": "object"
+    },
+    "source_field": {
+      "title": "Source Field",
+      "type": "string"
+    },
+    "target_field": {
+      "title": "Target Field",
+      "type": "string"
+    },
+    "transformation_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Transformation Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "transformation_id",
+    "operation",
+    "source_field",
+    "target_field",
+    "disclosure"
+  ],
+  "title": "TransformationRecord",
+  "type": "object"
+}

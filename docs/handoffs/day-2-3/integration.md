@@ -3,12 +3,13 @@
 - Lane: `integration`
 - Branch: `integration/day2-3`
 - Base: `day1-complete` (`627a08b`)
-- Head: working tree based on `3933158`; no commit, push, or merge performed
+- Head before the CI repair: `225eb6a`; the repair is recorded by the commit
+  containing this handoff
 - Status: Phase 1 complete; Phase 2 queued and not started
 
 ## Changed paths
 
-- Root integration surfaces: `.gitignore`, `Makefile`, and `README.md`.
+- Root integration surfaces: `Makefile` and `README.md`.
 - Lifecycle and CI: `.github/workflows/day23.yml`,
   `config/agent/day23/status.json`, `config/agent/day23/phases.json`,
   `docs/workplans/current.md`, and the Phase 1 workplan status.
@@ -22,11 +23,17 @@
 - Hosted interface closure:
   `apps/portfolio-risk-workbench/app.py` and its reviewed source hash in
   `apps/portfolio-risk-workbench/servicefabric-package.json`.
+- CI repair:
+  `scripts/day1/check_preparation.py`,
+  `tests/application/test_workbench.py`, and all 26 explicitly added generated
+  `data/schemas/day23/**` snapshots.
 - This exact handoff file.
 
-The pre-existing working-tree modification to
-`scripts/day1/check_preparation.py` was inspected but not edited or staged by
-this closure work.
+The CI repair preserves Day 1 as a regression baseline while allowing a
+reviewed `D23-*` workplan to own the current lifecycle pointer. It also restores
+the generated schema evidence hidden by the broad root data-ignore rule and
+keeps the hosted JSON preview adapter aligned with its reviewed application
+hash.
 
 ## Specialist handoffs reviewed
 
@@ -34,8 +41,9 @@ this closure work.
   preview and confirmation, normalized Parquet, curated DuckDB views, quality
   reports, explicit crosswalks, fixed manifests, and point-in-time filtering.
   Integration generated and included all 26 canonical
-  `data/schemas/day23/**` review snapshots after correcting the root ignore
-  rule; a closure test regenerates and compares them byte-for-byte.
+  `data/schemas/day23/**` review snapshots by explicitly adding the reviewed
+  outputs under the existing broad data-ignore rule; a closure test regenerates
+  and compares them byte-for-byte.
 - `experience`: accepted. The Workbench keeps human-readable import, dataset,
   quality, crosswalk, and fixed-query screens plus effect-free action routes.
   Integration corrected the hosted `data.import.preview` interface from a
@@ -54,6 +62,14 @@ this closure work.
 - `make verify-day1` — PASS.
 - `make verify-day0` — PASS.
 - Application manifest hash check — PASS.
+- Exact PR-head reproduction — FAIL as expected with three failures: stale
+  application source hash, Day 1 current-workplan mismatch, and zero committed
+  Day 2–3 schema snapshots.
+- Focused CI repair regression — PASS, 4 tests.
+- `make demo-day0-headless` with
+  `PORTFOLIO_RISK_DATA_ROOT=/tmp/servicefabric-pr17-ci-day0` — PASS against a
+  fresh CI-equivalent data root.
+- `make demo-day1-headless` — PASS.
 - `git diff --check` — PASS.
 
 ## Evidence produced
@@ -98,7 +114,12 @@ adapter to CSV filenames; binary-safe Parquet preview remains available only
 through the existing browser multipart and CLI paths.
 
 Review follow-up also generated and included the 26 contract snapshots that
-the data-platform handoff had produced but the former root ignore rule hid.
+the data-platform handoff had produced but the broad root data-ignore rule hid.
+The rule remains unchanged in the candidate commit because `.gitignore` has no
+Day 2–3 lane owner; the reviewed schema files are tracked explicitly.
+The Day 1 lifecycle checker now validates all Day 1 status and boundary
+requirements while deferring only the obsolete Day 1 current-pointer
+comparison after a reviewed Day 2–3 workplan is active.
 
 No provider was enabled or contacted. No arbitrary SQL, notebook execution,
 broker connection, order, trade, rebalance, live portfolio effect, dependency,
@@ -118,6 +139,15 @@ None for Phase 1 closure.
 - Licensed local exports still require explicit rights and publication review.
 - Contract snapshots are generated review evidence; edits must be made in the
   Pydantic contracts and regenerated, not changed by hand.
+- The repository's saved GitHub CLI token was expired during CI diagnosis.
+  Public GitHub check metadata and an exact local clone of PR head `225eb6a`
+  were used to identify and reproduce the failures.
+- The default persistent Day 0 demo root contained a conflicting immutable
+  artifact from an earlier local run. It was preserved; the demo passed against
+  the fresh temporary root shown in the test record.
+- A proposed local `.gitignore` exception is intentionally excluded from the
+  candidate commit after the lane-path audit identified that file as unowned in
+  the frozen Day 2–3 lane manifest.
 
 ## Rollback
 
@@ -129,5 +159,6 @@ does not overwrite immutable snapshots and does not require any edit beneath
 
 ## Recommended next action
 
-Review this uncommitted Phase 1 closure diff. Keep Phase 2 queued until a
-separate explicit activation and fresh lane handoffs are approved.
+Confirm the replacement PR checks pass, then review the Phase 1 closure for
+merge. Keep Phase 2 queued until a separate explicit activation and fresh lane
+handoffs are approved.

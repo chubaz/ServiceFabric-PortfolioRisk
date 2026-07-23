@@ -1,0 +1,57 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "entity_id": {
+      "title": "Entity Id",
+      "type": "string"
+    },
+    "identifier_type": {
+      "enum": [
+        "permno",
+        "gvkey",
+        "cusip",
+        "cik",
+        "ticker"
+      ],
+      "title": "Identifier Type",
+      "type": "string"
+    },
+    "identifier_value": {
+      "title": "Identifier Value",
+      "type": "string"
+    },
+    "valid_from": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Valid From"
+    },
+    "valid_to": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Valid To"
+    }
+  },
+  "required": [
+    "entity_id",
+    "identifier_type",
+    "identifier_value"
+  ],
+  "title": "EntityIdentifier",
+  "type": "object"
+}

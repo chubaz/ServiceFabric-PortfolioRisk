@@ -6,13 +6,14 @@ import json
 import sys
 from decimal import Decimal
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import quote, urlencode
 
 import pyarrow.parquet as pq
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, ConfigDict, Field
 from starlette import requests as starlette_requests
 from starlette.formparsers import MultiPartException, MultiPartParser
 from risk_agents import ACTIVE_AGENT_ROLE_IDS, AGENT_ROLES, DeterministicMonitoringOrchestrator, MonitoringRunRequest
@@ -62,6 +63,30 @@ from data_workspace_service import (  # noqa: E402
     provider_register_views,
     snapshot_view as research_snapshot_view,
 )
+
+
+class HostedDataImportPreviewRequest(BaseModel):
+    """Bounded JSON input for the canonical ServiceFabric capability adapter."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    content: str = Field(min_length=1, max_length=MAX_RESEARCH_UPLOAD_BYTES)
+    filename: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.csv$")
+    provider_profile: Literal["synthetic_local", "licensed_local"]
+    provider_id: str
+    provider_name: str
+    dataset_id: str
+    dataset_kind: Literal["daily_market", "fundamentals_annual", "identifier_crosswalk"]
+    dataset_description: str
+    revision_id: str
+    rights_state: Literal["reviewed_synthetic", "licensed_restricted"]
+    publication_restriction: Literal[
+        "synthetic_only",
+        "internal_research_only",
+        "no_publication",
+    ]
+    workbench_profile: Literal["research", "personal_portfolio"]
+    retrieved_at: str
 
 
 class BoundedPortfolioMultiPartParser(MultiPartParser):
@@ -1308,22 +1333,24 @@ def data_query_fixed_action(request: FixedQueryRequest) -> dict[str, object]:
 
 
 @app.post("/actions/data-import-preview")
-async def data_import_preview_action(
-    file: UploadFile = File(...),
-    provider_profile: Annotated[str, Form()] = "synthetic_local",
-    provider_id: Annotated[str, Form()] = "fictional-local-provider",
-    provider_name: Annotated[str, Form()] = "Fictional Local Provider",
-    dataset_id: Annotated[str, Form()] = "fictional-daily-market",
-    dataset_kind: Annotated[str, Form()] = "daily_market",
-    dataset_description: Annotated[str, Form()] = "Reviewed local research dataset",
-    revision_id: Annotated[str, Form()] = "revision-1",
-    rights_state: Annotated[str, Form()] = "",
-    publication_restriction: Annotated[str, Form()] = "",
-    workbench_profile: Annotated[str, Form()] = "research",
-    retrieved_at: Annotated[str, Form()] = "",
-) -> dict[str, object]:
+def data_import_preview_action(request: HostedDataImportPreviewRequest) -> dict[str, object]:
+    """Preview bounded local bytes through the canonical JSON tool boundary."""
     try:
-        preview = _create_research_preview(file, provider_profile=provider_profile, provider_id=provider_id, provider_name=provider_name, dataset_id=dataset_id, dataset_kind=dataset_kind, dataset_description=dataset_description, revision_id=revision_id, rights_state=rights_state, publication_restriction=publication_restriction, workbench_profile=workbench_profile, retrieved_at=retrieved_at)
+        preview = research_workspace().create_preview(
+            request.content.encode("utf-8"),
+            request.filename,
+            provider_profile=request.provider_profile,
+            provider_id=request.provider_id,
+            provider_name=request.provider_name,
+            dataset_id=request.dataset_id,
+            dataset_kind=request.dataset_kind,
+            dataset_description=request.dataset_description,
+            revision_id=request.revision_id,
+            rights_state=request.rights_state,
+            publication_restriction=request.publication_restriction,
+            workbench_profile=request.workbench_profile,
+            retrieved_at=request.retrieved_at,
+        )
     except (OSError, ValueError) as error:
         raise HTTPException(422, _research_error_message(error)) from error
     return action_envelope("data.import.preview", research_preview_view(preview), limitations=("A preview creates no dataset snapshot and raw bytes are not retained in the landing zone.",))

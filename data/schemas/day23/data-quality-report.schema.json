@@ -1,0 +1,122 @@
+{
+  "$defs": {
+    "DataQualityFlag": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "record_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Record Key"
+        },
+        "severity": {
+          "enum": [
+            "info",
+            "warning",
+            "blocking"
+          ],
+          "title": "Severity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "message"
+      ],
+      "title": "DataQualityFlag",
+      "type": "object"
+    },
+    "DataQualityMetric": {
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "unit": {
+          "default": "count",
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "metric",
+        "value"
+      ],
+      "title": "DataQualityMetric",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "blocking": {
+      "title": "Blocking",
+      "type": "boolean"
+    },
+    "dataset_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Dataset Id",
+      "type": "string"
+    },
+    "flags": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DataQualityFlag"
+      },
+      "title": "Flags",
+      "type": "array"
+    },
+    "metrics": {
+      "items": {
+        "$ref": "#/$defs/DataQualityMetric"
+      },
+      "title": "Metrics",
+      "type": "array"
+    },
+    "report_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Report Id",
+      "type": "string"
+    },
+    "source_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Source Digest",
+      "type": "string"
+    }
+  },
+  "required": [
+    "report_id",
+    "dataset_id",
+    "source_digest",
+    "metrics",
+    "blocking"
+  ],
+  "title": "DataQualityReport",
+  "type": "object"
+}

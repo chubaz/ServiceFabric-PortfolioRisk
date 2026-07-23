@@ -1,0 +1,93 @@
+{
+  "$defs": {
+    "DatasetRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "dataset_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "revision_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Revision Id",
+          "type": "string"
+        },
+        "source_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Source Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dataset_id",
+        "revision_id",
+        "retrieved_at",
+        "source_digest"
+      ],
+      "title": "DatasetRevision",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created": {
+      "title": "Created",
+      "type": "boolean"
+    },
+    "curated_path": {
+      "format": "path",
+      "title": "Curated Path",
+      "type": "string"
+    },
+    "dataset_revision": {
+      "$ref": "#/$defs/DatasetRevision"
+    },
+    "evidence_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Ids",
+      "type": "array"
+    },
+    "manifest_path": {
+      "format": "path",
+      "title": "Manifest Path",
+      "type": "string"
+    },
+    "normalized_paths": {
+      "items": {
+        "format": "path",
+        "type": "string"
+      },
+      "title": "Normalized Paths",
+      "type": "array"
+    },
+    "quality_path": {
+      "format": "path",
+      "title": "Quality Path",
+      "type": "string"
+    },
+    "snapshot_id": {
+      "title": "Snapshot Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "snapshot_id",
+    "dataset_revision",
+    "normalized_paths",
+    "curated_path",
+    "manifest_path",
+    "quality_path",
+    "evidence_ids",
+    "created"
+  ],
+  "title": "LocalImportResult",
+  "type": "object"
+}
