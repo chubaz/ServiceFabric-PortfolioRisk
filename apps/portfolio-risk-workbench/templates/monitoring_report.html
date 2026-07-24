@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% from "components.html" import error_state, disclosure %}
+{% block title %}Monitoring report{% endblock %}
+{% block heading %}Local monitoring review report{% endblock %}
+{% block intro %}<p class="lead">Semantic HTML and downloadable Markdown produced by the registered monitoring report capability.</p>{% endblock %}
+{% block heading_action %}{% if report %}<a class="button-link" href="/monitoring/reports/{{ record.id }}.md">Download Markdown</a>{% endif %}{% endblock %}
+{% block content %}{% if error %}{{ error_state('Report unavailable', error) }}{% else %}{{ disclosure('Local review artifact', 'This report is not investment advice. No PDF, publication control, trade authorization, or portfolio effect is available.', 'critical') }}{% if profile.profile_id == 'personal_portfolio' %}{{ disclosure('Private local profile', 'Personal portfolio evidence remains local-private and no publication action is available.', 'warning') }}{% endif %}<section aria-labelledby="report-content"><h2 id="report-content">Capability-rendered report</h2>{{ report.html|safe }}</section><dl class="definition-grid"><div><dt>Human review</dt><dd>Required · pending</dd></div><div><dt>Effects</dt><dd>Empty</dd></div><div><dt>PDF</dt><dd>Not available</dd></div><div><dt>Publication</dt><dd>Not available</dd></div><div><dt>Digest</dt><dd class="identifier">{{ report.digest }}</dd></div></dl>{% endif %}{% endblock %}

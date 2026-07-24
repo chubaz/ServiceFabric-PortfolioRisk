@@ -54,6 +54,12 @@ NAVIGATION = (
     ("research", "Research", "/research"),
     ("notebooks", "Notebooks", "/notebooks"),
     ("agents", "Agents", "/agents"),
+    ("monitoring-context", "Context", "/monitoring/context"),
+    ("monitoring-events", "Events", "/monitoring/events"),
+    ("monitoring-policies", "Policies", "/monitoring/policies"),
+    ("monitoring-runs", "Runs", "/monitoring/runs"),
+    ("monitoring-replay", "Replay", "/monitoring/replay"),
+    ("monitoring-evaluation", "Evaluation", "/monitoring/replay"),
     ("plan", "Plan", "/plan"),
     ("settings", "Settings", "/settings"),
 )

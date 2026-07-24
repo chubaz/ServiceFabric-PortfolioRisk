@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% from "components.html" import empty_state, error_state, disclosure %}
+{% block title %}Monitoring runs{% endblock %}
+{% block heading %}Contextual monitoring runs{% endblock %}
+{% block intro %}<p class="lead">Explicitly invoked, four-agent, evidence-bearing runs with empty effects and pending human review.</p>{% endblock %}
+{% block heading_action %}<a class="button-link" href="/monitoring/run{{ profile_query }}">Run monitoring</a>{% endblock %}
+{% block content %}{{ disclosure('Review boundary', 'Review records an analytical decision only. It never authorizes a trade or portfolio effect.', 'critical') }}{% if error %}{{ error_state('Runs unavailable', error) }}{% elif not runs %}{{ empty_state('No contextual runs', 'Confirm a context and fixed policy, then explicitly invoke monitoring.') }}{% else %}<div class="card-grid">{% for item in runs %}<article class="run-card"><h2>{{ item.run_id }}</h2><p>{{ item.run.status|humanize }} · {{ item.run.run_at|timestamp }}</p><p>Draft alert: {{ item.run.alert_draft.state|humanize }}</p><p>Human review: {{ item.review_state|humanize }}</p><a class="button-link" href="/monitoring/runs/{{ item.run_id }}{{ profile_query }}">Review run</a></article>{% endfor %}</div>{% endif %}{% endblock %}

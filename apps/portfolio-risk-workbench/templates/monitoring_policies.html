@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% from "components.html" import empty_state, error_state, disclosure %}
+{% block title %}Monitoring policies{% endblock %}
+{% block heading %}Monitoring policies{% endblock %}
+{% block intro %}<p class="lead">Immutable versions containing only fixed reviewed thresholds and cadence metadata.</p>{% endblock %}
+{% block heading_action %}<a class="button-link" href="/monitoring/policies/new{{ profile_query }}">New fixed policy</a>{% endblock %}
+{% block content %}{{ disclosure('Execution boundary', 'Cadence is descriptive metadata only. No scheduler, expression language, code, formula, SQL, or consequential action is created.', 'critical') }}{% if error %}{{ error_state('Policies unavailable', error) }}{% elif not policies %}{{ empty_state('No confirmed policies', 'Preview and explicitly confirm a fixed policy version.') }}{% else %}<div class="card-grid">{% for item in policies %}<article class="run-card"><h2>{{ item.policy.policy_id }}</h2><p>Version {{ item.policy.version }} · {{ item.policy.cadence|humanize }}</p><p class="identifier">{{ item.policy.revision }}</p><a class="button-link" href="/monitoring/policies/{{ item.policy_id }}{{ profile_query }}">Inspect fixed fields</a></article>{% endfor %}</div>{% endif %}{% endblock %}

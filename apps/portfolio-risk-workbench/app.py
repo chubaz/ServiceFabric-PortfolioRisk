@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Literal
@@ -17,10 +18,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette import requests as starlette_requests
 from starlette.formparsers import MultiPartException, MultiPartParser
 from risk_agents import ACTIVE_AGENT_ROLE_IDS, AGENT_ROLES, DeterministicMonitoringOrchestrator, MonitoringRunRequest
-from risk_capabilities import AlertDraft, AlertReviewRequest, AnomalyDetectionRequest, CapabilityResult, DEFAULT_CAPABILITY_REGISTRY, DecisionPoint, EvidenceReference, ExposureSummaryRequest, NewsClassificationRequest, PortfolioSnapshotRequest, PositionSpecification, SyntheticNewsEvent
+from risk_capabilities import AlertDraft, AlertReviewRequest, AnomalyDetectionRequest, CapabilityResult, DEFAULT_CAPABILITY_REGISTRY, DecisionPoint, EventQueryCapabilityRequest, EvidenceReference, ExposureSummaryRequest, NewsClassificationRequest, PolicyEvaluationCapabilityRequest, PortfolioDataContextCapabilityRequest, PortfolioSnapshotRequest, PositionSpecification, SyntheticNewsEvent
 from risk_data import FixedQueryRequest, LocalImportConfirmation, LocalImportError, NormalizedMarketRecord, PortfolioConfirmationRequest, PortfolioInputPreview, ingest_synthetic
 from risk_data.pipeline import resolve_data_root
-from risk_domain import CashBalance, MarketObservation, PortfolioSnapshot
+from risk_domain import CashBalance, MarketObservation, PortfolioSnapshot, Position
 from risk_domain.digests import sha256_digest
 from risk_planning import load_day1_seed_catalog, load_notebook_catalogue, load_research_catalogue, load_seed_catalog
 
@@ -62,6 +63,18 @@ from data_workspace_service import (  # noqa: E402
     preview_view as research_preview_view,
     provider_register_views,
     snapshot_view as research_snapshot_view,
+)
+from monitoring_service import (  # noqa: E402
+    MAX_EVENT_UPLOAD_BYTES,
+    ContextSelectionRequest,
+    EventPreviewParameters,
+    ExplicitConfirmation,
+    MonitoringAdapterError,
+    MonitoringCollection,
+    MonitoringWorkspace,
+    PolicyFields,
+    ReplaySelectionRequest,
+    RunSelectionRequest,
 )
 
 
@@ -285,6 +298,10 @@ def workspace() -> PortfolioWorkspace:
 
 def research_workspace() -> ResearchDataWorkspace:
     return ResearchDataWorkspace(root(), REPOSITORY_ROOT)
+
+
+def monitoring_workspace() -> MonitoringWorkspace:
+    return MonitoringWorkspace(root(), REGISTRY)
 
 
 def preview_view(preview: PortfolioInputPreview) -> dict[str, object]:
@@ -1569,3 +1586,1120 @@ def settings(profile: str = "research") -> HTMLResponse:
     except HTTPException:
         data_root_state = "Not configured. Missing local data remains unavailable and is never displayed as zero."
     return render_page("settings.html", active_page="settings", profile=profile, data_root_state=data_root_state)
+
+
+def _monitoring_error(template: str, active_page: str, profile: str, error: Exception) -> HTMLResponse:
+    return render_page(
+        template,
+        active_page=active_page,
+        profile=profile,
+        error=str(error),
+        status_code=422,
+    )
+
+
+def _iso_datetime(value: str, *, field_name: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise MonitoringAdapterError(
+            f"{field_name} must be a timezone-aware ISO-8601 timestamp"
+        ) from error
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise MonitoringAdapterError(
+            f"{field_name} must be a timezone-aware ISO-8601 timestamp"
+        )
+    return parsed.astimezone(UTC)
+
+
+def _selected_monitoring_snapshot(profile: str, snapshot_id: str) -> PortfolioSnapshot:
+    return selected_analysis_snapshot(profile, snapshot_id)
+
+
+@app.get("/monitoring/context")
+def monitoring_context_page(profile: str = "research") -> HTMLResponse:
+    try:
+        catalogue = monitoring_workspace().context_catalogue()
+        return render_page(
+            "monitoring_context.html",
+            active_page="monitoring-context",
+            profile=profile,
+            snapshots=[snapshot_view(item) for item in analysis_snapshots(profile)],
+            event_snapshots=monitoring_workspace().event_snapshots(),
+            catalogue=catalogue,
+            preview=None,
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_context.html", "monitoring-context", profile, error
+        )
+
+
+@app.post("/monitoring/context/preview")
+def monitoring_context_preview_page(
+    profile: str = Form("research"),
+    portfolio_snapshot_id: str = Form(""),
+    market_dataset_snapshot_id: str = Form(...),
+    market_dataset_revision: str = Form(...),
+    fundamental_dataset_snapshot_id: str = Form(""),
+    fundamental_dataset_revision: str = Form(""),
+    crosswalk_snapshot_id: str = Form(...),
+    crosswalk_dataset_revision: str = Form(...),
+    event_snapshot_id: str = Form(""),
+    event_dataset_revision: str = Form(""),
+    as_of: str = Form("2026-07-01T16:00:00Z"),
+    stale_data_maximum_age_seconds: int = Form(604800),
+) -> HTMLResponse:
+    try:
+        selection = ContextSelectionRequest(
+            profile=profile,
+            portfolio_snapshot_id=portfolio_snapshot_id,
+            market_dataset_snapshot_id=market_dataset_snapshot_id,
+            market_dataset_revision=market_dataset_revision,
+            fundamental_dataset_snapshot_id=fundamental_dataset_snapshot_id or None,
+            fundamental_dataset_revision=fundamental_dataset_revision or None,
+            crosswalk_snapshot_id=crosswalk_snapshot_id,
+            crosswalk_dataset_revision=crosswalk_dataset_revision,
+            event_snapshot_id=event_snapshot_id or None,
+            event_dataset_revision=event_dataset_revision or None,
+            as_of=_iso_datetime(as_of, field_name="as_of"),
+            stale_data_maximum_age_seconds=stale_data_maximum_age_seconds,
+        )
+        preview = monitoring_workspace().preview_context(
+            _selected_monitoring_snapshot(profile, portfolio_snapshot_id), selection
+        )
+        return render_page(
+            "monitoring_context.html",
+            active_page="monitoring-context",
+            profile=profile,
+            snapshots=[snapshot_view(item) for item in analysis_snapshots(profile)],
+            event_snapshots=monitoring_workspace().event_snapshots(),
+            catalogue=monitoring_workspace().context_catalogue(),
+            preview=preview,
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_context.html", "monitoring-context", profile, error
+        )
+
+
+@app.post("/monitoring/context/confirm")
+def monitoring_context_confirm_page(
+    preview_id: str = Form(...),
+    confirm: str = Form(""),
+    profile: str = Form("research"),
+) -> Response:
+    try:
+        record = monitoring_workspace().confirm_context(
+            ExplicitConfirmation(preview_id=preview_id, confirm=confirm == "true")
+        )
+        return RedirectResponse(
+            f"/monitoring/contexts/{quote(str(record['context_id']))}?"
+            + urlencode({"profile": profile}),
+            status_code=303,
+        )
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_context.html", "monitoring-context", profile, error
+        )
+
+
+@app.get("/monitoring/contexts")
+def monitoring_contexts_page(profile: str = "research") -> HTMLResponse:
+    try:
+        return render_page(
+            "monitoring_contexts.html",
+            active_page="monitoring-context",
+            profile=profile,
+            contexts=monitoring_workspace().contexts(),
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_contexts.html", "monitoring-context", profile, error
+        )
+
+
+@app.get("/monitoring/contexts/{context_id}")
+def monitoring_context_detail_page(
+    context_id: str, profile: str = "research"
+) -> HTMLResponse:
+    try:
+        record = monitoring_workspace().context(context_id)
+        return render_page(
+            "monitoring_context_detail.html",
+            active_page="monitoring-context",
+            profile=str(record["profile"]),
+            record=record,
+            context=record["context"],
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_context_detail.html", "monitoring-context", profile, error
+        )
+
+
+@app.get("/monitoring/events")
+def monitoring_events_page(profile: str = "research") -> HTMLResponse:
+    try:
+        return render_page(
+            "monitoring_events.html",
+            active_page="monitoring-events",
+            profile=profile,
+            snapshots=monitoring_workspace().event_snapshots(),
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_events.html", "monitoring-events", profile, error
+        )
+
+
+@app.get("/monitoring/events/import")
+def monitoring_event_import_page(profile: str = "research") -> HTMLResponse:
+    return render_page(
+        "monitoring_event_import.html",
+        active_page="monitoring-events",
+        profile=profile,
+        maximum_upload_bytes=MAX_EVENT_UPLOAD_BYTES,
+        error=None,
+    )
+
+
+async def _event_preview_from_upload(
+    file: UploadFile,
+    *,
+    provider_profile: str,
+    provider_id: str,
+    provider_name: str,
+    dataset_revision: str,
+    publication_restriction: str,
+    retrieved_at: str,
+) -> dict[str, object]:
+    boundary_error = _research_upload_boundary_message(file)
+    if boundary_error:
+        raise MonitoringAdapterError(boundary_error)
+    parameters = EventPreviewParameters(
+        provider_profile=provider_profile,
+        provider_id=provider_id,
+        provider_name=provider_name,
+        dataset_revision=dataset_revision,
+        publication_restriction=publication_restriction,
+        retrieved_at=_iso_datetime(retrieved_at, field_name="retrieved_at"),
+    )
+    return monitoring_workspace().preview_events(
+        research_uploaded_content(file), file.filename or "", parameters
+    )
+
+
+@app.post("/monitoring/events/import/preview")
+async def monitoring_event_preview_page(
+    file: Annotated[UploadFile, File(...)],
+    provider_profile: Annotated[str, Form()] = "synthetic_local",
+    provider_id: Annotated[str, Form()] = "workbench-local-events",
+    provider_name: Annotated[str, Form()] = "Workbench local events",
+    dataset_revision: Annotated[str, Form()] = "local-event-revision-1",
+    publication_restriction: Annotated[str, Form()] = "synthetic_only",
+    retrieved_at: Annotated[str, Form()] = "2026-07-01T16:00:00Z",
+    profile: Annotated[str, Form()] = "research",
+) -> HTMLResponse:
+    try:
+        preview = await _event_preview_from_upload(
+            file,
+            provider_profile=provider_profile,
+            provider_id=provider_id,
+            provider_name=provider_name,
+            dataset_revision=dataset_revision,
+            publication_restriction=publication_restriction,
+            retrieved_at=retrieved_at,
+        )
+        return render_page(
+            "monitoring_event_preview.html",
+            active_page="monitoring-events",
+            profile=profile,
+            preview=preview,
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_event_preview.html", "monitoring-events", profile, error
+        )
+
+
+@app.get("/monitoring/events/previews/{preview_id}")
+def monitoring_event_preview_detail_page(
+    preview_id: str, profile: str = "research"
+) -> HTMLResponse:
+    try:
+        return render_page(
+            "monitoring_event_preview.html",
+            active_page="monitoring-events",
+            profile=profile,
+            preview=monitoring_workspace().event_preview(preview_id),
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_event_preview.html", "monitoring-events", profile, error
+        )
+
+
+@app.post("/monitoring/events/previews/{preview_id}/confirm")
+def monitoring_event_confirm_page(
+    preview_id: str,
+    confirm: str = Form(""),
+    preview_digest: str = Form(...),
+    source_digest: str = Form(...),
+    profile: str = Form("research"),
+) -> Response:
+    try:
+        snapshot = monitoring_workspace().confirm_events(
+            preview_id,
+            confirm=confirm == "true",
+            preview_digest=preview_digest,
+            source_digest=source_digest,
+        )
+        return RedirectResponse(
+            f"/monitoring/events/snapshots/{quote(str(snapshot['snapshot_id']))}?"
+            + urlencode({"profile": profile}),
+            status_code=303,
+        )
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_event_preview.html", "monitoring-events", profile, error
+        )
+
+
+@app.get("/monitoring/events/snapshots/{snapshot_id}")
+def monitoring_event_snapshot_page(
+    snapshot_id: str, profile: str = "research"
+) -> HTMLResponse:
+    try:
+        snapshot = monitoring_workspace().event_snapshot(snapshot_id)
+        selected_profile = "personal_portfolio" if snapshot["private"] else profile
+        return render_page(
+            "monitoring_event_snapshot.html",
+            active_page="monitoring-events",
+            profile=selected_profile,
+            snapshot=snapshot,
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_event_snapshot.html", "monitoring-events", profile, error
+        )
+
+
+@app.get("/monitoring/policies")
+def monitoring_policies_page(profile: str = "research") -> HTMLResponse:
+    try:
+        return render_page(
+            "monitoring_policies.html",
+            active_page="monitoring-policies",
+            profile=profile,
+            policies=monitoring_workspace().policies(),
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_policies.html", "monitoring-policies", profile, error
+        )
+
+
+@app.get("/monitoring/policies/new")
+def monitoring_policy_new_page(profile: str = "research") -> HTMLResponse:
+    return render_page(
+        "monitoring_policy_form.html",
+        active_page="monitoring-policies",
+        profile=profile,
+        preview=None,
+        error=None,
+    )
+
+
+def _policy_fields(
+    policy_id: str,
+    daily_percentage_move_threshold: str,
+    concentration_threshold: str,
+    event_relevance_minimum: str,
+    negative_sentiment_threshold: str,
+    stale_data_maximum_age_seconds: int,
+    historical_var_limit: str,
+    scenario_loss_limit: str,
+    cadence: str,
+    cadence_metadata: str,
+    reviewed_by: str,
+    reviewed_at: str,
+) -> PolicyFields:
+    return PolicyFields(
+        policy_id=policy_id,
+        daily_percentage_move_threshold=daily_percentage_move_threshold,
+        concentration_threshold=concentration_threshold,
+        event_relevance_minimum=event_relevance_minimum,
+        negative_sentiment_threshold=negative_sentiment_threshold,
+        stale_data_maximum_age_seconds=stale_data_maximum_age_seconds,
+        historical_var_limit=historical_var_limit or None,
+        scenario_loss_limit=scenario_loss_limit or None,
+        cadence=cadence,
+        cadence_metadata=cadence_metadata,
+        reviewed_by=reviewed_by,
+        reviewed_at=_iso_datetime(reviewed_at, field_name="reviewed_at"),
+    )
+
+
+@app.post("/monitoring/policies/preview")
+def monitoring_policy_preview_page(
+    policy_id: str = Form("workbench-monitoring-policy"),
+    daily_percentage_move_threshold: str = Form("0.05"),
+    concentration_threshold: str = Form("0.40"),
+    event_relevance_minimum: str = Form("0.60"),
+    negative_sentiment_threshold: str = Form("-0.50"),
+    stale_data_maximum_age_seconds: int = Form(86400),
+    historical_var_limit: str = Form(""),
+    scenario_loss_limit: str = Form(""),
+    cadence: str = Form("manual"),
+    cadence_metadata: str = Form("Metadata only; every run is explicitly invoked."),
+    reviewed_by: str = Form("workbench-human-reviewer"),
+    reviewed_at: str = Form("2026-07-01T16:00:00Z"),
+    profile: str = Form("research"),
+) -> HTMLResponse:
+    try:
+        preview = monitoring_workspace().preview_policy(
+            _policy_fields(
+                policy_id,
+                daily_percentage_move_threshold,
+                concentration_threshold,
+                event_relevance_minimum,
+                negative_sentiment_threshold,
+                stale_data_maximum_age_seconds,
+                historical_var_limit,
+                scenario_loss_limit,
+                cadence,
+                cadence_metadata,
+                reviewed_by,
+                reviewed_at,
+            )
+        )
+        return render_page(
+            "monitoring_policy_form.html",
+            active_page="monitoring-policies",
+            profile=profile,
+            preview=preview,
+            error=None,
+        )
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_policy_form.html", "monitoring-policies", profile, error
+        )
+
+
+@app.post("/monitoring/policies/confirm")
+def monitoring_policy_confirm_page(
+    preview_id: str = Form(...),
+    confirm: str = Form(""),
+    profile: str = Form("research"),
+) -> Response:
+    try:
+        policy = monitoring_workspace().confirm_policy(
+            ExplicitConfirmation(preview_id=preview_id, confirm=confirm == "true")
+        )
+        return RedirectResponse(
+            f"/monitoring/policies/{quote(str(policy['policy_id']))}?"
+            + urlencode({"profile": profile}),
+            status_code=303,
+        )
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_policy_form.html", "monitoring-policies", profile, error
+        )
+
+
+@app.get("/monitoring/policies/{policy_id}")
+def monitoring_policy_detail_page(
+    policy_id: str, profile: str = "research"
+) -> HTMLResponse:
+    try:
+        record = monitoring_workspace().policy(policy_id)
+        return render_page(
+            "monitoring_policy_detail.html",
+            active_page="monitoring-policies",
+            profile=profile,
+            record=record,
+            policy=record["policy"],
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_policy_detail.html", "monitoring-policies", profile, error
+        )
+
+
+@app.get("/monitoring/runs")
+def monitoring_runs_page(profile: str = "research") -> HTMLResponse:
+    try:
+        return render_page(
+            "monitoring_runs.html",
+            active_page="monitoring-runs",
+            profile=profile,
+            runs=monitoring_workspace().runs(),
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_runs.html", "monitoring-runs", profile, error
+        )
+
+
+@app.get("/monitoring/run")
+def monitoring_run_page(profile: str = "research") -> HTMLResponse:
+    try:
+        return render_page(
+            "monitoring_run_form.html",
+            active_page="monitoring-runs",
+            profile=profile,
+            contexts=monitoring_workspace().contexts(),
+            policies=monitoring_workspace().policies(),
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_run_form.html", "monitoring-runs", profile, error
+        )
+
+
+@app.post("/monitoring/run")
+def monitoring_run_submit_page(
+    context_id: str = Form(...),
+    policy_id: str = Form(...),
+    run_at: str = Form("2026-07-01T16:00:00Z"),
+    profile: str = Form("research"),
+) -> Response:
+    try:
+        record = monitoring_workspace().run(
+            RunSelectionRequest(
+                context_id=context_id,
+                policy_id=policy_id,
+                run_at=_iso_datetime(run_at, field_name="run_at"),
+            )
+        )
+        return RedirectResponse(
+            f"/monitoring/runs/{quote(str(record['run_id']))}?"
+            + urlencode({"profile": profile}),
+            status_code=303,
+        )
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_run_form.html", "monitoring-runs", profile, error
+        )
+
+
+@app.get("/monitoring/runs/{run_id}")
+def monitoring_run_detail_page(run_id: str, profile: str = "research") -> HTMLResponse:
+    try:
+        record = monitoring_workspace().run_record(run_id)
+        return render_page(
+            "monitoring_run_detail.html",
+            active_page="monitoring-runs",
+            profile=str(record["profile"]),
+            record=record,
+            run=record["run"],
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_run_detail.html", "monitoring-runs", profile, error
+        )
+
+
+@app.get("/monitoring/replay")
+def monitoring_replay_page(profile: str = "research") -> HTMLResponse:
+    try:
+        return render_page(
+            "monitoring_replay.html",
+            active_page="monitoring-replay",
+            profile=profile,
+            contexts=monitoring_workspace().contexts(),
+            policies=monitoring_workspace().policies(),
+            replays=monitoring_workspace().replays(),
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_replay.html", "monitoring-replay", profile, error
+        )
+
+
+@app.post("/monitoring/replay")
+def monitoring_replay_submit_page(
+    context_id: str = Form(...),
+    policy_id: str = Form(...),
+    start: str = Form("2026-07-01T16:00:00Z"),
+    end: str = Form("2026-07-02T16:00:00Z"),
+    cadence: str = Form("daily"),
+    outcome_label_snapshot_id: str = Form("reviewed-synthetic-outcomes"),
+    lookback_seconds: int = Form(259200),
+    evaluation_horizon_seconds: int = Form(86400),
+    profile: str = Form("research"),
+) -> Response:
+    try:
+        record = monitoring_workspace().replay(
+            ReplaySelectionRequest(
+                context_id=context_id,
+                policy_id=policy_id,
+                start=_iso_datetime(start, field_name="start"),
+                end=_iso_datetime(end, field_name="end"),
+                cadence=cadence,
+                outcome_label_snapshot_id=outcome_label_snapshot_id,
+                lookback_seconds=lookback_seconds,
+                evaluation_horizon_seconds=evaluation_horizon_seconds,
+            )
+        )
+        return RedirectResponse(
+            f"/monitoring/replays/{quote(str(record['replay_id']))}?"
+            + urlencode({"profile": profile}),
+            status_code=303,
+        )
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_replay.html", "monitoring-replay", profile, error
+        )
+
+
+@app.get("/monitoring/replays/{replay_id}")
+def monitoring_replay_detail_page(
+    replay_id: str, profile: str = "research"
+) -> HTMLResponse:
+    try:
+        record = monitoring_workspace().replay_record(replay_id)
+        return render_page(
+            "monitoring_replay_detail.html",
+            active_page="monitoring-replay",
+            profile=str(record["profile"]),
+            record=record,
+            replay=record["replay"],
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_replay_detail.html", "monitoring-replay", profile, error
+        )
+
+
+@app.get("/monitoring/evaluations/{evaluation_id}")
+def monitoring_evaluation_page(
+    evaluation_id: str, profile: str = "research"
+) -> HTMLResponse:
+    try:
+        record = monitoring_workspace().evaluation(evaluation_id)
+        return render_page(
+            "monitoring_evaluation.html",
+            active_page="monitoring-evaluation",
+            profile=profile,
+            record=record,
+            evaluation=record["evaluation"],
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_evaluation.html", "monitoring-evaluation", profile, error
+        )
+
+
+@app.get("/monitoring/reports/{source_id}.md")
+def monitoring_markdown_report(source_id: str) -> Response:
+    try:
+        record = monitoring_workspace().report_record(source_id)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise HTTPException(404, str(error)) from error
+    return Response(
+        content=record["report"]["markdown"],
+        media_type="text/markdown; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{source_id}-local-review.md"'
+        },
+    )
+
+
+@app.get("/monitoring/reports/{source_id}")
+def monitoring_report_page(source_id: str, profile: str = "research") -> HTMLResponse:
+    try:
+        record = monitoring_workspace().report_record(source_id)
+        return render_page(
+            "monitoring_report.html",
+            active_page="monitoring-runs",
+            profile=str(record["profile"]),
+            record=record,
+            report=record["report"],
+            error=None,
+        )
+    except (HTTPException, OSError, ValueError, KeyError, TypeError) as error:
+        return _monitoring_error(
+            "monitoring_report.html", "monitoring-runs", profile, error
+        )
+
+
+@app.post("/api/monitoring/contexts")
+def api_monitoring_context_create(
+    request: ContextSelectionRequest,
+) -> dict[str, object]:
+    try:
+        if not request.confirm:
+            raise MonitoringAdapterError("explicit confirm=true is required")
+        preview = monitoring_workspace().preview_context(
+            _selected_monitoring_snapshot(
+                request.profile, request.portfolio_snapshot_id
+            ),
+            request,
+        )
+        return monitoring_workspace().confirm_context(
+            ExplicitConfirmation(preview_id=str(preview["preview_id"]), confirm=True)
+        )
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@app.get("/api/monitoring/contexts", response_model=MonitoringCollection)
+def api_monitoring_contexts() -> MonitoringCollection:
+    return MonitoringCollection(items=monitoring_workspace().contexts())
+
+
+@app.get("/api/monitoring/contexts/{context_id}")
+def api_monitoring_context(context_id: str) -> dict[str, object]:
+    try:
+        return monitoring_workspace().context(context_id)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise HTTPException(404, str(error)) from error
+
+
+@app.post("/api/events/previews")
+async def api_event_preview(
+    file: Annotated[UploadFile, File(...)],
+    provider_profile: Annotated[str, Form()] = "synthetic_local",
+    provider_id: Annotated[str, Form()] = "workbench-local-events",
+    provider_name: Annotated[str, Form()] = "Workbench local events",
+    dataset_revision: Annotated[str, Form()] = "local-event-revision-1",
+    publication_restriction: Annotated[str, Form()] = "synthetic_only",
+    retrieved_at: Annotated[str, Form()] = "2026-07-01T16:00:00Z",
+) -> dict[str, object]:
+    try:
+        return await _event_preview_from_upload(
+            file,
+            provider_profile=provider_profile,
+            provider_id=provider_id,
+            provider_name=provider_name,
+            dataset_revision=dataset_revision,
+            publication_restriction=publication_restriction,
+            retrieved_at=retrieved_at,
+        )
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@app.post("/api/events/previews/{preview_id}/confirm")
+def api_event_confirm(
+    preview_id: str, request: LocalImportConfirmation
+) -> dict[str, object]:
+    try:
+        return monitoring_workspace().confirm_events(
+            preview_id,
+            confirm=request.confirm,
+            preview_digest=request.preview_digest,
+            source_digest=request.source_digest,
+        )
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@app.get("/api/events/snapshots", response_model=MonitoringCollection)
+def api_event_snapshots() -> MonitoringCollection:
+    return MonitoringCollection(items=monitoring_workspace().event_snapshots())
+
+
+@app.post("/api/monitoring/policies")
+def api_monitoring_policy_create(request: PolicyFields) -> dict[str, object]:
+    try:
+        if not request.confirm:
+            raise MonitoringAdapterError("explicit confirm=true is required")
+        preview = monitoring_workspace().preview_policy(request)
+        return monitoring_workspace().confirm_policy(
+            ExplicitConfirmation(preview_id=str(preview["preview_id"]), confirm=True)
+        )
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@app.get("/api/monitoring/policies", response_model=MonitoringCollection)
+def api_monitoring_policies() -> MonitoringCollection:
+    return MonitoringCollection(items=monitoring_workspace().policies())
+
+
+@app.post("/api/monitoring/runs")
+def api_monitoring_run_create(request: RunSelectionRequest) -> dict[str, object]:
+    try:
+        return monitoring_workspace().run(request)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@app.get("/api/monitoring/runs", response_model=MonitoringCollection)
+def api_monitoring_runs() -> MonitoringCollection:
+    return MonitoringCollection(items=monitoring_workspace().runs())
+
+
+@app.post("/api/monitoring/replays")
+def api_monitoring_replay_create(
+    request: ReplaySelectionRequest,
+) -> dict[str, object]:
+    try:
+        return monitoring_workspace().replay(request)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@app.get("/api/monitoring/replays", response_model=MonitoringCollection)
+def api_monitoring_replays() -> MonitoringCollection:
+    return MonitoringCollection(items=monitoring_workspace().replays())
+
+
+@app.get("/api/monitoring/evaluations/{evaluation_id}")
+def api_monitoring_evaluation(evaluation_id: str) -> dict[str, object]:
+    try:
+        return monitoring_workspace().evaluation(evaluation_id)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise HTTPException(404, str(error)) from error
+
+
+@app.get("/api/monitoring/reports/{source_id}")
+def api_monitoring_report(source_id: str) -> dict[str, object]:
+    try:
+        return monitoring_workspace().report_record(source_id)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise HTTPException(404, str(error)) from error
+
+
+def _hosted_monitoring_records() -> tuple[dict[str, object], dict[str, object]]:
+    service = monitoring_workspace()
+    contexts = service.contexts()
+    if contexts:
+        context_record = contexts[-1]
+    else:
+        snapshot, selection = _hosted_monitoring_fixture(service)
+        preview = service.preview_context(
+            snapshot,
+            selection,
+        )
+        context_record = service.confirm_context(
+            ExplicitConfirmation(preview_id=str(preview["preview_id"]), confirm=True)
+        )
+    policies = service.policies()
+    if policies:
+        policy_record = policies[-1]
+    else:
+        preview = service.preview_policy(PolicyFields(confirm=True))
+        policy_record = service.confirm_policy(
+            ExplicitConfirmation(preview_id=str(preview["preview_id"]), confirm=True)
+        )
+    return context_record, policy_record
+
+
+def _hosted_monitoring_fixture(
+    service: MonitoringWorkspace,
+) -> tuple[PortfolioSnapshot, ContextSelectionRequest]:
+    research = research_workspace()
+    imports = (
+            (
+                "crsp_like_daily.csv",
+                "hosted-synthetic-market",
+                "daily_market",
+                "Hosted reviewed synthetic daily market observations.",
+                "hosted-market-revision-1",
+            ),
+            (
+                "compustat_like_annual.csv",
+                "hosted-synthetic-fundamentals",
+                "fundamentals_annual",
+                "Hosted reviewed synthetic annual fundamentals.",
+                "hosted-fundamental-revision-1",
+            ),
+            (
+                "crsp_compustat_link.csv",
+                "hosted-synthetic-crosswalk",
+                "identifier_crosswalk",
+                "Hosted reviewed synthetic identifier crosswalk.",
+                "hosted-crosswalk-revision-1",
+            ),
+    )
+    snapshots = research.snapshots()
+    superseded = {
+        item.supersedes_snapshot_id
+        for item in snapshots
+        if item.supersedes_snapshot_id is not None
+    }
+    current = next(
+        (item for item in snapshots if item.snapshot_id not in superseded),
+        None,
+    )
+    active_revisions = (
+        {
+            (item.dataset_id, item.revision_id)
+            for item in current.dataset_revisions
+        }
+        if current is not None
+        else set()
+    )
+    fixture_root = (
+        REPOSITORY_ROOT / "data" / "fixtures" / "synthetic" / "day23"
+    )
+    for filename, dataset_id, kind, description, revision_id in imports:
+        if (dataset_id, revision_id) in active_revisions:
+            continue
+        preview = research.create_preview(
+            (fixture_root / filename).read_bytes(),
+            filename,
+            provider_profile="synthetic_local",
+            provider_id="hosted-reviewed-synthetic",
+            provider_name="Hosted reviewed synthetic fixtures",
+            dataset_id=dataset_id,
+            dataset_kind=kind,
+            dataset_description=description,
+            revision_id=revision_id,
+            rights_state="reviewed_synthetic",
+            publication_restriction="synthetic_only",
+            retrieved_at="2026-07-01T00:00:00Z",
+        )
+        research.confirm(
+            preview.preview_digest,
+            preview_digest=preview.preview_digest,
+            source_digest=preview.source.source_digest,
+            confirm=True,
+        )
+    catalogue = service.context_catalogue()
+    market = next(
+        item
+        for item in catalogue["market"]
+        if item["dataset_id"] == "hosted-synthetic-market"
+        and item["revision_id"] == "hosted-market-revision-1"
+    )
+    selected_research_snapshot = service.research.get_snapshot(
+        market["snapshot_id"]
+    )
+    selected_crosswalk_revision = next(
+        item
+        for item in selected_research_snapshot.dataset_revisions
+        if item.dataset_id == "hosted-synthetic-crosswalk"
+        and item.revision_id == "hosted-crosswalk-revision-1"
+    )
+    crosswalk_option = next(
+        item
+        for item in catalogue["crosswalk"]
+        if item["research_snapshot_id"] == market["snapshot_id"]
+        and item["revision_id"] == selected_crosswalk_revision.source_digest
+    )
+    crosswalk = next(
+        item
+        for item in service.research.crosswalks()
+        if item.snapshot_id == crosswalk_option["snapshot_id"]
+    )
+    context_as_of = datetime(2026, 7, 1, 16, tzinfo=UTC)
+    result = service.research.run_query(
+        FixedQueryRequest(
+            manifest_id="daily-market-history",
+            as_of=context_as_of,
+            limit=1_000,
+        )
+    )
+    prices: dict[str, Decimal] = {}
+    for row in result.rows:
+        if (
+            row.get("dataset_id") == market["dataset_id"]
+            and row.get("dataset_revision") == market["revision_id"]
+            and row.get("valuation_price") is not None
+        ):
+            prices[str(row["entity_id"])] = Decimal(str(row["valuation_price"]))
+    instrument_ids = sorted(
+        {
+            item.target_identifier.entity_id
+            for item in crosswalk.records
+            if item.target_identifier.entity_id in prices
+        }
+    )
+    positions = tuple(
+        Position(
+            instrument_id=instrument_id,
+            quantity=Decimal("1"),
+            price=prices[instrument_id],
+            market_value=prices[instrument_id],
+            currency="USD",
+        )
+        for instrument_id in instrument_ids
+    )
+    snapshot = PortfolioSnapshot(
+        snapshot_id="hosted-reviewed-monitoring-portfolio",
+        as_of=datetime(2026, 6, 30, 21, tzinfo=UTC),
+        base_currency="USD",
+        positions=positions,
+    )
+    fundamental = next(
+        (
+            item
+            for item in catalogue["fundamental"]
+            if item["snapshot_id"] == market["snapshot_id"]
+            and item["dataset_id"] == "hosted-synthetic-fundamentals"
+            and item["revision_id"] == "hosted-fundamental-revision-1"
+        ),
+        None,
+    )
+    return snapshot, ContextSelectionRequest(
+        portfolio_snapshot_id=snapshot.snapshot_id,
+        market_dataset_snapshot_id=market["snapshot_id"],
+        market_dataset_revision=market["revision_id"],
+        fundamental_dataset_snapshot_id=(
+            fundamental["snapshot_id"] if fundamental else None
+        ),
+        fundamental_dataset_revision=(
+            fundamental["revision_id"] if fundamental else None
+        ),
+        crosswalk_snapshot_id=crosswalk_option["snapshot_id"],
+        crosswalk_dataset_revision=crosswalk_option["revision_id"],
+        as_of=context_as_of,
+        confirm=True,
+    )
+
+
+@app.post("/actions/portfolio-data-context-create")
+def portfolio_data_context_create_action() -> dict[str, object]:
+    context_record, _ = _hosted_monitoring_records()
+    from risk_domain.monitoring import PortfolioDataContextRequest
+
+    result = REGISTRY.invoke(
+        "portfolio.data_context.create",
+        PortfolioDataContextCapabilityRequest(
+            request=PortfolioDataContextRequest.model_validate(
+                context_record["request"]
+            ),
+            evidence_references=monitoring_workspace().capability_evidence(
+                str(context_record["profile"])
+            ),
+        ),
+    )
+    return dumped(result)
+
+
+@app.post("/actions/events-query-as-of")
+def events_query_as_of_action() -> dict[str, object]:
+    result = REGISTRY.invoke(
+        "events.query.as_of",
+        EventQueryCapabilityRequest(
+            as_of=datetime(2026, 7, 1, 16, tzinfo=UTC),
+            evidence_references=monitoring_workspace().capability_evidence(),
+        ),
+    )
+    return dumped(result)
+
+
+@app.post("/actions/monitoring-policy-evaluate")
+def monitoring_policy_evaluate_action() -> dict[str, object]:
+    context_record, policy_record = _hosted_monitoring_records()
+    service = monitoring_workspace()
+    context = service.context(str(context_record["context_id"]))["context"]
+    from risk_domain.monitoring import (
+        MonitoringPolicyVersion,
+        PolicyEvaluationRequest,
+        PortfolioDataContext,
+    )
+
+    result = REGISTRY.invoke(
+        "monitoring.policy.evaluate",
+        PolicyEvaluationCapabilityRequest(
+            request=PolicyEvaluationRequest(
+                evaluation_id="hosted-policy-evaluation",
+                policy_version=MonitoringPolicyVersion.model_validate(
+                    policy_record["policy"]
+                ),
+                context=PortfolioDataContext.model_validate(context),
+                evaluated_at=datetime(2026, 7, 1, 16, tzinfo=UTC),
+                evidence=monitoring_workspace().evidence(),
+            ),
+            evidence_references=monitoring_workspace().capability_evidence(),
+        ),
+    )
+    return dumped(result)
+
+
+@app.post("/actions/monitoring-run-contextual")
+def monitoring_run_contextual_action() -> dict[str, object]:
+    context_record, policy_record = _hosted_monitoring_records()
+    record = monitoring_workspace().run(
+        RunSelectionRequest(
+            context_id=str(context_record["context_id"]),
+            policy_id=str(policy_record["policy_id"]),
+        )
+    )
+    return {
+        "capability_id": "monitoring.run.contextual",
+        "status": record["run"]["status"],
+        "data": record["run"],
+        "effects": [],
+        "human_review_required": True,
+    }
+
+
+def _hosted_replay_record() -> dict[str, object]:
+    context_record, policy_record = _hosted_monitoring_records()
+    return monitoring_workspace().replay(
+        ReplaySelectionRequest(
+            context_id=str(context_record["context_id"]),
+            policy_id=str(policy_record["policy_id"]),
+            start=datetime(2026, 7, 1, 16, tzinfo=UTC),
+            end=datetime(2026, 7, 2, 16, tzinfo=UTC),
+        )
+    )
+
+
+@app.post("/actions/monitoring-replay")
+def monitoring_replay_action() -> dict[str, object]:
+    record = _hosted_replay_record()
+    return {
+        "capability_id": "monitoring.replay",
+        "status": "succeeded",
+        "data": record["replay"],
+        "effects": [],
+        "human_review_required": True,
+    }
+
+
+@app.post("/actions/monitoring-evaluate")
+def monitoring_evaluate_action() -> dict[str, object]:
+    replay_record = _hosted_replay_record()
+    evaluation = monitoring_workspace().evaluation(
+        str(replay_record["evaluation_id"])
+    )
+    return {
+        "capability_id": "monitoring.evaluate",
+        "status": "succeeded",
+        "data": evaluation["evaluation"],
+        "effects": [],
+        "human_review_required": True,
+    }
+
+
+@app.post("/actions/monitoring-report-render")
+def monitoring_report_render_action() -> dict[str, object]:
+    context_record, policy_record = _hosted_monitoring_records()
+    run_record = monitoring_workspace().run(
+        RunSelectionRequest(
+            context_id=str(context_record["context_id"]),
+            policy_id=str(policy_record["policy_id"]),
+        )
+    )
+    report = monitoring_workspace().report(str(run_record["run_id"]))
+    return {
+        "capability_id": "monitoring.report.render",
+        "status": "succeeded",
+        "data": report["report"],
+        "effects": [],
+        "human_review_required": True,
+    }
