@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% from "components.html" import empty_state, error_state, disclosure %}
+{% block title %}Local events{% endblock %}
+{% block heading %}Local event intelligence{% endblock %}
+{% block intro %}<p class="lead">Immutable local event snapshots with separate event and availability times, amendments, retractions, rights, and publication state.</p>{% endblock %}
+{% block heading_action %}<a class="button-link" href="/monitoring/events/import{{ profile_query }}">Import local events</a>{% endblock %}
+{% block content %}{{ disclosure('Local-only boundary', 'No external provider, network call, LLM classification, ticker matching, or fuzzy linking is available.', 'critical') }}{% if error %}{{ error_state('Events unavailable', error) }}{% elif not snapshots %}{{ empty_state('No event snapshots', 'Upload bounded CSV or Parquet bytes to create a governed preview.') }}{% else %}<div class="card-grid">{% for item in snapshots %}<article class="run-card"><h2>{{ item.snapshot_id }}</h2><p>{{ item.provider_id }} · {{ item.publication_restriction|humanize }}</p><p>{{ item.records|length }} immutable event records</p><a class="button-link" href="/monitoring/events/snapshots/{{ item.snapshot_id }}{{ profile_query }}">Inspect events</a></article>{% endfor %}</div>{% endif %}{% endblock %}

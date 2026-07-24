@@ -40,6 +40,7 @@ a:hover { text-decoration-thickness: .14em; }
 
 .primary-nav { max-width: 90rem; margin: auto; overflow-x: auto; padding: 0 clamp(1rem, 4vw, 3rem); scrollbar-width: thin; }
 .primary-nav ul { display: flex; width: max-content; margin: 0; padding: 0; list-style: none; }
+.nav-section-label { align-self: center; margin-left: .5rem; border-left: 1px solid var(--line); padding: .2rem .75rem; color: var(--ink); font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .primary-nav a { display: block; border-bottom: .2rem solid transparent; padding: .8rem .78rem .65rem; color: var(--muted); font-size: .91rem; font-weight: 650; text-decoration: none; }
 .primary-nav a:hover { color: var(--ink); background: var(--paper); }
 .primary-nav a[aria-current="page"] { border-bottom-color: var(--green); color: var(--green-dark); }

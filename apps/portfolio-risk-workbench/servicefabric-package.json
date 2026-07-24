@@ -23,7 +23,11 @@
     },
     {
       "path": "app.py",
-      "sha256": "31c857515e741c15f787ee07e4406bfd9155c4a096323f4022e00814188a7a6a"
+      "sha256": "58d025047621339e124f4899f72d4aaf2c0ede56f0514608c83505ca822f1def"
+    },
+    {
+      "path": "monitoring_service.py",
+      "sha256": "4de233627b3bbbe6ef5142f7c09f7135cb6c5ecd3f73df59967a3e7748471a2c"
     },
     {
       "path": "workspace_service.py",
@@ -51,7 +55,7 @@
     },
     {
       "path": "presentation.py",
-      "sha256": "5004560c64c4fe5ab41253ac616c4d70f5dd97abb91fa267175143871a2f9cf5"
+      "sha256": "52433162abf6b34933dc9ffe4da47adb69a7c7d7bdbf87bb1f2ded532485f25f"
     },
     {
       "path": "pyproject.toml",
@@ -59,7 +63,7 @@
     },
     {
       "path": "risk-package-lock.json",
-      "sha256": "3dac3350a7b04ffcf1249721df9924533507b704dc0a0511311fc872d439d2eb"
+      "sha256": "669d4123cc70c97e7366074a0bb93521f9810a176234bdd4afdb103bd0465e70"
     },
     {
       "path": "seed/knowledge-products/KP-00.yaml",
@@ -107,7 +111,7 @@
     },
     {
       "path": "static/workbench.css",
-      "sha256": "7204a3f15a89f5d7e9ca226c6e0ed6b26455c34ca3b97ba57181fe333a4f6b3a"
+      "sha256": "503add03b7f5989a9fc5289305e3117cb1834b8fdbe9e302b1e61cb616ed18b3"
     },
     {
       "path": "templates/agent_runs.html",
@@ -127,7 +131,7 @@
     },
     {
       "path": "templates/base.html",
-      "sha256": "55ccf6f19a5130dc79c0c21b456018745b2686532b025dc20dacb7a3f52b481c"
+      "sha256": "91067d05733a49af711ea89f51eaab6427f0c983b11bcf9d4abd5f4a423b6235"
     },
     {
       "path": "templates/components.html",
@@ -228,6 +232,74 @@
     {
       "path": "templates/settings.html",
       "sha256": "db8bbe66480c76b2b9e37f6b742ce0b7c970c26587aee49c25b8ef971428ee67"
+    },
+    {
+      "path": "templates/monitoring_context.html",
+      "sha256": "1653dd521e62073001d43c7cdd76965e9e249d9a99744e26a071dc52a851b438"
+    },
+    {
+      "path": "templates/monitoring_context_detail.html",
+      "sha256": "3d2a20566c1a29ce7662549a18d55e9fcd8d8772e33e9cf7e941be14ea35f0ea"
+    },
+    {
+      "path": "templates/monitoring_contexts.html",
+      "sha256": "49bd30a9e91d0fe1d527a0ea4edd93dfa24a3f19d32fe59d40843802748ef4bd"
+    },
+    {
+      "path": "templates/monitoring_evaluation.html",
+      "sha256": "4b8e69e5cf3ebfc0eacd6702f830e6007ec1c175a07cf701566cc7eeab173538"
+    },
+    {
+      "path": "templates/monitoring_event_import.html",
+      "sha256": "0b7fec0071bb25bb8f2d281b60d3b982ebd8477033b8c2ea7600f6a5d9b62988"
+    },
+    {
+      "path": "templates/monitoring_event_preview.html",
+      "sha256": "5a7ca05843aa38380b7d33dc389e1eda4d2e19879318e1b9d402b0cdb8b0fa13"
+    },
+    {
+      "path": "templates/monitoring_event_snapshot.html",
+      "sha256": "00b20a3c4a1436c71fb4e2edb0f133f0d3932bcb012f13ad409b85b86559fa4b"
+    },
+    {
+      "path": "templates/monitoring_events.html",
+      "sha256": "9275fcbb6da0d58cd950ee244157577fcf3c9684f31fad8712e6a15c429e8671"
+    },
+    {
+      "path": "templates/monitoring_policies.html",
+      "sha256": "98aa348558f960e5e888b15a951571a5dff147c0da06d2c591e0077df7019b7e"
+    },
+    {
+      "path": "templates/monitoring_policy_detail.html",
+      "sha256": "bde8874de16616586bcc5b29bdb827a5b69df8cb85d82551c0ba8bd3c633fe28"
+    },
+    {
+      "path": "templates/monitoring_policy_form.html",
+      "sha256": "5564469076cd0de1d2f5d4b7d8c200ad0daccfa6388268f3606926694c211cb3"
+    },
+    {
+      "path": "templates/monitoring_replay.html",
+      "sha256": "e5a45346a152355844f897446882c409bfd2349ca76eefbb7ce5207ee336a46d"
+    },
+    {
+      "path": "templates/monitoring_replay_detail.html",
+      "sha256": "2cc816acdf54f39858c034ed72874ba288f0a04e27ea2627a1ae10a55bfa6480"
+    },
+    {
+      "path": "templates/monitoring_report.html",
+      "sha256": "ef77760c9e7b709c75841d9a07a945ff403039ade2870dc0ed299806aa9e2916"
+    },
+    {
+      "path": "templates/monitoring_run_detail.html",
+      "sha256": "68dda57f9fd54ed4bf9e7df0bee8979ab95ff27bf4d9bdb3adb4d7d1f28fc43c"
+    },
+    {
+      "path": "templates/monitoring_run_form.html",
+      "sha256": "35de2e979f3a1b9bff1623d6bfc5a8655a02d9a52ac3cd3de9ba13aa250666f3"
+    },
+    {
+      "path": "templates/monitoring_runs.html",
+      "sha256": "172daa44843530f2aaa58d26b7d69b1b04880d9f6ee7bbac26faf0efdc752ee2"
     }
   ],
   "declared_resources": {
@@ -330,6 +402,34 @@
     {
       "tool_id": "risk.report.render",
       "path": "/actions/risk-report-render"
+    },
+    {
+      "tool_id": "portfolio.data_context.create",
+      "path": "/actions/portfolio-data-context-create"
+    },
+    {
+      "tool_id": "events.query.as_of",
+      "path": "/actions/events-query-as-of"
+    },
+    {
+      "tool_id": "monitoring.policy.evaluate",
+      "path": "/actions/monitoring-policy-evaluate"
+    },
+    {
+      "tool_id": "monitoring.run.contextual",
+      "path": "/actions/monitoring-run-contextual"
+    },
+    {
+      "tool_id": "monitoring.replay",
+      "path": "/actions/monitoring-replay"
+    },
+    {
+      "tool_id": "monitoring.evaluate",
+      "path": "/actions/monitoring-evaluate"
+    },
+    {
+      "tool_id": "monitoring.report.render",
+      "path": "/actions/monitoring-report-render"
     }
   ]
 }

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% from "components.html" import badge, error_state, evidence_drawer %}
+{% block title %}Context detail{% endblock %}
+{% block heading %}Confirmed data context{% endblock %}
+{% block intro %}<p class="lead">The exact evidence-bearing selection used for monitoring and replay.</p>{% endblock %}
+{% block content %}{% if error %}{{ error_state('Context unavailable', error) }}{% else %}
+<section><h2>Selected revisions</h2><dl class="definition-grid"><div><dt>Profile</dt><dd>{{ record.profile|humanize }}</dd></div><div><dt>Portfolio snapshot</dt><dd class="identifier">{{ context.portfolio_snapshot_id }}</dd></div><div><dt>Market dataset</dt><dd class="identifier">{{ context.market_dataset_snapshot_id }}</dd></div><div><dt>Fundamental dataset</dt><dd>{{ context.fundamental_dataset_snapshot_id|display }}</dd></div><div><dt>Crosswalk revision</dt><dd class="identifier">{{ context.crosswalk_snapshot_id }}</dd></div><div><dt>Event revision</dt><dd>{{ context.event_snapshot_id|display }}</dd></div><div><dt>As of</dt><dd>{{ context.as_of|timestamp }}</dd></div><div><dt>Effects</dt><dd>Empty</dd></div></dl></section>
+<section><h2>Mapping coverage and data quality</h2><dl class="definition-grid"><div><dt>Coverage</dt><dd>{{ context.mapping_coverage.coverage|percentage }}</dd></div><div><dt>Unmapped</dt><dd>{{ context.mapping_coverage.unmapped_count }}</dd></div><div><dt>Ambiguous</dt><dd>{{ context.mapping_coverage.ambiguous_count }}</dd></div><div><dt>Blocking</dt><dd>{{ context.blocked }}</dd></div></dl>{% if context.quality_issues %}<ul>{% for item in context.quality_issues %}<li>{{ badge(item.severity, 'warning') }} {{ item.message }}</li>{% endfor %}</ul>{% else %}<p>No stale or missing-data issue was recorded.</p>{% endif %}</section>
+{{ evidence_drawer(context.evidence, context.assumptions, context.warnings, context.limitations) }}
+{% endif %}{% endblock %}
