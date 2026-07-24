@@ -153,6 +153,62 @@ CAPABILITY_DESCRIPTORS = (
         output_contract="CapabilityResult containing RiskReport; human review is required.",
         denied_effects=ORDER_AND_BROKER_EFFECTS,
     ),
+    CapabilityDescriptor(
+        capability_id="portfolio.data_context.create",
+        objective="Create an exact-mapped point-in-time portfolio data context from supplied local immutable revisions.",
+        input_contract="PortfolioDataContextCapabilityRequest with evidence.",
+        output_contract="CapabilityResult containing PortfolioDataContext.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="events.query.as_of",
+        objective="Query one supplied immutable local event snapshot using available_at at an explicit as_of.",
+        input_contract="EventQueryCapabilityRequest with evidence.",
+        output_contract="CapabilityResult containing EventQueryResult.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="monitoring.policy.evaluate",
+        objective="Evaluate fixed reviewed monitoring thresholds without an expression language or scheduler.",
+        input_contract="PolicyEvaluationCapabilityRequest with evidence.",
+        output_contract="CapabilityResult containing PolicyEvaluationResult.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="monitoring.alert.synthesize",
+        objective="Synthesize an effect-free analytical alert draft from one completed fixed-policy evaluation.",
+        input_contract="MonitoringAlertSynthesisCapabilityRequest with evidence.",
+        output_contract="CapabilityResult containing MonitoringAlertDraft.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="monitoring.run.contextual",
+        objective="Run the existing four analytical roles against one point-in-time context and immutable policy revision.",
+        input_contract="ContextualMonitoringCapabilityRequest with evidence.",
+        output_contract="CapabilityResult containing ContextualMonitoringRun.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="monitoring.report.render",
+        objective="Render deterministic local Markdown and semantic HTML monitoring/replay review material.",
+        input_contract="MonitoringReportCapabilityRequest with evidence.",
+        output_contract="CapabilityResult containing MonitoringReport.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="monitoring.replay",
+        objective="Run deterministic historical monitoring steps with a fresh point-in-time context per step.",
+        input_contract="ReplayCapabilityRequest with evidence.",
+        output_contract="CapabilityResult containing ReplayRun.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
+        capability_id="monitoring.evaluate",
+        objective="Evaluate replay alerts with deterministic one-to-one labelled-outcome matching.",
+        input_contract="ReplayEvaluationCapabilityRequest with evidence.",
+        output_contract="CapabilityResult containing MonitoringEvaluation.",
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
 )
 
 CAPABILITY_BY_ID = {item.capability_id: item for item in CAPABILITY_DESCRIPTORS}

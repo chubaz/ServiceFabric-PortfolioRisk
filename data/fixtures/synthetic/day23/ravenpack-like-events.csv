@@ -1,0 +1,6 @@
+source_event_id,entity_id,event_time,available_at,event_type,relevance,sentiment,novelty,amendment_state,supersedes_event_id,event_text
+fictional-rp-001,fictional-entity-orchid,2026-06-29T09:00:00Z,2026-06-29T09:05:00Z,fictional_operational_update,0.82,-0.70,0.91,original,,Synthetic fictional event text for Orchid Entity; not a real headline or provider row.
+fictional-rp-002,fictional-entity-cobalt,2026-06-29T10:00:00Z,2026-06-29T10:07:00Z,fictional_review_notice,0.74,-0.35,0.66,original,,Synthetic fictional event text for Cobalt Entity; not a real headline or provider row.
+fictional-rp-003,fictional-entity-orchid,2026-06-29T11:00:00Z,2026-06-29T11:04:00Z,fictional_operational_update,0.88,-0.55,0.72,amendment,fictional-rp-001,Synthetic fictional amendment text for Orchid Entity; not a real headline or provider row.
+fictional-rp-004,fictional-entity-cobalt,2026-06-29T12:00:00Z,2026-06-29T12:03:00Z,fictional_review_notice,0.74,0.00,0.20,retraction,fictional-rp-002,Synthetic fictional retraction text for Cobalt Entity; not a real headline or provider row.
+fictional-rp-005,fictional-entity-umber,2026-06-30T08:00:00Z,,fictional_data_notice,0.40,-0.10,0.30,original,,Synthetic fictional event with deliberately missing availability.

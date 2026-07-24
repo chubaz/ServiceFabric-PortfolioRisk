@@ -1,0 +1,154 @@
+{
+  "$defs": {
+    "MonitoringEvidence": {
+      "additionalProperties": false,
+      "description": "A publication-safe reference to retained local evidence.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "evidence_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "reference": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "reference"
+      ],
+      "title": "MonitoringEvidence",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/instrument-data-binding.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "crosswalk_snapshot_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Crosswalk Snapshot Id",
+      "type": "string"
+    },
+    "effective_end": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Effective End"
+    },
+    "effective_start": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Effective Start"
+    },
+    "entity_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Entity Id"
+    },
+    "evidence": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/MonitoringEvidence"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "fundamental_entity_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fundamental Entity Id"
+    },
+    "instrument_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Instrument Id",
+      "type": "string"
+    },
+    "mapping_rule": {
+      "enum": [
+        "exact_date_effective",
+        "reviewed_primary",
+        "none"
+      ],
+      "title": "Mapping Rule",
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "mapped",
+        "unmapped",
+        "ambiguous"
+      ],
+      "title": "State",
+      "type": "string"
+    }
+  },
+  "required": [
+    "instrument_id",
+    "state",
+    "crosswalk_snapshot_id",
+    "mapping_rule"
+  ],
+  "title": "InstrumentDataBinding",
+  "type": "object"
+}

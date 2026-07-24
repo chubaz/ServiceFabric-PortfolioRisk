@@ -1,0 +1,370 @@
+{
+  "$defs": {
+    "AlertOutcomeMatch": {
+      "additionalProperties": false,
+      "properties": {
+        "alert_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Alert Id",
+          "type": "string"
+        },
+        "alert_time": {
+          "format": "date-time",
+          "title": "Alert Time",
+          "type": "string"
+        },
+        "detection_delay_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Detection Delay Seconds"
+        },
+        "instrument_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Instrument Id",
+          "type": "string"
+        },
+        "lead_time_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Lead Time Seconds"
+        },
+        "outcome_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Outcome Id",
+          "type": "string"
+        },
+        "outcome_time": {
+          "format": "date-time",
+          "title": "Outcome Time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "alert_id",
+        "outcome_id",
+        "instrument_id",
+        "alert_time",
+        "outcome_time",
+        "lead_time_seconds",
+        "detection_delay_seconds"
+      ],
+      "title": "AlertOutcomeMatch",
+      "type": "object"
+    },
+    "EvaluationWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "EvaluationWarning",
+      "type": "object"
+    },
+    "MonitoringEvidence": {
+      "additionalProperties": false,
+      "description": "A publication-safe reference to retained local evidence.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "evidence_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "reference": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "reference"
+      ],
+      "title": "MonitoringEvidence",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/monitoring-evaluation.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "abstention_count": {
+      "minimum": 0,
+      "title": "Abstention Count",
+      "type": "integer"
+    },
+    "alert_count": {
+      "minimum": 0,
+      "title": "Alert Count",
+      "type": "integer"
+    },
+    "coverage": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Coverage"
+    },
+    "digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Digest"
+    },
+    "effects": {
+      "default": [],
+      "maxItems": 0,
+      "minItems": 0,
+      "title": "Effects",
+      "type": "array"
+    },
+    "evaluated_alert_count": {
+      "minimum": 0,
+      "title": "Evaluated Alert Count",
+      "type": "integer"
+    },
+    "evaluated_at": {
+      "format": "date-time",
+      "title": "Evaluated At",
+      "type": "string"
+    },
+    "evaluation_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Evaluation Id",
+      "type": "string"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/MonitoringEvidence"
+      },
+      "minItems": 1,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "false_negative": {
+      "minimum": 0,
+      "title": "False Negative",
+      "type": "integer"
+    },
+    "false_positive": {
+      "minimum": 0,
+      "title": "False Positive",
+      "type": "integer"
+    },
+    "human_review_required": {
+      "const": true,
+      "default": true,
+      "title": "Human Review Required",
+      "type": "boolean"
+    },
+    "labelled_outcome_count": {
+      "minimum": 0,
+      "title": "Labelled Outcome Count",
+      "type": "integer"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "matches": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AlertOutcomeMatch"
+      },
+      "title": "Matches",
+      "type": "array"
+    },
+    "median_detection_delay_seconds": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Median Detection Delay Seconds"
+    },
+    "median_lead_time_seconds": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Median Lead Time Seconds"
+    },
+    "methodology": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Methodology",
+      "type": "string"
+    },
+    "precision": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Precision"
+    },
+    "recall": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Recall"
+    },
+    "replay_run_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Replay Run Digest",
+      "type": "string"
+    },
+    "true_positive": {
+      "minimum": 0,
+      "title": "True Positive",
+      "type": "integer"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/EvaluationWarning"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "evaluation_id",
+    "replay_run_digest",
+    "evaluated_at",
+    "alert_count",
+    "labelled_outcome_count",
+    "evaluated_alert_count",
+    "true_positive",
+    "false_positive",
+    "false_negative",
+    "abstention_count",
+    "methodology",
+    "evidence"
+  ],
+  "title": "MonitoringEvaluation",
+  "type": "object"
+}

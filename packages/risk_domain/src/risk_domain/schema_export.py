@@ -9,6 +9,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from .models import AgentRun, AlertDraft, ArtifactReference, CashBalance, ConcentrationMeasure, DatasetFile, DatasetProvenance, DatasetSnapshot, DecisionPoint, ExposureSnapshot, FundamentalObservation, Instrument, InstrumentIdentifier, MarketObservation, NewsEvent, PortfolioSnapshot, Position, PositionExposure, RiskFinding, RiskLimit, SourceReference
+from .monitoring import AlertOutcomeMatch, ContextQualityIssue, ContextualMonitoringRequest, ContextualMonitoringRun, DataVintageSelection, EvaluationWarning, InstrumentDataBinding, MappingCoverage, MonitoringEvaluation, MonitoringEvidenceBundle, MonitoringFindingSet, MonitoringPolicy, MonitoringPolicyVersion, OutcomeLabel, PolicyBreach, PolicyEvaluationRequest, PolicyEvaluationResult, PortfolioDataContext, PortfolioDataContextRequest, ReplayRun, ReplaySpecification, ReplayStep
 
 
 SCHEMA_RESOURCES: dict[str, tuple[type[BaseModel], str]] = {
@@ -33,6 +34,28 @@ SCHEMA_RESOURCES: dict[str, tuple[type[BaseModel], str]] = {
     "portfolio-snapshot.schema.json": (PortfolioSnapshot, "https://schemas.servicefabric.ai/risk/v0.1/portfolio-snapshot.schema.json"),
     "risk-finding.schema.json": (RiskFinding, "https://schemas.servicefabric.ai/risk/v0.1/risk-finding.schema.json"),
     "risk-limit.schema.json": (RiskLimit, "https://schemas.servicefabric.ai/risk/v0.1/risk-limit.schema.json"),
+    "portfolio-data-context-request.schema.json": (PortfolioDataContextRequest, "https://schemas.servicefabric.ai/risk/v0.1/portfolio-data-context-request.schema.json"),
+    "portfolio-data-context.schema.json": (PortfolioDataContext, "https://schemas.servicefabric.ai/risk/v0.1/portfolio-data-context.schema.json"),
+    "instrument-data-binding.schema.json": (InstrumentDataBinding, "https://schemas.servicefabric.ai/risk/v0.1/instrument-data-binding.schema.json"),
+    "mapping-coverage.schema.json": (MappingCoverage, "https://schemas.servicefabric.ai/risk/v0.1/mapping-coverage.schema.json"),
+    "data-vintage-selection.schema.json": (DataVintageSelection, "https://schemas.servicefabric.ai/risk/v0.1/data-vintage-selection.schema.json"),
+    "context-quality-issue.schema.json": (ContextQualityIssue, "https://schemas.servicefabric.ai/risk/v0.1/context-quality-issue.schema.json"),
+    "monitoring-policy.schema.json": (MonitoringPolicy, "https://schemas.servicefabric.ai/risk/v0.1/monitoring-policy.schema.json"),
+    "monitoring-policy-version.schema.json": (MonitoringPolicyVersion, "https://schemas.servicefabric.ai/risk/v0.1/monitoring-policy-version.schema.json"),
+    "policy-evaluation-request.schema.json": (PolicyEvaluationRequest, "https://schemas.servicefabric.ai/risk/v0.1/policy-evaluation-request.schema.json"),
+    "policy-evaluation-result.schema.json": (PolicyEvaluationResult, "https://schemas.servicefabric.ai/risk/v0.1/policy-evaluation-result.schema.json"),
+    "policy-breach.schema.json": (PolicyBreach, "https://schemas.servicefabric.ai/risk/v0.1/policy-breach.schema.json"),
+    "contextual-monitoring-request.schema.json": (ContextualMonitoringRequest, "https://schemas.servicefabric.ai/risk/v0.1/contextual-monitoring-request.schema.json"),
+    "contextual-monitoring-run.schema.json": (ContextualMonitoringRun, "https://schemas.servicefabric.ai/risk/v0.1/contextual-monitoring-run.schema.json"),
+    "monitoring-finding-set.schema.json": (MonitoringFindingSet, "https://schemas.servicefabric.ai/risk/v0.1/monitoring-finding-set.schema.json"),
+    "monitoring-evidence-bundle.schema.json": (MonitoringEvidenceBundle, "https://schemas.servicefabric.ai/risk/v0.1/monitoring-evidence-bundle.schema.json"),
+    "outcome-label.schema.json": (OutcomeLabel, "https://schemas.servicefabric.ai/risk/v0.1/outcome-label.schema.json"),
+    "replay-specification.schema.json": (ReplaySpecification, "https://schemas.servicefabric.ai/risk/v0.1/replay-specification.schema.json"),
+    "replay-step.schema.json": (ReplayStep, "https://schemas.servicefabric.ai/risk/v0.1/replay-step.schema.json"),
+    "replay-run.schema.json": (ReplayRun, "https://schemas.servicefabric.ai/risk/v0.1/replay-run.schema.json"),
+    "alert-outcome-match.schema.json": (AlertOutcomeMatch, "https://schemas.servicefabric.ai/risk/v0.1/alert-outcome-match.schema.json"),
+    "monitoring-evaluation.schema.json": (MonitoringEvaluation, "https://schemas.servicefabric.ai/risk/v0.1/monitoring-evaluation.schema.json"),
+    "evaluation-warning.schema.json": (EvaluationWarning, "https://schemas.servicefabric.ai/risk/v0.1/evaluation-warning.schema.json"),
 }
 
 

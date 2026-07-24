@@ -1,0 +1,129 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "duplicate_source_id_policy": {
+      "default": "reject",
+      "enum": [
+        "reject",
+        "deterministic_version"
+      ],
+      "title": "Duplicate Source Id Policy",
+      "type": "string"
+    },
+    "entity_matching": {
+      "const": "explicit_identifier_only",
+      "default": "explicit_identifier_only",
+      "title": "Entity Matching",
+      "type": "string"
+    },
+    "field_mapping": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Field Mapping",
+      "type": "object"
+    },
+    "manifest_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Manifest Id",
+      "type": "string"
+    },
+    "novelty_maximum": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "default": "1",
+      "title": "Novelty Maximum"
+    },
+    "novelty_minimum": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "default": "0",
+      "title": "Novelty Minimum"
+    },
+    "relevance_maximum": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "default": "1",
+      "title": "Relevance Maximum"
+    },
+    "relevance_minimum": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "default": "0",
+      "title": "Relevance Minimum"
+    },
+    "sentiment_maximum": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "default": "1",
+      "title": "Sentiment Maximum"
+    },
+    "sentiment_minimum": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "default": "-1",
+      "title": "Sentiment Minimum"
+    }
+  },
+  "required": [
+    "manifest_id",
+    "field_mapping"
+  ],
+  "title": "EventMappingManifest",
+  "type": "object"
+}

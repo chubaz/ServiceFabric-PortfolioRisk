@@ -1,0 +1,24 @@
+{
+  "duplicate_source_id_policy": "deterministic_version",
+  "entity_matching": "explicit_identifier_only",
+  "field_mapping": {
+    "amendment_state": "amendment_state",
+    "available_at": "available_at",
+    "entity_id": "entity_id",
+    "event_text": "event_text",
+    "event_time": "event_time",
+    "event_type": "event_type",
+    "novelty": "novelty",
+    "relevance": "relevance",
+    "sentiment": "sentiment",
+    "source_event_id": "source_event_id",
+    "supersedes_event_id": "supersedes_event_id"
+  },
+  "manifest_id": "fictional-accern-like-events-v1",
+  "novelty_maximum": "1",
+  "novelty_minimum": "0",
+  "relevance_maximum": "1",
+  "relevance_minimum": "0",
+  "sentiment_maximum": "1",
+  "sentiment_minimum": "-1"
+}
