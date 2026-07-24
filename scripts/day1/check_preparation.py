@@ -173,7 +173,12 @@ def validate(require_prepared: bool = False) -> list[str]:
     if "enabled: false" not in rights or "access_state: unavailable" not in rights:
         errors.append("provider defaults are not explicitly disabled/unavailable")
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
-    if isinstance(status, dict) and not status_errors(status, require_prepared):
+    # Day 1 remains a regression baseline after a later reviewed programme is
+    # activated. The newer workplan owns the current pointer; Day 1 status and
+    # all Day 1 boundaries above are still validated here.
+    current_id = re.search(r"^- ID:\s*`?([^`\n]+)", current, re.MULTILINE)
+    newer_workplan_active = bool(current_id and current_id.group(1).startswith("D23-"))
+    if isinstance(status, dict) and not status_errors(status, require_prepared) and not newer_workplan_active:
         errors.extend(workplan_errors(status, current))
     return errors
 

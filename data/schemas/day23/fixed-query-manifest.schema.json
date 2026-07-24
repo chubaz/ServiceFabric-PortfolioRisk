@@ -1,0 +1,68 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "columns": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Columns",
+      "type": "array"
+    },
+    "default_limit": {
+      "default": 100,
+      "maximum": 1000,
+      "minimum": 1,
+      "title": "Default Limit",
+      "type": "integer"
+    },
+    "manifest_id": {
+      "enum": [
+        "security-master",
+        "daily-market-history",
+        "fundamentals-as-of",
+        "linked-market-fundamentals-as-of",
+        "data-quality-summary"
+      ],
+      "title": "Manifest Id",
+      "type": "string"
+    },
+    "maximum_limit": {
+      "default": 1000,
+      "maximum": 10000,
+      "minimum": 1,
+      "title": "Maximum Limit",
+      "type": "integer"
+    },
+    "parameter_names": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Parameter Names",
+      "type": "array"
+    },
+    "point_in_time": {
+      "title": "Point In Time",
+      "type": "boolean"
+    },
+    "view_name": {
+      "enum": [
+        "security_master",
+        "daily_market",
+        "fundamentals_annual",
+        "linked_market_fundamentals",
+        "data_quality_summary"
+      ],
+      "title": "View Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "manifest_id",
+    "view_name",
+    "columns",
+    "parameter_names",
+    "point_in_time"
+  ],
+  "title": "FixedQueryManifest",
+  "type": "object"
+}

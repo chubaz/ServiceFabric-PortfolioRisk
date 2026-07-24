@@ -18,8 +18,20 @@
       "sha256": "f8244d347b19d44845c88b8f6f2cc7c4afe84eef9e55827165c8c0c8707b2fa0"
     },
     {
+      "path": "data_workspace_service.py",
+      "sha256": "d420ee976ab3df157a23606317d734a9c1d26fc4d1b5fac82737fe29830513b6"
+    },
+    {
       "path": "app.py",
-      "sha256": "68a89429efa9120fd7ab20d5708516c7f0b6d035a0be1a3a686dd270d8f4d56e"
+      "sha256": "3c116f0fb973285fa7eb163341f3fb8357925808d64df32fa8c4e1c6c76e1987"
+    },
+    {
+      "path": "monitoring_service.py",
+      "sha256": "e25e4cfd75b8af8651eafc32857f5a74440f382fcf540186ce1f5db2036d66bb"
+    },
+    {
+      "path": "stage_package.py",
+      "sha256": "b619cc8276ff487ddd3fbb3a370bee783e613a14422569ad66cdbea4eca1ab6c"
     },
     {
       "path": "workspace_service.py",
@@ -30,12 +42,24 @@
       "sha256": "9c9698f4c3b63b93ded7a6b1ad8c3b50f8c49bb7fa859107a0b18fa8bee9fa45"
     },
     {
+      "path": "catalog/data-mappings/compustat_like_annual.mapping.json",
+      "sha256": "1e581b607a1f0301bda24c5e95eda2c49c882e69f48db712a87a52f2828a31ed"
+    },
+    {
+      "path": "catalog/data-mappings/crsp_compustat_link.mapping.json",
+      "sha256": "b25c4a9e731850b8aa0c18e7f66aee0b8a15ef30f7e18975be6898aab15ede69"
+    },
+    {
+      "path": "catalog/data-mappings/crsp_like_daily.mapping.json",
+      "sha256": "08b917582aa86b8b023ef1d8cca31538cda22ec06a2a7e353c3fe57e8fbf11a2"
+    },
+    {
       "path": "catalog/research.yaml",
       "sha256": "14b2e5de0b2bcc79f68d1693d57900f865c136db6c365b7550254c04cb68fdd0"
     },
     {
       "path": "presentation.py",
-      "sha256": "5004560c64c4fe5ab41253ac616c4d70f5dd97abb91fa267175143871a2f9cf5"
+      "sha256": "52433162abf6b34933dc9ffe4da47adb69a7c7d7bdbf87bb1f2ded532485f25f"
     },
     {
       "path": "pyproject.toml",
@@ -43,7 +67,7 @@
     },
     {
       "path": "risk-package-lock.json",
-      "sha256": "dddf21cee3120c8cac6084cd1ee9e4b8a11dde9302c2064e6a3280b92268f784"
+      "sha256": "669d4123cc70c97e7366074a0bb93521f9810a176234bdd4afdb103bd0465e70"
     },
     {
       "path": "seed/knowledge-products/KP-00.yaml",
@@ -91,7 +115,7 @@
     },
     {
       "path": "static/workbench.css",
-      "sha256": "7204a3f15a89f5d7e9ca226c6e0ed6b26455c34ca3b97ba57181fe333a4f6b3a"
+      "sha256": "503add03b7f5989a9fc5289305e3117cb1834b8fdbe9e302b1e61cb616ed18b3"
     },
     {
       "path": "templates/agent_runs.html",
@@ -111,7 +135,7 @@
     },
     {
       "path": "templates/base.html",
-      "sha256": "55ccf6f19a5130dc79c0c21b456018745b2686532b025dc20dacb7a3f52b481c"
+      "sha256": "91067d05733a49af711ea89f51eaab6427f0c983b11bcf9d4abd5f4a423b6235"
     },
     {
       "path": "templates/components.html",
@@ -123,7 +147,35 @@
     },
     {
       "path": "templates/data.html",
-      "sha256": "5e76aeaaba20b201b773ae306976d1e1a4e0671136ed37e24bf0510de9df2dbf"
+      "sha256": "ab02f0e82e80d682c4eb6bc76592939e52720fbeb74e89ca0cbd4aeb1a6c703b"
+    },
+    {
+      "path": "templates/data_crosswalks.html",
+      "sha256": "d595ea55c05af76d66dd8856be38d0234b4480d3b4ba63a7415596da2bb0b366"
+    },
+    {
+      "path": "templates/data_dataset.html",
+      "sha256": "b9f34480d3041af1cd99945a1bcb361d08747820e63548ceeb7789aef2b39e27"
+    },
+    {
+      "path": "templates/data_datasets.html",
+      "sha256": "a4793fd50e4f43153ecad8d3a71f78a5faa8332f919875ef95c76df0595c68f1"
+    },
+    {
+      "path": "templates/data_import.html",
+      "sha256": "f9cc7ef1f6ee61a2b287ab087b0a93849f52d0d688d644334401e445868801dd"
+    },
+    {
+      "path": "templates/data_import_preview.html",
+      "sha256": "d84cea58c57019d38f43be307e1800120ebd6c36a859d4412d6209990b62ac1c"
+    },
+    {
+      "path": "templates/data_query.html",
+      "sha256": "5914fb4663f3a18d466ccf9d43cd565a7491a5d5d63f431b9e349a5d28862607"
+    },
+    {
+      "path": "templates/data_query_manifests.html",
+      "sha256": "01b61b9bf2bc8d61993cdcd030417e987965bbc55ebb642837d687785a50d1e9"
     },
     {
       "path": "templates/error.html",
@@ -167,7 +219,7 @@
     },
     {
       "path": "templates/providers.html",
-      "sha256": "c95a0e1c5b238b605062a55253867cba305f5f958bcd3eb7dac2a58aa5c21cac"
+      "sha256": "59e9f1f547876583f47343e3fa8fc88ad39db6ae22f5db5023d221782bf9e7ba"
     },
     {
       "path": "templates/report.html",
@@ -184,6 +236,74 @@
     {
       "path": "templates/settings.html",
       "sha256": "db8bbe66480c76b2b9e37f6b742ce0b7c970c26587aee49c25b8ef971428ee67"
+    },
+    {
+      "path": "templates/monitoring_context.html",
+      "sha256": "1653dd521e62073001d43c7cdd76965e9e249d9a99744e26a071dc52a851b438"
+    },
+    {
+      "path": "templates/monitoring_context_detail.html",
+      "sha256": "3d2a20566c1a29ce7662549a18d55e9fcd8d8772e33e9cf7e941be14ea35f0ea"
+    },
+    {
+      "path": "templates/monitoring_contexts.html",
+      "sha256": "49bd30a9e91d0fe1d527a0ea4edd93dfa24a3f19d32fe59d40843802748ef4bd"
+    },
+    {
+      "path": "templates/monitoring_evaluation.html",
+      "sha256": "4b8e69e5cf3ebfc0eacd6702f830e6007ec1c175a07cf701566cc7eeab173538"
+    },
+    {
+      "path": "templates/monitoring_event_import.html",
+      "sha256": "0b7fec0071bb25bb8f2d281b60d3b982ebd8477033b8c2ea7600f6a5d9b62988"
+    },
+    {
+      "path": "templates/monitoring_event_preview.html",
+      "sha256": "5a7ca05843aa38380b7d33dc389e1eda4d2e19879318e1b9d402b0cdb8b0fa13"
+    },
+    {
+      "path": "templates/monitoring_event_snapshot.html",
+      "sha256": "00b20a3c4a1436c71fb4e2edb0f133f0d3932bcb012f13ad409b85b86559fa4b"
+    },
+    {
+      "path": "templates/monitoring_events.html",
+      "sha256": "9275fcbb6da0d58cd950ee244157577fcf3c9684f31fad8712e6a15c429e8671"
+    },
+    {
+      "path": "templates/monitoring_policies.html",
+      "sha256": "98aa348558f960e5e888b15a951571a5dff147c0da06d2c591e0077df7019b7e"
+    },
+    {
+      "path": "templates/monitoring_policy_detail.html",
+      "sha256": "bde8874de16616586bcc5b29bdb827a5b69df8cb85d82551c0ba8bd3c633fe28"
+    },
+    {
+      "path": "templates/monitoring_policy_form.html",
+      "sha256": "5564469076cd0de1d2f5d4b7d8c200ad0daccfa6388268f3606926694c211cb3"
+    },
+    {
+      "path": "templates/monitoring_replay.html",
+      "sha256": "e5a45346a152355844f897446882c409bfd2349ca76eefbb7ce5207ee336a46d"
+    },
+    {
+      "path": "templates/monitoring_replay_detail.html",
+      "sha256": "2cc816acdf54f39858c034ed72874ba288f0a04e27ea2627a1ae10a55bfa6480"
+    },
+    {
+      "path": "templates/monitoring_report.html",
+      "sha256": "ef77760c9e7b709c75841d9a07a945ff403039ade2870dc0ed299806aa9e2916"
+    },
+    {
+      "path": "templates/monitoring_run_detail.html",
+      "sha256": "68dda57f9fd54ed4bf9e7df0bee8979ab95ff27bf4d9bdb3adb4d7d1f28fc43c"
+    },
+    {
+      "path": "templates/monitoring_run_form.html",
+      "sha256": "35de2e979f3a1b9bff1623d6bfc5a8655a02d9a52ac3cd3de9ba13aa250666f3"
+    },
+    {
+      "path": "templates/monitoring_runs.html",
+      "sha256": "172daa44843530f2aaa58d26b7d69b1b04880d9f6ee7bbac26faf0efdc752ee2"
     }
   ],
   "declared_resources": {
@@ -210,6 +330,22 @@
     {
       "tool_id": "provider.catalog.list",
       "path": "/actions/provider-catalog-list"
+    },
+    {
+      "tool_id": "data.provider.catalog",
+      "path": "/actions/data-provider-catalog"
+    },
+    {
+      "tool_id": "data.import.preview",
+      "path": "/actions/data-import-preview"
+    },
+    {
+      "tool_id": "data.dataset.list",
+      "path": "/actions/data-dataset-list"
+    },
+    {
+      "tool_id": "data.query.fixed",
+      "path": "/actions/data-query-fixed"
     },
     {
       "tool_id": "portfolio.exposure.summarize",
@@ -270,6 +406,34 @@
     {
       "tool_id": "risk.report.render",
       "path": "/actions/risk-report-render"
+    },
+    {
+      "tool_id": "portfolio.data_context.create",
+      "path": "/actions/portfolio-data-context-create"
+    },
+    {
+      "tool_id": "events.query.as_of",
+      "path": "/actions/events-query-as-of"
+    },
+    {
+      "tool_id": "monitoring.policy.evaluate",
+      "path": "/actions/monitoring-policy-evaluate"
+    },
+    {
+      "tool_id": "monitoring.run.contextual",
+      "path": "/actions/monitoring-run-contextual"
+    },
+    {
+      "tool_id": "monitoring.replay",
+      "path": "/actions/monitoring-replay"
+    },
+    {
+      "tool_id": "monitoring.evaluate",
+      "path": "/actions/monitoring-evaluate"
+    },
+    {
+      "tool_id": "monitoring.report.render",
+      "path": "/actions/monitoring-report-render"
     }
   ]
 }

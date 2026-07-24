@@ -1,0 +1,9 @@
+{
+  "enum": [
+    "synthetic_only",
+    "internal_research_only",
+    "no_publication"
+  ],
+  "title": "PublicationRestriction",
+  "type": "string"
+}

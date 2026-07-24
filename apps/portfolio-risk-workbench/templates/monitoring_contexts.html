@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% from "components.html" import empty_state, error_state %}
+{% block title %}Monitoring contexts{% endblock %}
+{% block heading %}Confirmed contexts{% endblock %}
+{% block intro %}<p class="lead">Immutable portfolio, dataset, crosswalk, event, and as-of selections available to explicitly invoked runs.</p>{% endblock %}
+{% block content %}{% if error %}{{ error_state('Contexts unavailable', error) }}{% elif not contexts %}{{ empty_state('No confirmed contexts', 'Preview and explicitly confirm a point-in-time context first.', '/monitoring/context' + profile_query, 'Create context') }}{% else %}<div class="card-grid">{% for item in contexts %}<article class="run-card"><h2>{{ item.context_id }}</h2><p>{{ item.profile|humanize }} · {{ item.context.as_of|timestamp }}</p><p>Mapping coverage: {{ item.context.mapping_coverage.coverage|percentage }}</p><a class="button-link" href="/monitoring/contexts/{{ item.context_id }}{{ profile_query }}">Inspect evidence</a></article>{% endfor %}</div>{% endif %}{% endblock %}

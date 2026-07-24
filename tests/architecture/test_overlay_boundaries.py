@@ -68,11 +68,34 @@ def test_package_ownership_is_disjoint_and_has_one_specialist_handoff() -> None:
     [
         re.compile(r"(^|/)(crsp|compustat|bloomberg|ravenpack|accern)(/|$)", re.I),
         re.compile(r"^data/(landing|normalized|curated|snapshots)/"),
-        re.compile(r"\.(duckdb|sqlite3?|db|parquet|arrow|feather)$", re.I),
+        re.compile(r"\.(duckdb|sqlite3?|db|arrow|feather)$", re.I),
     ],
 )
 def test_provider_and_mutable_data_paths_are_not_tracked(forbidden: re.Pattern[str]) -> None:
     assert not [path for path in tracked_files() if forbidden.search(path)]
+
+
+def test_only_reviewed_synthetic_part2_parquet_fixture_is_tracked() -> None:
+    tracked_parquet = {
+        path for path in tracked_files() if Path(path).suffix.lower() == ".parquet"
+    }
+    assert tracked_parquet == {
+        "data/fixtures/synthetic/day23/accern-like-events.parquet"
+    }
+
+
+def test_reviewed_synthetic_fixtures_have_one_canonical_tracked_root() -> None:
+    synthetic_fixture_paths = {
+        path
+        for path in tracked_files()
+        if path.startswith("fixtures/synthetic/")
+        or "/fixtures/synthetic/" in path
+    }
+    assert synthetic_fixture_paths
+    assert all(
+        path.startswith("data/fixtures/synthetic/")
+        for path in synthetic_fixture_paths
+    )
 
 
 def test_no_broker_or_order_execution_package_exists() -> None:

@@ -1,0 +1,230 @@
+{
+  "$defs": {
+    "MonitoringEvidence": {
+      "additionalProperties": false,
+      "description": "A publication-safe reference to retained local evidence.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "evidence_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "reference": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "reference"
+      ],
+      "title": "MonitoringEvidence",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/replay-specification.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cadence_seconds": {
+      "minimum": 1,
+      "title": "Cadence Seconds",
+      "type": "integer"
+    },
+    "crosswalk_dataset_revision": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Crosswalk Dataset Revision",
+      "type": "string"
+    },
+    "crosswalk_snapshot_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Crosswalk Snapshot Id",
+      "type": "string"
+    },
+    "digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Digest"
+    },
+    "end": {
+      "format": "date-time",
+      "title": "End",
+      "type": "string"
+    },
+    "evaluation_horizon_seconds": {
+      "minimum": 1,
+      "title": "Evaluation Horizon Seconds",
+      "type": "integer"
+    },
+    "event_dataset_revision": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Event Dataset Revision"
+    },
+    "event_snapshot_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Event Snapshot Id"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/MonitoringEvidence"
+      },
+      "minItems": 1,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "fundamental_dataset_revision": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fundamental Dataset Revision"
+    },
+    "fundamental_dataset_snapshot_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fundamental Dataset Snapshot Id"
+    },
+    "labelled_outcome_method": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Labelled Outcome Method",
+      "type": "string"
+    },
+    "lookback_window_seconds": {
+      "minimum": 1,
+      "title": "Lookback Window Seconds",
+      "type": "integer"
+    },
+    "market_dataset_revision": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Market Dataset Revision",
+      "type": "string"
+    },
+    "market_dataset_snapshot_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Market Dataset Snapshot Id",
+      "type": "string"
+    },
+    "minimum_labelled_outcomes": {
+      "default": 30,
+      "minimum": 1,
+      "title": "Minimum Labelled Outcomes",
+      "type": "integer"
+    },
+    "point_in_time_rule": {
+      "const": "available_at_lte_step_as_of",
+      "default": "available_at_lte_step_as_of",
+      "title": "Point In Time Rule",
+      "type": "string"
+    },
+    "policy_revision": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Policy Revision",
+      "type": "string"
+    },
+    "portfolio_snapshot_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Portfolio Snapshot Id",
+      "type": "string"
+    },
+    "specification_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Specification Id",
+      "type": "string"
+    },
+    "start": {
+      "format": "date-time",
+      "title": "Start",
+      "type": "string"
+    }
+  },
+  "required": [
+    "specification_id",
+    "start",
+    "end",
+    "cadence_seconds",
+    "portfolio_snapshot_id",
+    "market_dataset_snapshot_id",
+    "market_dataset_revision",
+    "crosswalk_snapshot_id",
+    "crosswalk_dataset_revision",
+    "policy_revision",
+    "lookback_window_seconds",
+    "evaluation_horizon_seconds",
+    "labelled_outcome_method",
+    "evidence"
+  ],
+  "title": "ReplaySpecification",
+  "type": "object"
+}

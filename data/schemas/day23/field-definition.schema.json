@@ -1,0 +1,49 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "data_type": {
+      "enum": [
+        "string",
+        "integer",
+        "decimal",
+        "date",
+        "datetime",
+        "boolean"
+      ],
+      "title": "Data Type",
+      "type": "string"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "field_name": {
+      "title": "Field Name",
+      "type": "string"
+    },
+    "nullable": {
+      "default": true,
+      "title": "Nullable",
+      "type": "boolean"
+    },
+    "unit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unit"
+    }
+  },
+  "required": [
+    "field_name",
+    "data_type"
+  ],
+  "title": "FieldDefinition",
+  "type": "object"
+}

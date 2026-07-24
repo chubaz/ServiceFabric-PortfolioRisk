@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure, error_state, evidence_drawer %}
+{% block title %}Monitoring context{% endblock %}
+{% block heading %}Portfolio-data context{% endblock %}
+{% block intro %}<p class="lead">Preview an exact, point-in-time selection before explicitly confirming its immutable monitoring context.</p>{% endblock %}
+{% block content %}
+{{ disclosure('Context boundary', 'Only selected local immutable revisions are considered. Mapping uses stable identifiers and available_at; missing data is never treated as zero.', 'critical') }}
+{% if error %}{{ error_state('Context unavailable', error) }}{% else %}
+<form method="post" action="/monitoring/context/preview">
+  <input type="hidden" name="profile" value="{{ profile.profile_id }}">
+  <fieldset><legend>Portfolio and datasets</legend>
+    <label class="field"><span>Portfolio snapshot</span><select name="portfolio_snapshot_id">{% for item in snapshots %}<option value="{{ item.snapshot_id }}">{{ item.snapshot_id }}</option>{% endfor %}</select></label>
+    <label class="field"><span>Market dataset snapshot</span><select name="market_dataset_snapshot_id" required>{% for item in catalogue.market %}<option value="{{ item.snapshot_id }}">{{ item.snapshot_id }} · {{ item.dataset_id }}</option>{% endfor %}</select></label>
+    <label class="field"><span>Market dataset revision</span><select name="market_dataset_revision" required>{% for item in catalogue.market %}<option value="{{ item.revision_id }}">{{ item.revision_id }}</option>{% endfor %}</select></label>
+    <label class="field"><span>Optional fundamental snapshot</span><select name="fundamental_dataset_snapshot_id"><option value="">No fundamental revision selected</option>{% for item in catalogue.fundamental %}<option value="{{ item.snapshot_id }}">{{ item.snapshot_id }} · {{ item.dataset_id }}</option>{% endfor %}</select></label>
+    <label class="field"><span>Optional fundamental revision</span><select name="fundamental_dataset_revision"><option value="">Not selected</option>{% for item in catalogue.fundamental %}<option value="{{ item.revision_id }}">{{ item.revision_id }}</option>{% endfor %}</select></label>
+    <label class="field"><span>Crosswalk snapshot</span><select name="crosswalk_snapshot_id" required>{% for item in catalogue.crosswalk %}<option value="{{ item.snapshot_id }}">{{ item.snapshot_id }}</option>{% endfor %}</select></label>
+    <label class="field"><span>Crosswalk revision</span><select name="crosswalk_dataset_revision" required>{% for item in catalogue.crosswalk %}<option value="{{ item.revision_id }}">{{ item.revision_id }}</option>{% endfor %}</select></label>
+    <label class="field"><span>Optional event snapshot</span><select name="event_snapshot_id"><option value="">No event revision selected</option>{% for item in event_snapshots %}<option value="{{ item.snapshot_id }}">{{ item.snapshot_id }}</option>{% endfor %}</select></label>
+    <label class="field"><span>Optional event revision</span><select name="event_dataset_revision"><option value="">Not selected</option>{% for item in event_snapshots %}<option value="{{ item.dataset_revision }}">{{ item.dataset_revision }}</option>{% endfor %}</select></label>
+  </fieldset>
+  <fieldset><legend>Point-in-time review</legend>
+    <label class="field"><span>As of</span><input name="as_of" type="text" value="2026-07-01T16:00:00Z" required></label>
+    <label class="field"><span>Stale-data threshold (seconds)</span><input name="stale_data_maximum_age_seconds" type="number" value="604800" min="1" required></label>
+  </fieldset>
+  <button type="submit">Preview context</button>
+</form>
+{% if preview %}
+<section aria-labelledby="context-preview"><h2 id="context-preview">Context preview</h2>
+  <dl class="definition-grid">
+    <div><dt>Profile</dt><dd>{{ preview.profile|humanize }}</dd></div>
+    <div><dt>As of</dt><dd>{{ preview.context.as_of|timestamp }}</dd></div>
+    <div><dt>Mapping coverage</dt><dd>{{ preview.context.mapping_coverage.coverage|percentage }}</dd></div>
+    <div><dt>Unmapped positions</dt><dd>{{ preview.context.mapping_coverage.unmapped_count }}</dd></div>
+    <div><dt>Ambiguous mappings</dt><dd>{{ preview.context.mapping_coverage.ambiguous_count }}</dd></div>
+    <div><dt>Confirmation state</dt><dd>{% if preview.confirmable %}Ready for explicit confirmation{% else %}Blocked{% endif %}</dd></div>
+  </dl>
+  <h3>Stale and missing data</h3>
+  {% if preview.context.quality_issues %}<ul>{% for issue in preview.context.quality_issues %}<li><strong>{{ issue.severity|humanize }} · {{ issue.code|humanize }}:</strong> {{ issue.message }}</li>{% endfor %}</ul>{% else %}<p>No stale, missing, unmapped, or ambiguous issue was recorded.</p>{% endif %}
+  {{ evidence_drawer(preview.context.evidence, preview.context.assumptions, preview.context.warnings, preview.context.limitations) }}
+  <form method="post" action="/monitoring/context/confirm"><input type="hidden" name="profile" value="{{ profile.profile_id }}"><input type="hidden" name="preview_id" value="{{ preview.preview_id }}"><label class="choice-card"><input type="checkbox" name="confirm" value="true" required><span>I explicitly confirm these exact revisions and disclosed limitations.</span></label><button type="submit"{% if not preview.confirmable %} disabled{% endif %}>Confirm immutable context</button></form>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

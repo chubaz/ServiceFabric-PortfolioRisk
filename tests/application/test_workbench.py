@@ -8,11 +8,12 @@ import io
 import json
 import os
 import re
+import socket
 from pathlib import Path
 
 import pytest
 from fastapi import FastAPI, HTTPException
-from risk_data import PortfolioConfirmationRequest
+from risk_data import FixedQueryRequest, LocalImportConfirmation, PortfolioConfirmationRequest
 from starlette.datastructures import UploadFile
 from starlette.datastructures import Headers
 from starlette.formparsers import MultiPartException
@@ -914,8 +915,338 @@ def test_hosted_package_lock_includes_integrated_reviewed_analytics_sources() ->
     assert re.fullmatch(r"[0-9a-f]{64}", package_lock["packages"]["risk_analytics"])
 
 
+def research_preview(application: FastAPI, *, content: bytes | None = None, profile: str = "synthetic_local", rights: str = "reviewed_synthetic", publication: str = "synthetic_only", workbench_profile: str = "research") -> dict[str, object]:
+    source = content if content is not None else (ROOT / "data" / "fixtures" / "synthetic" / "day23" / "crsp_like_daily.csv").read_bytes()
+    return call(
+        application,
+        "POST",
+        "/api/data/import/previews",
+        file=upload("research.csv", source, "text/csv"),
+        provider_profile=profile,
+        provider_id="fictional-local-provider",
+        provider_name="Fictional Local Provider",
+        dataset_id="fictional-daily-market",
+        dataset_kind="daily_market",
+        dataset_description="Explicitly synthetic application fixture",
+        revision_id="revision-1",
+        rights_state=rights,
+        publication_restriction=publication,
+        workbench_profile=workbench_profile,
+        retrieved_at="2026-07-22T10:00:00Z",
+    )
+
+
+def test_phase1_data_routes_and_semantic_security_boundaries(application: FastAPI) -> None:
+    available = {(method, route.path) for route in application.routes for method in getattr(route, "methods", set())}
+    required = {
+        ("GET", "/data/import"),
+        ("GET", "/data/import/previews/{preview_id}"),
+        ("GET", "/data/datasets"),
+        ("GET", "/data/datasets/{snapshot_id}"),
+        ("GET", "/data/crosswalks"),
+        ("GET", "/data/query-manifests"),
+        ("GET", "/data/query/{manifest_id}"),
+        ("POST", "/api/data/import/previews"),
+        ("GET", "/api/data/import/previews/{preview_id}"),
+        ("POST", "/api/data/import/previews/{preview_id}/confirm"),
+        ("GET", "/api/data/datasets"),
+        ("GET", "/api/data/datasets/{snapshot_id}"),
+        ("GET", "/api/data/crosswalks"),
+        ("GET", "/api/data/query-manifests"),
+        ("POST", "/api/data/query/{manifest_id}"),
+        ("GET", "/api/data/quality/{snapshot_id}"),
+    }
+    assert required <= available
+    import_page = html(application, "/data/import")
+    query_page = html(application, "/data/query/{manifest_id}", manifest_id="daily-market-history")
+    provider_page = html(application, "/providers")
+    assert "CSV or Parquet file" in import_page and "Maximum browser upload" in import_page
+    assert "server filesystem path is never accepted" in import_page
+    assert "CLI" in import_page and "does not request or display a local filesystem path" in import_page
+    assert 'name="rights_state"' in import_page and 'name="publication_restriction"' in import_page
+    assert 'name="sql"' not in query_page.lower() and "No arbitrary SQL" in query_page
+    assert "Reviewed synthetic local" in provider_page and "Locally licensed export" in provider_page and "Network-disabled provider" in provider_page
+    assert "credential" not in import_page.lower()
+    assert not any("provider" in path and "enable" in path for _, path in available)
+    assert not any(term in path.lower() for _, path in available for term in ("broker", "order", "trade", "rebalance"))
+
+
+def test_phase1_synthetic_preview_confirmation_snapshot_and_point_in_time_query(application: FastAPI) -> None:
+    created = research_preview(application)
+    assert created["valid"] is True
+    preview = created["preview"]
+    assert preview["source"]["source_digest"].startswith("sha256:")
+    assert "absolute_path" not in json.dumps(preview) and preview["raw_source_retained"] is False
+    assert preview["mapping_manifest"]["fields"] and preview["source_schema"]
+    preview_page = html(application, "/data/import/previews/{preview_id}", preview_id=created["preview_id"])
+    assert "Source schema" in preview_page and "Mappings and units" in preview_page and "Quality issues" in preview_page
+    confirmation = call(
+        application,
+        "POST",
+        "/api/data/import/previews/{preview_id}/confirm",
+        preview_id=created["preview_id"],
+        request=LocalImportConfirmation(confirm=True, preview_digest=created["preview_id"], source_digest=preview["source"]["source_digest"]),
+    )
+    assert confirmation["confirmation"]["created"] is True
+    snapshot = confirmation["snapshot"]
+    assert snapshot["immutable"] is True and snapshot["row_count"] == 4
+    assert "absolute_path" not in json.dumps(snapshot) and "curated_path" not in json.dumps(snapshot)
+    assert call(application, "GET", "/api/data/quality/{snapshot_id}", snapshot_id=snapshot["snapshot_id"])["quality_reports"]
+
+    result = call(
+        application,
+        "POST",
+        "/api/data/query/{manifest_id}",
+        manifest_id="daily-market-history",
+        request=FixedQueryRequest(manifest_id="daily-market-history", parameters={"permno": "910001"}, as_of="2026-07-01T00:00:00Z", limit=2),
+    )["result"]
+    assert len(result["rows"]) == 2
+    assert all(row["available_at"] <= "2026-07-01T00:00:00" for row in result["rows"])
+    assert result["warnings"] and result["evidence_ids"]
+    assert snapshot["snapshot_id"] in html(application, "/data/datasets")
+    detail = html(application, "/data/datasets/{snapshot_id}", snapshot_id=snapshot["snapshot_id"])
+    assert "Files and source digests" in detail and "Evidence and publication state" in detail
+
+
+def test_phase1_invalid_schema_rights_confirmation_and_limits(application: FastAPI) -> None:
+    invalid = research_preview(application, content=b"wrong,columns\n1,2\n")
+    assert invalid["valid"] is False
+    assert any(issue["code"] == "missing_source_field" for issue in invalid["preview"]["issues"])
+    with pytest.raises(HTTPException) as missing_rights:
+        research_preview(application, profile="licensed_local", rights="", publication="no_publication")
+    assert missing_rights.value.status_code == 422 and "rights" in missing_rights.value.detail.lower()
+
+    valid = research_preview(application)
+    with pytest.raises(HTTPException) as no_confirmation:
+        call(application, "POST", "/api/data/import/previews/{preview_id}/confirm", preview_id=valid["preview_id"], request=LocalImportConfirmation(confirm=False, preview_digest=valid["preview_id"], source_digest=valid["preview"]["source"]["source_digest"]))
+    assert no_confirmation.value.status_code == 422
+    with pytest.raises(HTTPException) as oversized:
+        research_preview(application, content=b"x" * 1_000_001)
+    assert oversized.value.status_code == 422
+
+    manifest_payload = call(application, "GET", "/api/data/query-manifests")
+    assert manifest_payload["arbitrary_sql_available"] is False
+    with pytest.raises(HTTPException) as no_snapshot_query:
+        call(application, "POST", "/api/data/query/{manifest_id}", manifest_id="daily-market-history", request=FixedQueryRequest(manifest_id="daily-market-history", as_of="2026-07-01T00:00:00Z", limit=1001))
+    assert no_snapshot_query.value.status_code == 422 and "maximum" in no_snapshot_query.value.detail
+
+
+def test_phase1_servicefabric_actions_are_declared_effect_free_and_rights_disclosed(application: FastAPI) -> None:
+    manifest = json.loads((APPLICATION_DIR / "servicefabric-package.json").read_text())
+    declared = {item["tool_id"]: item["path"] for item in manifest["capabilities"]}
+    expected = {
+        "data.provider.catalog": "/actions/data-provider-catalog",
+        "data.import.preview": "/actions/data-import-preview",
+        "data.dataset.list": "/actions/data-dataset-list",
+        "data.query.fixed": "/actions/data-query-fixed",
+    }
+    assert expected.items() <= declared.items()
+    for capability_id in ("data.provider.catalog", "data.dataset.list"):
+        result = call(application, "POST", expected[capability_id])
+        assert result["capability_id"] == capability_id and result["effects"] == []
+        assert "rights" in json.dumps(result).lower() and "network" in json.dumps(result).lower()
+
+
+def test_phase1_hosted_json_preview_advertises_text_csv_only(application: FastAPI) -> None:
+    route = next(
+        item
+        for item in application.routes
+        if item.path == "/actions/data-import-preview" and "POST" in item.methods
+    )
+    request_type = inspect.get_annotations(route.endpoint, eval_str=True)["request"]
+    filename_pattern = next(
+        item.pattern
+        for item in request_type.model_fields["filename"].metadata
+        if hasattr(item, "pattern")
+    )
+
+    assert re.fullmatch(filename_pattern, "reviewed-export.csv")
+    assert not re.fullmatch(filename_pattern, "binary-export.parquet")
+
+
+def test_phase1_missing_availability_crosswalk_and_network_boundaries(application: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    daily = (ROOT / "data" / "fixtures" / "synthetic" / "day23" / "crsp_like_daily.csv").read_bytes().replace(b"2026-06-30T21:00:00Z,-41.00", b",-41.00", 1)
+    warning = research_preview(application, content=daily)
+    assert warning["valid"] is True
+    assert any(issue["code"] == "missing_available_at" and issue["severity"] == "warning" for issue in warning["preview"]["issues"])
+
+    fundamentals = (ROOT / "data" / "fixtures" / "synthetic" / "day23" / "compustat_like_annual.csv").read_bytes().replace(b"2026-03-02T13:00:00Z", b"", 1)
+    blocked = call(
+        application,
+        "POST",
+        "/api/data/import/previews",
+        file=upload("fundamentals.csv", fundamentals, "text/csv"),
+        provider_profile="synthetic_local",
+        provider_id="fictional-local-provider",
+        provider_name="Fictional Local Provider",
+        dataset_id="fictional-fundamentals",
+        dataset_kind="fundamentals_annual",
+        dataset_description="Explicitly synthetic fundamentals",
+        revision_id="revision-1",
+        rights_state="reviewed_synthetic",
+        publication_restriction="synthetic_only",
+        retrieved_at="2026-07-22T10:00:00Z",
+    )
+    assert blocked["valid"] is False
+    assert any(issue["code"] == "missing_available_at" and issue["severity"] == "blocking" for issue in blocked["preview"]["issues"])
+
+    crosswalk_source = (ROOT / "data" / "fixtures" / "synthetic" / "day23" / "crsp_compustat_link.csv").read_bytes()
+    crosswalk = call(
+        application,
+        "POST",
+        "/api/data/import/previews",
+        file=upload("crosswalk.csv", crosswalk_source, "text/csv"),
+        provider_profile="synthetic_local",
+        provider_id="fictional-local-provider",
+        provider_name="Fictional Local Provider",
+        dataset_id="fictional-crosswalk",
+        dataset_kind="identifier_crosswalk",
+        dataset_description="Explicitly synthetic date-effective links",
+        revision_id="revision-1",
+        rights_state="reviewed_synthetic",
+        publication_restriction="synthetic_only",
+        retrieved_at="2026-07-22T10:00:00Z",
+    )
+    monkeypatch.setattr(socket, "socket", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("network access attempted")))
+    confirmed = call(
+        application,
+        "POST",
+        "/api/data/import/previews/{preview_id}/confirm",
+        preview_id=crosswalk["preview_id"],
+        request=LocalImportConfirmation(confirm=True, preview_digest=crosswalk["preview_id"], source_digest=crosswalk["preview"]["source"]["source_digest"]),
+    )
+    crosswalks = call(application, "GET", "/api/data/crosswalks")["crosswalks"]
+    assert crosswalks and crosswalks[0]["records"]
+    body = html(application, "/data/crosswalks")
+    assert crosswalks[0]["snapshot_id"] in body and "Open ended" in body
+    assert confirmed["snapshot"]["crosswalk_snapshot_ids"] == [crosswalks[0]["snapshot_id"]]
+
+
+def test_licensed_imports_require_private_profile_and_render_private_disclosures(application: FastAPI) -> None:
+    research_import = html(application, "/data/import", profile="research")
+    private_import = html(application, "/data/import", profile="personal_portfolio")
+    assert 'value="licensed_local"' not in research_import
+    assert "public research profile accepts reviewed synthetic local data only" in research_import
+    assert 'value="licensed_local"' in private_import
+
+    with pytest.raises(HTTPException) as public_attempt:
+        research_preview(application, profile="licensed_local", rights="licensed_restricted", publication="no_publication")
+    assert public_attempt.value.status_code == 422
+    assert "private personal portfolio profile" in public_attempt.value.detail
+
+    licensed = research_preview(
+        application,
+        profile="licensed_local",
+        rights="licensed_restricted",
+        publication="no_publication",
+        workbench_profile="personal_portfolio",
+    )
+    preview_body = html(application, "/data/import/previews/{preview_id}", preview_id=licensed["preview_id"])
+    assert "Personal portfolio" in preview_body and "Private · local · no publication" in preview_body
+    confirmed = call(
+        application,
+        "POST",
+        "/api/data/import/previews/{preview_id}/confirm",
+        preview_id=licensed["preview_id"],
+        request=LocalImportConfirmation(confirm=True, preview_digest=licensed["preview_id"], source_digest=licensed["preview"]["source"]["source_digest"]),
+    )
+    snapshot_id = confirmed["snapshot"]["snapshot_id"]
+    detail = html(application, "/data/datasets/{snapshot_id}", snapshot_id=snapshot_id)
+    query = html(application, "/data/query/{manifest_id}", manifest_id="daily-market-history")
+    assert "Private · local · no publication" in detail and "Research profile" not in detail
+    assert "Private · local · no publication" in query and "Research profile" not in query
+    assert snapshot_id not in html(application, "/data/datasets", profile="research")
+    assert snapshot_id in html(application, "/data/datasets", profile="personal_portfolio")
+
+
+def test_preview_staging_isolated_across_colliding_metadata(application: FastAPI) -> None:
+    source = (ROOT / "data" / "fixtures" / "synthetic" / "day23" / "crsp_like_daily.csv").read_bytes()
+    valid = research_preview(application, content=source)
+    collision = call(
+        application,
+        "POST",
+        "/api/data/import/previews",
+        file=upload("research.csv", source, "text/csv"),
+        provider_profile="synthetic_local",
+        provider_id="fictional-local-provider",
+        provider_name="Fictional Local Provider",
+        dataset_id="fictional-daily-market",
+        dataset_kind="fundamentals_annual",
+        dataset_description="Explicitly synthetic application fixture",
+        revision_id="revision-1",
+        rights_state="reviewed_synthetic",
+        publication_restriction="synthetic_only",
+        workbench_profile="research",
+        retrieved_at="2026-07-22T10:00:00Z",
+    )
+    assert collision["valid"] is False and collision["preview_id"] != valid["preview_id"]
+    result = call(
+        application,
+        "POST",
+        "/api/data/import/previews/{preview_id}/confirm",
+        preview_id=valid["preview_id"],
+        request=LocalImportConfirmation(confirm=True, preview_digest=valid["preview_id"], source_digest=valid["preview"]["source"]["source_digest"]),
+    )
+    assert result["confirmation"]["created"] is True
+
+
+def test_idempotent_reupload_confirmation_removes_recreated_staging_bytes(application: FastAPI) -> None:
+    first = research_preview(application)
+    confirmation = LocalImportConfirmation(confirm=True, preview_digest=first["preview_id"], source_digest=first["preview"]["source"]["source_digest"])
+    call(application, "POST", "/api/data/import/previews/{preview_id}/confirm", preview_id=first["preview_id"], request=confirmation)
+    route = next(item for item in application.routes if item.path == "/api/data/import/previews/{preview_id}" and "GET" in item.methods)
+    current = route.endpoint.__globals__["research_workspace"]()
+    source_path = current.get_preview(first["preview_id"]).source.absolute_path
+    assert not source_path.exists()
+
+    replay = research_preview(application)
+    assert replay["preview_id"] == first["preview_id"] and source_path.exists()
+    repeated = call(application, "POST", "/api/data/import/previews/{preview_id}/confirm", preview_id=replay["preview_id"], request=confirmation)
+    assert repeated["confirmation"]["created"] is False
+    assert not source_path.exists()
+
+
+def test_structured_query_preserves_selected_identifier_type(application: FastAPI) -> None:
+    body = html(application, "/data/query/{manifest_id}", manifest_id="security-master")
+    assert 'name="identifier_type"' in body
+    for identifier_type in ("entity_id", "permno", "gvkey"):
+        assert f'value="{identifier_type}"' in body
+    route = next(item for item in application.routes if item.path == "/data/query/{manifest_id}" and "POST" in item.methods)
+    build_request = route.endpoint.__globals__["_structured_query_request"]
+    for identifier_type in ("entity_id", "permno", "gvkey"):
+        request = build_request("security-master", identifier_type=identifier_type, identifier="selected-value", limit=10)
+        assert request.parameters == {identifier_type: "selected-value"}
+    with pytest.raises(ValueError, match="selected identifier type"):
+        build_request("security-master", identifier_type="ticker", identifier="not-reviewed", limit=10)
+
+
+def test_research_storage_errors_never_render_absolute_paths(application: FastAPI) -> None:
+    created = research_preview(application)
+    route = next(item for item in application.routes if item.path == "/api/data/import/previews/{preview_id}" and "GET" in item.methods)
+    current = route.endpoint.__globals__["research_workspace"]()
+    preview = current.get_preview(created["preview_id"])
+    source_path = preview.source.absolute_path
+    source_path.unlink()
+    response = call(
+        application,
+        "POST",
+        "/data/import/previews/{preview_id}/confirm",
+        preview_id=created["preview_id"],
+        preview_digest=created["preview_id"],
+        source_digest=created["preview"]["source"]["source_digest"],
+        confirm_import="confirmed",
+        profile="research",
+    )
+    body = response.body.decode()
+    assert response.status_code == 422
+    assert "local research-data storage is unavailable" in body
+    assert str(source_path) not in body and "web-import-previews" not in body
+
+
 def test_packaged_catalogues_match_reviewed_sources(application: FastAPI) -> None:
     assert (APPLICATION_DIR / "catalog" / "research.yaml").read_bytes() == (ROOT / "docs" / "research" / "catalog.yaml").read_bytes()
     assert (APPLICATION_DIR / "catalog" / "notebooks.yaml").read_bytes() == (ROOT / "notebooks" / "catalog" / "catalog.yaml").read_bytes()
     for source in sorted((ROOT / "seed" / "knowledge-products" / "day-1").glob("*.yaml")):
         assert (APPLICATION_DIR / "seed" / "knowledge-products" / "day-1" / source.name).read_bytes() == source.read_bytes()
+    for source in sorted((ROOT / "data" / "fixtures" / "synthetic" / "day23").glob("*.mapping.json")):
+        assert (APPLICATION_DIR / "catalog" / "data-mappings" / source.name).read_bytes() == source.read_bytes()

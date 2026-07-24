@@ -25,6 +25,7 @@
       <nav class="primary-nav" aria-label="Primary navigation">
         <ul>
           {% for item_id, label, href in navigation %}
+            {% if item_id == 'monitoring-context' %}<li class="nav-section-label" aria-label="Monitoring section">Monitoring</li>{% endif %}
             <li><a href="{{ href }}{{ profile_query }}"{% if active_page == item_id %} aria-current="page"{% endif %}>{{ label }}</a></li>
           {% endfor %}
         </ul>

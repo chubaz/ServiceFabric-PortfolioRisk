@@ -1,0 +1,42 @@
+name: day23
+
+on:
+  push:
+    branches: [integration/day2-3]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install locked Day 1 environment
+        run: python -m pip install --require-hashes -r requirements/day1.lock
+      - name: Day 0 regression gate
+        run: |
+          make verify-day0
+      - name: Day 1 regression gate
+        run: |
+          make verify-day1
+      - name: Part 1 verification
+        run: make verify-d23-phase1
+      - name: Part 2 deterministic verification
+        run: make verify-d23-part2
+      - name: Current lifecycle verification
+        run: make verify-d23-current
+      - name: Part 2 headless demo
+        run: make demo-d23-part2
+      - name: Application manifest
+        run: make check-d23-application-manifest
+      # The loopback process-host smoke is a local acceptance gate. CI does not
+      # execute it or claim its evidence.
+      - name: Validate whitespace
+        run: git diff --check

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% from "components.html" import disclosure %}
+{% block title %}Fixed query catalogue{% endblock %}
+{% block heading %}Fixed reviewed query catalogue{% endblock %}
+{% block intro %}<p class="lead">Only typed structured parameters and bounded result limits are available.</p>{% endblock %}
+{% block content %}
+  {{ disclosure('No arbitrary SQL', 'There is no SQL textarea, expression parameter, notebook execution, or unreviewed view route.', 'critical') }}
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Fixed query manifests"><table><thead><tr><th scope="col">Manifest</th><th scope="col">Reviewed view</th><th scope="col">Columns</th><th scope="col">Structured parameters</th><th scope="col">Point in time</th><th scope="col">Result limit</th></tr></thead><tbody>{% for manifest in manifests %}<tr><th scope="row"><a href="/data/query/{{ manifest.manifest_id }}{{ profile_query }}">{{ manifest.manifest_id }}</a></th><td>{{ manifest.view_name }}</td><td>{{ manifest.columns|join(', ') }}</td><td>{{ manifest.parameter_names|join(', ') if manifest.parameter_names else 'None' }}</td><td>{{ manifest.point_in_time }}</td><td>{{ manifest.default_limit }} default · {{ manifest.maximum_limit }} maximum</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

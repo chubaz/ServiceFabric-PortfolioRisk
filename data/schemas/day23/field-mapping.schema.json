@@ -1,0 +1,69 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "data_type": {
+      "enum": [
+        "string",
+        "integer",
+        "decimal",
+        "date",
+        "datetime",
+        "boolean"
+      ],
+      "title": "Data Type",
+      "type": "string"
+    },
+    "nullable": {
+      "default": true,
+      "title": "Nullable",
+      "type": "boolean"
+    },
+    "source_field": {
+      "title": "Source Field",
+      "type": "string"
+    },
+    "source_unit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Unit"
+    },
+    "target_field": {
+      "title": "Target Field",
+      "type": "string"
+    },
+    "target_unit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Unit"
+    },
+    "transformation_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Transformation Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "source_field",
+    "target_field",
+    "data_type"
+  ],
+  "title": "FieldMapping",
+  "type": "object"
+}

@@ -1,0 +1,63 @@
+{
+  "$defs": {
+    "PublicationRestriction": {
+      "enum": [
+        "synthetic_only",
+        "internal_research_only",
+        "no_publication"
+      ],
+      "title": "PublicationRestriction",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "display_name": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Display Name",
+      "type": "string"
+    },
+    "network_enabled": {
+      "const": false,
+      "default": false,
+      "title": "Network Enabled",
+      "type": "boolean"
+    },
+    "private": {
+      "title": "Private",
+      "type": "boolean"
+    },
+    "profile": {
+      "enum": [
+        "synthetic_local",
+        "licensed_local"
+      ],
+      "title": "Profile",
+      "type": "string"
+    },
+    "provider_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Provider Id",
+      "type": "string"
+    },
+    "publication_restriction": {
+      "$ref": "#/$defs/PublicationRestriction"
+    },
+    "synthetic": {
+      "title": "Synthetic",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "provider_id",
+    "display_name",
+    "profile",
+    "publication_restriction",
+    "synthetic",
+    "private"
+  ],
+  "title": "EventProviderProfile",
+  "type": "object"
+}

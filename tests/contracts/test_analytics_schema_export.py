@@ -20,7 +20,7 @@ def test_analytics_schema_generation_is_reproducible(tmp_path: Path) -> None:
 
 def test_analytics_schemas_have_no_advice_optimization_or_effect_fields() -> None:
     schema_dir = ROOT / "schemas" / "risk" / "analytics" / "v0.1"
-    prohibited = {"advice", "optimization", "recommendation", "effect", "effects", "order", "trade", "rebalance", "hedge"}
+    prohibited = {"advice", "optimization", "recommendation", "effect", "order", "trade", "rebalance", "hedge"}
     for path in schema_dir.glob("*.schema.json"):
         schema = json.loads(path.read_text(encoding="utf-8"))
         names: set[str] = set()
@@ -38,3 +38,16 @@ def test_analytics_schemas_have_no_advice_optimization_or_effect_fields() -> Non
 
         collect(schema)
         assert not prohibited.intersection(names), path.name
+
+        def assert_effects_are_empty(value: object) -> None:
+            if isinstance(value, dict):
+                properties = value.get("properties")
+                if isinstance(properties, dict) and "effects" in properties:
+                    assert properties["effects"].get("maxItems") == 0, path.name
+                for item in value.values():
+                    assert_effects_are_empty(item)
+            elif isinstance(value, list):
+                for item in value:
+                    assert_effects_are_empty(item)
+
+        assert_effects_are_empty(schema)

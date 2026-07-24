@@ -1,0 +1,638 @@
+{
+  "$defs": {
+    "EventImportIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Field"
+        },
+        "message": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "row_number": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Row Number"
+        },
+        "severity": {
+          "enum": [
+            "warning",
+            "blocking"
+          ],
+          "title": "Severity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "message"
+      ],
+      "title": "EventImportIssue",
+      "type": "object"
+    },
+    "EventMappingManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "duplicate_source_id_policy": {
+          "default": "reject",
+          "enum": [
+            "reject",
+            "deterministic_version"
+          ],
+          "title": "Duplicate Source Id Policy",
+          "type": "string"
+        },
+        "entity_matching": {
+          "const": "explicit_identifier_only",
+          "default": "explicit_identifier_only",
+          "title": "Entity Matching",
+          "type": "string"
+        },
+        "field_mapping": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Field Mapping",
+          "type": "object"
+        },
+        "manifest_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Manifest Id",
+          "type": "string"
+        },
+        "novelty_maximum": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "default": "1",
+          "title": "Novelty Maximum"
+        },
+        "novelty_minimum": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "default": "0",
+          "title": "Novelty Minimum"
+        },
+        "relevance_maximum": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "default": "1",
+          "title": "Relevance Maximum"
+        },
+        "relevance_minimum": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "default": "0",
+          "title": "Relevance Minimum"
+        },
+        "sentiment_maximum": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "default": "1",
+          "title": "Sentiment Maximum"
+        },
+        "sentiment_minimum": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "default": "-1",
+          "title": "Sentiment Minimum"
+        }
+      },
+      "required": [
+        "manifest_id",
+        "field_mapping"
+      ],
+      "title": "EventMappingManifest",
+      "type": "object"
+    },
+    "EventProviderProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "display_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "network_enabled": {
+          "const": false,
+          "default": false,
+          "title": "Network Enabled",
+          "type": "boolean"
+        },
+        "private": {
+          "title": "Private",
+          "type": "boolean"
+        },
+        "profile": {
+          "enum": [
+            "synthetic_local",
+            "licensed_local"
+          ],
+          "title": "Profile",
+          "type": "string"
+        },
+        "provider_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "publication_restriction": {
+          "$ref": "#/$defs/PublicationRestriction"
+        },
+        "synthetic": {
+          "title": "Synthetic",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "provider_id",
+        "display_name",
+        "profile",
+        "publication_restriction",
+        "synthetic",
+        "private"
+      ],
+      "title": "EventProviderProfile",
+      "type": "object"
+    },
+    "LocalEventRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "amendment_state": {
+          "enum": [
+            "original",
+            "amendment",
+            "retraction"
+          ],
+          "title": "Amendment State",
+          "type": "string"
+        },
+        "available_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Available At"
+        },
+        "entity_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "event_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Text"
+        },
+        "event_time": {
+          "format": "date-time",
+          "title": "Event Time",
+          "type": "string"
+        },
+        "event_type": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Event Type",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/MonitoringEvidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "local_event_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Local Event Id",
+          "type": "string"
+        },
+        "novelty": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Novelty"
+        },
+        "private": {
+          "title": "Private",
+          "type": "boolean"
+        },
+        "private_state": {
+          "anyOf": [
+            {
+              "enum": [
+                "public_metadata",
+                "private_local"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Private State"
+        },
+        "provider_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "publication_restriction": {
+          "$ref": "#/$defs/PublicationRestriction"
+        },
+        "relevance": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Relevance"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "sentiment": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Sentiment"
+        },
+        "source_event_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Event Id",
+          "type": "string"
+        },
+        "supersedes_event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supersedes Event Id"
+        },
+        "synthetic": {
+          "title": "Synthetic",
+          "type": "boolean"
+        },
+        "synthetic_state": {
+          "anyOf": [
+            {
+              "enum": [
+                "synthetic",
+                "non_synthetic"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Synthetic State"
+        }
+      },
+      "required": [
+        "provider_id",
+        "source_event_id",
+        "local_event_id",
+        "entity_id",
+        "event_time",
+        "available_at",
+        "retrieved_at",
+        "event_type",
+        "relevance",
+        "sentiment",
+        "novelty",
+        "amendment_state",
+        "publication_restriction",
+        "synthetic",
+        "private",
+        "evidence"
+      ],
+      "title": "LocalEventRecord",
+      "type": "object"
+    },
+    "MonitoringEvidence": {
+      "additionalProperties": false,
+      "description": "A publication-safe reference to retained local evidence.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "evidence_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "reference": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "reference"
+      ],
+      "title": "MonitoringEvidence",
+      "type": "object"
+    },
+    "PublicationRestriction": {
+      "enum": [
+        "synthetic_only",
+        "internal_research_only",
+        "no_publication"
+      ],
+      "title": "PublicationRestriction",
+      "type": "string"
+    },
+    "SourceFileReference": {
+      "additionalProperties": false,
+      "properties": {
+        "absolute_path": {
+          "format": "path",
+          "title": "Absolute Path",
+          "type": "string"
+        },
+        "byte_count": {
+          "minimum": 0,
+          "title": "Byte Count",
+          "type": "integer"
+        },
+        "file_format": {
+          "enum": [
+            "csv",
+            "parquet"
+          ],
+          "title": "File Format",
+          "type": "string"
+        },
+        "landing_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Landing Path"
+        },
+        "retained": {
+          "default": false,
+          "title": "Retained",
+          "type": "boolean"
+        },
+        "source_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Source Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "absolute_path",
+        "file_format",
+        "source_digest",
+        "byte_count"
+      ],
+      "title": "SourceFileReference",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "accepted_row_count": {
+      "minimum": 0,
+      "title": "Accepted Row Count",
+      "type": "integer"
+    },
+    "dataset_revision": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Dataset Revision",
+      "type": "string"
+    },
+    "issues": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/EventImportIssue"
+      },
+      "title": "Issues",
+      "type": "array"
+    },
+    "mapping_manifest": {
+      "$ref": "#/$defs/EventMappingManifest"
+    },
+    "preview_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Preview Digest",
+      "type": "string"
+    },
+    "provider": {
+      "$ref": "#/$defs/EventProviderProfile"
+    },
+    "public_evidence": {
+      "items": {
+        "$ref": "#/$defs/MonitoringEvidence"
+      },
+      "minItems": 1,
+      "title": "Public Evidence",
+      "type": "array"
+    },
+    "records": {
+      "items": {
+        "$ref": "#/$defs/LocalEventRecord"
+      },
+      "title": "Records",
+      "type": "array"
+    },
+    "rejected_row_count": {
+      "minimum": 0,
+      "title": "Rejected Row Count",
+      "type": "integer"
+    },
+    "retrieved_at": {
+      "format": "date-time",
+      "title": "Retrieved At",
+      "type": "string"
+    },
+    "row_count": {
+      "minimum": 0,
+      "title": "Row Count",
+      "type": "integer"
+    },
+    "source": {
+      "$ref": "#/$defs/SourceFileReference"
+    }
+  },
+  "required": [
+    "preview_digest",
+    "source",
+    "provider",
+    "dataset_revision",
+    "mapping_manifest",
+    "retrieved_at",
+    "records",
+    "row_count",
+    "accepted_row_count",
+    "rejected_row_count",
+    "public_evidence"
+  ],
+  "title": "EventImportPreview",
+  "type": "object"
+}

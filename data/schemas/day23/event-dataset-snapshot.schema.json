@@ -1,0 +1,408 @@
+{
+  "$defs": {
+    "LocalEventRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "amendment_state": {
+          "enum": [
+            "original",
+            "amendment",
+            "retraction"
+          ],
+          "title": "Amendment State",
+          "type": "string"
+        },
+        "available_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Available At"
+        },
+        "entity_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "event_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Text"
+        },
+        "event_time": {
+          "format": "date-time",
+          "title": "Event Time",
+          "type": "string"
+        },
+        "event_type": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Event Type",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/MonitoringEvidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "local_event_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Local Event Id",
+          "type": "string"
+        },
+        "novelty": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Novelty"
+        },
+        "private": {
+          "title": "Private",
+          "type": "boolean"
+        },
+        "private_state": {
+          "anyOf": [
+            {
+              "enum": [
+                "public_metadata",
+                "private_local"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Private State"
+        },
+        "provider_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "publication_restriction": {
+          "$ref": "#/$defs/PublicationRestriction"
+        },
+        "relevance": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Relevance"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "sentiment": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Sentiment"
+        },
+        "source_event_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Event Id",
+          "type": "string"
+        },
+        "supersedes_event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supersedes Event Id"
+        },
+        "synthetic": {
+          "title": "Synthetic",
+          "type": "boolean"
+        },
+        "synthetic_state": {
+          "anyOf": [
+            {
+              "enum": [
+                "synthetic",
+                "non_synthetic"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Synthetic State"
+        }
+      },
+      "required": [
+        "provider_id",
+        "source_event_id",
+        "local_event_id",
+        "entity_id",
+        "event_time",
+        "available_at",
+        "retrieved_at",
+        "event_type",
+        "relevance",
+        "sentiment",
+        "novelty",
+        "amendment_state",
+        "publication_restriction",
+        "synthetic",
+        "private",
+        "evidence"
+      ],
+      "title": "LocalEventRecord",
+      "type": "object"
+    },
+    "MonitoringEvidence": {
+      "additionalProperties": false,
+      "description": "A publication-safe reference to retained local evidence.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "evidence_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "reference": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "reference"
+      ],
+      "title": "MonitoringEvidence",
+      "type": "object"
+    },
+    "PublicationRestriction": {
+      "enum": [
+        "synthetic_only",
+        "internal_research_only",
+        "no_publication"
+      ],
+      "title": "PublicationRestriction",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "dataset_revision": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Dataset Revision",
+      "type": "string"
+    },
+    "digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Digest"
+    },
+    "evidence": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/MonitoringEvidence"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "mapping_manifest_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Mapping Manifest Id",
+      "type": "string"
+    },
+    "private": {
+      "title": "Private",
+      "type": "boolean"
+    },
+    "private_state": {
+      "anyOf": [
+        {
+          "enum": [
+            "public_metadata",
+            "private_local"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Private State"
+    },
+    "provider_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Provider Id",
+      "type": "string"
+    },
+    "public_evidence": {
+      "items": {
+        "$ref": "#/$defs/MonitoringEvidence"
+      },
+      "minItems": 1,
+      "title": "Public Evidence",
+      "type": "array"
+    },
+    "publication_restriction": {
+      "$ref": "#/$defs/PublicationRestriction"
+    },
+    "records": {
+      "items": {
+        "$ref": "#/$defs/LocalEventRecord"
+      },
+      "title": "Records",
+      "type": "array"
+    },
+    "snapshot_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Snapshot Id",
+      "type": "string"
+    },
+    "source_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Source Digest",
+      "type": "string"
+    },
+    "supersedes_snapshot_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supersedes Snapshot Id"
+    },
+    "synthetic": {
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "synthetic_state": {
+      "anyOf": [
+        {
+          "enum": [
+            "synthetic",
+            "non_synthetic"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Synthetic State"
+    }
+  },
+  "required": [
+    "snapshot_id",
+    "provider_id",
+    "dataset_revision",
+    "created_at",
+    "source_digest",
+    "mapping_manifest_id",
+    "records",
+    "publication_restriction",
+    "synthetic",
+    "private",
+    "public_evidence"
+  ],
+  "title": "EventDatasetSnapshot",
+  "type": "object"
+}

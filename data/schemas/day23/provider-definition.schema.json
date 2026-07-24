@@ -1,0 +1,62 @@
+{
+  "$defs": {
+    "ProviderAccessState": {
+      "enum": [
+        "available",
+        "disabled"
+      ],
+      "title": "ProviderAccessState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "access_state": {
+      "$ref": "#/$defs/ProviderAccessState",
+      "default": "available"
+    },
+    "credential_reference": {
+      "anyOf": [
+        {
+          "pattern": "^secret-ref:[a-z0-9/_-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Credential Reference"
+    },
+    "display_name": {
+      "title": "Display Name",
+      "type": "string"
+    },
+    "network_enabled": {
+      "const": false,
+      "default": false,
+      "title": "Network Enabled",
+      "type": "boolean"
+    },
+    "profile": {
+      "enum": [
+        "synthetic_local",
+        "licensed_local"
+      ],
+      "title": "Profile",
+      "type": "string"
+    },
+    "provider_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Provider Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider_id",
+    "display_name",
+    "profile"
+  ],
+  "title": "ProviderDefinition",
+  "type": "object"
+}

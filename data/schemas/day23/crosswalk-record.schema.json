@@ -1,0 +1,122 @@
+{
+  "$defs": {
+    "EntityIdentifier": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_id": {
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "identifier_type": {
+          "enum": [
+            "permno",
+            "gvkey",
+            "cusip",
+            "cik",
+            "ticker"
+          ],
+          "title": "Identifier Type",
+          "type": "string"
+        },
+        "identifier_value": {
+          "title": "Identifier Value",
+          "type": "string"
+        },
+        "valid_from": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid From"
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid To"
+        }
+      },
+      "required": [
+        "entity_id",
+        "identifier_type",
+        "identifier_value"
+      ],
+      "title": "EntityIdentifier",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "available_at": {
+      "format": "date-time",
+      "title": "Available At",
+      "type": "string"
+    },
+    "effective_from": {
+      "format": "date",
+      "title": "Effective From",
+      "type": "string"
+    },
+    "effective_to": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Effective To"
+    },
+    "link_primary": {
+      "title": "Link Primary",
+      "type": "string"
+    },
+    "link_type": {
+      "title": "Link Type",
+      "type": "string"
+    },
+    "observed_at": {
+      "format": "date",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "open_ended": {
+      "default": false,
+      "title": "Open Ended",
+      "type": "boolean"
+    },
+    "source_identifier": {
+      "$ref": "#/$defs/EntityIdentifier"
+    },
+    "target_identifier": {
+      "$ref": "#/$defs/EntityIdentifier"
+    }
+  },
+  "required": [
+    "source_identifier",
+    "target_identifier",
+    "effective_from",
+    "observed_at",
+    "available_at",
+    "link_type",
+    "link_primary"
+  ],
+  "title": "CrosswalkRecord",
+  "type": "object"
+}

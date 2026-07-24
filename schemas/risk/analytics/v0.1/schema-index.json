@@ -42,6 +42,16 @@
       "sha256": "693a85342d4864c34a7716a5ed9285ae622a27e86c35993b932767b038641a51"
     },
     {
+      "schema_id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/monitoring-report-request.schema.json",
+      "schema_path": "monitoring-report-request.schema.json",
+      "sha256": "3149eec0b94aeab61cfdd0c3ac4c3c5597e58ed28a7a818677e78aad4d02f0f3"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/monitoring-report.schema.json",
+      "schema_path": "monitoring-report.schema.json",
+      "sha256": "19962f9968861bea02c2deca2f2e08cce6d37cf25a76794923000e4ac5d01233"
+    },
+    {
       "schema_id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/return-observation.schema.json",
       "schema_path": "return-observation.schema.json",
       "sha256": "00165d94495c9154cc036b2f9ccea2d3b8f94600489802f105f158dce278b496"

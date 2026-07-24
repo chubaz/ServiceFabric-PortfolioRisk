@@ -1,0 +1,647 @@
+{
+  "$defs": {
+    "DatasetDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "dataset_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "dataset_kind": {
+          "enum": [
+            "security_master",
+            "daily_market",
+            "fundamentals_annual",
+            "identifier_crosswalk"
+          ],
+          "title": "Dataset Kind",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "provider_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Provider Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dataset_id",
+        "provider_id",
+        "dataset_kind",
+        "description"
+      ],
+      "title": "DatasetDefinition",
+      "type": "object"
+    },
+    "DatasetRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "dataset_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "revision_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Revision Id",
+          "type": "string"
+        },
+        "source_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Source Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dataset_id",
+        "revision_id",
+        "retrieved_at",
+        "source_digest"
+      ],
+      "title": "DatasetRevision",
+      "type": "object"
+    },
+    "FieldDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "data_type": {
+          "enum": [
+            "string",
+            "integer",
+            "decimal",
+            "date",
+            "datetime",
+            "boolean"
+          ],
+          "title": "Data Type",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "field_name": {
+          "title": "Field Name",
+          "type": "string"
+        },
+        "nullable": {
+          "default": true,
+          "title": "Nullable",
+          "type": "boolean"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "field_name",
+        "data_type"
+      ],
+      "title": "FieldDefinition",
+      "type": "object"
+    },
+    "FieldMapping": {
+      "additionalProperties": false,
+      "properties": {
+        "data_type": {
+          "enum": [
+            "string",
+            "integer",
+            "decimal",
+            "date",
+            "datetime",
+            "boolean"
+          ],
+          "title": "Data Type",
+          "type": "string"
+        },
+        "nullable": {
+          "default": true,
+          "title": "Nullable",
+          "type": "boolean"
+        },
+        "source_field": {
+          "title": "Source Field",
+          "type": "string"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Unit"
+        },
+        "target_field": {
+          "title": "Target Field",
+          "type": "string"
+        },
+        "target_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Unit"
+        },
+        "transformation_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Transformation Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_field",
+        "target_field",
+        "data_type"
+      ],
+      "title": "FieldMapping",
+      "type": "object"
+    },
+    "LocalMappingManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "dataset_kind": {
+          "enum": [
+            "security_master",
+            "daily_market",
+            "fundamentals_annual",
+            "identifier_crosswalk"
+          ],
+          "title": "Dataset Kind",
+          "type": "string"
+        },
+        "field_definitions": {
+          "items": {
+            "$ref": "#/$defs/FieldDefinition"
+          },
+          "title": "Field Definitions",
+          "type": "array"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/FieldMapping"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "key_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Key Fields",
+          "type": "array"
+        },
+        "link_overlap_policy": {
+          "default": "reject",
+          "enum": [
+            "reject",
+            "latest_start"
+          ],
+          "title": "Link Overlap Policy",
+          "type": "string"
+        },
+        "manifest_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Manifest Id",
+          "type": "string"
+        },
+        "point_in_time_policy": {
+          "$ref": "#/$defs/PointInTimePolicy"
+        },
+        "target_dataset": {
+          "enum": [
+            "security_master",
+            "daily_market",
+            "fundamentals_annual",
+            "identifier_crosswalk"
+          ],
+          "title": "Target Dataset",
+          "type": "string"
+        },
+        "transformations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TransformationRecord"
+          },
+          "title": "Transformations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "manifest_id",
+        "dataset_kind",
+        "target_dataset",
+        "fields",
+        "field_definitions",
+        "key_fields",
+        "point_in_time_policy"
+      ],
+      "title": "LocalMappingManifest",
+      "type": "object"
+    },
+    "PointInTimePolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "available_at_field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Available At Field"
+        },
+        "missing_available_at": {
+          "default": "block",
+          "enum": [
+            "block",
+            "warn"
+          ],
+          "title": "Missing Available At",
+          "type": "string"
+        },
+        "observed_at_field": {
+          "title": "Observed At Field",
+          "type": "string"
+        },
+        "query_filter": {
+          "const": "available_at_lte_as_of",
+          "default": "available_at_lte_as_of",
+          "title": "Query Filter",
+          "type": "string"
+        }
+      },
+      "required": [
+        "observed_at_field",
+        "available_at_field"
+      ],
+      "title": "PointInTimePolicy",
+      "type": "object"
+    },
+    "ProviderAccessState": {
+      "enum": [
+        "available",
+        "disabled"
+      ],
+      "title": "ProviderAccessState",
+      "type": "string"
+    },
+    "ProviderDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "access_state": {
+          "$ref": "#/$defs/ProviderAccessState",
+          "default": "available"
+        },
+        "credential_reference": {
+          "anyOf": [
+            {
+              "pattern": "^secret-ref:[a-z0-9/_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Credential Reference"
+        },
+        "display_name": {
+          "title": "Display Name",
+          "type": "string"
+        },
+        "network_enabled": {
+          "const": false,
+          "default": false,
+          "title": "Network Enabled",
+          "type": "boolean"
+        },
+        "profile": {
+          "enum": [
+            "synthetic_local",
+            "licensed_local"
+          ],
+          "title": "Profile",
+          "type": "string"
+        },
+        "provider_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Provider Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider_id",
+        "display_name",
+        "profile"
+      ],
+      "title": "ProviderDefinition",
+      "type": "object"
+    },
+    "PublicationRestriction": {
+      "enum": [
+        "synthetic_only",
+        "internal_research_only",
+        "no_publication"
+      ],
+      "title": "PublicationRestriction",
+      "type": "string"
+    },
+    "RightsState": {
+      "enum": [
+        "reviewed_synthetic",
+        "licensed_restricted"
+      ],
+      "title": "RightsState",
+      "type": "string"
+    },
+    "SourceFileReference": {
+      "additionalProperties": false,
+      "properties": {
+        "absolute_path": {
+          "format": "path",
+          "title": "Absolute Path",
+          "type": "string"
+        },
+        "byte_count": {
+          "minimum": 0,
+          "title": "Byte Count",
+          "type": "integer"
+        },
+        "file_format": {
+          "enum": [
+            "csv",
+            "parquet"
+          ],
+          "title": "File Format",
+          "type": "string"
+        },
+        "landing_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Landing Path"
+        },
+        "retained": {
+          "default": false,
+          "title": "Retained",
+          "type": "boolean"
+        },
+        "source_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Source Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "absolute_path",
+        "file_format",
+        "source_digest",
+        "byte_count"
+      ],
+      "title": "SourceFileReference",
+      "type": "object"
+    },
+    "TransformationRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "disclosure": {
+          "title": "Disclosure",
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "identity",
+            "absolute_value",
+            "scale",
+            "sign_normalization",
+            "open_end_date"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Parameters",
+          "type": "object"
+        },
+        "source_field": {
+          "title": "Source Field",
+          "type": "string"
+        },
+        "target_field": {
+          "title": "Target Field",
+          "type": "string"
+        },
+        "transformation_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Transformation Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "transformation_id",
+        "operation",
+        "source_field",
+        "target_field",
+        "disclosure"
+      ],
+      "title": "TransformationRecord",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "crosswalk_snapshot_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Crosswalk Snapshot Ids",
+      "type": "array"
+    },
+    "curated_path": {
+      "format": "path",
+      "title": "Curated Path",
+      "type": "string"
+    },
+    "dataset_revisions": {
+      "items": {
+        "$ref": "#/$defs/DatasetRevision"
+      },
+      "title": "Dataset Revisions",
+      "type": "array"
+    },
+    "datasets": {
+      "items": {
+        "$ref": "#/$defs/DatasetDefinition"
+      },
+      "title": "Datasets",
+      "type": "array"
+    },
+    "evidence_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Ids",
+      "type": "array"
+    },
+    "fixed_query_manifest_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Fixed Query Manifest Ids",
+      "type": "array"
+    },
+    "mapping_manifests": {
+      "items": {
+        "$ref": "#/$defs/LocalMappingManifest"
+      },
+      "title": "Mapping Manifests",
+      "type": "array"
+    },
+    "normalized_paths": {
+      "items": {
+        "format": "path",
+        "type": "string"
+      },
+      "title": "Normalized Paths",
+      "type": "array"
+    },
+    "point_in_time_policies": {
+      "items": {
+        "$ref": "#/$defs/PointInTimePolicy"
+      },
+      "title": "Point In Time Policies",
+      "type": "array"
+    },
+    "providers": {
+      "items": {
+        "$ref": "#/$defs/ProviderDefinition"
+      },
+      "title": "Providers",
+      "type": "array"
+    },
+    "publication_restrictions": {
+      "items": {
+        "$ref": "#/$defs/PublicationRestriction"
+      },
+      "title": "Publication Restrictions",
+      "type": "array"
+    },
+    "quality_report_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Quality Report Ids",
+      "type": "array"
+    },
+    "rights_states": {
+      "items": {
+        "$ref": "#/$defs/RightsState"
+      },
+      "title": "Rights States",
+      "type": "array"
+    },
+    "snapshot_id": {
+      "title": "Snapshot Id",
+      "type": "string"
+    },
+    "source_files": {
+      "items": {
+        "$ref": "#/$defs/SourceFileReference"
+      },
+      "title": "Source Files",
+      "type": "array"
+    },
+    "source_schemas": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/FieldDefinition"
+        },
+        "type": "array"
+      },
+      "title": "Source Schemas",
+      "type": "object"
+    },
+    "supersedes_snapshot_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supersedes Snapshot Id"
+    }
+  },
+  "required": [
+    "snapshot_id",
+    "created_at",
+    "providers",
+    "datasets",
+    "dataset_revisions",
+    "source_files",
+    "source_schemas",
+    "mapping_manifests",
+    "rights_states",
+    "point_in_time_policies",
+    "normalized_paths",
+    "curated_path",
+    "quality_report_ids",
+    "fixed_query_manifest_ids",
+    "publication_restrictions",
+    "evidence_ids"
+  ],
+  "title": "ResearchDatasetSnapshot",
+  "type": "object"
+}

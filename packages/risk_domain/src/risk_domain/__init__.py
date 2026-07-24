@@ -1,6 +1,7 @@
 """Public immutable portfolio-risk domain contracts."""
 
 from .models import AgentRun, AlertDraft, ArtifactReference, CashBalance, ConcentrationMeasure, DatasetFile, DatasetProvenance, DatasetSnapshot, DecisionPoint, ExposureSnapshot, FundamentalObservation, Instrument, InstrumentIdentifier, MarketObservation, NewsEvent, PortfolioSnapshot, Position, PositionExposure, QualityFlag, RiskFinding, RiskLimit, SourceReference
+from .monitoring import AlertOutcomeMatch, ContextQualityIssue, ContextualMonitoringRequest, ContextualMonitoringRun, DataVintageSelection, DateEffectiveMapping, EvaluationWarning, InstrumentDataBinding, MappingCoverage, MonitoringAlertDraft, MonitoringCapabilityReceipt, MonitoringEvaluation, MonitoringEventSignal, MonitoringEvidence, MonitoringEvidenceBundle, MonitoringFinding, MonitoringFindingSet, MonitoringMetric, MonitoringPolicy, MonitoringPolicyVersion, OutcomeLabel, PointInTimeObservation, PolicyBreach, PolicyEvaluationRequest, PolicyEvaluationResult, PortfolioDataContext, PortfolioDataContextRequest, ReplayRun, ReplaySpecification, ReplayStep, create_portfolio_data_context, evaluate_monitoring_policy, evaluate_replay, run_contextual_monitoring, synthesize_monitoring_alert
 
 __all__ = [
     "AgentRun",
@@ -25,4 +26,39 @@ __all__ = [
     "RiskFinding",
     "RiskLimit",
     "SourceReference",
+    "AlertOutcomeMatch",
+    "ContextQualityIssue",
+    "ContextualMonitoringRequest",
+    "ContextualMonitoringRun",
+    "DataVintageSelection",
+    "DateEffectiveMapping",
+    "EvaluationWarning",
+    "InstrumentDataBinding",
+    "MappingCoverage",
+    "MonitoringAlertDraft",
+    "MonitoringCapabilityReceipt",
+    "MonitoringEvaluation",
+    "MonitoringEventSignal",
+    "MonitoringEvidence",
+    "MonitoringEvidenceBundle",
+    "MonitoringFinding",
+    "MonitoringFindingSet",
+    "MonitoringMetric",
+    "MonitoringPolicy",
+    "MonitoringPolicyVersion",
+    "OutcomeLabel",
+    "PointInTimeObservation",
+    "PolicyBreach",
+    "PolicyEvaluationRequest",
+    "PolicyEvaluationResult",
+    "PortfolioDataContext",
+    "PortfolioDataContextRequest",
+    "ReplayRun",
+    "ReplaySpecification",
+    "ReplayStep",
+    "create_portfolio_data_context",
+    "evaluate_monitoring_policy",
+    "evaluate_replay",
+    "run_contextual_monitoring",
+    "synthesize_monitoring_alert",
 ]

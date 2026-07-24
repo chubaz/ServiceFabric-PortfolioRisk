@@ -1,0 +1,54 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "absolute_path": {
+      "format": "path",
+      "title": "Absolute Path",
+      "type": "string"
+    },
+    "byte_count": {
+      "minimum": 0,
+      "title": "Byte Count",
+      "type": "integer"
+    },
+    "file_format": {
+      "enum": [
+        "csv",
+        "parquet"
+      ],
+      "title": "File Format",
+      "type": "string"
+    },
+    "landing_path": {
+      "anyOf": [
+        {
+          "format": "path",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Landing Path"
+    },
+    "retained": {
+      "default": false,
+      "title": "Retained",
+      "type": "boolean"
+    },
+    "source_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Source Digest",
+      "type": "string"
+    }
+  },
+  "required": [
+    "absolute_path",
+    "file_format",
+    "source_digest",
+    "byte_count"
+  ],
+  "title": "SourceFileReference",
+  "type": "object"
+}

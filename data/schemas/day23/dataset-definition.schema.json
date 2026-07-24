@@ -1,0 +1,37 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "dataset_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Dataset Id",
+      "type": "string"
+    },
+    "dataset_kind": {
+      "enum": [
+        "security_master",
+        "daily_market",
+        "fundamentals_annual",
+        "identifier_crosswalk"
+      ],
+      "title": "Dataset Kind",
+      "type": "string"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "provider_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Provider Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "dataset_id",
+    "provider_id",
+    "dataset_kind",
+    "description"
+  ],
+  "title": "DatasetDefinition",
+  "type": "object"
+}

@@ -1,0 +1,38 @@
+{
+  "manifest_id": "synthetic-compustat-like-annual-v1",
+  "dataset_kind": "fundamentals_annual",
+  "target_dataset": "fundamentals_annual",
+  "key_fields": ["gvkey", "observed_at"],
+  "fields": [
+    {"source_field": "gvkey", "target_field": "gvkey", "data_type": "string", "nullable": false},
+    {"source_field": "datadate", "target_field": "observed_at", "data_type": "date", "nullable": false},
+    {"source_field": "available_at", "target_field": "available_at", "data_type": "datetime", "nullable": true},
+    {"source_field": "fyear", "target_field": "fyear", "data_type": "integer", "nullable": false, "source_unit": "year", "target_unit": "year"},
+    {"source_field": "at", "target_field": "assets", "data_type": "decimal", "nullable": true, "source_unit": "USD_millions", "target_unit": "USD", "transformation_ids": ["millions-to-units-assets"]},
+    {"source_field": "lt", "target_field": "liabilities", "data_type": "decimal", "nullable": true, "source_unit": "USD_millions", "target_unit": "USD", "transformation_ids": ["millions-to-units-liabilities"]},
+    {"source_field": "sale", "target_field": "sales", "data_type": "decimal", "nullable": true, "source_unit": "USD_millions", "target_unit": "USD", "transformation_ids": ["millions-to-units-sales"]},
+    {"source_field": "ni", "target_field": "net_income", "data_type": "decimal", "nullable": true, "source_unit": "USD_millions", "target_unit": "USD", "transformation_ids": ["millions-to-units-income"]},
+    {"source_field": "ceq", "target_field": "common_equity", "data_type": "decimal", "nullable": true, "source_unit": "USD_millions", "target_unit": "USD", "transformation_ids": ["millions-to-units-equity"]},
+    {"source_field": "csho", "target_field": "shares_outstanding", "data_type": "decimal", "nullable": true, "source_unit": "shares_millions", "target_unit": "shares", "transformation_ids": ["millions-to-units-shares"]},
+    {"source_field": "prcc_f", "target_field": "fiscal_price", "data_type": "decimal", "nullable": true, "source_unit": "USD_per_share", "target_unit": "USD_per_share"},
+    {"source_field": "curcd", "target_field": "currency", "data_type": "string", "nullable": false},
+    {"source_field": "cik", "target_field": "cik", "data_type": "string", "nullable": true},
+    {"source_field": "cusip", "target_field": "cusip", "data_type": "string", "nullable": true}
+  ],
+  "field_definitions": [
+    {"field_name": "gvkey", "data_type": "string", "nullable": false, "description": "Fictional company identifier"},
+    {"field_name": "observed_at", "data_type": "date", "nullable": false},
+    {"field_name": "available_at", "data_type": "datetime", "nullable": true},
+    {"field_name": "assets", "data_type": "decimal", "nullable": true, "unit": "USD"}
+  ],
+  "transformations": [
+    {"transformation_id": "millions-to-units-assets", "operation": "scale", "source_field": "at", "target_field": "assets", "parameters": {"factor": "1000000"}, "disclosure": "Convert explicitly declared USD millions to USD."},
+    {"transformation_id": "millions-to-units-liabilities", "operation": "scale", "source_field": "lt", "target_field": "liabilities", "parameters": {"factor": "1000000"}, "disclosure": "Convert explicitly declared USD millions to USD."},
+    {"transformation_id": "millions-to-units-sales", "operation": "scale", "source_field": "sale", "target_field": "sales", "parameters": {"factor": "1000000"}, "disclosure": "Convert explicitly declared USD millions to USD."},
+    {"transformation_id": "millions-to-units-income", "operation": "scale", "source_field": "ni", "target_field": "net_income", "parameters": {"factor": "1000000"}, "disclosure": "Convert explicitly declared USD millions to USD."},
+    {"transformation_id": "millions-to-units-equity", "operation": "scale", "source_field": "ceq", "target_field": "common_equity", "parameters": {"factor": "1000000"}, "disclosure": "Convert explicitly declared USD millions to USD."},
+    {"transformation_id": "millions-to-units-shares", "operation": "scale", "source_field": "csho", "target_field": "shares_outstanding", "parameters": {"factor": "1000000"}, "disclosure": "Convert explicitly declared share millions to shares."}
+  ],
+  "point_in_time_policy": {"observed_at_field": "observed_at", "available_at_field": "available_at", "missing_available_at": "block", "query_filter": "available_at_lte_as_of"},
+  "link_overlap_policy": "reject"
+}

@@ -1,0 +1,72 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/alert-outcome-match.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "alert_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Alert Id",
+      "type": "string"
+    },
+    "alert_time": {
+      "format": "date-time",
+      "title": "Alert Time",
+      "type": "string"
+    },
+    "detection_delay_seconds": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Detection Delay Seconds"
+    },
+    "instrument_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Instrument Id",
+      "type": "string"
+    },
+    "lead_time_seconds": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Lead Time Seconds"
+    },
+    "outcome_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Outcome Id",
+      "type": "string"
+    },
+    "outcome_time": {
+      "format": "date-time",
+      "title": "Outcome Time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "alert_id",
+    "outcome_id",
+    "instrument_id",
+    "alert_time",
+    "outcome_time",
+    "lead_time_seconds",
+    "detection_delay_seconds"
+  ],
+  "title": "AlertOutcomeMatch",
+  "type": "object"
+}

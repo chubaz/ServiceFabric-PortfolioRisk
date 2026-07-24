@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
@@ -23,6 +23,8 @@ def _json_value(value: Any) -> Any:
         return format(value, "f")
     if isinstance(value, datetime):
         return value.astimezone(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
+    if isinstance(value, date):
+        return value.isoformat()
     if isinstance(value, Enum):
         return _json_value(value.value)
     if isinstance(value, Path):
