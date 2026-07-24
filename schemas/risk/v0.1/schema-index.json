@@ -12,6 +12,11 @@
       "sha256": "638d55adeeba4bff92861a00b1aaf407c6ba452d18828f382ea4ff8b49941b5e"
     },
     {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/alert-outcome-match.schema.json",
+      "schema_path": "alert-outcome-match.schema.json",
+      "sha256": "5653e0dfc2049bfa1a633ddda2f33cd138de57804efbba704bb74314e6957da1"
+    },
+    {
       "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/artifact-reference.schema.json",
       "schema_path": "artifact-reference.schema.json",
       "sha256": "9f3b834075e87631059243f3ac4621b47e62c39c51e792a5f8ee013ae7220ed9"
@@ -25,6 +30,26 @@
       "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/concentration-measure.schema.json",
       "schema_path": "concentration-measure.schema.json",
       "sha256": "2988c53dfebcb5ef94fc7c843b84793bd67ed5827a63733f8223a31614c7c41e"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/context-quality-issue.schema.json",
+      "schema_path": "context-quality-issue.schema.json",
+      "sha256": "248bb27e86c7ea32b6c6deabe050a1764b1c5dc8a9f4c0b2c201a7ada7e337a8"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/contextual-monitoring-request.schema.json",
+      "schema_path": "contextual-monitoring-request.schema.json",
+      "sha256": "a6fdad0bb56dcf10576543ce2db02306e3ff97b9182f63a08b0519b5a35c6c83"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/contextual-monitoring-run.schema.json",
+      "schema_path": "contextual-monitoring-run.schema.json",
+      "sha256": "4510513239e5b902f43a6e08e1b96413382151ad128ea4a2d11c463385fcb30f"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/data-vintage-selection.schema.json",
+      "schema_path": "data-vintage-selection.schema.json",
+      "sha256": "0829a4f5fc594dde60f9bfe5bdfcb49805c7f7ba474ee78a013f6f6c63cfbf66"
     },
     {
       "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/dataset-file.schema.json",
@@ -47,6 +72,11 @@
       "sha256": "e504064cedd0722803c7cc9e68b8f0eb991ba168c514b4258901d8a7f1703222"
     },
     {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/evaluation-warning.schema.json",
+      "schema_path": "evaluation-warning.schema.json",
+      "sha256": "16ec5751a7074bb0cadf7af8b58205b80b33db0bf69e8c844d433f0c1202c37e"
+    },
+    {
       "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/exposure-snapshot.schema.json",
       "schema_path": "exposure-snapshot.schema.json",
       "sha256": "3edeec2bcbbd1e91c1da229324904d05c3758bec05b5b21dc6b66c829e082e54"
@@ -55,6 +85,11 @@
       "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/fundamental-observation.schema.json",
       "schema_path": "fundamental-observation.schema.json",
       "sha256": "d1e87ba8df1d81681e23c4792ae418f8636509a9abd7f48859b58f93e95b422f"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/instrument-data-binding.schema.json",
+      "schema_path": "instrument-data-binding.schema.json",
+      "sha256": "94b72e78e31b91d30d7ebcc78803c8d9fe3ddc31e00385c1f57bb274b728356c"
     },
     {
       "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/instrument-identifier.schema.json",
@@ -67,14 +102,74 @@
       "sha256": "cca3977a95c9a81c50aa563e5ee211dbbb39221d770a64383fd2b868a60b808d"
     },
     {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/mapping-coverage.schema.json",
+      "schema_path": "mapping-coverage.schema.json",
+      "sha256": "7ced91c4e026f8a841326b8a20bf5bf5d55f0f5451321d77d207baa3801017b0"
+    },
+    {
       "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/market-observation.schema.json",
       "schema_path": "market-observation.schema.json",
       "sha256": "9a1e1718afe7560d858f97b829f6c39a1a969871c716f94a87d9211713d87a5d"
     },
     {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/monitoring-evaluation.schema.json",
+      "schema_path": "monitoring-evaluation.schema.json",
+      "sha256": "f1645711bf6b76f242f4a824ff8ac920cf8bed135c2d583806288491fe641752"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/monitoring-evidence-bundle.schema.json",
+      "schema_path": "monitoring-evidence-bundle.schema.json",
+      "sha256": "e8ef9d22b867ce7de3a2920a96d2b7e893325dbac9cdd6f6365554cfbe3bbe38"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/monitoring-finding-set.schema.json",
+      "schema_path": "monitoring-finding-set.schema.json",
+      "sha256": "2b6e43e63ba40fc9ff0b85ae25d7a56ed953e8f2f252d12510b84236dc88832e"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/monitoring-policy-version.schema.json",
+      "schema_path": "monitoring-policy-version.schema.json",
+      "sha256": "fe3e79dc6385750b9b87ba986eaf103a8be260afba18585d7fb2a3713cba3f61"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/monitoring-policy.schema.json",
+      "schema_path": "monitoring-policy.schema.json",
+      "sha256": "c8c82747e73986406487153aa159272fc99119555d51dbc78a00a14cf50fa950"
+    },
+    {
       "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/news-event.schema.json",
       "schema_path": "news-event.schema.json",
       "sha256": "a298c6758d02c9d86caafeedf3debfa09e45d139ed0787a97b6b99de72a1a94c"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/outcome-label.schema.json",
+      "schema_path": "outcome-label.schema.json",
+      "sha256": "8da48f9b88ca5cc81d75662f9187b4630c8a506deecadd4aa88c284552bd417a"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/policy-breach.schema.json",
+      "schema_path": "policy-breach.schema.json",
+      "sha256": "16e2205496aa21222f36b76396a21255255f4351b2dd6b9f0d303bf8af97cf12"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/policy-evaluation-request.schema.json",
+      "schema_path": "policy-evaluation-request.schema.json",
+      "sha256": "ed6689da386a5496e457122c45d3a6295a7cc3f56115900346eb3e119e52c00e"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/policy-evaluation-result.schema.json",
+      "schema_path": "policy-evaluation-result.schema.json",
+      "sha256": "0bf7fc6ea82740146faccdea3a6f99954181dbd29b7d685e930eb4d7a31220db"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/portfolio-data-context-request.schema.json",
+      "schema_path": "portfolio-data-context-request.schema.json",
+      "sha256": "ecadcfb583c14399b22173566294986736f49fa303e8854c4799665d943457cc"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/portfolio-data-context.schema.json",
+      "schema_path": "portfolio-data-context.schema.json",
+      "sha256": "c5c3c2c1cd0e10acbd0cb12d9f589db1b5c9ed14fa711a99757322926a15dd2b"
     },
     {
       "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/portfolio-snapshot.schema.json",
@@ -90,6 +185,21 @@
       "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/position.schema.json",
       "schema_path": "position.schema.json",
       "sha256": "f18dfe0c9a32bca35b2c3e0989ec62e96c8816c3d82ca0da83e9799eb0a62fd6"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/replay-run.schema.json",
+      "schema_path": "replay-run.schema.json",
+      "sha256": "ff39aa936a00a440eb3dcfd3dee89b1ed7f35dc93e0a84e01efec85a7fd225ae"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/replay-specification.schema.json",
+      "schema_path": "replay-specification.schema.json",
+      "sha256": "401ef1b7aa0d1ec1cf67ff694373f2e1034b7470e5e4c1d01fc4af98cd8cbcb8"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/replay-step.schema.json",
+      "schema_path": "replay-step.schema.json",
+      "sha256": "05bf78f67fed02272db14e118294ad80f348790a9b6d63c3a7ccdb6c36d2687a"
     },
     {
       "schema_id": "https://schemas.servicefabric.ai/risk/v0.1/risk-finding.schema.json",

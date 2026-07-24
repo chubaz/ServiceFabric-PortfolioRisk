@@ -1,0 +1,121 @@
+{
+  "$defs": {
+    "MonitoringEvidence": {
+      "additionalProperties": false,
+      "description": "A publication-safe reference to retained local evidence.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "evidence_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "reference": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "reference"
+      ],
+      "title": "MonitoringEvidence",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/data-vintage-selection.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "as_of": {
+      "format": "date-time",
+      "title": "As Of",
+      "type": "string"
+    },
+    "dataset_kind": {
+      "enum": [
+        "portfolio",
+        "market",
+        "fundamental",
+        "crosswalk",
+        "event"
+      ],
+      "title": "Dataset Kind",
+      "type": "string"
+    },
+    "dataset_revision": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Dataset Revision",
+      "type": "string"
+    },
+    "dataset_snapshot_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Dataset Snapshot Id",
+      "type": "string"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/MonitoringEvidence"
+      },
+      "minItems": 1,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "retrieved_at": {
+      "format": "date-time",
+      "title": "Retrieved At",
+      "type": "string"
+    },
+    "selected_observation_count": {
+      "minimum": 0,
+      "title": "Selected Observation Count",
+      "type": "integer"
+    },
+    "selection_rule": {
+      "const": "available_at_lte_as_of",
+      "default": "available_at_lte_as_of",
+      "title": "Selection Rule",
+      "type": "string"
+    }
+  },
+  "required": [
+    "dataset_kind",
+    "dataset_snapshot_id",
+    "dataset_revision",
+    "retrieved_at",
+    "as_of",
+    "selected_observation_count",
+    "evidence"
+  ],
+  "title": "DataVintageSelection",
+  "type": "object"
+}

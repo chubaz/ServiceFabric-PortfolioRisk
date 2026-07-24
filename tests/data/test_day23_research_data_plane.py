@@ -366,7 +366,19 @@ def test_phase1_cli_preview_confirm_list_query_and_quality(tmp_path: Path) -> No
 
 def test_repo_fixtures_are_text_only_explicitly_synthetic_and_fictional() -> None:
     files = [path for path in FIXTURES.rglob("*") if path.is_file()]
-    assert files and all(path.suffix in {".csv", ".json"} for path in files)
-    combined = "\n".join(path.read_text(encoding="utf-8") for path in files).lower()
+    allowed_parquet = FIXTURES / "accern-like-events.parquet"
+    assert files and all(
+        path.suffix in {".csv", ".json"} or path == allowed_parquet for path in files
+    )
+    combined = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in files
+        if path.suffix in {".csv", ".json"}
+    ).lower()
     assert "fictional" in combined
-    assert not any(path.suffix in {".parquet", ".duckdb", ".db", ".sqlite"} for path in (REPOSITORY_ROOT / "data").rglob("*"))
+    binary_files = {
+        path
+        for path in (REPOSITORY_ROOT / "data").rglob("*")
+        if path.suffix in {".parquet", ".duckdb", ".db", ".sqlite"}
+    }
+    assert binary_files == {allowed_parquet}

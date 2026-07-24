@@ -36,6 +36,7 @@ from .research_contracts import (
     SourceFileReference,
     TransformationRecord,
 )
+from .events import EventDatasetSnapshot, EventImportIssue, EventImportPreview, EventMappingManifest, EventProviderProfile, EventQueryRequest, EventQueryResult, LocalEventRecord
 
 
 CONTRACTS = (
@@ -65,6 +66,14 @@ CONTRACTS = (
     FixedQueryRequest,
     FixedQueryResult,
     ResearchDatasetSnapshot,
+    EventProviderProfile,
+    EventMappingManifest,
+    LocalEventRecord,
+    EventImportPreview,
+    EventImportIssue,
+    EventDatasetSnapshot,
+    EventQueryRequest,
+    EventQueryResult,
 )
 
 

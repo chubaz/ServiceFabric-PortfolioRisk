@@ -34,6 +34,7 @@ from .analytics import (
     tail_risk,
     volatility,
 )
+from .monitoring import MONITORING_HANDLERS, MONITORING_REQUEST_TYPES
 
 
 DECIMAL_CONTEXT_PRECISION = 34
@@ -43,7 +44,7 @@ ResultValue = TypeVar("ResultValue")
 class CapabilityResult(CapabilityContract, Generic[ResultValue]):
     """A local capability result with explicit evidence and no effects."""
 
-    capability_id: str = Field(pattern=r"^(planning|data|portfolio|market|news|alert|risk)\.[a-z_]+\.[a-z_]+$")
+    capability_id: str = Field(pattern=r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){1,3}$")
     status: Literal["succeeded", "failed", "stopped"] = "succeeded"
     data: ResultValue | None = None
     evidence_references: tuple[EvidenceReference, ...]
@@ -154,7 +155,7 @@ class AlertDraft(CapabilityContract):
     alert_id: str
     status: Literal["draft"] = "draft"
     summary: str
-    suggested_next_steps: tuple[Literal["investigation", "scenario_analysis", "watch_status", "rebalance_analysis"], ...]
+    suggested_next_steps: tuple[Literal["investigation", "scenario_analysis", "watch_status"], ...]
     human_review_required: Literal[True] = True
     executable_order_recommendation: Literal[False] = False
     effects: tuple[str, ...] = ()
@@ -223,6 +224,7 @@ CAPABILITY_REQUEST_TYPES = MappingProxyType(
         "risk.scenario.evaluate": ScenarioRequest,
         "risk.contribution.summarize": ContributionSummaryRequest,
         "risk.report.render": ReportRequest,
+        **MONITORING_REQUEST_TYPES,
     }
 )
 
@@ -327,7 +329,7 @@ def synthesize_alert_draft(request: AlertSynthesisRequest) -> CapabilityResult[A
     inputs = (request.market_output, request.exposure_output, request.news_output)
     if any(item.status != "succeeded" for item in inputs):
         return CapabilityResult(capability_id="alert.draft.synthesize", status="stopped", evidence_references=request.evidence_references, warnings=("Alert synthesis stopped because an upstream capability did not succeed.",))
-    draft = AlertDraft(alert_id="alert:" + "-".join(item.capability_id.replace(".", "-") for item in inputs), summary="Review required: synthetic market anomaly, concentration, and news findings require investigation.", suggested_next_steps=("investigation", "scenario_analysis", "watch_status", "rebalance_analysis"))
+    draft = AlertDraft(alert_id="alert:" + "-".join(item.capability_id.replace(".", "-") for item in inputs), summary="Review required: synthetic market anomaly, concentration, and news findings require investigation.", suggested_next_steps=("investigation", "scenario_analysis", "watch_status"))
     return CapabilityResult(capability_id="alert.draft.synthesize", data=draft, evidence_references=request.evidence_references, assumptions=("Alert content is synthesized only from supplied capability outputs.",), limitations=("The draft is not investment advice and cannot submit an order.",))
 
 
@@ -443,6 +445,7 @@ class CapabilityRegistry:
             "risk.scenario.evaluate": evaluate_scenario,
             "risk.contribution.summarize": summarize_risk_contributions,
             "risk.report.render": render_risk_report,
+            **MONITORING_HANDLERS,
         }
         if len(self._handlers) != len(set(self._handlers)):
             raise ValueError("capability IDs must be unique")
@@ -466,7 +469,15 @@ class CapabilityRegistry:
         if request_type is not None and not isinstance(request, request_type):
             raise TypeError(f"{capability_id} requires {request_type.__name__}")
         try:
-            result = handler(request)
+            if (
+                capability_id == "monitoring.replay"
+                and handler is MONITORING_HANDLERS["monitoring.replay"]
+            ):
+                from .monitoring import run_replay
+
+                result = run_replay(request, self)
+            else:
+                result = handler(request)
         except CapabilityStopped as error:
             result = CapabilityResult(capability_id=capability_id, status="stopped", evidence_references=getattr(request, "evidence_references", ()), warnings=(str(error),))
         except Exception as error:

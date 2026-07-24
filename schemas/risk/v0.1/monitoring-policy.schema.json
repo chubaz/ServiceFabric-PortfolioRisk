@@ -1,0 +1,45 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/monitoring-policy.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "description": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "human_review_required": {
+      "const": true,
+      "default": true,
+      "title": "Human Review Required",
+      "type": "boolean"
+    },
+    "name": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "owner": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Owner",
+      "type": "string"
+    },
+    "policy_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Policy Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "policy_id",
+    "name",
+    "description",
+    "owner"
+  ],
+  "title": "MonitoringPolicy",
+  "type": "object"
+}

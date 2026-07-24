@@ -1,0 +1,57 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Code",
+      "type": "string"
+    },
+    "field": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Field"
+    },
+    "message": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "row_number": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Row Number"
+    },
+    "severity": {
+      "enum": [
+        "warning",
+        "blocking"
+      ],
+      "title": "Severity",
+      "type": "string"
+    }
+  },
+  "required": [
+    "code",
+    "severity",
+    "message"
+  ],
+  "title": "EventImportIssue",
+  "type": "object"
+}

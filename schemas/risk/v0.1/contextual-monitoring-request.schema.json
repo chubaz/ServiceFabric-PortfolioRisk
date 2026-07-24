@@ -1,0 +1,1228 @@
+{
+  "$defs": {
+    "ContextQualityIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "dataset_snapshot_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dataset Snapshot Id"
+        },
+        "instrument_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Instrument Id"
+        },
+        "message": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "warning",
+            "blocking"
+          ],
+          "title": "Severity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "message"
+      ],
+      "title": "ContextQualityIssue",
+      "type": "object"
+    },
+    "DataVintageSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "as_of": {
+          "format": "date-time",
+          "title": "As Of",
+          "type": "string"
+        },
+        "dataset_kind": {
+          "enum": [
+            "portfolio",
+            "market",
+            "fundamental",
+            "crosswalk",
+            "event"
+          ],
+          "title": "Dataset Kind",
+          "type": "string"
+        },
+        "dataset_revision": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Dataset Revision",
+          "type": "string"
+        },
+        "dataset_snapshot_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Dataset Snapshot Id",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/MonitoringEvidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "selected_observation_count": {
+          "minimum": 0,
+          "title": "Selected Observation Count",
+          "type": "integer"
+        },
+        "selection_rule": {
+          "const": "available_at_lte_as_of",
+          "default": "available_at_lte_as_of",
+          "title": "Selection Rule",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dataset_kind",
+        "dataset_snapshot_id",
+        "dataset_revision",
+        "retrieved_at",
+        "as_of",
+        "selected_observation_count",
+        "evidence"
+      ],
+      "title": "DataVintageSelection",
+      "type": "object"
+    },
+    "InstrumentDataBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "crosswalk_snapshot_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Crosswalk Snapshot Id",
+          "type": "string"
+        },
+        "effective_end": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective End"
+        },
+        "effective_start": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective Start"
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity Id"
+        },
+        "evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/MonitoringEvidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "fundamental_entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fundamental Entity Id"
+        },
+        "instrument_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Instrument Id",
+          "type": "string"
+        },
+        "mapping_rule": {
+          "enum": [
+            "exact_date_effective",
+            "reviewed_primary",
+            "none"
+          ],
+          "title": "Mapping Rule",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "mapped",
+            "unmapped",
+            "ambiguous"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "instrument_id",
+        "state",
+        "crosswalk_snapshot_id",
+        "mapping_rule"
+      ],
+      "title": "InstrumentDataBinding",
+      "type": "object"
+    },
+    "MappingCoverage": {
+      "additionalProperties": false,
+      "properties": {
+        "ambiguous_count": {
+          "minimum": 0,
+          "title": "Ambiguous Count",
+          "type": "integer"
+        },
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "coverage": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Coverage"
+        },
+        "mapped_count": {
+          "minimum": 0,
+          "title": "Mapped Count",
+          "type": "integer"
+        },
+        "position_count": {
+          "minimum": 0,
+          "title": "Position Count",
+          "type": "integer"
+        },
+        "unmapped_count": {
+          "minimum": 0,
+          "title": "Unmapped Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "position_count",
+        "mapped_count",
+        "unmapped_count",
+        "ambiguous_count",
+        "coverage",
+        "complete"
+      ],
+      "title": "MappingCoverage",
+      "type": "object"
+    },
+    "MonitoringAlertDraft": {
+      "additionalProperties": false,
+      "properties": {
+        "alert_id": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alert Id"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "effects": {
+          "default": [],
+          "maxItems": 0,
+          "minItems": 0,
+          "title": "Effects",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/MonitoringEvidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "human_review_required": {
+          "const": true,
+          "default": true,
+          "title": "Human Review Required",
+          "type": "boolean"
+        },
+        "instrument_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Instrument Ids",
+          "type": "array"
+        },
+        "investment_advice": {
+          "const": false,
+          "default": false,
+          "title": "Investment Advice",
+          "type": "boolean"
+        },
+        "state": {
+          "enum": [
+            "draft",
+            "no_breach",
+            "abstained"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "suggested_next_steps": {
+          "items": {
+            "enum": [
+              "continue_monitoring",
+              "scenario_analysis",
+              "further_review"
+            ],
+            "type": "string"
+          },
+          "title": "Suggested Next Steps",
+          "type": "array"
+        },
+        "summary": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "created_at",
+        "summary",
+        "suggested_next_steps",
+        "evidence"
+      ],
+      "title": "MonitoringAlertDraft",
+      "type": "object"
+    },
+    "MonitoringCapabilityReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "capability_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Capability Id",
+          "type": "string"
+        },
+        "effects": {
+          "default": [],
+          "maxItems": 0,
+          "minItems": 0,
+          "title": "Effects",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/MonitoringEvidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "input_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Input Digest",
+          "type": "string"
+        },
+        "output_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Output Digest",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "stopped"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "capability_id",
+        "status",
+        "input_digest",
+        "output_digest",
+        "evidence"
+      ],
+      "title": "MonitoringCapabilityReceipt",
+      "type": "object"
+    },
+    "MonitoringEventSignal": {
+      "additionalProperties": false,
+      "properties": {
+        "amendment_state": {
+          "enum": [
+            "original",
+            "amendment",
+            "retraction"
+          ],
+          "title": "Amendment State",
+          "type": "string"
+        },
+        "available_at": {
+          "format": "date-time",
+          "title": "Available At",
+          "type": "string"
+        },
+        "entity_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "event_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_time": {
+          "format": "date-time",
+          "title": "Event Time",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/MonitoringEvidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "instrument_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Instrument Id"
+        },
+        "novelty": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Novelty"
+        },
+        "relevance": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Relevance"
+        },
+        "sentiment": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Sentiment"
+        }
+      },
+      "required": [
+        "event_id",
+        "entity_id",
+        "event_time",
+        "available_at",
+        "relevance",
+        "sentiment",
+        "novelty",
+        "amendment_state",
+        "evidence"
+      ],
+      "title": "MonitoringEventSignal",
+      "type": "object"
+    },
+    "MonitoringEvidence": {
+      "additionalProperties": false,
+      "description": "A publication-safe reference to retained local evidence.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "evidence_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "reference": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "reference"
+      ],
+      "title": "MonitoringEvidence",
+      "type": "object"
+    },
+    "MonitoringMetric": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/MonitoringEvidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "instrument_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Instrument Id"
+        },
+        "metric": {
+          "enum": [
+            "daily_return",
+            "volatility",
+            "drawdown",
+            "historical_var",
+            "weight",
+            "concentration",
+            "scenario_loss",
+            "contribution"
+          ],
+          "title": "Metric",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "metric",
+        "value",
+        "evidence"
+      ],
+      "title": "MonitoringMetric",
+      "type": "object"
+    },
+    "PointInTimeObservation": {
+      "additionalProperties": false,
+      "description": "One local observation with separate observation and availability time.",
+      "properties": {
+        "available_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Available At"
+        },
+        "dataset_revision": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Dataset Revision",
+          "type": "string"
+        },
+        "dataset_snapshot_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Dataset Snapshot Id",
+          "type": "string"
+        },
+        "entity_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/MonitoringEvidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "field_name": {
+          "default": "valuation_price",
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Field Name",
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "quality_flags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Quality Flags",
+          "type": "array"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "dataset_snapshot_id",
+        "dataset_revision",
+        "entity_id",
+        "observed_at",
+        "available_at",
+        "retrieved_at",
+        "evidence"
+      ],
+      "title": "PointInTimeObservation",
+      "type": "object"
+    },
+    "PolicyBreach": {
+      "additionalProperties": false,
+      "properties": {
+        "breach_id": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Breach Id"
+        },
+        "breach_type": {
+          "enum": [
+            "daily_percentage_move",
+            "concentration",
+            "event_sentiment",
+            "stale_data",
+            "historical_var",
+            "scenario_loss"
+          ],
+          "title": "Breach Type",
+          "type": "string"
+        },
+        "event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Id"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/MonitoringEvidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "instrument_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Instrument Id"
+        },
+        "observed_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed Value"
+        },
+        "summary": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "title": "Threshold"
+        }
+      },
+      "required": [
+        "breach_type",
+        "threshold",
+        "summary",
+        "evidence"
+      ],
+      "title": "PolicyBreach",
+      "type": "object"
+    },
+    "PolicyEvaluationResult": {
+      "additionalProperties": false,
+      "properties": {
+        "abstained": {
+          "title": "Abstained",
+          "type": "boolean"
+        },
+        "as_of": {
+          "format": "date-time",
+          "title": "As Of",
+          "type": "string"
+        },
+        "assumptions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "breaches": {
+          "items": {
+            "$ref": "#/$defs/PolicyBreach"
+          },
+          "title": "Breaches",
+          "type": "array"
+        },
+        "context_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Context Digest",
+          "type": "string"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "effects": {
+          "default": [],
+          "maxItems": 0,
+          "minItems": 0,
+          "title": "Effects",
+          "type": "array"
+        },
+        "evaluated_at": {
+          "format": "date-time",
+          "title": "Evaluated At",
+          "type": "string"
+        },
+        "evaluation_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Evaluation Id",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/MonitoringEvidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "human_review_required": {
+          "const": true,
+          "default": true,
+          "title": "Human Review Required",
+          "type": "boolean"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "policy_revision": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Policy Revision",
+          "type": "string"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "evaluation_id",
+        "policy_revision",
+        "context_digest",
+        "evaluated_at",
+        "as_of",
+        "breaches",
+        "abstained",
+        "evidence"
+      ],
+      "title": "PolicyEvaluationResult",
+      "type": "object"
+    },
+    "PortfolioDataContext": {
+      "additionalProperties": false,
+      "properties": {
+        "as_of": {
+          "format": "date-time",
+          "title": "As Of",
+          "type": "string"
+        },
+        "assumptions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "bindings": {
+          "items": {
+            "$ref": "#/$defs/InstrumentDataBinding"
+          },
+          "title": "Bindings",
+          "type": "array"
+        },
+        "blocked": {
+          "title": "Blocked",
+          "type": "boolean"
+        },
+        "crosswalk_snapshot_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Crosswalk Snapshot Id",
+          "type": "string"
+        },
+        "data_vintages": {
+          "items": {
+            "$ref": "#/$defs/DataVintageSelection"
+          },
+          "title": "Data Vintages",
+          "type": "array"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "event_snapshot_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Snapshot Id"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/MonitoringEvidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "fundamental_dataset_snapshot_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fundamental Dataset Snapshot Id"
+        },
+        "latest_fundamental_observations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PointInTimeObservation"
+          },
+          "title": "Latest Fundamental Observations",
+          "type": "array"
+        },
+        "latest_market_observations": {
+          "items": {
+            "$ref": "#/$defs/PointInTimeObservation"
+          },
+          "title": "Latest Market Observations",
+          "type": "array"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "mapping_coverage": {
+          "$ref": "#/$defs/MappingCoverage"
+        },
+        "market_dataset_snapshot_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Market Dataset Snapshot Id",
+          "type": "string"
+        },
+        "portfolio_snapshot_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Portfolio Snapshot Id",
+          "type": "string"
+        },
+        "quality_issues": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ContextQualityIssue"
+          },
+          "title": "Quality Issues",
+          "type": "array"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "portfolio_snapshot_id",
+        "market_dataset_snapshot_id",
+        "crosswalk_snapshot_id",
+        "as_of",
+        "bindings",
+        "mapping_coverage",
+        "data_vintages",
+        "latest_market_observations",
+        "evidence",
+        "blocked"
+      ],
+      "title": "PortfolioDataContext",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/contextual-monitoring-request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "alert_draft": {
+      "$ref": "#/$defs/MonitoringAlertDraft"
+    },
+    "assumptions": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Assumptions",
+      "type": "array"
+    },
+    "capability_receipts": {
+      "items": {
+        "$ref": "#/$defs/MonitoringCapabilityReceipt"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "title": "Capability Receipts",
+      "type": "array"
+    },
+    "context": {
+      "$ref": "#/$defs/PortfolioDataContext"
+    },
+    "events": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/MonitoringEventSignal"
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/MonitoringEvidence"
+      },
+      "minItems": 1,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "metrics": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/MonitoringMetric"
+      },
+      "title": "Metrics",
+      "type": "array"
+    },
+    "policy_evaluation": {
+      "$ref": "#/$defs/PolicyEvaluationResult"
+    },
+    "run_at": {
+      "format": "date-time",
+      "title": "Run At",
+      "type": "string"
+    },
+    "run_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "context",
+    "policy_evaluation",
+    "run_at",
+    "capability_receipts",
+    "alert_draft",
+    "evidence"
+  ],
+  "title": "ContextualMonitoringRequest",
+  "type": "object"
+}

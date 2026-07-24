@@ -41,7 +41,7 @@ class CapabilityInput(CapabilityContract):
 class CapabilityDescriptor(CapabilityContract):
     """A declared, non-executable description of a bounded capability."""
 
-    capability_id: str = Field(pattern=r"^(risk\.(capability|returns|volatility|drawdown|var|expected_shortfall|scenario|contribution|report)|planning\.knowledge|data\.synthetic|portfolio\.(snapshot|exposure)|market\.anomaly|news\.event|alert\.draft)\.[a-z_]+$")
+    capability_id: str = Field(pattern=r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){1,3}$")
     objective: str = Field(min_length=1)
     input_contract: str = Field(min_length=1)
     output_contract: str = Field(min_length=1)

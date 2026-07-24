@@ -1,0 +1,58 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/context-quality-issue.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Code",
+      "type": "string"
+    },
+    "dataset_snapshot_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dataset Snapshot Id"
+    },
+    "instrument_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Instrument Id"
+    },
+    "message": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "severity": {
+      "enum": [
+        "warning",
+        "blocking"
+      ],
+      "title": "Severity",
+      "type": "string"
+    }
+  },
+  "required": [
+    "code",
+    "severity",
+    "message"
+  ],
+  "title": "ContextQualityIssue",
+  "type": "object"
+}

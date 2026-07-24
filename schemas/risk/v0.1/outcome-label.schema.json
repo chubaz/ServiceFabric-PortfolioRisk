@@ -1,0 +1,111 @@
+{
+  "$defs": {
+    "MonitoringEvidence": {
+      "additionalProperties": false,
+      "description": "A publication-safe reference to retained local evidence.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "evidence_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "reference": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "reference"
+      ],
+      "title": "MonitoringEvidence",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/outcome-label.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/MonitoringEvidence"
+      },
+      "minItems": 1,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "instrument_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Instrument Id",
+      "type": "string"
+    },
+    "label": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+    },
+    "method": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Method",
+      "type": "string"
+    },
+    "outcome_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Outcome Id",
+      "type": "string"
+    },
+    "outcome_time": {
+      "format": "date-time",
+      "title": "Outcome Time",
+      "type": "string"
+    },
+    "trigger_available_at": {
+      "format": "date-time",
+      "title": "Trigger Available At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "outcome_id",
+    "instrument_id",
+    "outcome_time",
+    "trigger_available_at",
+    "label",
+    "method",
+    "evidence"
+  ],
+  "title": "OutcomeLabel",
+  "type": "object"
+}

@@ -9,6 +9,7 @@ from pathlib import Path
 from pydantic import BaseModel, TypeAdapter
 
 from .contracts import AnalysisEvidence, AnalysisHorizon, AnalysisMethod, AnalysisWarning, ContributionItem, ContributionSummary, DrawdownResult, HistoricalTailRiskResult, ReturnObservation, ReturnSeriesResult, RiskReport, SamplePeriod, ScenarioResult, ScenarioShock, VolatilityResult
+from .monitoring_reports import MonitoringReport, MonitoringReportRequest
 
 
 BASE_ID = "https://schemas.servicefabric.ai/risk/analytics/v0.1"
@@ -28,6 +29,8 @@ SCHEMA_RESOURCES: dict[str, object] = {
     "scenario-result.schema.json": ScenarioResult,
     "scenario-shock.schema.json": ScenarioShock,
     "volatility-result.schema.json": VolatilityResult,
+    "monitoring-report.schema.json": MonitoringReport,
+    "monitoring-report-request.schema.json": MonitoringReportRequest,
 }
 
 

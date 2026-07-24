@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
@@ -29,8 +30,12 @@ def canonicalize(value: Any) -> Any:
             raise ValueError("naive datetimes cannot be digested")
         utc_value = value.astimezone(UTC)
         return utc_value.isoformat(timespec="microseconds").replace("+00:00", "Z")
+    if isinstance(value, date):
+        return value.isoformat()
     if isinstance(value, Enum):
         return canonicalize(value.value)
+    if isinstance(value, Path):
+        return str(value)
     return value
 
 

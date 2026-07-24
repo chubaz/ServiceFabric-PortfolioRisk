@@ -431,6 +431,14 @@ class ResearchDataPlane:
             return ()
         return tuple(ResearchDatasetSnapshot.model_validate(json.loads(path.read_text(encoding="utf-8"))) for path in sorted(directory.glob("*.json")))
 
+    @staticmethod
+    def create_portfolio_data_context(request):  # type: ignore[no-untyped-def]
+        """Create the canonical point-in-time context from explicit local selections."""
+
+        from risk_domain.monitoring import create_portfolio_data_context
+
+        return create_portfolio_data_context(request)
+
     def show_data_quality(self, report_id: str | None = None) -> tuple[DataQualityReport, ...]:
         directory = self._data_path("quality")
         if not directory.exists():

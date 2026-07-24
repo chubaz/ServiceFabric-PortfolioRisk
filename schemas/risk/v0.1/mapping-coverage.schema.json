@@ -1,0 +1,55 @@
+{
+  "$id": "https://schemas.servicefabric.ai/risk/v0.1/mapping-coverage.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "ambiguous_count": {
+      "minimum": 0,
+      "title": "Ambiguous Count",
+      "type": "integer"
+    },
+    "complete": {
+      "title": "Complete",
+      "type": "boolean"
+    },
+    "coverage": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Coverage"
+    },
+    "mapped_count": {
+      "minimum": 0,
+      "title": "Mapped Count",
+      "type": "integer"
+    },
+    "position_count": {
+      "minimum": 0,
+      "title": "Position Count",
+      "type": "integer"
+    },
+    "unmapped_count": {
+      "minimum": 0,
+      "title": "Unmapped Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "position_count",
+    "mapped_count",
+    "unmapped_count",
+    "ambiguous_count",
+    "coverage",
+    "complete"
+  ],
+  "title": "MappingCoverage",
+  "type": "object"
+}
