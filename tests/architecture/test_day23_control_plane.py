@@ -53,7 +53,12 @@ def lifecycle_errors(status: object) -> list[str]:
         if tuple(status[key] for key in PART_KEYS) != expected or status["soft_qa"] != "queued":
             return ["part states are inconsistent with current"]
         return []
-    if current == "D23-QA" and all(status[key] == "complete" for key in PART_KEYS) and status["soft_qa"] == "queued":
+    if (
+        current == "D23-QA"
+        and tuple(status[key] for key in PART_KEYS)
+        == ("complete", "complete", "queued")
+        and status["soft_qa"] == "queued"
+    ):
         return []
     if current == "D23-COMPLETE" and all(status[key] == "complete" for key in PART_KEYS) and status["soft_qa"] == "passed":
         return []
@@ -79,7 +84,7 @@ def test_current_lifecycle_state_is_valid_and_matches_part_manifest() -> None:
         {"current": "D23-PART-2", "part_1": "complete", "part_2": "queued", "part_3": "queued", "soft_qa": "queued", "base_tag": "day1-complete", "programme_version": "3-part-v1"},
         {"current": "D23-PART-2", "part_1": "complete", "part_2": "in_progress", "part_3": "queued", "soft_qa": "queued", "base_tag": "day1-complete", "programme_version": "3-part-v1"},
         {"current": "D23-PART-3", "part_1": "complete", "part_2": "complete", "part_3": "complete", "soft_qa": "queued", "base_tag": "day1-complete", "programme_version": "3-part-v1"},
-        {"current": "D23-QA", "part_1": "complete", "part_2": "complete", "part_3": "complete", "soft_qa": "queued", "base_tag": "day1-complete", "programme_version": "3-part-v1"},
+        {"current": "D23-QA", "part_1": "complete", "part_2": "complete", "part_3": "queued", "soft_qa": "queued", "base_tag": "day1-complete", "programme_version": "3-part-v1"},
         {"current": "D23-COMPLETE", "part_1": "complete", "part_2": "complete", "part_3": "complete", "soft_qa": "passed", "base_tag": "day1-complete", "programme_version": "3-part-v1"},
     ],
 )
@@ -184,23 +189,23 @@ def test_completion_gates_use_all_lanes_and_ci_fetches_base_tag() -> None:
     assert "servicefabric-d23-part2-smoke" not in workflow
 
 
-def test_part_1_is_complete_and_part_2_is_active_without_final_qa() -> None:
+def test_part_2_is_complete_and_part_3_is_queued_without_qa_pass() -> None:
     status = read_json("config/agent/day23/status.json")
     assert status == {
-        "current": "D23-PART-2",
+        "current": "D23-PART-3",
         "part_1": "complete",
-        "part_2": "in_progress",
+        "part_2": "complete",
         "part_3": "queued",
         "soft_qa": "queued",
         "base_tag": "day1-complete",
         "programme_version": "3-part-v1",
     }
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8").lower()
-    assert "id: d23-part-2" in current
-    assert "status: in progress" in current
-    assert "part 1 is complete" in current
-    assert "part 3 is queued" in current
-    assert "no final qa or release claim" in current
+    assert "id: d23-part-3" in current
+    assert "part 2 integration accepted" in current
+    assert "part 1 and part 2 are complete" in current
+    assert "remains queued" in current
+    assert "no qa pass claim" in current
 
 
 def test_phase_1_demo_and_local_servicefabric_smoke_are_real_gates() -> None:
@@ -324,7 +329,54 @@ def test_part_2_make_targets_and_current_gate_are_declared() -> None:
         "demo-d23-part2",
         "servicefabric-d23-part2-smoke",
         "verify-d23-current",
+        "check-d23-application-manifest",
     ):
         assert f".PHONY: {target}" in makefile
     assert "config/agent/day23/part1-lanes.json" in makefile
     assert "--manifest config/agent/day23/lanes.json" in makefile
+
+
+def test_part_2_demo_smoke_and_ci_are_complete_without_process_host_claim() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert "scripts/day23/run_part2_demo.py" in makefile
+    assert "scripts/day23/servicefabric_part2_smoke.sh" in makefile
+    assert "unavailable until implementation is complete" not in makefile
+
+    smoke = (ROOT / "scripts/day23/servicefabric_part2_smoke.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "apps/portfolio-risk-workbench/stage_package.py" in smoke
+    assert "bootstrap_staged_servicefabric_runtime.py" in smoke
+    assert smoke.index("# The pinned upstream Text Utility baseline") < smoke.index(
+        '"$servicefabric" apps install "$staged_package"'
+    )
+    for tool_id in (
+        "portfolio.data_context.create",
+        "events.query.as_of",
+        "monitoring.policy.evaluate",
+        "monitoring.run.contextual",
+        "monitoring.replay",
+        "monitoring.evaluate",
+        "monitoring.report.render",
+    ):
+        assert tool_id in smoke
+    for proof in (
+        "capability returned non-empty or missing effects",
+        "unexpectedly executed after Workbench stop",
+        "Workbench process remains alive after stop",
+        "modified the pinned upstream ServiceFabric tree",
+    ):
+        assert proof in smoke
+
+    workflow = (ROOT / ".github/workflows/day23.yml").read_text(encoding="utf-8")
+    for command in (
+        "make verify-day0",
+        "make verify-day1",
+        "make verify-d23-phase1",
+        "make verify-d23-part2",
+        "make demo-d23-part2",
+        "make check-d23-application-manifest",
+        "git diff --check",
+    ):
+        assert command in workflow
+    assert "servicefabric-d23-part2-smoke" not in workflow

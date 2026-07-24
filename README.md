@@ -43,9 +43,9 @@ workspace retains four reviewed local query manifests. The completed Day 2–3
 Phase 1 data plane adds five fixed research query manifests; arbitrary SQL is
 not an interface.
 
-## Day 2–3 Phase 1 local research data plane
+## Day 2–3 Part 1 local research data plane
 
-Phase 1 is complete. It previews and explicitly confirms three fictional,
+Part 1 is complete. It previews and explicitly confirms three fictional,
 synthetic local exports: CRSP-like daily market data, Compustat-like annual
 fundamentals, and a date-effective CRSP-Compustat-like identifier link. It
 writes immutable normalized Parquet and curated DuckDB snapshots only beneath
@@ -72,8 +72,74 @@ evidence-manifest.json
 The evidence manifest records the SHA-256 digest of every other sibling
 artifact. The same directory contains the external mutable data-plane zones;
 Parquet, DuckDB, quality, manifest, and evidence state remain outside Git.
-Reviewable JSON Schema snapshots for all Phase 1 data-plane contracts are
+Reviewable JSON Schema snapshots for all Part 1 data-plane contracts are
 tracked under `data/schemas/day23/` and checked against fresh generation.
+
+## Day 2–3 Part 2 monitoring and replay
+
+Part 2 specialist implementation is merged, but integration completion remains
+blocked. The first Workbench package omitted hosted monitoring resources; the
+proposed correction was rejected because it tracked duplicate synthetic CSV
+fixtures outside the repository's approved `data/fixtures/synthetic/**` tree.
+The defect is routed to `feature/day23-monitoring-experience` for a
+build/install-time staging contract using the canonical fixtures. The
+deterministic journey and headless demo are available for review; no Part 2
+completion or QA-pass is claimed.
+
+Portfolio-data contexts bind an immutable portfolio snapshot to exact Part 1
+market, fundamental, and date-effective crosswalk revisions. Mapping uses
+stable identifiers only: there is no ticker, name, fuzzy, or heuristic
+fallback. Point-in-time selection uses `available_at <= as_of`; a missing
+availability time stays missing, and an unavailable required market
+observation causes abstention instead of being represented as zero.
+
+Fictional RavenPack-like CSV and Accern-like Parquet exports can be previewed
+and explicitly confirmed into immutable local event snapshots. Event queries
+return only records available at the monitoring time and preserve amendments,
+retractions, rights, publication state, and evidence digests. These fixtures
+are synthetic and are not real provider observations.
+
+Monitoring policies are immutable fixed-field revisions. Cadence is metadata
+only and creates no scheduler. Explicit foreground runs use the existing four
+agents—market data, portfolio exposure, news and sentiment, and alert and
+recommendation—through registered capabilities. Runs produce evidence-bearing
+findings and an analytical draft alert with empty effects and pending human
+review.
+
+Historical replay pins the portfolio, market, fundamental, crosswalk, event,
+and policy revisions at every deterministic step. It preserves abstentions and
+does not substitute current or future data. Evaluation uses deterministic
+one-to-one alert/outcome matching and reports true positives, false positives,
+false negatives, precision, recall, lead time, detection delay, coverage, and
+sample warnings. Undefined metrics are `null` with an explicit warning, never
+silently zero. Results are descriptive for the disclosed synthetic sample and
+make no predictive claim.
+
+`make demo-d23-part2` writes these deterministic evidence siblings beneath
+`PORTFOLIO_RISK_DATA_ROOT/day23-part2`:
+
+```text
+data-context.json
+event-import-preview.json
+event-snapshot.json
+monitoring-policy.json
+monitoring-run.json
+findings.json
+alert-draft.json
+agent-timeline.json
+replay-specification.json
+replay-runs.json
+monitoring-evaluation.json
+monitoring-report.md
+monitoring-report.html
+evidence-manifest.json
+```
+
+The manifest digests every other sibling artifact and records both operating
+profiles, selected dataset and crosswalk revisions, the policy revision,
+point-in-time rule, synthetic disclosure, pending human review, empty and
+prohibited effects, evaluation methodology, retained evidence digests, and
+accepted limitations. HTML and Markdown reports remain local review artifacts.
 
 ## Analytics, evidence, and reports
 
@@ -127,6 +193,10 @@ make servicefabric-day1-smoke
 make verify-d23-phase1
 make demo-d23-phase1
 make servicefabric-d23-phase1-smoke
+make verify-d23-part2
+make demo-d23-part2
+make servicefabric-d23-part2-smoke
+make verify-d23-current
 make verify-day0
 git diff --check
 ```
@@ -142,6 +212,14 @@ make servicefabric-day1-smoke \
   DAY1_PORTFOLIO_RISK_DATA_ROOT=/absolute/path/to/portfolio-risk-data \
   DAY1_SERVICEFABRIC_RUNTIME_VENV=/absolute/path/to/servicefabric-runtime \
   DAY1_SERVICEFABRIC_HOME=/absolute/path/to/servicefabric-home
+```
+
+For a custom Day 2–3 data location, use `DAY23_PORTFOLIO_RISK_DATA_ROOT`.
+The shorter `D23_PORTFOLIO_RISK_DATA_ROOT` spelling is also accepted:
+
+```bash
+make demo-d23-part2 \
+  D23_PORTFOLIO_RISK_DATA_ROOT=/absolute/path/to/day23-data
 ```
 
 The Day 1 smoke first validates the original pinned Text Utility baseline. It
@@ -165,6 +243,18 @@ network-disabled, verifies a post-stop call fails, and checks that the hosted
 process is cleaned up. CI runs the deterministic Phase 1 journey and demo but
 does not run or claim the local process-host smoke.
 
+The Part 2 smoke first validates the pinned upstream Text Utility baseline. It
+then installs, builds, starts, and calls the Workbench through ServiceFabric
+for `portfolio.data_context.create`, `events.query.as_of`,
+`monitoring.policy.evaluate`, `monitoring.run.contextual`,
+`monitoring.replay`, `monitoring.evaluate`, and
+`monitoring.report.render`. Every result must have empty effects. The smoke
+stops the Workbench, proves a post-stop call fails, verifies process cleanup,
+and confirms that the pinned `vendor/servicefabric` tree was not edited. CI
+runs the deterministic Part 1 and Part 2 tests, Part 2 headless demo, Day 0 and
+Day 1 regressions, application-manifest check, and whitespace check. CI does
+not run or claim Part 2 process-host smoke evidence.
+
 ## Limitations and safety boundary
 
 The checked-in observations, news, and portfolio examples are fictional and
@@ -174,13 +264,17 @@ Historical analytics are descriptive and do not predict future loss. Fixed
 scenarios use a linear shock without pricing, optimization, or hedging models.
 The base portfolio workflow performs no FX conversion.
 
-There is no external provider or LLM call, notebook execution, arbitrary SQL,
-broker connectivity, live account effect, order, trade, hedge, optimization,
-automatic rebalance, PDF export, or investment advice. HTML and Markdown
-reports are local review artifacts. Browser, keyboard, accessibility, visual,
-evidence, methodology, and user-workflow soft QA were completed by an
-identified human reviewer. The result is recorded in
-`docs/workplans/day-1/soft-qa-result.md`.
+There is no provider network access, external LLM call, notebook execution,
+arbitrary SQL, broker connectivity, live account effect, order, trade, hedge,
+optimization, automatic rebalance, PDF export, or investment advice. Reports
+are local HTML and Markdown only. Monitoring and replay are explicit foreground
+operations; there is no background scheduler. The deterministic evaluation
+sample is deliberately small, fictional, synthetic, and unsuitable for a
+predictive or investment-performance claim.
 
-Day 2–3 Phase 2 is queued and has not started. Its behavior requires a separate
-reviewed activation and is not implied by the Phase 1 closure artifacts.
+Browser, keyboard, accessibility, visual, evidence, methodology, and
+user-workflow soft QA for Day 1 were completed by an identified human reviewer
+and recorded in `docs/workplans/day-1/soft-qa-result.md`. Day 2–3 Part 3 human
+QA, evidence review, release decision, and merge remain queued. The Part 2
+package-staging blocker must be resolved without tracking duplicate fixtures,
+and all integration gates must be rerun before Part 2 can be marked complete.

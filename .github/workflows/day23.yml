@@ -28,22 +28,14 @@ jobs:
           make verify-day1
       - name: Part 1 verification
         run: make verify-d23-phase1
-      - name: Currently available Part 2 tests
-        run: |
-          make test-d23-monitoring-core
-          make test-d23-monitoring-experience
-          make test-d23-part2-integration
-          make test-d23-part2-journeys
+      - name: Part 2 deterministic verification
+        run: make verify-d23-part2
       - name: Current lifecycle verification
         run: make verify-d23-current
-      - name: Build Part 2 demo after completion
-        if: ${{ hashFiles('config/agent/day23/status.json') != '' }}
-        run: |
-          if [ "$(python -c 'import json; print(json.load(open("config/agent/day23/status.json"))["part_2"])')" = "complete" ]; then
-            make demo-d23-part2
-          else
-            echo "Part 2 is not complete; demo is deferred"
-          fi
+      - name: Part 2 headless demo
+        run: make demo-d23-part2
+      - name: Application manifest
+        run: make check-d23-application-manifest
       # The loopback process-host smoke is a local acceptance gate. CI does not
       # execute it or claim its evidence.
       - name: Validate whitespace

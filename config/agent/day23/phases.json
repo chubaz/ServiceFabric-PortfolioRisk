@@ -1,6 +1,6 @@
 {
   "programme": "day-2-3",
-  "current": "D23-PART-2",
+  "current": "D23-PART-3",
   "programme_version": "3-part-v1",
   "prior_plan": "The former four-phase plan is superseded by this three-part programme; its completed Part 1 evidence is preserved.",
   "parts": [
@@ -14,7 +14,7 @@
     {
       "id": "D23-PART-2",
       "title": "Portfolio-linked event monitoring, replay, evaluation, reports, and Workbench workflows",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": ["D23-PART-1"],
       "lanes": ["integration", "monitoring-core", "experience"]
     },

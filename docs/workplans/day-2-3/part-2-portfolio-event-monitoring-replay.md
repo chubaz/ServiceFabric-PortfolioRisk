@@ -1,6 +1,6 @@
 # D23-PART-2 — Portfolio, event monitoring, replay, and Workbench workflows
 
-- Status: in progress
+- Status: complete through integration gates; Part 3 human QA pending
 - Depends on: `D23-PART-1` (complete)
 - Integration order: `monitoring-core` -> `experience` -> `integration`
 
@@ -35,3 +35,24 @@ look-ahead, or consequential action.
   no predictive claim.
 
 Part 2 completion does not imply Part 3 QA or release approval.
+
+## Integration resolution
+
+The original hosted Workbench package omitted required monitoring resources.
+Correction candidate `ba6aa12` made the hosted actions pass by tracking four
+duplicate CSV fixtures beneath the application. That violates the repository
+boundary permitting reviewed synthetic fixtures only beneath
+`data/fixtures/synthetic/**` and creates a second source of truth, so
+integration rejected the correction.
+
+Experience candidate `4403c37` supplies the compliant staging contract. The
+integration smoke stages only the four allow-listed files beneath
+`data/fixtures/synthetic/day23/**`, regenerates and checks the complete staged
+manifest, and rebuilds the copied pinned ServiceFabric host against that
+manifest before installing the staged package. No tracked fixture duplicate is
+present beneath the application, and the Workbench runs without repository-
+relative runtime access.
+
+The Part 2 application, regression, deterministic demo, lifecycle, and local
+process-host smoke gates pass. Part 3 remains queued for human QA, evidence
+review, release decision, and merge; no QA-pass or release claim is made here.
