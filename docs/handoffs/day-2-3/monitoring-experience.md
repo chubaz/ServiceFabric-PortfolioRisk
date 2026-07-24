@@ -9,13 +9,17 @@
 ## Base and head
 
 - Base: `16238339c82324fb455f9eac8293db48d7aa1ad5`
-- HEAD: `16238339c82324fb455f9eac8293db48d7aa1ad5`
-- Delivery state: uncommitted working-tree changes, as requested
+- Original candidate: `5f159c7ed61223e44b7331fcdfb56f78e1db9489`
+- Rejected diagnostic base: `ba6aa12`
+- HEAD: correction candidate commit follows this handoff update
+- Delivery state: compliant hosted-package staging candidate ready for a fresh
+  integration decision
 
 ## Changed paths
 
 - `apps/portfolio-risk-workbench/app.py`
 - `apps/portfolio-risk-workbench/monitoring_service.py`
+- `apps/portfolio-risk-workbench/stage_package.py`
 - `apps/portfolio-risk-workbench/presentation.py`
 - `apps/portfolio-risk-workbench/risk-package-lock.json`
 - `apps/portfolio-risk-workbench/servicefabric-package.json`
@@ -27,6 +31,12 @@
 
 No root dependency, Makefile, CI, shared wave-state, monitoring-core package, or
 `vendor/servicefabric/**` path was changed.
+
+The correction removes the rejected tracked duplicates. The staging utility
+reads only the four allow-listed canonical files under
+`data/fixtures/synthetic/day23/**`, writes them to an ephemeral package tree,
+and regenerates a complete digest-locked manifest there. No staged resource is
+written back into the repository.
 
 ## Delivered behavior
 
@@ -64,16 +74,32 @@ No root dependency, Makefile, CI, shared wave-state, monitoring-core package, or
   action paths. There is no generic capability invocation endpoint.
 - Updated application source hashes and the package lock to the integrated
   monitoring-core package digests.
+- Corrected the hosted application boundary so context setup and replay outcome
+  loading resolve only package-relative resources in the staged tree. Neither
+  path depends on repository-relative `data/fixtures/**` at runtime.
+- Added `stage_package.py`, which rejects symlinks, path escape, missing
+  canonical inputs, existing output trees, and undeclared staged files.
 
 ## Tests executed
 
-- `make preflight` — PASS. The first sandboxed attempt could not reach the
-  pinned package index; the approved rerun completed successfully.
+- `make preflight` — PASS for the correction. The original candidate's first
+  sandboxed attempt could not reach the pinned package index; its approved
+  rerun also completed successfully.
 - `DAY23_VENV=/home/lorenzoccasoni/servicefabric-lab/state/venvs/day23 make test-d23-monitoring-experience`
-  — PASS, `88 passed`.
-- Focused `tests/application/test_monitoring_experience.py` — PASS, `6 passed`.
-- Python compile check for `app.py`, `monitoring_service.py`, and
-  `presentation.py` — PASS.
+  — PASS, `89 passed`.
+- Focused `tests/application/test_monitoring_experience.py` — PASS, `7 passed`.
+- Staged-package host-shaped regression — PASS. It stages from the canonical
+  fixture root, verifies staged digests, imports the Workbench from a temporary
+  `hosted-applications/.../runtime` tree, and exercises all seven Part 2
+  actions without a repository data tree.
+- `stage_package.py` smoke check — PASS. The generated manifest passes
+  `update_manifest_hashes.py --check` and includes exactly the four staged
+  monitoring resources.
+- The integration-owned ServiceFabric process-host smoke was not rerun here;
+  it still requires integration to invoke this staging contract before
+  `apps install`.
+- Python compile check for `app.py`, `monitoring_service.py`,
+  `presentation.py`, and `stage_package.py` — PASS.
 - `scripts/day0/update_manifest_hashes.py
   apps/portfolio-risk-workbench/servicefabric-package.json --check` — PASS.
 - `git diff --check` — PASS.
@@ -90,9 +116,11 @@ and manifest completeness/hashes.
 
 ## Evidence produced
 
-- Application test output: `88 passed`.
-- Focused Part 2 experience test output: `6 passed`.
+- Original candidate application test output: `88 passed`.
+- Staged-package application test output: `89 passed`.
+- Staged-package focused Part 2 experience test output: `7 passed`.
 - Manifest hash verification: PASS.
+- Generated staged manifest verification: PASS.
 - Application package lock matches the integrated local package trees.
 - Review-remediation evidence covers rejection of future portfolio snapshots,
   unknown market/crosswalk revisions, runs predating context, bounded replay,
@@ -102,6 +130,11 @@ and manifest completeness/hashes.
 ## Deviations
 
 - No functional deviation from the Part 2 workplan or frozen contracts.
+- Integration review found that the original hosted context action resolved
+  repository-relative fixtures outside the built package. The rejected
+  diagnostic correction proved the runtime fix but violated the sole canonical
+  synthetic-fixture boundary. This candidate moves the copy operation to an
+  explicit ephemeral staging step and preserves the boundary in Git.
 - Hosted smoke actions import the reviewed synthetic Part 1 fixtures through
   the governed local data plane; portfolio prices, context observations,
   mappings, replay returns, and outcome labels are resolved from those
@@ -112,7 +145,12 @@ and manifest completeness/hashes.
 
 ## Blockers
 
-- None.
+- Integration must wire the staging command into its package-install path and
+  feed the generated manifest into the reviewed ServiceFabric host bootstrap
+  or equivalent approved package allowlist before `apps install`. A staged
+  package installed into a runtime bootstrapped against the source manifest is
+  correctly rejected as an unapproved package. The experience lane cannot
+  modify the integration-owned Makefile, smoke script, or runtime bootstrap.
 
 ## Limitations
 
@@ -130,13 +168,26 @@ and manifest completeness/hashes.
 
 ## Rollback
 
-Discard only the uncommitted paths listed above. No migration is required;
-runtime artifacts are immutable local files beneath the configured external
-data root and no repository data fixture was changed.
+Revert only the staging candidate on top of `ba6aa12` (or omit the rejected
+diagnostic commit when selecting the net diff). No migration is required;
+staged package trees are ephemeral and no canonical repository data fixture was
+changed.
 
 ## Recommended next action
 
-Integration authority should review the working-tree diff and handoff, rerun
-the Part 2 integration and journey gates, perform Part 3 human QA, and decide
-whether to create and accept a candidate commit. Do not merge based on this
-specialist handoff alone.
+Integration authority should invoke the staging contract before installing the
+Workbench. The intended shape is:
+
+```bash
+stage_dir="$(mktemp -d)"
+trap 'rm -rf "$stage_dir"' EXIT
+"$DAY23_PYTHON" apps/portfolio-risk-workbench/stage_package.py \
+  --source apps/portfolio-risk-workbench \
+  --output "$stage_dir/portfolio-risk-workbench"
+# Bootstrap/review the host against the staged manifest before installing it.
+"$servicefabric" apps install "$stage_dir/portfolio-risk-workbench"
+```
+
+Then rerun the exact Part 2 verification sequence. Part 3 must not start until
+integration independently confirms every Part 2 gate. Do not merge or advance
+lifecycle state based on this specialist handoff alone.

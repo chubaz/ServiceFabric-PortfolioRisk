@@ -34,6 +34,7 @@ APPLICATION_STATUS = {
     "human_review": "required",
 }
 APPLICATION_ROOT = Path(__file__).resolve().parent
+MONITORING_FIXTURE_ROOT = APPLICATION_ROOT / "fixtures" / "synthetic" / "day23"
 if str(APPLICATION_ROOT) not in sys.path:
     sys.path.insert(0, str(APPLICATION_ROOT))
 
@@ -2450,14 +2451,11 @@ def _hosted_monitoring_fixture(
         if current is not None
         else set()
     )
-    fixture_root = (
-        REPOSITORY_ROOT / "data" / "fixtures" / "synthetic" / "day23"
-    )
     for filename, dataset_id, kind, description, revision_id in imports:
         if (dataset_id, revision_id) in active_revisions:
             continue
         preview = research.create_preview(
-            (fixture_root / filename).read_bytes(),
+            (MONITORING_FIXTURE_ROOT / filename).read_bytes(),
             filename,
             provider_profile="synthetic_local",
             provider_id="hosted-reviewed-synthetic",

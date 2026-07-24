@@ -61,6 +61,8 @@ MAX_EVENT_UPLOAD_BYTES = 1_000_000
 MAX_REPLAY_STEPS = 366
 DEFAULT_AS_OF = datetime(2026, 7, 1, 16, tzinfo=UTC)
 SAFE_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+APPLICATION_ROOT = Path(__file__).resolve().parent
+MONITORING_FIXTURE_ROOT = APPLICATION_ROOT / "fixtures" / "synthetic" / "day23"
 
 
 class MonitoringAdapterError(ValueError):
@@ -215,7 +217,7 @@ class MonitoringWorkspace:
         from data_workspace_service import ResearchDataWorkspace
 
         self.research = ResearchDataWorkspace(
-            data_root, Path(__file__).resolve().parents[2]
+            data_root, APPLICATION_ROOT
         )
 
     @staticmethod
@@ -1076,14 +1078,7 @@ class MonitoringWorkspace:
                     }
                 ),
             )
-        path = (
-            Path(__file__).resolve().parents[2]
-            / "data"
-            / "fixtures"
-            / "synthetic"
-            / "day23"
-            / "synthetic-outcomes.csv"
-        )
+        path = MONITORING_FIXTURE_ROOT / "synthetic-outcomes.csv"
         content = path.read_bytes()
         digest = "sha256:" + hashlib.sha256(content).hexdigest()
         evidence = (

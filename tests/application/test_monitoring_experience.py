@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import importlib.util
 import inspect
 import io
 import json
+import os
+import shutil
 import socket
+import subprocess
+import sys
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -25,8 +30,25 @@ def application(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> FastAPI:
     monkeypatch.setenv("PORTFOLIO_RISK_DATA_ROOT", str(tmp_path / "risk-data"))
+    staged = tmp_path / "staged-package"
+    stage = subprocess.run(
+        [
+            sys.executable,
+            str(APPLICATION_DIR / "stage_package.py"),
+            "--source",
+            str(APPLICATION_DIR),
+            "--output",
+            str(staged),
+            "--canonical-fixtures",
+            str(ROOT / "data" / "fixtures" / "synthetic" / "day23"),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert stage.returncode == 0, stage.stderr
     spec = importlib.util.spec_from_file_location(
-        "monitoring_workbench", APPLICATION_DIR / "app.py"
+        "monitoring_workbench", staged / "app.py"
     )
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -488,3 +510,111 @@ def test_part2_actions_are_declared_effect_free_and_no_generic_endpoint(
         assert result["capability_id"] == capability_id
         assert result["effects"] == []
         assert result["human_review_required"] is True
+
+
+def test_manifest_packaged_monitoring_resources_run_without_repository_tree(
+    tmp_path: Path,
+) -> None:
+    fixture_names = (
+        "crsp_like_daily.csv",
+        "compustat_like_annual.csv",
+        "crsp_compustat_link.csv",
+        "synthetic-outcomes.csv",
+    )
+    canonical_fixture_root = ROOT / "data" / "fixtures" / "synthetic" / "day23"
+    source_manifest = json.loads(
+        (APPLICATION_DIR / "servicefabric-package.json").read_text(encoding="utf-8")
+    )
+    assert not any(
+        item["path"].startswith("fixtures/synthetic/")
+        for item in source_manifest["source_files"]
+    )
+    staged = tmp_path / "staged-package"
+    stage = subprocess.run(
+        [
+            sys.executable,
+            str(APPLICATION_DIR / "stage_package.py"),
+            "--source",
+            str(APPLICATION_DIR),
+            "--output",
+            str(staged),
+            "--canonical-fixtures",
+            str(canonical_fixture_root),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert stage.returncode == 0, stage.stderr
+
+    manifest = json.loads(
+        (staged / "servicefabric-package.json").read_text(encoding="utf-8")
+    )
+    staged_paths = {item["path"] for item in manifest["source_files"]}
+    assert {
+        f"fixtures/synthetic/day23/{name}" for name in fixture_names
+    } <= staged_paths
+    for name in fixture_names:
+        assert (staged / "fixtures" / "synthetic" / "day23" / name).read_bytes() == (
+            canonical_fixture_root / name
+        ).read_bytes()
+    actual_paths = {
+        path.relative_to(staged).as_posix()
+        for path in staged.rglob("*")
+        if path.is_file()
+        and path.name != "servicefabric-package.json"
+        and "__pycache__" not in path.parts
+    }
+    assert staged_paths == actual_paths
+    for entry in manifest["source_files"]:
+        digest = hashlib.sha256(
+            (staged / entry["path"]).read_bytes()
+        ).hexdigest()
+        assert entry["sha256"] == digest
+    runtime = tmp_path / "hosted-applications" / "portfolio-risk-workbench" / "runtime"
+    for entry in manifest["source_files"]:
+        source = staged / entry["path"]
+        target = runtime / entry["path"]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+
+    action_paths = (
+        "/actions/portfolio-data-context-create",
+        "/actions/events-query-as-of",
+        "/actions/monitoring-policy-evaluate",
+        "/actions/monitoring-run-contextual",
+        "/actions/monitoring-replay",
+        "/actions/monitoring-evaluate",
+        "/actions/monitoring-report-render",
+    )
+    script = f"""
+import asyncio
+import inspect
+from app import app
+
+for path in {action_paths!r}:
+    route = next(item for item in app.routes if item.path == path)
+    result = route.endpoint()
+    if inspect.isawaitable(result):
+        result = asyncio.run(result)
+    assert result["effects"] == []
+    assert result["human_review_required"] is True
+"""
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "PORTFOLIO_RISK_DATA_ROOT": str(tmp_path / "risk-data"),
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONPATH": os.pathsep.join(str(path) for path in sys.path if path),
+        }
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=runtime,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert completed.returncode == 0, completed.stderr

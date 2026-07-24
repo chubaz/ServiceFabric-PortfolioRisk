@@ -23,11 +23,15 @@
     },
     {
       "path": "app.py",
-      "sha256": "58d025047621339e124f4899f72d4aaf2c0ede56f0514608c83505ca822f1def"
+      "sha256": "3c116f0fb973285fa7eb163341f3fb8357925808d64df32fa8c4e1c6c76e1987"
     },
     {
       "path": "monitoring_service.py",
-      "sha256": "4de233627b3bbbe6ef5142f7c09f7135cb6c5ecd3f73df59967a3e7748471a2c"
+      "sha256": "e25e4cfd75b8af8651eafc32857f5a74440f382fcf540186ce1f5db2036d66bb"
+    },
+    {
+      "path": "stage_package.py",
+      "sha256": "b619cc8276ff487ddd3fbb3a370bee783e613a14422569ad66cdbea4eca1ab6c"
     },
     {
       "path": "workspace_service.py",
