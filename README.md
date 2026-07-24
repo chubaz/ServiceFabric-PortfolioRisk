@@ -77,14 +77,10 @@ tracked under `data/schemas/day23/` and checked against fresh generation.
 
 ## Day 2–3 Part 2 monitoring and replay
 
-Part 2 specialist implementation is merged, but integration completion remains
-blocked. The first Workbench package omitted hosted monitoring resources; the
-proposed correction was rejected because it tracked duplicate synthetic CSV
-fixtures outside the repository's approved `data/fixtures/synthetic/**` tree.
-The defect is routed to `feature/day23-monitoring-experience` for a
-build/install-time staging contract using the canonical fixtures. The
-deterministic journey and headless demo are available for review; no Part 2
-completion or QA-pass is claimed.
+Part 2 integration is complete. Compliant ephemeral staging of the four
+allow-listed canonical fixtures is accepted, and deterministic local and
+process-host gates passed. The identified final human QA passed; Day 2–3 is
+complete. The deterministic journey and headless demo remain reviewable.
 
 Portfolio-data contexts bind an immutable portfolio snapshot to exact Part 1
 market, fundamental, and date-effective crosswalk revisions. Mapping uses

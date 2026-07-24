@@ -1,6 +1,6 @@
 {
   "programme": "day-2-3",
-  "current": "D23-PART-3",
+  "current": "D23-COMPLETE",
   "programme_version": "3-part-v1",
   "prior_plan": "The former four-phase plan is superseded by this three-part programme; its completed Part 1 evidence is preserved.",
   "parts": [
@@ -21,7 +21,7 @@
     {
       "id": "D23-PART-3",
       "title": "Final human QA, evidence review, release decision, and merge",
-      "status": "queued",
+      "status": "complete",
       "depends_on": ["D23-PART-2"],
       "lanes": ["integration"]
     }

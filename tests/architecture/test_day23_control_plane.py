@@ -189,23 +189,25 @@ def test_completion_gates_use_all_lanes_and_ci_fetches_base_tag() -> None:
     assert "servicefabric-d23-part2-smoke" not in workflow
 
 
-def test_part_2_is_complete_and_part_3_is_queued_without_qa_pass() -> None:
+def test_day23_completion_state_is_recorded() -> None:
     status = read_json("config/agent/day23/status.json")
     assert status == {
-        "current": "D23-PART-3",
+        "current": "D23-COMPLETE",
         "part_1": "complete",
         "part_2": "complete",
-        "part_3": "queued",
-        "soft_qa": "queued",
+        "part_3": "complete",
+        "soft_qa": "passed",
         "base_tag": "day1-complete",
         "programme_version": "3-part-v1",
     }
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8").lower()
-    assert "id: d23-part-3" in current
-    assert "part 2 integration accepted" in current
-    assert "part 1 and part 2 are complete" in current
-    assert "remains queued" in current
-    assert "no qa pass claim" in current
+    assert "id: d23-complete" in current
+    assert "status: complete" in current
+    assert "part-3-soft-qa-result.md" in current
+    assert (ROOT / "docs/workplans/day-2-3/complete.md").exists()
+    readme = (ROOT / "README.md").read_text(encoding="utf-8").lower()
+    for stale in ("integration completion remains blocked", "part 3 remains queued", "duplicate synthetic csv fixtures"):
+        assert stale not in readme
 
 
 def test_phase_1_demo_and_local_servicefabric_smoke_are_real_gates() -> None:

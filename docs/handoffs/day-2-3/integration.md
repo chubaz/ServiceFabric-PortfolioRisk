@@ -1,4 +1,4 @@
-# Day 2–3 integration handoff — Part 2 accepted; Part 3 queued
+# Day 2–3 integration handoff — complete
 
 ## Lane and branch
 
@@ -6,9 +6,8 @@
 - Branch: `integration/day2-3`
 - Base: `day1-complete` (`627a08b`)
 - Committed integration base: `560d069`
-- Head: working tree includes the integration changes below; no merge or push
-- Lifecycle: Part 1 complete; Part 2 complete; Part 3 queued; soft QA queued
-- QA result: no human QA-pass, release, or merge claim
+- Lifecycle: Part 1 complete; Part 2 complete; Part 3 complete; soft QA passed
+- QA result: `docs/workplans/day-2-3/part-3-soft-qa-result.md`
 
 ## Accepted resolution
 
@@ -69,10 +68,12 @@ and confirmed pinned-upstream immutability.
   the staged manifest in a copied host package at bootstrap time.
 - Lifecycle advanced to `D23-PART-3` only after the complete Part 2 gate passed.
 
-## Blockers
+## Release closeout
 
-None for Part 2 integration. Part 3 remains a deliberate human-review gate;
-it must inspect the evidence manifest and make the release/merge decision.
+Human QA passed; the release record is
+`docs/workplans/day-2-3/part-3-soft-qa-result.md`. Release documentation was
+corrected, final lifecycle and whitespace checks are required, and PR #17 is
+authorized to merge after the protected-PR checks pass.
 
 ## Limitations
 
@@ -90,9 +91,9 @@ release review rejects this integration. Preserve canonical fixtures under
 `data/fixtures/synthetic/**` and the pinned ServiceFabric tree. Ephemeral
 staged packages and external evidence/runtime state can be discarded separately.
 
-## Recommended next action
+## Retained limitations
 
-Begin `docs/workplans/day-2-3/part-3-final-qa-release.md`: review the local
-evidence manifest and reports, perform final human QA, and make the explicit
-release and merge decision. Do not claim Part 3 complete from these automated
-gates alone.
+The baseline remains local, deterministic, synthetic, effect-free, provider-
+free, and human-review governed. There is no scheduler, external LLM, fuzzy
+matching, look-ahead, broker, order, trade, rebalance, optimization, or
+automatic portfolio effect.

@@ -1,9 +1,9 @@
 {
-  "current": "D23-PART-3",
+  "current": "D23-COMPLETE",
   "part_1": "complete",
   "part_2": "complete",
-  "part_3": "queued",
-  "soft_qa": "queued",
+  "part_3": "complete",
+  "soft_qa": "passed",
   "base_tag": "day1-complete",
   "programme_version": "3-part-v1"
 }
