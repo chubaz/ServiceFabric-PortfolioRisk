@@ -1,6 +1,6 @@
 # THESIS-D1 — Data, portfolios, and deterministic replay
 
-- Status: in progress
+- Status: complete
 - Namespace: `thesis-sprint`
 - Experiment: `portfolio-risk-architecture-comparison-v1`
 - Base: `day23-complete`
@@ -72,11 +72,10 @@ compare B0, B1, and A1; those architecture treatments are introduced later.
 - `git diff --check`; and
 - a clean `vendor/servicefabric` submodule.
 
-`make verify-thesis-current` is the in-progress gate. It preserves the
-completed D23 baseline and runs all thesis tests currently present.
-`make verify-thesis-day1` is the eventual completion gate and must not be used
-to claim completion while `config/agent/thesis-sprint/status.json` records
-Day 1 as `in_progress`.
+`make verify-thesis-day1` is the accepted completion gate. It preserves the
+completed D23 baseline, runs all Thesis Day 1 suites and fixture validation,
+and checks the exact specialist candidate range. `make verify-thesis-current`
+delegates to that completed gate while Day 2 remains queued.
 
 ## Specialist entry point
 

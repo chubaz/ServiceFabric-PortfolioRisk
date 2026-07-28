@@ -20,10 +20,10 @@ def read_json(relative: str) -> dict:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
 
 
-def test_thesis_day1_lifecycle_is_active_without_completion_claim() -> None:
+def test_thesis_day1_is_complete_and_day2_is_only_queued() -> None:
     assert read_json("config/agent/thesis-sprint/status.json") == {
-        "current": "THESIS-D1",
-        "day_1": "in_progress",
+        "current": "THESIS-D2",
+        "day_1": "complete",
         "day_2": "queued",
         "day_3": "queued",
         "day_4": "queued",
@@ -33,12 +33,13 @@ def test_thesis_day1_lifecycle_is_active_without_completion_claim() -> None:
     }
     assert read_json("config/agent/day23/status.json")["current"] == "D23-COMPLETE"
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
-    assert "ID: THESIS-D1" in current
-    assert "Status: in progress" in current
-    assert "day-1-data-portfolios-replay.md" in current
+    assert "ID: THESIS-D2" in current
+    assert "Status: queued, not started" in current
+    assert "day-2-metrics-decision-kernel.md" in current
     assert "prior D23 baseline remains complete" in current
-    assert "experiment implementation has begun" in current
-    assert "Day 1 is complete" not in current
+    assert "Thesis Sprint Day 1 is complete" in current
+    assert "Day 2 is queued and has not started" in current
+    assert "No metric decision kernel" in current
 
 
 def test_two_lane_manifest_has_frozen_explicit_ownership() -> None:
@@ -142,6 +143,7 @@ def test_environment_reuses_locked_python311_dependencies_and_paths() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     for package_path in (
         "packages/risk_domain/src",
+        "packages/risk_planning/src",
         "packages/risk_data/src",
         "packages/risk_capabilities/src",
         "packages/risk_agents/src",
@@ -166,28 +168,23 @@ def test_make_targets_preserve_baselines_and_stage_eventual_day1_gate() -> None:
     for target in targets:
         assert f".PHONY: {target}" in makefile
 
-    current_gate = makefile.split(
-        ".PHONY: verify-thesis-current", maxsplit=1
-    )[1].split(".PHONY: verify-thesis-day1", maxsplit=1)[0]
+    completion_gate = makefile.split(
+        ".PHONY: verify-thesis-day1", maxsplit=1
+    )[1].split(".PHONY: verify-thesis-current", maxsplit=1)[0]
     for dependency in (
         "verify-d23-current",
         "test-thesis-control",
         "test-thesis-day1",
         "test-thesis-integration",
         "test-thesis-journeys",
+        "check-thesis-day1-fixture-digests",
     ):
-        assert dependency in current_gate
+        assert dependency in completion_gate
 
-    completion_gate = makefile.split(
-        ".PHONY: verify-thesis-day1", maxsplit=1
-    )[1].split(".PHONY: demo-thesis-day1", maxsplit=1)[0]
-    assert "verify-thesis-current" in completion_gate
-    assert "check-thesis-day1-fixture-digests" in completion_gate
     assert "git diff --check" in completion_gate
     assert "--base day23-complete" not in completion_gate
     assert '--base "$(THESIS_DAY1_LANE_BASE)"' in completion_gate
     assert '--head "$(THESIS_DAY1_LANE_HEAD)"' in completion_gate
-    assert "THESIS_DAY1_LANE_HEAD must identify" in completion_gate
     assert "git merge-base --is-ancestor" in completion_gate
     assert "specialist candidate must descend" in completion_gate
     assert (
@@ -195,7 +192,13 @@ def test_make_targets_preserve_baselines_and_stage_eventual_day1_gate() -> None:
         "config/agent/thesis-sprint/status.json"
     ) in makefile
     assert "validate_fixture_digests.py" in makefile
+    assert "scripts/thesis/run_day1_demo.py" in makefile
     assert 'THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)"' in makefile
+    current_gate = makefile.split(
+        ".PHONY: verify-thesis-current", maxsplit=1
+    )[1].split(".PHONY: demo-thesis-day1", maxsplit=1)[0]
+    assert "verify-thesis-day1" in current_gate
+    assert "THESIS-D2 queued" in current_gate
 
 
 def test_specialist_workflow_uses_control_plane_base_and_exact_candidate_head() -> None:
@@ -255,5 +258,6 @@ def test_ci_uses_locked_python_and_current_gate_without_process_host_smoke() -> 
     assert "submodules: recursive" in workflow
     assert "python-version: '3.11'" in workflow
     assert "pip install --require-hashes -r requirements/day1.lock" in workflow
-    assert "make verify-thesis-current" in workflow
+    assert "make verify-thesis-day1" in workflow
+    assert "make demo-thesis-day1" in workflow
     assert "servicefabric" not in workflow.lower()
