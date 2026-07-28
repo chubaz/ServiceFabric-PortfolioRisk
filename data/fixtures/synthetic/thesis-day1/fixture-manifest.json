@@ -1,0 +1,20 @@
+{
+  "files": {
+    "events.parquet": {
+      "row_count": 24,
+      "sha256": "sha256:84a83a2f0371a5d98845656dd20932a51f05abd2f7acf24414f3085a9fb64c22"
+    },
+    "market.parquet": {
+      "row_count": 1040,
+      "sha256": "sha256:90ac4c0e584d819b4174bbcc4e2ee05e146873616d4a55776c3f677b09e56b72"
+    }
+  },
+  "fixture_id": "synthetic-thesis-day1-v1",
+  "limitations": [
+    "All instruments, issuers, labels, observations and events are fictional and synthetic.",
+    "The fixture is research input, not investment advice or a representation of real markets."
+  ],
+  "revision": "2026-07-28.2",
+  "seed": 20260728,
+  "synthetic": true
+}

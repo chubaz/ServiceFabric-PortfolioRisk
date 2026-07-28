@@ -1,0 +1,13 @@
+experiment_id: portfolio-risk-thesis-day1-smoke
+portfolio_ids:
+  - diversified
+  - technology_concentrated
+  - defensive_multi_asset
+dataset_revision: "2026-07-28.2"
+start: "2024-06-24T18:00:00Z"
+end: "2024-06-28T18:00:00Z"
+cadence: daily
+review_time: "18:00:00Z"
+lookback: 60
+no_look_ahead_rule: "available_at <= as_of"
+fixture_seed: 20260728

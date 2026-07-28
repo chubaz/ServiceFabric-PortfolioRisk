@@ -1,0 +1,15 @@
+portfolio_id: technology_concentrated
+title: Fictional Technology-Concentrated Fixed-Quantity Portfolio
+base_currency: USD
+start_date: 2024-01-02
+positions:
+  - {instrument_id: instrument-aurora-tech, quantity: "300"}
+  - {instrument_id: instrument-cobalt-tech, quantity: "250"}
+  - {instrument_id: instrument-marrow-health, quantity: "45"}
+  - {instrument_id: instrument-pantry-staples, quantity: "35"}
+  - {instrument_id: instrument-civic-bond, quantity: "30"}
+cash:
+  - {currency: USD, amount: "5000"}
+benchmark_id: synthetic-technology-benchmark
+risk_thresholds:
+  - {threshold_id: technology_weight, value: "0.60"}
