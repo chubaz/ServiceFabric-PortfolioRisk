@@ -237,6 +237,44 @@ providers, external LLMs, broker connectivity, orders, trades, and automatic
 rebalancing. Cadence is metadata only; all consequential actions require
 explicit human review.
 
+## Thesis Sprint four-day experiment
+
+The active experiment uses the separate `thesis-sprint` namespace and begins
+from tag `day23-complete`. It does not reopen or modify the completed Day 0,
+Day 1, or Day 2–3 lifecycle records. Lifecycle state is authoritative in
+`config/agent/thesis-sprint/status.json`, and the active workplan is named by
+`docs/workplans/current.md`.
+
+Thesis Sprint has exactly two branches and lanes:
+
+- integration authority: `integration/thesis-experiment`;
+- Day 1 specialist: `feature/thesis-day1`.
+
+Ownership is frozen in `config/agent/thesis-sprint/lanes.json`. The specialist
+may change only `examples/portfolio-risk-thesis/**`,
+`data/fixtures/synthetic/thesis-day1/**`, `tests/thesis/**`, and the exact file
+`docs/handoffs/thesis-sprint/day1.md`; it stops without merge. Integration owns
+the control plane, CI, shared contracts and architecture, cross-module thesis
+tests, lifecycle state, and merge decisions.
+
+The Day 1 specialist branch starts from the reviewed integration control-plane
+commit that first adds `config/agent/thesis-sprint/status.json`, not directly
+from `day23-complete`. The tag remains the experiment baseline. Specialist
+lane validation ends at the exact candidate head recorded in the handoff so
+integration-owned acceptance changes are excluded from the lane range.
+
+Thesis Day 1 uses fixed portfolio quantities and deterministic in-process
+historical replay. Parquet is storage, not replay. Point-in-time filtering
+requires `available_at <= as_of`; all timestamps are timezone-aware UTC, and
+missing availability is never guessed. Generated mutable artifacts remain
+outside Git beneath `THESIS_DATA_ROOT`. Only explicitly synthetic reviewed
+fixtures may be committed.
+
+Day 1 implements no LLM or agent architecture. The B0, B1, and A1 comparison
+is later work. Kafka, Redis, WebSocket, schedulers, network providers, broker
+connectivity, orders, trades, rebalancing, optimization, and portfolio
+mutation effects are prohibited.
+
 ## Completion report
 
 Every handoff must record:

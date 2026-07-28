@@ -1,0 +1,259 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from scripts.thesis.check_lane_paths import (
+    is_allowed,
+    safe_path,
+    validate_changes,
+    validate_manifest,
+)
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def read_json(relative: str) -> dict:
+    return json.loads((ROOT / relative).read_text(encoding="utf-8"))
+
+
+def test_thesis_day1_lifecycle_is_active_without_completion_claim() -> None:
+    assert read_json("config/agent/thesis-sprint/status.json") == {
+        "current": "THESIS-D1",
+        "day_1": "in_progress",
+        "day_2": "queued",
+        "day_3": "queued",
+        "day_4": "queued",
+        "soft_qa": "queued",
+        "base_tag": "day23-complete",
+        "experiment_id": "portfolio-risk-architecture-comparison-v1",
+    }
+    assert read_json("config/agent/day23/status.json")["current"] == "D23-COMPLETE"
+    current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
+    assert "ID: THESIS-D1" in current
+    assert "Status: in progress" in current
+    assert "day-1-data-portfolios-replay.md" in current
+    assert "prior D23 baseline remains complete" in current
+    assert "experiment implementation has begun" in current
+    assert "Day 1 is complete" not in current
+
+
+def test_two_lane_manifest_has_frozen_explicit_ownership() -> None:
+    manifest = read_json("config/agent/thesis-sprint/lanes.json")
+    assert manifest["namespace"] == "thesis-sprint"
+    assert manifest["base_tag"] == "day23-complete"
+    assert manifest["integration_order"] == ["day1", "integration"]
+    assert validate_manifest(manifest) == []
+    assert manifest["lanes"] == {
+        "integration": {
+            "branch": "integration/thesis-experiment",
+            "allowed_directories": [
+                ".github",
+                "config/agent/thesis-sprint",
+                "docs/workplans/thesis-sprint",
+                "docs/contracts",
+                "docs/architecture/adr",
+                "docs/handoffs/thesis-sprint",
+                "scripts/thesis",
+                "tests/architecture",
+                "tests/integration",
+                "tests/journeys",
+            ],
+            "allowed_files": [
+                "AGENTS.md",
+                "README.md",
+                "Makefile",
+                "docs/workplans/current.md",
+            ],
+        },
+        "day1": {
+            "branch": "feature/thesis-day1",
+            "allowed_directories": [
+                "examples/portfolio-risk-thesis",
+                "data/fixtures/synthetic/thesis-day1",
+                "tests/thesis",
+            ],
+            "allowed_files": ["docs/handoffs/thesis-sprint/day1.md"],
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    "path",
+    (
+        "",
+        "/absolute.py",
+        "../escape.py",
+        "tests/../escape.py",
+        "tests//double.py",
+        "./tests/file.py",
+        "tests\\file.py",
+        "tests/\nfile.py",
+    ),
+)
+def test_lane_checker_rejects_empty_absolute_unsafe_and_traversal_paths(
+    path: str,
+) -> None:
+    assert safe_path(path) is False
+
+
+def test_lane_checker_handles_exact_files_directories_types_renames_and_copies() -> None:
+    lane = {
+        "allowed_files": ["README.md"],
+        "allowed_directories": ["tests/thesis"],
+    }
+    assert is_allowed("README.md", {"README.md"}, ("tests/thesis",))
+    assert not is_allowed("README.md/child", {"README.md"}, ("tests/thesis",))
+    assert not is_allowed("tests/thesis", {"README.md"}, ("tests/thesis",))
+    assert is_allowed("tests/thesis/test_replay.py", {"README.md"}, ("tests/thesis",))
+
+    assert validate_changes(
+        [
+            ("T", ("tests/thesis/test_type.py",)),
+            ("R100", ("tests/thesis/old.py", "tests/thesis/new.py")),
+            ("C100", ("README.md", "tests/thesis/copied.md")),
+        ],
+        lane,
+    ) == []
+    errors = validate_changes(
+        [
+            ("R100", ("tests/thesis/old.py", "packages/risk_domain/new.py")),
+            ("C100", ("README.md", "../README.md")),
+        ],
+        lane,
+    )
+    assert any("packages/risk_domain/new.py" in error for error in errors)
+    assert any("../README.md" in error for error in errors)
+
+
+def test_environment_reuses_locked_python311_dependencies_and_paths() -> None:
+    bootstrap = (ROOT / "scripts/thesis/bootstrap_environment.sh").read_text(
+        encoding="utf-8"
+    )
+    assert '.venv-thesis}"' in bootstrap
+    assert "python3.11" in bootstrap
+    assert "--require-hashes" in bootstrap
+    assert "requirements/day1.lock" in bootstrap
+    assert "-m pip check" in bootstrap
+
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    for package_path in (
+        "packages/risk_domain/src",
+        "packages/risk_data/src",
+        "packages/risk_capabilities/src",
+        "packages/risk_agents/src",
+        "packages/risk_analytics/src",
+        "examples/portfolio-risk-thesis/src",
+    ):
+        assert package_path in makefile
+
+
+def test_make_targets_preserve_baselines_and_stage_eventual_day1_gate() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    targets = (
+        "thesis-env",
+        "test-thesis-control",
+        "test-thesis-day1",
+        "test-thesis-integration",
+        "test-thesis-journeys",
+        "verify-thesis-current",
+        "verify-thesis-day1",
+        "demo-thesis-day1",
+    )
+    for target in targets:
+        assert f".PHONY: {target}" in makefile
+
+    current_gate = makefile.split(
+        ".PHONY: verify-thesis-current", maxsplit=1
+    )[1].split(".PHONY: verify-thesis-day1", maxsplit=1)[0]
+    for dependency in (
+        "verify-d23-current",
+        "test-thesis-control",
+        "test-thesis-day1",
+        "test-thesis-integration",
+        "test-thesis-journeys",
+    ):
+        assert dependency in current_gate
+
+    completion_gate = makefile.split(
+        ".PHONY: verify-thesis-day1", maxsplit=1
+    )[1].split(".PHONY: demo-thesis-day1", maxsplit=1)[0]
+    assert "verify-thesis-current" in completion_gate
+    assert "check-thesis-day1-fixture-digests" in completion_gate
+    assert "git diff --check" in completion_gate
+    assert "--base day23-complete" not in completion_gate
+    assert '--base "$(THESIS_DAY1_LANE_BASE)"' in completion_gate
+    assert '--head "$(THESIS_DAY1_LANE_HEAD)"' in completion_gate
+    assert "THESIS_DAY1_LANE_HEAD must identify" in completion_gate
+    assert "git merge-base --is-ancestor" in completion_gate
+    assert "specialist candidate must descend" in completion_gate
+    assert (
+        "git log --diff-filter=A --format=%H -1 -- "
+        "config/agent/thesis-sprint/status.json"
+    ) in makefile
+    assert "validate_fixture_digests.py" in makefile
+    assert 'THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)"' in makefile
+
+
+def test_specialist_workflow_uses_control_plane_base_and_exact_candidate_head() -> None:
+    workplan = (
+        ROOT / "docs/workplans/thesis-sprint/day-1-data-portfolios-replay.md"
+    ).read_text(encoding="utf-8")
+    handoff = (ROOT / "docs/handoffs/thesis-sprint/day1.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Create `feature/thesis-day1` from the reviewed integration commit" in workplan
+    assert "--diff-filter=A" in workplan
+    assert '--base "$thesis_control_plane_base"' in workplan
+    assert "THESIS_DAY1_LANE_HEAD=<specialist-candidate-head>" in workplan
+    assert "Lane base: reviewed control-plane addition commit" in handoff
+    assert "record the exact lane base and candidate head" in handoff
+
+
+def test_contract_and_adr_freeze_runtime_and_effect_boundaries() -> None:
+    text = " ".join(
+        "\n".join(
+            (ROOT / path).read_text(encoding="utf-8").lower()
+            for path in (
+                "docs/contracts/thesis-experiment-v0.1.md",
+                "docs/architecture/adr/0006-thesis-experiment-runtime.md",
+                "docs/workplans/thesis-sprint/day-1-data-portfolios-replay.md",
+            )
+        ).split()
+    )
+    for term in (
+        "deterministic in-process replay",
+        "parquet",
+        "available_at <= as_of",
+        "timezone-aware utc",
+        "fixed",
+        "outside git",
+        "synthetic",
+        "b0",
+        "b1",
+        "a1",
+        "no llm",
+        "kafka",
+        "redis",
+        "websocket",
+        "scheduler",
+        "network provider",
+        "portfolio mutation",
+    ):
+        assert term in text, term
+
+
+def test_ci_uses_locked_python_and_current_gate_without_process_host_smoke() -> None:
+    workflow = (ROOT / ".github/workflows/thesis-sprint.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "integration/thesis-experiment" in workflow
+    assert "branches: [main]" in workflow
+    assert "submodules: recursive" in workflow
+    assert "python-version: '3.11'" in workflow
+    assert "pip install --require-hashes -r requirements/day1.lock" in workflow
+    assert "make verify-thesis-current" in workflow
+    assert "servicefabric" not in workflow.lower()

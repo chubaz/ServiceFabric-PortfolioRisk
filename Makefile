@@ -243,7 +243,7 @@ verify-day1-current: day1-env
 
 .PHONY: verify-day1
 verify-day1: verify-wave-1c test-day1-journeys
-> $(DAY1_PYTHON) scripts/day1/check_preparation.py
+> if grep -q "^- ID: THESIS-" docs/workplans/current.md; then echo "Day 1 historical lifecycle is covered by regression tests; Thesis Sprint owns the active pointer"; else $(DAY1_PYTHON) scripts/day1/check_preparation.py; fi
 > $(DAY1_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
 > git diff --check
 > @echo "Day 1 verification: PASS"
@@ -358,3 +358,74 @@ servicefabric-d23-part2-smoke: demo-d23-part2
 > DAY23_SERVICEFABRIC_HOME="$(DAY23_SERVICEFABRIC_HOME)" \
 > PORTFOLIO_RISK_DATA_ROOT="$(DAY23_PORTFOLIO_RISK_DATA_ROOT)" \
 > ./scripts/day23/servicefabric_part2_smoke.sh
+
+THESIS_VENV ?= $(CURDIR)/.venv-thesis
+ifeq ($(strip $(THESIS_VENV)),)
+override THESIS_VENV := $(CURDIR)/.venv-thesis
+endif
+THESIS_PYTHON := $(THESIS_VENV)/bin/python
+THESIS_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src:$(CURDIR)/packages/risk_analytics/src:$(CURDIR)/examples/portfolio-risk-thesis/src
+THESIS_PYTEST := PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m pytest
+THESIS_STATE_ROOT := $(abspath $(CURDIR)/../../../state/thesis-sprint/integration)
+THESIS_DATA_ROOT ?= $(THESIS_STATE_ROOT)/data
+THESIS_INTEGRATION_TESTS := $(wildcard tests/integration/test_thesis*.py)
+THESIS_JOURNEY_TESTS := $(wildcard tests/journeys/test_thesis*.py)
+THESIS_FIXTURE_VALIDATOR := examples/portfolio-risk-thesis/scripts/validate_fixture_digests.py
+THESIS_DEMO := examples/portfolio-risk-thesis/scripts/run_day1_demo.py
+THESIS_DAY1_LANE_BASE ?= $(shell git log --diff-filter=A --format=%H -1 -- config/agent/thesis-sprint/status.json 2>/dev/null)
+THESIS_DAY1_LANE_HEAD ?=
+
+.PHONY: thesis-env
+thesis-env:
+> test -f requirements/day1.lock || { echo "ERROR: requirements/day1.lock is missing" >&2; exit 1; }
+> THESIS_VENV="$(THESIS_VENV)" ./scripts/thesis/bootstrap_environment.sh
+> test -x "$(THESIS_PYTHON)" || { echo "ERROR: Thesis Python was not created at $(THESIS_PYTHON)" >&2; exit 1; }
+> $(THESIS_PYTHON) -m pip check
+
+.PHONY: test-thesis-control
+test-thesis-control: thesis-env
+> $(THESIS_PYTEST) tests/architecture/test_thesis_sprint_control_plane.py -q
+
+.PHONY: test-thesis-day1
+test-thesis-day1: thesis-env
+> if test -d tests/thesis; then $(THESIS_PYTEST) tests/thesis -q; else echo "No Thesis Sprint Day 1 implementation tests yet"; fi
+
+.PHONY: test-thesis-integration
+test-thesis-integration: thesis-env
+> if test -n "$(strip $(THESIS_INTEGRATION_TESTS))"; then $(THESIS_PYTEST) $(THESIS_INTEGRATION_TESTS) -q; else echo "No Thesis Sprint integration tests yet"; fi
+
+.PHONY: test-thesis-journeys
+test-thesis-journeys: thesis-env
+> if test -n "$(strip $(THESIS_JOURNEY_TESTS))"; then $(THESIS_PYTEST) $(THESIS_JOURNEY_TESTS) -q; else echo "No Thesis Sprint journey tests yet"; fi
+
+.PHONY: verify-thesis-current
+verify-thesis-current: \
+  verify-d23-current \
+  test-thesis-control \
+  test-thesis-day1 \
+  test-thesis-integration \
+  test-thesis-journeys
+> git diff --check
+> @echo "Thesis Sprint current verification: PASS (THESIS-D1 remains in progress)"
+
+.PHONY: check-thesis-day1-fixture-digests
+check-thesis-day1-fixture-digests: thesis-env
+> test -f "$(THESIS_FIXTURE_VALIDATOR)" || { echo "ERROR: Day 1 fixture digest validator is not implemented" >&2; exit 1; }
+> test -d data/fixtures/synthetic/thesis-day1 || { echo "ERROR: Day 1 synthetic fixtures are not implemented" >&2; exit 1; }
+> THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" $(THESIS_PYTHON) "$(THESIS_FIXTURE_VALIDATOR)" --fixtures data/fixtures/synthetic/thesis-day1
+
+.PHONY: verify-thesis-day1
+verify-thesis-day1: verify-thesis-current check-thesis-day1-fixture-digests
+> test -n "$(THESIS_DAY1_LANE_BASE)" || { echo "ERROR: unable to resolve the Thesis Sprint control-plane commit" >&2; exit 1; }
+> test -n "$(THESIS_DAY1_LANE_HEAD)" || { echo "ERROR: THESIS_DAY1_LANE_HEAD must identify the exact specialist candidate head" >&2; exit 1; }
+> git merge-base --is-ancestor "$(THESIS_DAY1_LANE_BASE)" "$(THESIS_DAY1_LANE_HEAD)" || { echo "ERROR: specialist candidate must descend from the Thesis Sprint control-plane commit" >&2; exit 1; }
+> $(THESIS_PYTHON) scripts/thesis/check_lane_paths.py --lane day1 --base "$(THESIS_DAY1_LANE_BASE)" --head "$(THESIS_DAY1_LANE_HEAD)" --manifest config/agent/thesis-sprint/lanes.json
+> git diff --check
+> @echo "Thesis Sprint Day 1 implementation verification: PASS"
+
+.PHONY: demo-thesis-day1
+demo-thesis-day1: thesis-env
+> test -f "$(THESIS_DEMO)" || { echo "ERROR: Day 1 demo is not implemented" >&2; exit 1; }
+> case "$(abspath $(THESIS_DATA_ROOT))" in "$(CURDIR)"|"$(CURDIR)"/*) echo "ERROR: THESIS_DATA_ROOT must remain outside Git" >&2; exit 1;; esac
+> mkdir -p "$(THESIS_DATA_ROOT)"
+> THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) "$(THESIS_DEMO)" --data-root "$(THESIS_DATA_ROOT)"
