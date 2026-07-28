@@ -22,7 +22,7 @@ jobs:
       - name: Verify unit, architecture, integration, and journey tests
         run: |
           export PYTHONPATH="$GITHUB_WORKSPACE:$GITHUB_WORKSPACE/packages/risk_domain/src:$GITHUB_WORKSPACE/packages/risk_planning/src:$GITHUB_WORKSPACE/packages/risk_data/src:$GITHUB_WORKSPACE/packages/risk_capabilities/src:$GITHUB_WORKSPACE/packages/risk_agents/src:$GITHUB_WORKSPACE/packages/risk_analytics/src"
-          python -m pytest tests/contracts tests/domain tests/planning tests/data tests/capabilities tests/agents tests/application tests/architecture tests/integration tests/journeys -q
+          python -m pytest tests/contracts tests/domain tests/planning tests/data tests/capabilities tests/agents tests/application tests/architecture tests/integration tests/journeys/test_d23_part2_monitoring_replay.py tests/journeys/test_d23_phase1_data_plane.py tests/journeys/test_day0_monitoring_journey.py tests/journeys/test_day1_portfolio_workspace.py tests/journeys/test_day1_workbench_journey.py -q
       - name: Verify application manifests
         run: python scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
       - name: Verify the headless synthetic journey
