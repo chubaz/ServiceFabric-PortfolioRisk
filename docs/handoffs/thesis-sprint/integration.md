@@ -1,98 +1,150 @@
-# Thesis Sprint integration handoff — Day 1 activation
+# Thesis Sprint integration handoff — Day 1 closure
 
 ## Lane and branch
 
 - Lane: `integration`
 - Branch: `integration/thesis-experiment`
-- Base: `day23-complete` (`2c4a163`)
-- Head: uncommitted working tree
-- Lifecycle: `THESIS-D1` in progress; later days and soft QA queued
+- Experiment baseline: `day23-complete`
+  (`6ea08f6b7b88f5759808f2b30466ccdcd106919f`)
+- Control-plane base:
+  `aaad2c5fb6f13286c9c1478f39c6e10a5a567cf6`
+- Accepted specialist candidate:
+  `433ee994998afd3c7e79cd1169ddcdd24e19960f`
+- Merge commit: `8280a63`
+- Integration head: uncommitted working tree by explicit instruction
+- Lifecycle: Day 1 complete; `THESIS-D2` queued and not started
 
-## Changed paths
+## Files
+
+The accepted candidate added the reviewed synthetic fixture and Day 1 package
+beneath `data/fixtures/synthetic/thesis-day1/**`,
+`examples/portfolio-risk-thesis/**`, and `tests/thesis/**`, plus the exact
+specialist handoff `docs/handoffs/thesis-sprint/day1.md`.
+
+Day 1 closure changes are limited to these integration-owned paths:
 
 - `.github/workflows/thesis-sprint.yml`
-- `AGENTS.md`
 - `Makefile`
-- `config/agent/thesis-sprint/lanes.json`
+- `README.md`
 - `config/agent/thesis-sprint/status.json`
-- `docs/architecture/adr/0006-thesis-experiment-runtime.md`
-- `docs/contracts/thesis-experiment-v0.1.md`
-- `docs/handoffs/thesis-sprint/day1.md`
 - `docs/handoffs/thesis-sprint/integration.md`
 - `docs/workplans/current.md`
 - `docs/workplans/thesis-sprint/day-1-data-portfolios-replay.md`
-- `docs/workplans/thesis-sprint/day-2-metrics-decision-kernel.md`
-- `docs/workplans/thesis-sprint/day-3-agent-architectures.md`
-- `docs/workplans/thesis-sprint/day-4-experiment-results.md`
-- `scripts/thesis/bootstrap_environment.sh`
-- `scripts/thesis/check_lane_paths.py`
-- `tests/architecture/test_day1_preparation.py`
+- `scripts/thesis/run_day1_demo.py`
 - `tests/architecture/test_day23_control_plane.py`
+- `tests/architecture/test_overlay_boundaries.py`
 - `tests/architecture/test_thesis_sprint_control_plane.py`
+- `tests/data/test_day23_research_data_plane.py`
+- `tests/journeys/test_thesis_day1_vertical_slice.py`
 
-No application, package, connector, schema, fixture, requirement, historical
-lifecycle, or `vendor/servicefabric/**` path changed.
+The pre-existing integration edits in
+`tests/architecture/test_day1_preparation.py` and
+`tests/architecture/test_day23_control_plane.py` were preserved; only the
+active Thesis pointer assertion in the latter advanced from `THESIS-D1` to
+`THESIS-D2`.
 
-## Tests executed
+The historical data-suite fixture assertion is a repository-wide binary-data
+boundary despite its older `tests/data` location. Its exact allowlist now
+includes only the accepted Thesis Day 1 Parquet fixtures; no data package or
+fixture changed during closure.
+
+Historical journey targets now select non-Thesis journey files explicitly,
+while `test-thesis-journeys` owns `test_thesis*.py`. This prevents cross-
+environment collection without skipping any journey.
+
+The completed D23 lane check now ends at immutable tag `day23-complete`
+instead of the later Thesis branch head, preserving its historical evidence
+range and excluding Thesis-owned paths.
+
+## Tests
 
 - `make preflight`: PASS.
 - `make test-thesis-control`: PASS (`16 passed`).
-- `make test-architecture`: PASS (`78 passed`).
-- `make verify-d23-current`: PASS, including Day 0, historical Day 1, D23
-  Part 1 and Part 2, manifests, lane checks, and whitespace gates.
-- `make verify-thesis-current`: PASS, including the complete D23 baseline,
-  `15` thesis control tests, and explicit notices that Day 1 implementation,
-  integration, and journey tests do not yet exist.
-- JSON validation, Python compilation, shell syntax, and Make dry-run checks:
-  PASS.
+- `make test-thesis-journeys`: PASS (`1 passed`).
+- `make verify-thesis-day1`: PASS, including the complete D23 baseline,
+  `16` Thesis control tests, `20` specialist tests, `2` vertical-slice tests,
+  fixture digests, the exact specialist range, and whitespace checks.
+- `make demo-thesis-day1`: PASS; wrote the content-addressed external bundle
+  for run `sha256:f9b855df8c7b016e32c16fd11e3de71623802469922c7aaaef6cc3037ec27e81`.
 - `git diff --check`: PASS.
 - `git -C vendor/servicefabric status --short`: clean.
-- `make -n verify-thesis-day1
-  THESIS_DAY1_LANE_BASE=control-plane-sha
-  THESIS_DAY1_LANE_HEAD=specialist-sha`: confirmed the lane checker receives
-  only the explicit control-plane-to-candidate range.
 
-## Evidence produced
+The completion gate preserves the completed D23 baseline, runs all Thesis
+control, specialist, integration, and journey tests, validates fixture
+digests, checks the exact specialist lane range, and validates whitespace.
 
-The control-plane diff and test output are the only activation evidence. No
-experiment observation, replay, metric, architecture, or result artifact is
-produced.
+## Evidence
+
+The vertical-slice journey runs all three fixed-quantity portfolios through
+all five configured daily replay steps. Every step verifies deterministic run
+identity and order, market and event point-in-time eligibility, latest-price
+selection, canonical `portfolio.snapshot.create` and
+`portfolio.exposure.summarize` invocation, immutable snapshot creation,
+positive and reconciled NAV, reconciled position and cash weights, empty
+effects, and absence of broker, order, trade, and rebalance objects.
+
+The integration demo writes these immutable siblings beneath
+`THESIS_DATA_ROOT/day1/<run_id>`:
+
+- `dataset-metadata.json`
+- `instrument-map.json`
+- `portfolio-definitions.json`
+- `replay-specification.json`
+- `replay-steps.json`
+- `portfolio-snapshots.json`
+- `exposure-snapshots.json`
+- `nav-and-weights.json`
+- `run-manifest.json`
+- `evidence-manifest.json`
+
+The journey executes the complete demo in two separate temporary roots and
+requires byte-identical semantic artifacts, IDs, and digests. The evidence
+manifest digests every other sibling artifact, and Git status must remain
+unchanged. Standard runs derive and record a canonical software revision from
+the execution sources, canonical dependencies, package metadata, and locked
+environment; an explicitly supplied non-empty revision remains authoritative.
 
 ## Deviations
 
-Two historical architecture tests now verify completed Day 1 and D23 records
-without requiring the global current-workplan pointer to remain permanently on
-an old programme. The historical Day 1 preparation script is left unchanged;
-`verify-day1` skips only its obsolete current-pointer coupling when a
-`THESIS-*` workplan is active, after the full historical regression tests have
-passed.
+The specialist demo remains available as its focused compact example. The
+required acceptance evidence bundle is produced by the integration-owned
+`scripts/thesis/run_day1_demo.py`. The Thesis package path now explicitly
+includes `packages/risk_planning/src`, removing reliance on the package-local
+import fallback for the canonical capability registry.
 
-Review correction: the eventual Day 1 lane gate no longer compares
-`day23-complete..HEAD` against the specialist allowlist. It automatically
-resolves the commit that introduced the Thesis Sprint control plane and
-requires the exact specialist candidate head, excluding both activation and
-later integration-owned changes.
+## Limitations
+
+All inputs and outputs are fictional and synthetic and are not investment
+advice. Day 1 provides only fixed-quantity replay, canonical portfolio
+snapshots, exposure summaries, NAV, and weights. It contains no metrics,
+findings, decision kernel, agents, B0/B1/A1 treatments, architecture
+comparison, evaluation, external provider, external LLM, broker, order, trade,
+rebalance, optimization, or portfolio mutation effect. Soft QA remains queued.
 
 ## Blockers
 
 None.
 
-## Limitations
-
-Day 1 implementation does not yet exist. The full Day 1 verification and demo
-remain unavailable until the specialist supplies the required tests, fixture
-digest validator, fixtures, and demo.
-
 ## Rollback
 
-Revert only the uncommitted Thesis Sprint activation paths. Preserve the
-completed historical lifecycle records, tag `day23-complete`, and the pinned
-`vendor/servicefabric` tree.
+Revert only the integration closure paths listed above, restore
+`config/agent/thesis-sprint/status.json` and `docs/workplans/current.md` to
+`THESIS-D1` in progress, and leave the accepted specialist merge and completed
+historical lifecycle records intact. Generated demo evidence is external and
+may be removed by deleting its exact `THESIS_DATA_ROOT/day1/<run_id>`
+directory; no Git path is involved.
 
-## Recommended next action
+## Exact Day 2 entry point
 
-Review and commit this activation, then start `feature/thesis-day1` from that
-reviewed control-plane commit using the specialist entry point in the active
-workplan. At acceptance, pass the exact recorded specialist head as
-`THESIS_DAY1_LANE_HEAD`; the gate automatically resolves the control-plane
-addition commit as the lane base.
+Stop after this handoff. When separately authorized to begin Day 2, read
+`docs/workplans/thesis-sprint/day-2-metrics-decision-kernel.md`, verify
+`config/agent/thesis-sprint/status.json` still records `THESIS-D2` with Day 2
+queued, and run:
+
+```bash
+make verify-thesis-day1
+```
+
+Only after that gate passes and a human explicitly activates Day 2 may metric
+definitions or a decision kernel be implemented. No Day 2 work is part of
+this closure.

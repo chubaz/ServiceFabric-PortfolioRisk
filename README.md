@@ -10,6 +10,27 @@ Day 0 is complete and its evidence remains unchanged. Day 1 is complete at
 `D1-COMPLETE`; deterministic verification and explicit identified human soft QA
 have passed.
 
+## Thesis Experiment
+
+The Thesis Experiment provides common reproducible inputs for a later
+portfolio-risk architecture comparison. Day 1 is complete and is limited to
+reviewed synthetic fixtures, three fixed-quantity portfolios, a deterministic
+five-day point-in-time replay, canonical portfolio and exposure snapshots, and
+an effect-free external evidence bundle.
+
+```bash
+make verify-thesis-day1
+make demo-thesis-day1
+make verify-thesis-current
+```
+
+Generated data defaults to the external Thesis Sprint state root. Override it
+with `make demo-thesis-day1 THESIS_DATA_ROOT=/absolute/external/path`; the path
+must remain outside Git. All committed Day 1 fixtures are fictional and
+explicitly synthetic. Day 1 excludes metrics, findings, decision kernels,
+agents, architecture comparisons, external data providers, external LLMs,
+brokers, orders, trades, rebalancing, optimization, and portfolio mutation.
+
 ## Readable Workbench
 
 The Workbench is a loopback-only FastAPI application whose primary interface is

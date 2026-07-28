@@ -23,7 +23,9 @@ jobs:
           python-version: '3.11'
       - name: Install locked thesis environment
         run: python -m pip install --require-hashes -r requirements/day1.lock
-      - name: Verify current thesis lifecycle
-        run: make verify-thesis-current
+      - name: Verify committed Thesis Day 1 gate
+        run: make verify-thesis-day1
+      - name: Write the external synthetic Day 1 demo
+        run: THESIS_DATA_ROOT="${RUNNER_TEMP}/thesis-day1" make demo-thesis-day1
       - name: Validate whitespace
         run: git diff --check

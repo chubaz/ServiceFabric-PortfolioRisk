@@ -11,6 +11,7 @@ DAY0_VENV ?= $(CURDIR)/.venv-day0
 DAY0_PYTHON := $(DAY0_VENV)/bin/python
 DAY0_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src:$(CURDIR)/packages/risk_analytics/src
 DAY0_PYTEST := PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS)" $(DAY0_PYTHON) -m pytest
+HISTORICAL_JOURNEY_TESTS := $(filter-out tests/journeys/test_thesis%.py,$(wildcard tests/journeys/*.py))
 DAY1_VENV ?= $(CURDIR)/.venv-day1
 ifeq ($(strip $(DAY1_VENV)),)
 override DAY1_VENV := $(CURDIR)/.venv-day1
@@ -101,7 +102,7 @@ test-integration: day0-env
 
 .PHONY: test-journeys
 test-journeys: day0-env
-> $(DAY0_PYTEST) tests/journeys -q
+> $(DAY0_PYTEST) $(HISTORICAL_JOURNEY_TESTS) -q
 
 .PHONY: verify-wave-0a
 verify-wave-0a: test-architecture test-integration
@@ -207,7 +208,7 @@ test-day1-integration: day1-env
 
 .PHONY: test-day1-journeys
 test-day1-journeys: day1-env
-> $(DAY1_PYTEST) tests/journeys -q
+> $(DAY1_PYTEST) $(HISTORICAL_JOURNEY_TESTS) -q
 
 .PHONY: verify-wave-1a
 verify-wave-1a: \
@@ -273,6 +274,7 @@ DAY23_PORTFOLIO_RISK_DATA_ROOT ?= $(if $(D23_PORTFOLIO_RISK_DATA_ROOT),$(D23_POR
 DAY23_SERVICEFABRIC_RUNTIME_VENV ?= $(abspath $(CURDIR)/../../../state/venvs/day23/servicefabric-runtime)
 DAY23_SERVICEFABRIC_HOME ?= $(DAY23_STATE_ROOT)/servicefabric-home-phase1
 D23_PART1_HEAD := 0b12e198abc1713f0a286aee817491ffbfe15b17
+D23_PART2_HEAD := day23-complete
 
 .PHONY: day23-env
 day23-env:
@@ -299,7 +301,7 @@ test-d23-integration: day23-env
 
 .PHONY: test-d23-journeys
 test-d23-journeys: day23-env
-> $(DAY23_PYTEST) tests/journeys -q
+> $(DAY23_PYTEST) $(HISTORICAL_JOURNEY_TESTS) -q
 
 .PHONY: verify-d23-phase1
 verify-d23-phase1: day23-env verify-day1 verify-day0 test-d23-control test-d23-data test-d23-experience test-d23-integration test-d23-journeys
@@ -332,7 +334,7 @@ test-d23-part2-integration: day23-env
 
 .PHONY: test-d23-part2-journeys
 test-d23-part2-journeys: day23-env
-> $(DAY23_PYTEST) tests/journeys -q
+> $(DAY23_PYTEST) $(HISTORICAL_JOURNEY_TESTS) -q
 
 .PHONY: check-d23-application-manifest
 check-d23-application-manifest: day23-env
@@ -340,7 +342,7 @@ check-d23-application-manifest: day23-env
 
 .PHONY: verify-d23-part2
 verify-d23-part2: verify-d23-phase1 test-d23-monitoring-core test-d23-monitoring-experience test-d23-part2-integration test-d23-part2-journeys check-d23-application-manifest
-> $(PYTHON) scripts/day23/check_lane_paths.py --all-lanes --base $(D23_PART1_HEAD) --head HEAD --manifest config/agent/day23/lanes.json
+> $(PYTHON) scripts/day23/check_lane_paths.py --all-lanes --base $(D23_PART1_HEAD) --head $(D23_PART2_HEAD) --manifest config/agent/day23/lanes.json
 > git diff --check
 > @echo "D23 Part 2 verification: PASS"
 
@@ -364,16 +366,17 @@ ifeq ($(strip $(THESIS_VENV)),)
 override THESIS_VENV := $(CURDIR)/.venv-thesis
 endif
 THESIS_PYTHON := $(THESIS_VENV)/bin/python
-THESIS_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src:$(CURDIR)/packages/risk_analytics/src:$(CURDIR)/examples/portfolio-risk-thesis/src
+THESIS_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src:$(CURDIR)/packages/risk_analytics/src:$(CURDIR)/examples/portfolio-risk-thesis/src
 THESIS_PYTEST := PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m pytest
 THESIS_STATE_ROOT := $(abspath $(CURDIR)/../../../state/thesis-sprint/integration)
 THESIS_DATA_ROOT ?= $(THESIS_STATE_ROOT)/data
 THESIS_INTEGRATION_TESTS := $(wildcard tests/integration/test_thesis*.py)
 THESIS_JOURNEY_TESTS := $(wildcard tests/journeys/test_thesis*.py)
 THESIS_FIXTURE_VALIDATOR := examples/portfolio-risk-thesis/scripts/validate_fixture_digests.py
-THESIS_DEMO := examples/portfolio-risk-thesis/scripts/run_day1_demo.py
+THESIS_DEMO := scripts/thesis/run_day1_demo.py
 THESIS_DAY1_LANE_BASE ?= $(shell git log --diff-filter=A --format=%H -1 -- config/agent/thesis-sprint/status.json 2>/dev/null)
-THESIS_DAY1_LANE_HEAD ?=
+THESIS_DAY1_CANDIDATE_HEAD := 433ee994998afd3c7e79cd1169ddcdd24e19960f
+THESIS_DAY1_LANE_HEAD ?= $(THESIS_DAY1_CANDIDATE_HEAD)
 
 .PHONY: thesis-env
 thesis-env:
@@ -398,16 +401,6 @@ test-thesis-integration: thesis-env
 test-thesis-journeys: thesis-env
 > if test -n "$(strip $(THESIS_JOURNEY_TESTS))"; then $(THESIS_PYTEST) $(THESIS_JOURNEY_TESTS) -q; else echo "No Thesis Sprint journey tests yet"; fi
 
-.PHONY: verify-thesis-current
-verify-thesis-current: \
-  verify-d23-current \
-  test-thesis-control \
-  test-thesis-day1 \
-  test-thesis-integration \
-  test-thesis-journeys
-> git diff --check
-> @echo "Thesis Sprint current verification: PASS (THESIS-D1 remains in progress)"
-
 .PHONY: check-thesis-day1-fixture-digests
 check-thesis-day1-fixture-digests: thesis-env
 > test -f "$(THESIS_FIXTURE_VALIDATOR)" || { echo "ERROR: Day 1 fixture digest validator is not implemented" >&2; exit 1; }
@@ -415,13 +408,22 @@ check-thesis-day1-fixture-digests: thesis-env
 > THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" $(THESIS_PYTHON) "$(THESIS_FIXTURE_VALIDATOR)" --fixtures data/fixtures/synthetic/thesis-day1
 
 .PHONY: verify-thesis-day1
-verify-thesis-day1: verify-thesis-current check-thesis-day1-fixture-digests
+verify-thesis-day1: \
+  verify-d23-current \
+  test-thesis-control \
+  test-thesis-day1 \
+  test-thesis-integration \
+  test-thesis-journeys \
+  check-thesis-day1-fixture-digests
 > test -n "$(THESIS_DAY1_LANE_BASE)" || { echo "ERROR: unable to resolve the Thesis Sprint control-plane commit" >&2; exit 1; }
-> test -n "$(THESIS_DAY1_LANE_HEAD)" || { echo "ERROR: THESIS_DAY1_LANE_HEAD must identify the exact specialist candidate head" >&2; exit 1; }
 > git merge-base --is-ancestor "$(THESIS_DAY1_LANE_BASE)" "$(THESIS_DAY1_LANE_HEAD)" || { echo "ERROR: specialist candidate must descend from the Thesis Sprint control-plane commit" >&2; exit 1; }
 > $(THESIS_PYTHON) scripts/thesis/check_lane_paths.py --lane day1 --base "$(THESIS_DAY1_LANE_BASE)" --head "$(THESIS_DAY1_LANE_HEAD)" --manifest config/agent/thesis-sprint/lanes.json
 > git diff --check
-> @echo "Thesis Sprint Day 1 implementation verification: PASS"
+> @echo "Thesis Sprint Day 1 verification: PASS"
+
+.PHONY: verify-thesis-current
+verify-thesis-current: verify-thesis-day1
+> @echo "Thesis Sprint current verification: PASS (Day 1 complete; THESIS-D2 queued)"
 
 .PHONY: demo-thesis-day1
 demo-thesis-day1: thesis-env
