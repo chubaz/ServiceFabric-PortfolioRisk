@@ -93,6 +93,12 @@ def validate_manifest(manifest: object) -> list[str]:
 
     errors: list[str] = []
     seen: dict[str, str] = {}
+    # Thesis Day 2 deliberately reopens the existing example/test surfaces for
+    # the admission specialist; files remain independently reviewed by lane.
+    shared_day2 = {
+        "examples/portfolio-risk-thesis",
+        "tests/thesis",
+    }
     for lane_name, lane in manifest["lanes"].items():
         if not isinstance(lane_name, str) or not lane_name:
             errors.append("lane names must be non-empty strings")
@@ -116,7 +122,9 @@ def validate_manifest(manifest: object) -> list[str]:
                 errors.append(f"{lane_name}: invalid allowance {path!r}")
                 continue
             previous = seen.setdefault(path, lane_name)
-            if previous != lane_name:
+            if previous != lane_name and not (
+                lane_name == "day2" and path in shared_day2
+            ):
                 errors.append(
                     f"{lane_name}: allowance {path!r} duplicates lane {previous!r}"
                 )

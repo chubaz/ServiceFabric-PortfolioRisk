@@ -20,11 +20,12 @@ def read_json(relative: str) -> dict:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
 
 
-def test_thesis_day1_is_complete_and_day2_is_only_queued() -> None:
+def test_thesis_day1_is_complete_and_day2_real_data_is_active() -> None:
     assert read_json("config/agent/thesis-sprint/status.json") == {
-        "current": "THESIS-D2",
+        "current": "THESIS-D2-DATA",
         "day_1": "complete",
-        "day_2": "queued",
+        "day_2": "in_progress",
+        "day_2_stage": "real_data_admission",
         "day_3": "queued",
         "day_4": "queued",
         "soft_qa": "queued",
@@ -33,20 +34,20 @@ def test_thesis_day1_is_complete_and_day2_is_only_queued() -> None:
     }
     assert read_json("config/agent/day23/status.json")["current"] == "D23-COMPLETE"
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
-    assert "ID: THESIS-D2" in current
-    assert "Status: queued, not started" in current
-    assert "day-2-metrics-decision-kernel.md" in current
+    assert "ID: THESIS-D2-DATA" in current
+    assert "Status: in progress" in current
+    assert "day-2-real-data-admission.md" in current
     assert "prior D23 baseline remains complete" in current
     assert "Thesis Sprint Day 1 is complete" in current
-    assert "Day 2 is queued and has not started" in current
+    assert "Day 2 is active at real-data admission" in current
     assert "No metric decision kernel" in current
 
 
-def test_two_lane_manifest_has_frozen_explicit_ownership() -> None:
+def test_lane_manifest_has_frozen_explicit_ownership() -> None:
     manifest = read_json("config/agent/thesis-sprint/lanes.json")
     assert manifest["namespace"] == "thesis-sprint"
     assert manifest["base_tag"] == "day23-complete"
-    assert manifest["integration_order"] == ["day1", "integration"]
+    assert manifest["integration_order"] == ["day1", "day2", "integration"]
     assert validate_manifest(manifest) == []
     assert manifest["lanes"] == {
         "integration": {
@@ -69,6 +70,17 @@ def test_two_lane_manifest_has_frozen_explicit_ownership() -> None:
                 "Makefile",
                 "docs/workplans/current.md",
             ],
+        },
+        "day2": {
+            "branch": "feature/thesis-day2",
+            "allowed_directories": [
+                "packages/risk_data",
+                "data/schemas/thesis-real-data",
+                "examples/portfolio-risk-thesis",
+                "tests/data",
+                "tests/thesis",
+            ],
+            "allowed_files": ["docs/handoffs/thesis-sprint/day2.md"],
         },
         "day1": {
             "branch": "feature/thesis-day1",
@@ -198,7 +210,7 @@ def test_make_targets_preserve_baselines_and_stage_eventual_day1_gate() -> None:
         ".PHONY: verify-thesis-current", maxsplit=1
     )[1].split(".PHONY: demo-thesis-day1", maxsplit=1)[0]
     assert "verify-thesis-day1" in current_gate
-    assert "THESIS-D2 queued" in current_gate
+    assert "Day 2 real-data admission active" in current_gate
 
 
 def test_specialist_workflow_uses_control_plane_base_and_exact_candidate_head() -> None:
