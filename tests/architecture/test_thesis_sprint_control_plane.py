@@ -21,12 +21,12 @@ def read_json(relative: str) -> dict:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
 
 
-def test_thesis_day1_is_complete_and_day2_metrics_stage_is_active() -> None:
+def test_thesis_day2_is_complete_and_day3_is_queued() -> None:
     assert read_json("config/agent/thesis-sprint/status.json") == {
-        "current": "THESIS-D2",
+        "current": "THESIS-D3",
         "day_1": "complete",
-        "day_2": "in_progress",
-        "day_2_stage": "metrics_decision_kernel",
+        "day_2": "complete",
+        "day_2_stage": "complete",
         "day_3": "queued",
         "day_4": "queued",
         "soft_qa": "queued",
@@ -35,20 +35,14 @@ def test_thesis_day1_is_complete_and_day2_metrics_stage_is_active() -> None:
     }
     assert read_json("config/agent/day23/status.json")["current"] == "D23-COMPLETE"
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
-    assert "ID: THESIS-D2" in current
-    assert "Status: in progress" in current
-    assert "day-2-metrics-decision-kernel.md" in current
+    assert "ID: THESIS-D3" in current
+    assert "Status: queued" in current
+    assert "day-3-agent-architectures.md" in current
     assert "prior D23 baseline remains complete" in current
-    assert (
-        "Thesis Sprint Day 1 and the human-governed real-portfolio definition"
-        in current
-    )
-    assert (
-        "active at Morning MetricPack and deterministic decision-kernel "
-        "implementation"
-        in current
-    )
-    assert "No completed metric decision kernel" in current
+    assert "Thesis Sprint Day 1 and Day 2 are complete" in current
+    assert "Morning MetricPacks" in current
+    assert "Day 3 is queued" in current
+    assert "No B0, B1, or A1 agent architecture" in current
 
 
 def test_lane_manifest_has_frozen_explicit_ownership() -> None:
@@ -238,8 +232,8 @@ def test_make_targets_preserve_baselines_and_stage_eventual_day1_gate() -> None:
     current_gate = makefile.split(
         ".PHONY: verify-thesis-current", maxsplit=1
     )[1].split(".PHONY: demo-thesis-day1", maxsplit=1)[0]
-    assert "verify-thesis-day1" in current_gate
-    assert "Day 2 metrics and decision-kernel stage active" in current_gate
+    assert "verify-thesis-day2" in current_gate
+    assert "Day 2 complete; Day 3 queued" in current_gate
 
 
 def test_specialist_workflow_uses_control_plane_base_and_exact_candidate_head() -> None:
@@ -299,6 +293,8 @@ def test_ci_uses_locked_python_and_current_gate_without_process_host_smoke() -> 
     assert "submodules: recursive" in workflow
     assert "python-version: '3.11'" in workflow
     assert "pip install --require-hashes -r requirements/day1.lock" in workflow
-    assert "make verify-thesis-day1" in workflow
+    assert "make verify-thesis-day2" in workflow
     assert "make demo-thesis-day1" in workflow
+    assert "verify-thesis-day2-real is a licensed local gate" in workflow
+    assert "run: make verify-thesis-day2-real" not in workflow
     assert "servicefabric" not in workflow.lower()

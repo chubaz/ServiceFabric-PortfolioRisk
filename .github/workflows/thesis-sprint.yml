@@ -23,14 +23,10 @@ jobs:
           python-version: '3.11'
       - name: Install locked thesis environment
         run: python -m pip install --require-hashes -r requirements/day1.lock
-      - name: Verify committed Thesis Day 1 gate
-        run: make verify-thesis-day1
-      - name: Verify Thesis Day 2 admission control plane
+      - name: Verify synthetic Thesis Day 2 vertical slice
         run: make verify-thesis-day2
-      - name: Run synthetic bridge and adapter suite
-        run: make test-thesis-real-data
       - name: Record synthetic-only CI boundary
-        run: echo "CI runs synthetic fixtures only; licensed local bridge gate is never invoked"
+        run: echo "CI runs schema-compatible synthetic fixtures only; verify-thesis-day2-real is a licensed local gate and is never invoked"
       - name: Write the external synthetic Day 1 demo
         run: THESIS_DATA_ROOT="${RUNNER_TEMP}/thesis-day1" make demo-thesis-day1
       - name: Validate whitespace

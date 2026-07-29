@@ -1,6 +1,6 @@
 # THESIS-D2-PORTFOLIOS — Human-governed portfolio definition
 
-- Status: in progress
+- Status: complete
 - Depends on: accepted CRSP/Compustat bridge and candidate-universe artifact
 - Next state: `THESIS-D2` / `metrics_decision_kernel`
 
@@ -22,3 +22,8 @@ Inputs and outputs are external under `THESIS_DATA_ROOT`; candidate universe
 and reviewed selections must retain immutable snapshot and point-in-time
 evidence. Missing availability remains missing and requires rejection or an
 explicit warning.
+
+The accepted checkpoint materialized only the portfolios explicitly recorded
+in a human-reviewed selection. The implementation did not choose securities,
+quantities, aliases, or cash, and produced immutable receipts with empty
+effects.

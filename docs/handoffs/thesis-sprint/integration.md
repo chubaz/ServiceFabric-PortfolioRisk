@@ -1,4 +1,4 @@
-# Thesis Sprint integration handoff — Day 1 closure
+# Thesis Sprint integration handoff — Day 2 closure
 
 ## Lane and branch
 
@@ -11,9 +11,11 @@
 - Accepted specialist candidate:
   `433ee994998afd3c7e79cd1169ddcdd24e19960f`
 - Merge commit: `8280a63`
-- Integration head: uncommitted working tree by explicit instruction
-- Lifecycle: Day 1 and portfolio definition complete; `THESIS-D2` in progress
-  at `metrics_decision_kernel`
+- Accepted Day 2 specialist candidate:
+  `ba884cd4d84c15ebe9ada42fe60b39b650860dd1`
+- Day 2 merge commit: `7efabf5c5a0c50f9ae5111978936ad55765eb37f`
+- Integration head: closeout commit recorded after this handoff
+- Lifecycle: Day 1 and Day 2 complete; `THESIS-D3` queued
 
 ## Files
 
@@ -194,3 +196,53 @@ materiality, review items, and decision points. Preserve null undefined
 metrics, explicit warnings and limitations, point-in-time evidence, and empty
 effects. Do not implement Day 3 agents, an LLM, providers, broker actions,
 trades, rebalancing, optimization, or portfolio mutation.
+
+## Accepted Day 2 metrics and kernel checkpoint
+
+Specialist candidate `ba884cd` was accepted in merge commit `7efabf5`. It adds
+the reviewed private experiment contract and CLI, bounded point-in-time DuckDB
+reads, canonical analytics capability invocations, immutable Morning
+MetricPacks, explicit `READY`, `QUALIFIED`, and `BLOCKED` readiness states,
+deterministic findings, materiality, human review items, and kernel decision
+points. Outcomes are limited to `NO_ISSUE`, `REVIEW`, `URGENT_REVIEW`, and
+`ABSTAIN`; every effect list is empty.
+
+The final reviewed private selection contains three fixed-quantity portfolios
+and receipt `portfolio_receipt_b32ae22d02471da4e6c5d966`. The system did not
+choose securities, aliases, quantities, or cash. The daily-primary local run is
+`day2_e77ee99b473419653d828dc0`; an identical rerun was idempotent. No licensed
+row, PERMNO, GVKEY, private selection, identifier map, generated portfolio,
+catalogue, metric artifact, or receipt entered Git.
+
+Integration closeout adds a synthetic public journey and a private wrapper.
+The public journey links the accepted Day 1 replay to the Morning MetricPack,
+DataReadiness, deterministic finding, materiality, ReviewItem, and
+KernelDecisionPoint contracts. It proves all readiness states and kernel
+outcomes, null undefined metrics with explicit warnings,
+`event_source_not_configured`, deterministic repetition, blocked network
+access, mandatory human review, and empty effects. The private wrapper requires
+the four reviewed external path variables and emits only compact run metadata,
+never source rows, identifiers, records, or paths.
+
+Closeout verification:
+
+- `make verify-thesis-day2` — PASS, including all preserved Day 0, Day 1, and
+  Day 2–3 baselines, `17` Thesis control tests, `66` specialist tests, `31`
+  bridge/boundary tests, `3` Thesis journeys, and `10` focused Day 2 tests;
+- `make verify-thesis-day2-real` — PASS against the reviewed licensed V2
+  experiment, three portfolios, daily-primary mode, and zero effects;
+- focused lifecycle and journey suite — `24 passed`;
+- `git diff --check` and `vendor/servicefabric` cleanliness — PASS.
+
+CI runs only schema-compatible synthetic fixtures and the public synthetic
+vertical slice. It never invokes or claims the licensed local gate. Licensed
+files remain external, `dsf.parquet` is the accepted daily source, and DuckDB
+performs bounded local scans and joins.
+
+## Day 3 entry point
+
+Lifecycle advances to `THESIS-D3` queued. Read
+`docs/workplans/thesis-sprint/day-3-agent-architectures.md` before any new
+implementation. No B0, B1, or A1 treatment, agent architecture, LLM, provider
+call, broker action, order, trade, rebalance, optimization, or portfolio
+mutation is implemented by this closeout.

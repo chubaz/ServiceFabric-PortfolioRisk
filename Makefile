@@ -422,8 +422,8 @@ verify-thesis-day1: \
 > @echo "Thesis Sprint Day 1 verification: PASS"
 
 .PHONY: verify-thesis-current
-verify-thesis-current: verify-thesis-day1
-> @echo "Thesis Sprint current verification: PASS (Day 2 metrics and decision-kernel stage active)"
+verify-thesis-current: verify-thesis-day2
+> @echo "Thesis Sprint current verification: PASS (Day 2 complete; Day 3 queued)"
 
 # Day 2 real-data targets execute the accepted local bridge. All licensed
 # inputs and outputs remain external and are supplied explicitly by the user.
@@ -437,6 +437,11 @@ THESIS_REAL_CANDIDATE_ARTIFACT ?=
 THESIS_REAL_PORTFOLIO_SELECTION ?=
 THESIS_REAL_PORTFOLIO_OUTPUT ?=
 THESIS_REAL_PORTFOLIO_DIRECTORY ?=
+THESIS_REAL_SOURCE_MANIFEST ?=
+THESIS_REAL_EXPERIMENT_MANIFEST ?=
+THESIS_REAL_OUTPUT_ROOT ?=
+THESIS_DAY2_OUTPUT_ROOT ?=
+THESIS_DAY2_DEMO := scripts/thesis/run_day2_demo.py
 
 .PHONY: test-thesis-real-data
 test-thesis-real-data: thesis-env
@@ -503,19 +508,31 @@ verify-thesis-real-portfolios: test-thesis-real-portfolios
 > THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli validate-real-portfolios --portfolios-directory "$(THESIS_REAL_PORTFOLIO_DIRECTORY)" --receipt "$(THESIS_REAL_PORTFOLIO_DIRECTORY)/portfolio-selection-receipt.json"
 
 .PHONY: test-thesis-day2
-test-thesis-day2: test-thesis-control test-thesis-real-data
+test-thesis-day2: thesis-env
+> $(THESIS_PYTEST) tests/thesis/test_day2_metrics_kernel.py tests/journeys/test_thesis_day2_vertical_slice.py -q
 
 .PHONY: verify-thesis-day2
-verify-thesis-day2: test-thesis-day2
+verify-thesis-day2: verify-thesis-day1 test-thesis-real-data test-thesis-day2
 > git diff --check
-> @echo "Thesis Sprint Day 2 control-plane verification: PASS"
+> @echo "Thesis Sprint Day 2 synthetic verification: PASS"
 
 .PHONY: verify-thesis-day2-real
-verify-thesis-day2-real: verify-thesis-day2 verify-thesis-real-data-daily
+verify-thesis-day2-real: verify-thesis-day2 demo-thesis-day2-real
+> @echo "Thesis Sprint Day 2 licensed local verification: PASS"
 
 .PHONY: demo-thesis-day2-real
-demo-thesis-day2-real: verify-thesis-day2-real
-> @echo "Thesis Day 2 real-data demo: admission gate PASS (no rows or private paths emitted)"
+demo-thesis-day2-real: thesis-env
+> @test -f "$(THESIS_DAY2_DEMO)" || { echo "ERROR: Day 2 demo is not implemented" >&2; exit 1; }
+> @test -n "$(strip $(THESIS_REAL_SOURCE_MANIFEST))" || { echo "ERROR: set THESIS_REAL_SOURCE_MANIFEST" >&2; exit 1; }
+> @test -n "$(strip $(THESIS_REAL_EXPERIMENT_MANIFEST))" || { echo "ERROR: set THESIS_REAL_EXPERIMENT_MANIFEST" >&2; exit 1; }
+> @test -n "$(strip $(THESIS_REAL_OUTPUT_ROOT))" || { echo "ERROR: set THESIS_REAL_OUTPUT_ROOT" >&2; exit 1; }
+> @test -n "$(strip $(THESIS_DAY2_OUTPUT_ROOT))" || { echo "ERROR: set THESIS_DAY2_OUTPUT_ROOT" >&2; exit 1; }
+> @PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" \
+  THESIS_REAL_SOURCE_MANIFEST="$(THESIS_REAL_SOURCE_MANIFEST)" \
+  THESIS_REAL_EXPERIMENT_MANIFEST="$(THESIS_REAL_EXPERIMENT_MANIFEST)" \
+  THESIS_REAL_OUTPUT_ROOT="$(THESIS_REAL_OUTPUT_ROOT)" \
+  THESIS_DAY2_OUTPUT_ROOT="$(THESIS_DAY2_OUTPUT_ROOT)" \
+  $(THESIS_PYTHON) "$(THESIS_DAY2_DEMO)"
 
 .PHONY: demo-thesis-day1
 demo-thesis-day1: thesis-env

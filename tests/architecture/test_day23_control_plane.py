@@ -209,7 +209,7 @@ def test_day23_completion_state_is_recorded() -> None:
     current = (ROOT / "docs/workplans/current.md").read_text(
         encoding="utf-8"
     ).lower()
-    assert "id: thesis-d2" in current
+    assert "id: thesis-d3" in current
     assert "prior d23 baseline remains complete" in current
     readme = (ROOT / "README.md").read_text(encoding="utf-8").lower()
     for stale in ("integration completion remains blocked", "part 3 remains queued", "duplicate synthetic csv fixtures"):

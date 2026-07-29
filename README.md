@@ -13,13 +13,17 @@ have passed.
 ## Thesis Experiment
 
 The Thesis Experiment provides common reproducible inputs for a later
-portfolio-risk architecture comparison. Day 1 is complete and is limited to
-reviewed synthetic fixtures, three fixed-quantity portfolios, a deterministic
-five-day point-in-time replay, canonical portfolio and exposure snapshots, and
-an effect-free external evidence bundle.
+portfolio-risk architecture comparison. Day 1 and Day 2 are complete. Day 1
+uses reviewed synthetic fixtures, three fixed-quantity portfolios, a
+deterministic five-day point-in-time replay, canonical portfolio and exposure
+snapshots, and an effect-free external evidence bundle. Day 2 adds the governed
+licensed-data bridge, explicitly human-reviewed real portfolio definitions,
+Morning MetricPacks, data-readiness states, deterministic findings, review
+items, and effect-free kernel decision points.
 
 ```bash
 make verify-thesis-day1
+make verify-thesis-day2
 make demo-thesis-day1
 make verify-thesis-current
 ```
@@ -27,9 +31,19 @@ make verify-thesis-current
 Generated data defaults to the external Thesis Sprint state root. Override it
 with `make demo-thesis-day1 THESIS_DATA_ROOT=/absolute/external/path`; the path
 must remain outside Git. All committed Day 1 fixtures are fictional and
-explicitly synthetic. Day 1 excludes metrics, findings, decision kernels,
-agents, architecture comparisons, external data providers, external LLMs,
-brokers, orders, trades, rebalancing, optimization, and portfolio mutation.
+explicitly synthetic.
+
+The licensed Day 2 gate is deliberately local and is never run by CI. Licensed
+files, source manifests, reviewed selections, private identifier maps, DuckDB
+catalogues, generated portfolios, and result artifacts remain outside Git.
+`dsf.parquet` is the accepted daily-primary source. DuckDB performs bounded
+local scans and joins; point-in-time eligibility remains
+`available_at <= as_of`. CI runs only schema-compatible synthetic fixtures and
+the public synthetic vertical slice.
+
+Day 3 is queued. No agent architecture, B0/B1/A1 treatment, external LLM,
+provider call, broker connection, order, trade, rebalance, optimization, or
+portfolio mutation effect is implemented.
 
 ## Readable Workbench
 
