@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
@@ -13,6 +14,56 @@ from .pipeline import ingest_synthetic
 from .research import ResearchDataPlane
 from .research_contracts import DatasetDefinition, FixedQueryRequest, LocalImportConfirmation, ProviderAccessState, ProviderDefinition, PublicationRestriction, RightsState
 from .serialization import manifest_json
+
+
+def _add_source_manifest_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--source-manifest",
+        "--manifest",
+        dest="manifest",
+        type=Path,
+        required=True,
+    )
+
+
+def _add_crsp_execution_arguments(parser: argparse.ArgumentParser) -> None:
+    _add_source_manifest_argument(parser)
+    parser.add_argument(
+        "--output-root",
+        "--data-root",
+        dest="data_root",
+        type=Path,
+        required=True,
+    )
+    parser.add_argument("--temp-directory", type=Path)
+    parser.add_argument("--memory-limit", default="2GB")
+    parser.add_argument("--threads", type=int, default=2)
+
+
+def _bridge_code_revision() -> str:
+    digest = hashlib.sha256()
+    package = Path(__file__).resolve().parent
+    for name in ("licensed_contracts.py", "licensed_crsp_compustat.py"):
+        digest.update((package / name).read_bytes())
+    return f"bridge-{digest.hexdigest()[:24]}"
+
+
+def _write_private_json(path: Path, value: object) -> None:
+    from .licensed_crsp_compustat import LicensedDataError, REPOSITORY_ROOT
+
+    if not path.is_absolute():
+        raise LicensedDataError("profile output must be an explicit absolute path")
+    resolved = path.resolve()
+    if resolved == REPOSITORY_ROOT or REPOSITORY_ROOT in resolved.parents:
+        raise LicensedDataError("profile output must remain outside Git")
+    payload = json.dumps(value, indent=2, sort_keys=True) + "\n"
+    if resolved.exists() and resolved.read_text(encoding="utf-8") != payload:
+        raise LicensedDataError(
+            "immutable profile output already exists with different content"
+        )
+    resolved.parent.mkdir(parents=True, exist_ok=True)
+    if not resolved.exists():
+        resolved.write_text(payload, encoding="utf-8")
 
 
 def _add_local_import_arguments(parser: argparse.ArgumentParser) -> None:
@@ -97,7 +148,7 @@ def _event_preview_from_args(args: argparse.Namespace):  # type: ignore[no-untyp
     )
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m risk_data.cli")
     subcommands = parser.add_subparsers(dest="command", required=True)
     ingest = subcommands.add_parser("ingest-synthetic", help="write deterministic synthetic artifacts")
@@ -169,7 +220,65 @@ def main() -> int:
         help="render deterministic Markdown and semantic HTML review material",
     )
     render_report_command.add_argument("--request", type=Path, required=True)
-    args = parser.parse_args()
+    init_crsp = subcommands.add_parser(
+        "init-crsp-compustat-manifest",
+        help="initialize a private reviewed-shape manifest from seven explicit local Parquet files",
+    )
+    init_crsp.add_argument("--schema-profile", type=Path, required=True)
+    init_crsp.add_argument("--source-root", type=Path, required=True)
+    init_crsp.add_argument("--manifest", type=Path, required=True)
+    init_crsp.add_argument("--revision", required=True)
+    init_crsp.add_argument("--retrieved-at", required=True)
+    profile_crsp = subcommands.add_parser(
+        "profile-crsp-compustat",
+        help="verify reviewed source digests, schemas and bounded row counts",
+    )
+    _add_source_manifest_argument(profile_crsp)
+    profile_crsp.add_argument("--output", type=Path)
+    profile_crsp.add_argument("--temp-directory", type=Path)
+    profile_crsp.add_argument("--memory-limit", default="2GB")
+    profile_crsp.add_argument("--threads", type=int, default=2)
+    build_crsp = subcommands.add_parser(
+        "build-crsp-compustat",
+        help="build an immutable local licensed-data snapshot with DuckDB",
+    )
+    _add_crsp_execution_arguments(build_crsp)
+    build_crsp.add_argument(
+        "--mode",
+        choices=("daily-primary", "daily_primary", "monthly-smoke", "monthly_smoke"),
+        default="daily-primary",
+    )
+    build_crsp.add_argument("--code-revision")
+    verify_crsp = subcommands.add_parser(
+        "verify-crsp-compustat",
+        help="verify one immutable snapshot and its fixed catalogue",
+    )
+    verify_crsp.add_argument(
+        "--output-root",
+        "--data-root",
+        dest="data_root",
+        type=Path,
+        required=True,
+    )
+    verify_crsp.add_argument("--snapshot-id")
+    verify_crsp.add_argument(
+        "--mode",
+        choices=("daily-primary", "daily_primary", "monthly-smoke", "monthly_smoke"),
+    )
+    list_crsp = subcommands.add_parser(
+        "list-crsp-compustat-snapshots",
+        help="list compact immutable snapshot identities without private paths",
+    )
+    list_crsp.add_argument("--data-root", type=Path, required=True)
+    candidates = subcommands.add_parser(
+        "candidate-crsp-universe",
+        help="write a bounded point-in-time candidate universe beneath the external data root",
+    )
+    candidates.add_argument("--data-root", type=Path, required=True)
+    candidates.add_argument("--as-of", required=True)
+    candidates.add_argument("--minimum-observations", type=int, default=60)
+    candidates.add_argument("--limit", type=int, default=100)
+    args = parser.parse_args(argv)
     if args.command == "ingest-synthetic":
         result = ingest_synthetic(args.output)
         print(result.snapshot_manifest)
@@ -321,8 +430,164 @@ def main() -> int:
             raise ValueError("monitoring report capability returned no report")
         print(manifest_json(result.data), end="")
         return 0
+    if args.command == "init-crsp-compustat-manifest":
+        from .licensed_crsp_compustat import initialize_manifest
+
+        initialize_manifest(
+            args.schema_profile,
+            args.source_root,
+            args.manifest,
+            revision=args.revision,
+            retrieved_at=datetime.fromisoformat(args.retrieved_at.replace("Z", "+00:00")),
+        )
+        print("initialized private CRSP/Compustat manifest; reviewed=false")
+        return 0
+    if args.command == "profile-crsp-compustat":
+        from .licensed_crsp_compustat import profile_manifest
+
+        if args.temp_directory is None and args.output is None:
+            parser.error(
+                "profile-crsp-compustat requires --output or --temp-directory"
+            )
+        temp_directory = (
+            args.temp_directory
+            if args.temp_directory is not None
+            else args.output.parent / "tmp"
+        )
+        profile = profile_manifest(
+            args.manifest,
+            memory_limit=args.memory_limit,
+            threads=args.threads,
+            temp_directory=temp_directory,
+        )
+        summary = {
+            "profile": "licensed_local",
+            "sources": profile,
+            "sources_verified": len(profile),
+            "licensed_rows_printed": 0,
+        }
+        if args.output is not None:
+            _write_private_json(args.output, summary)
+        print(
+            json.dumps(
+                {
+                    "profile": summary["profile"],
+                    "sources_verified": summary["sources_verified"],
+                    "licensed_rows_printed": summary["licensed_rows_printed"],
+                    "profile_written": args.output is not None,
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
+    if args.command == "build-crsp-compustat":
+        from .licensed_contracts import DatasetBuildSpecification
+        from .licensed_crsp_compustat import build_dataset
+
+        result = build_dataset(
+            DatasetBuildSpecification(
+                manifest_path=args.manifest,
+                data_root=args.data_root,
+                mode=args.mode.replace("-", "_"),
+                memory_limit=args.memory_limit,
+                threads=args.threads,
+                temp_directory=args.temp_directory or args.data_root / "tmp",
+                code_revision=args.code_revision or _bridge_code_revision(),
+            )
+        )
+        print(
+            json.dumps(
+                {
+                    "snapshot_id": result.snapshot_id,
+                    "created": result.created,
+                    "sources": len(result.receipt.source_digests),
+                    "rows_printed": 0,
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
+    if args.command == "verify-crsp-compustat":
+        from .licensed_crsp_compustat import verify_dataset
+
+        result = verify_dataset(args.data_root, args.snapshot_id)
+        if args.mode is not None:
+            expected_monthly = args.mode.replace("-", "_") == "monthly_smoke"
+            is_monthly = any(
+                "Monthly smoke is diagnostic only" in limitation
+                for limitation in result.limitations
+            )
+            if expected_monthly != is_monthly:
+                raise ValueError("verified snapshot does not match the requested mode")
+        print(
+            json.dumps(
+                {
+                    "snapshot_id": result.snapshot_id,
+                    "verified": True,
+                    "rows_printed": 0,
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
+    if args.command == "list-crsp-compustat-snapshots":
+        from .licensed_crsp_compustat import list_snapshots
+
+        snapshots = list_snapshots(args.data_root)
+        print(
+            json.dumps(
+                [
+                    {
+                        "snapshot_id": item.snapshot_id,
+                        "created_at": item.created_at.isoformat(),
+                        "source_count": len(item.source_digests),
+                    }
+                    for item in snapshots
+                ],
+                sort_keys=True,
+            )
+        )
+        return 0
+    if args.command == "candidate-crsp-universe":
+        from .licensed_crsp_compustat import candidate_universe
+
+        as_of = datetime.fromisoformat(args.as_of.replace("Z", "+00:00"))
+        rows = candidate_universe(
+            args.data_root,
+            as_of=as_of,
+            minimum_observations=args.minimum_observations,
+            limit=args.limit,
+        )
+        identity = __import__("hashlib").sha256(
+            json.dumps(rows, sort_keys=True, default=str).encode("utf-8")
+        ).hexdigest()
+        output = args.data_root / "evidence" / f"candidate-universe-{identity[:24]}.json"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(rows, indent=2, sort_keys=True, default=str) + "\n"
+        if output.exists() and output.read_text(encoding="utf-8") != payload:
+            raise ValueError("immutable candidate-universe artifact mismatch")
+        if not output.exists():
+            output.write_text(payload, encoding="utf-8")
+        print(
+            json.dumps(
+                {
+                    "candidate_count": len(rows),
+                    "artifact_id": output.stem,
+                    "rows_printed": 0,
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
     return 2
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except Exception as error:
+        from .licensed_crsp_compustat import LicensedDataError
+
+        if isinstance(error, LicensedDataError):
+            raise SystemExit(f"licensed-data command failed: {error}") from None
+        raise

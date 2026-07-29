@@ -40,6 +40,8 @@ def load_dataset_manifest(path: Path | str) -> tuple[DatasetMetadata, DatasetMet
     common = {
         "dataset_id": raw["dataset_id"],
         "revision": raw["revision"],
+        "profile": raw.get("profile", "synthetic_local"),
+        "publication_state": raw.get("publication_state", "synthetic_reviewed"),
         "synthetic": raw["synthetic"],
     }
     results: list[DatasetMetadata] = []

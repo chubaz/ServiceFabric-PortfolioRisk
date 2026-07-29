@@ -1,0 +1,87 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "allowed_link_types": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Allowed Link Types",
+      "type": "array"
+    },
+    "allowed_primary_values": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Allowed Primary Values",
+      "type": "array"
+    },
+    "ambiguous_eligible_links": {
+      "const": "reject",
+      "default": "reject",
+      "title": "Ambiguous Eligible Links",
+      "type": "string"
+    },
+    "cusip_fallback": {
+      "const": false,
+      "default": false,
+      "title": "Cusip Fallback",
+      "type": "boolean"
+    },
+    "date_rule": {
+      "const": "link_start <= market_date <= coalesce(link_end, infinity)",
+      "default": "link_start <= market_date <= coalesce(link_end, infinity)",
+      "title": "Date Rule",
+      "type": "string"
+    },
+    "fuzzy_matching": {
+      "const": false,
+      "default": false,
+      "title": "Fuzzy Matching",
+      "type": "boolean"
+    },
+    "join_keys": {
+      "const": "gvkey_permno",
+      "default": "gvkey_permno",
+      "title": "Join Keys",
+      "type": "string"
+    },
+    "name_fallback": {
+      "const": false,
+      "default": false,
+      "title": "Name Fallback",
+      "type": "boolean"
+    },
+    "nearest_date_fallback": {
+      "const": false,
+      "default": false,
+      "title": "Nearest Date Fallback",
+      "type": "boolean"
+    },
+    "policy_id": {
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+      "title": "Policy Id",
+      "type": "string"
+    },
+    "ticker_fallback": {
+      "const": false,
+      "default": false,
+      "title": "Ticker Fallback",
+      "type": "boolean"
+    },
+    "version": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "policy_id",
+    "version",
+    "allowed_link_types",
+    "allowed_primary_values"
+  ],
+  "title": "LinkSelectionPolicy",
+  "type": "object"
+}

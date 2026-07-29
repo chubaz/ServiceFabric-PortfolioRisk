@@ -13,6 +13,10 @@ from ..manifests import sha256_file
 
 class HistoricalEventDataAdapter:
     def __init__(self, metadata: DatasetMetadata) -> None:
+        if metadata.profile != "synthetic_local":
+            raise ValueError(
+                "licensed_local event data is not admitted by the CRSP/Compustat bridge"
+            )
         if len(metadata.source_paths) != 1:
             raise ValueError("Day 1 event adapter requires exactly one source")
         self._metadata = metadata

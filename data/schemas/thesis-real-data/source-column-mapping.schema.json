@@ -1,0 +1,65 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "canonical_name": {
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+      "title": "Canonical Name",
+      "type": "string"
+    },
+    "canonical_type": {
+      "enum": [
+        "VARCHAR",
+        "BIGINT",
+        "INTEGER",
+        "SMALLINT",
+        "DECIMAL",
+        "DATE",
+        "TIMESTAMPTZ",
+        "BOOLEAN"
+      ],
+      "title": "Canonical Type",
+      "type": "string"
+    },
+    "required": {
+      "default": false,
+      "title": "Required",
+      "type": "boolean"
+    },
+    "source_columns": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Columns",
+      "type": "array"
+    },
+    "transformation_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Transformation Ids",
+      "type": "array"
+    },
+    "unit": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unit"
+    }
+  },
+  "required": [
+    "canonical_name",
+    "canonical_type"
+  ],
+  "title": "SourceColumnMapping",
+  "type": "object"
+}

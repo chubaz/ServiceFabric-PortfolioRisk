@@ -37,6 +37,19 @@ from .research_contracts import (
     TransformationRecord,
 )
 from .events import EventDatasetSnapshot, EventImportIssue, EventImportPreview, EventMappingManifest, EventProviderProfile, EventQueryRequest, EventQueryResult, LocalEventRecord
+from .licensed_contracts import (
+    AvailabilityPolicy,
+    DatasetAdmissionReceipt,
+    DatasetBuildResult,
+    DatasetBuildSpecification,
+    JoinQualityReport,
+    LicensedSourceDefinition,
+    LicensedSourceManifest,
+    LinkSelectionPolicy,
+    SchemaFingerprint,
+    SourceColumnMapping,
+    WhitelistedTransformation,
+)
 
 
 CONTRACTS = (
@@ -76,6 +89,20 @@ CONTRACTS = (
     EventQueryResult,
 )
 
+THESIS_REAL_DATA_CONTRACTS = (
+    LicensedSourceManifest,
+    LicensedSourceDefinition,
+    SourceColumnMapping,
+    WhitelistedTransformation,
+    AvailabilityPolicy,
+    LinkSelectionPolicy,
+    DatasetBuildSpecification,
+    DatasetBuildResult,
+    DatasetAdmissionReceipt,
+    SchemaFingerprint,
+    JoinQualityReport,
+)
+
 
 def _filename(name: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower() + ".schema.json"
@@ -90,6 +117,26 @@ def generate(output_directory: Path | None = None) -> tuple[Path, ...]:
         path = destination / _filename(contract.__name__)
         schema = TypeAdapter(contract).json_schema()
         path.write_text(json.dumps(schema, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        paths.append(path)
+    return tuple(paths)
+
+
+def generate_thesis_real_data(
+    output_directory: Path | None = None,
+) -> tuple[Path, ...]:
+    root = Path(__file__).resolve().parents[4]
+    destination = (
+        output_directory or root / "data" / "schemas" / "thesis-real-data"
+    )
+    destination.mkdir(parents=True, exist_ok=True)
+    paths: list[Path] = []
+    for contract in THESIS_REAL_DATA_CONTRACTS:
+        path = destination / _filename(contract.__name__)
+        schema = TypeAdapter(contract).json_schema()
+        path.write_text(
+            json.dumps(schema, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         paths.append(path)
     return tuple(paths)
 
