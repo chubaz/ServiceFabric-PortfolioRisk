@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from scripts.thesis.check_lane_paths import (
+    changed_paths,
     is_allowed,
     safe_path,
     validate_changes,
@@ -140,6 +141,27 @@ def test_lane_checker_handles_exact_files_directories_types_renames_and_copies()
     )
     assert any("packages/risk_domain/new.py" in error for error in errors)
     assert any("../README.md" in error for error in errors)
+
+
+def test_lane_checker_excludes_later_integration_only_changes(monkeypatch) -> None:
+    def fake_run(command: list[str], **kwargs):
+        assert command[-1] == "integration/thesis-experiment...feature/thesis-day2"
+        assert kwargs == {"check": True, "capture_output": True}
+
+        class Result:
+            stdout = b"M\0tests/data/test_bridge.py\0"
+
+        return Result()
+
+    monkeypatch.setattr(
+        "scripts.thesis.check_lane_paths.subprocess.run",
+        fake_run,
+    )
+
+    assert changed_paths(
+        "integration/thesis-experiment",
+        "feature/thesis-day2",
+    ) == [("M", ("tests/data/test_bridge.py",))]
 
 
 def test_environment_reuses_locked_python311_dependencies_and_paths() -> None:

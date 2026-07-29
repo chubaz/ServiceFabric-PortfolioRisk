@@ -38,7 +38,12 @@ def is_allowed(
 
 
 def changed_paths(base: str, head: str) -> list[tuple[str, tuple[str, ...]]]:
-    """Read every changed path, including type changes and both rename/copy sides."""
+    """Read candidate changes since its merge base with integration.
+
+    Integration-owned acceptance commits may advance ``base`` after a specialist
+    branch is cut.  A three-dot diff excludes those integration-only changes
+    while retaining every change introduced on the candidate side.
+    """
     output = subprocess.run(
         [
             "git",
@@ -48,8 +53,7 @@ def changed_paths(base: str, head: str) -> list[tuple[str, tuple[str, ...]]]:
             "--find-renames",
             "--find-copies",
             "--find-copies-harder",
-            base,
-            head,
+            f"{base}...{head}",
         ],
         check=True,
         capture_output=True,
