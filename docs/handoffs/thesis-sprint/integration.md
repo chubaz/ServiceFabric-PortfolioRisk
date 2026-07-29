@@ -12,7 +12,8 @@
   `433ee994998afd3c7e79cd1169ddcdd24e19960f`
 - Merge commit: `8280a63`
 - Integration head: uncommitted working tree by explicit instruction
-- Lifecycle: Day 1 complete; `THESIS-D2` queued and not started
+- Lifecycle: Day 1 complete; `THESIS-D2-PORTFOLIOS` in progress at
+  `portfolio_definition`
 
 ## Files
 
@@ -134,17 +135,26 @@ historical lifecycle records intact. Generated demo evidence is external and
 may be removed by deleting its exact `THESIS_DATA_ROOT/day1/<run_id>`
 directory; no Git path is involved.
 
-## Exact Day 2 entry point
+## Accepted Day 2 bridge checkpoint
 
-Stop after this handoff. When separately authorized to begin Day 2, read
-`docs/workplans/thesis-sprint/day-2-metrics-decision-kernel.md`, verify
-`config/agent/thesis-sprint/status.json` still records `THESIS-D2` with Day 2
-queued, and run:
+The accepted `feature/thesis-day2` checkpoint implements the local licensed
+CRSP/Compustat bridge and CLI. Its daily-primary and monthly-smoke builds were
+completed locally under human authorization; licensed data and generated
+snapshots remain external. The candidate-universe artifact is the final
+currently implemented artifact. Metrics remain queued.
+
+## Exact specialist entry point
+
+The Day 2 specialist must read
+`docs/workplans/thesis-sprint/day-2-portfolio-definition.md` and
+`docs/contracts/thesis-real-portfolio-selection-v0.1.md`. Start from the
+candidate-universe artifact and implement only the human-reviewed selection
+YAML to fixed-quantity `PortfolioDefinition` YAML validation flow. The system
+must never choose securities or quantities. Run:
 
 ```bash
 make verify-thesis-day1
 ```
 
-Only after that gate passes and a human explicitly activates Day 2 may metric
-definitions or a decision kernel be implemented. No Day 2 work is part of
-this closure.
+No metrics, selection algorithm, optimizer, broker, order, trade, rebalance,
+or portfolio mutation is part of this entry point.

@@ -21,12 +21,12 @@ def read_json(relative: str) -> dict:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
 
 
-def test_thesis_day1_is_complete_and_day2_real_data_is_active() -> None:
+def test_thesis_day1_is_complete_and_day2_portfolio_definition_is_active() -> None:
     assert read_json("config/agent/thesis-sprint/status.json") == {
-        "current": "THESIS-D2-DATA",
+        "current": "THESIS-D2-PORTFOLIOS",
         "day_1": "complete",
         "day_2": "in_progress",
-        "day_2_stage": "real_data_admission",
+        "day_2_stage": "portfolio_definition",
         "day_3": "queued",
         "day_4": "queued",
         "soft_qa": "queued",
@@ -35,12 +35,12 @@ def test_thesis_day1_is_complete_and_day2_real_data_is_active() -> None:
     }
     assert read_json("config/agent/day23/status.json")["current"] == "D23-COMPLETE"
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
-    assert "ID: THESIS-D2-DATA" in current
+    assert "ID: THESIS-D2-PORTFOLIOS" in current
     assert "Status: in progress" in current
-    assert "day-2-real-data-admission.md" in current
+    assert "day-2-portfolio-definition.md" in current
     assert "prior D23 baseline remains complete" in current
     assert "Thesis Sprint Day 1 is complete" in current
-    assert "Day 2 is active at real-data admission" in current
+    assert "Day 2 is active at human-governed portfolio definition" in current
     assert "No metric decision kernel" in current
 
 

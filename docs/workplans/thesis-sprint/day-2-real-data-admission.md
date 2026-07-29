@@ -1,12 +1,16 @@
-# THESIS-D2-DATA — Real-data admission
+# THESIS-D2-DATA — Real-data admission (accepted checkpoint)
 
 - Status: in progress
 - Depends on: `THESIS-D1` complete and accepted
-- Next state: `THESIS-D2` / `metrics_decision_kernel`
+- Next state: `THESIS-D2-PORTFOLIOS` / `portfolio_definition`
 
-Freeze the control plane for admitting seven externally held licensed Parquet
-sources. This stage records source identity, schema, and access boundaries only;
-no bridge or metrics implementation is in scope.
+The CRSP/Compustat licensed local bridge is implemented and accepted. Daily-
+primary and monthly-smoke builds were completed locally under explicit human
+authorization. Licensed data remain external and private; CI uses synthetic
+schema-compatible fixtures only.
+
+The candidate-universe artifact is the final currently implemented artifact.
+Human-governed portfolio definition is the next stage. Metrics remain queued.
 
 The real-data gate requires explicit external paths and a daily-primary
 `dsf.parquet`. A monthly smoke using `msf.parquet` is diagnostic only. CI uses

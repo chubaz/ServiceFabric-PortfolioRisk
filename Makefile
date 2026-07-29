@@ -425,45 +425,53 @@ verify-thesis-day1: \
 verify-thesis-current: verify-thesis-day1
 > @echo "Thesis Sprint current verification: PASS (Day 2 real-data admission active)"
 
-# Day 2 admission is control-plane only. Real targets accept paths explicitly,
-# never enumerate or inspect licensed rows, and keep all outputs external.
+# Day 2 real-data targets execute the accepted local bridge. All licensed
+# inputs and outputs remain external and are supplied explicitly by the user.
 THESIS_REAL_DATA_ROOT ?=
 THESIS_REAL_SOURCE_SCHEMAS ?=
+THESIS_REAL_MANIFEST ?=
+THESIS_REAL_PROFILE_OUTPUT ?=
 THESIS_REAL_DSF ?=
 THESIS_REAL_MSF ?=
 
 .PHONY: test-thesis-real-data
 test-thesis-real-data: thesis-env
-> $(THESIS_PYTEST) tests/architecture/test_thesis_real_data_boundaries.py -q
+> $(THESIS_PYTEST) tests/architecture/test_thesis_real_data_boundaries.py tests/data/test_thesis_crsp_compustat_bridge.py tests/thesis/test_day2_adapter_profiles.py -q
 
 .PHONY: profile-thesis-real-data
 profile-thesis-real-data:
-> @real_root='$(strip $(THESIS_REAL_DATA_ROOT))'; \
-  schema_file='$(strip $(THESIS_REAL_SOURCE_SCHEMAS))'; \
+> @real_root='$(strip $(THESIS_REAL_DATA_ROOT))'; schema_file='$(strip $(THESIS_REAL_SOURCE_SCHEMAS))'; manifest='$(strip $(THESIS_REAL_MANIFEST))'; \
   test -n "$$real_root" || { echo "ERROR: set THESIS_REAL_DATA_ROOT to an external private directory" >&2; exit 1; }; \
   test -n "$$schema_file" || { echo "ERROR: set THESIS_REAL_SOURCE_SCHEMAS explicitly" >&2; exit 1; }; \
   case "$$real_root" in /*) ;; *) echo "ERROR: THESIS_REAL_DATA_ROOT must be absolute" >&2; exit 1;; esac; \
   case "$$schema_file" in /*) ;; *) echo "ERROR: THESIS_REAL_SOURCE_SCHEMAS must be absolute" >&2; exit 1;; esac; \
+  test -n "$$manifest" || { echo "ERROR: set THESIS_REAL_MANIFEST explicitly" >&2; exit 1; }; \
+  test -n "$(strip $(THESIS_REAL_PROFILE_OUTPUT))" || { echo "ERROR: set THESIS_REAL_PROFILE_OUTPUT explicitly" >&2; exit 1; }; \
+  case "$$manifest" in /*) ;; *) echo "ERROR: THESIS_REAL_MANIFEST must be absolute" >&2; exit 1;; esac; \
   test -d "$$real_root" || { echo "ERROR: THESIS_REAL_DATA_ROOT must be an existing directory" >&2; exit 1; }; \
   test -f "$$schema_file" || { echo "ERROR: source-schemas.json is required" >&2; exit 1; }; \
   test "$${schema_file##*/}" = "source-schemas.json" || { echo "ERROR: schema path must name source-schemas.json" >&2; exit 1; }; \
   repository_root=$$(realpath -- "$(CURDIR)") || exit 1; \
   real_root=$$(realpath -- "$$real_root") || exit 1; \
   schema_file=$$(realpath -- "$$schema_file") || exit 1; \
+  manifest=$$(realpath -- "$$manifest") || exit 1; \
   case "$$real_root" in "$$repository_root"|"$$repository_root"/*) echo "ERROR: THESIS_REAL_DATA_ROOT must remain outside Git" >&2; exit 1;; esac; \
-  case "$$schema_file" in "$$repository_root"|"$$repository_root"/*) echo "ERROR: THESIS_REAL_SOURCE_SCHEMAS must remain outside Git" >&2; exit 1;; esac
-> @echo "Thesis real-data schema profile: control-plane check PASS (licensed rows not inspected)"
+  case "$$schema_file" in "$$repository_root"|"$$repository_root"/*) echo "ERROR: THESIS_REAL_SOURCE_SCHEMAS must remain outside Git" >&2; exit 1;; esac; \
+  case "$$manifest" in "$$repository_root"|"$$repository_root"/*) echo "ERROR: THESIS_REAL_MANIFEST must remain outside Git" >&2; exit 1;; esac; \
+  test -f "$$manifest" || { echo "ERROR: THESIS_REAL_MANIFEST must exist" >&2; exit 1; }
+> $(THESIS_PYTHON) -m risk_data.cli profile-crsp-compustat --manifest "$(THESIS_REAL_MANIFEST)" --output "$(THESIS_REAL_PROFILE_OUTPUT)"
 
 .PHONY: build-thesis-real-data
 build-thesis-real-data: profile-thesis-real-data
-> @echo "Thesis real-data build: admission control PASS (bridge not implemented)"
+> test -n "$(THESIS_REAL_DATA_ROOT)" || { echo "ERROR: set THESIS_REAL_DATA_ROOT explicitly" >&2; exit 1; }
+> $(THESIS_PYTHON) -m risk_data.cli build-crsp-compustat --manifest "$(THESIS_REAL_MANIFEST)" --data-root "$(THESIS_REAL_DATA_ROOT)" --mode daily-primary
 
 .PHONY: verify-thesis-real-data
-verify-thesis-real-data: test-thesis-real-data profile-thesis-real-data
-> @echo "Thesis real-data verification: PASS (licensed-data admission not claimed)"
+verify-thesis-real-data: test-thesis-real-data build-thesis-real-data
+> $(THESIS_PYTHON) -m risk_data.cli verify-crsp-compustat --data-root "$(THESIS_REAL_DATA_ROOT)" --mode daily-primary
 
 .PHONY: verify-thesis-real-data-daily
-verify-thesis-real-data-daily: verify-thesis-real-data
+verify-thesis-real-data-daily:
 > @daily_file='$(strip $(THESIS_REAL_DSF))'; \
   test -n "$$daily_file" || { echo "ERROR: daily-primary requires explicit dsf.parquet" >&2; exit 1; }; \
   case "$$daily_file" in /*) ;; *) echo "ERROR: THESIS_REAL_DSF must be absolute" >&2; exit 1;; esac; \
@@ -472,7 +480,12 @@ verify-thesis-real-data-daily: verify-thesis-real-data
   repository_root=$$(realpath -- "$(CURDIR)") || exit 1; \
   daily_file=$$(realpath -- "$$daily_file") || exit 1; \
   case "$$daily_file" in "$$repository_root"|"$$repository_root"/*) echo "ERROR: THESIS_REAL_DSF must remain outside Git" >&2; exit 1;; esac
-> @echo "Thesis daily-primary admission: path check PASS (rows not inspected)"
+> $(MAKE) verify-thesis-real-data THESIS_REAL_DATA_ROOT="$(THESIS_REAL_DATA_ROOT)" THESIS_REAL_MANIFEST="$(THESIS_REAL_MANIFEST)" THESIS_REAL_SOURCE_SCHEMAS="$(THESIS_REAL_SOURCE_SCHEMAS)" THESIS_REAL_PROFILE_OUTPUT="$(THESIS_REAL_PROFILE_OUTPUT)"
+
+.PHONY: test-thesis-real-portfolios materialize-thesis-real-portfolios verify-thesis-real-portfolios
+test-thesis-real-portfolios materialize-thesis-real-portfolios verify-thesis-real-portfolios:
+> @echo "ERROR: $@ not implemented; requires THESIS_DATA_ROOT, THESIS_REAL_DATA_ROOT, THESIS_REAL_MANIFEST, THESIS_REAL_CANDIDATE_UNIVERSE, THESIS_REAL_SELECTION_YAML, and THESIS_REAL_PORTFOLIO_OUTPUT (all external absolute paths)" >&2
+> @exit 1
 
 .PHONY: test-thesis-day2
 test-thesis-day2: test-thesis-control test-thesis-real-data

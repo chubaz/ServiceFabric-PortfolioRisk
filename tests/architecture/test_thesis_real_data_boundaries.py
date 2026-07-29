@@ -9,8 +9,8 @@ ROOT = Path(__file__).parents[2]
 def test_active_stage_and_day2_lane_are_frozen() -> None:
     status = json.loads((ROOT / "config/agent/thesis-sprint/status.json").read_text())
     lanes = json.loads((ROOT / "config/agent/thesis-sprint/lanes.json").read_text())
-    assert status["current"] == "THESIS-D2-DATA"
-    assert status["day_2_stage"] == "real_data_admission"
+    assert status["current"] == "THESIS-D2-PORTFOLIOS"
+    assert status["day_2_stage"] == "portfolio_definition"
     assert lanes["integration_order"] == ["day1", "day2", "integration"]
     assert lanes["lanes"]["day2"]["branch"] == "feature/thesis-day2"
     assert lanes["lanes"]["day2"]["allowed_directories"] == [
@@ -37,6 +37,32 @@ def test_makefile_has_explicit_real_data_gate_targets() -> None:
         assert f".PHONY: {target}" in text
     assert "THESIS_REAL_DATA_ROOT" in text
     assert "dsf.parquet" in text
+    verify = text.split(".PHONY: verify-thesis-real-data", 1)[1].split(
+        ".PHONY: verify-thesis-real-data-daily", 1
+    )[0]
+    assert "verify-thesis-real-data: test-thesis-real-data build-thesis-real-data" in verify
+    daily = text.split(".PHONY: verify-thesis-real-data-daily", 1)[1].split(
+        ".PHONY: test-thesis-real-portfolios", 1
+    )[0]
+    assert "$(MAKE) verify-thesis-real-data" in daily
+    assert "$(MAKE) build-thesis-real-data" not in daily
+
+
+def test_unimplemented_portfolio_gates_fail_closed() -> None:
+    for target in (
+        "test-thesis-real-portfolios",
+        "materialize-thesis-real-portfolios",
+        "verify-thesis-real-portfolios",
+    ):
+        result = subprocess.run(
+            ["make", "-s", target],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode != 0
+        assert f"ERROR: {target} not implemented" in result.stderr
 
 
 def run_profile(data_root: str, schema_file: str) -> subprocess.CompletedProcess[str]:
@@ -63,7 +89,7 @@ def test_profile_rejects_relative_and_repository_paths(tmp_path: Path) -> None:
 
     in_repository = run_profile(str(ROOT), str(schema_file))
     assert in_repository.returncode != 0
-    assert "must remain outside Git" in in_repository.stderr
+    assert "THESIS_REAL_MANIFEST" in in_repository.stderr
 
 
 def test_profile_accepts_existing_absolute_external_paths(tmp_path: Path) -> None:
@@ -71,6 +97,6 @@ def test_profile_accepts_existing_absolute_external_paths(tmp_path: Path) -> Non
     schema_file.write_text("{}\n")
 
     result = run_profile(str(tmp_path), str(schema_file))
-    assert result.returncode == 0
-    assert "control-plane check PASS" in result.stdout
+    assert result.returncode != 0
+    assert "THESIS_REAL_MANIFEST" in result.stderr
     assert str(tmp_path) not in result.stdout + result.stderr
