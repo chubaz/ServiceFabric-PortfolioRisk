@@ -1,10 +1,10 @@
 # Current Workplan
 
-- ID: THESIS-D2
-- Title: Metrics and decision kernel
-- Status: queued, not started
+- ID: THESIS-D2-DATA
+- Title: Real-data admission
+- Status: in progress
 - Namespace: thesis-sprint
-- Workplan: docs/workplans/thesis-sprint/day-2-metrics-decision-kernel.md
+- Workplan: docs/workplans/thesis-sprint/day-2-real-data-admission.md
 - Completed experiment day: THESIS-D1
 - Completed baseline: docs/workplans/day-2-3/complete.md
 - Baseline verification: make verify-d23-current
@@ -15,7 +15,8 @@ release decision. Its lifecycle records are not reopened by this experiment.
 Thesis Sprint Day 1 is complete. Its accepted scope is the reviewed synthetic
 dataset, three fixed-quantity portfolios, deterministic five-day point-in-time
 replay, canonical portfolio snapshots and exposure summaries, and the external
-evidence bundle. Day 2 is queued and has not started.
+evidence bundle. Day 2 is active at real-data admission; its metrics kernel
+remains queued.
 
 No metric decision kernel, finding, agent architecture, architecture
 comparison, evaluation result, experiment result, or QA completion is claimed.

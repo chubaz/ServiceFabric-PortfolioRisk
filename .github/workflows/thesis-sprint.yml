@@ -25,6 +25,10 @@ jobs:
         run: python -m pip install --require-hashes -r requirements/day1.lock
       - name: Verify committed Thesis Day 1 gate
         run: make verify-thesis-day1
+      - name: Verify Thesis Day 2 admission control plane
+        run: make verify-thesis-day2
+      - name: Record synthetic-only CI boundary
+        run: echo "CI uses synthetic fixtures only; licensed-data admission is not claimed"
       - name: Write the external synthetic Day 1 demo
         run: THESIS_DATA_ROOT="${RUNNER_TEMP}/thesis-day1" make demo-thesis-day1
       - name: Validate whitespace

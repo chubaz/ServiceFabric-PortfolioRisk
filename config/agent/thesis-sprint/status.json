@@ -1,7 +1,8 @@
 {
-  "current": "THESIS-D2",
+  "current": "THESIS-D2-DATA",
   "day_1": "complete",
-  "day_2": "queued",
+  "day_2": "in_progress",
+  "day_2_stage": "real_data_admission",
   "day_3": "queued",
   "day_4": "queued",
   "soft_qa": "queued",
