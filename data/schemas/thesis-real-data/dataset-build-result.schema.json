@@ -1,0 +1,387 @@
+{
+  "$defs": {
+    "DatasetAdmissionReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "availability_policy": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Availability Policy",
+          "type": "object"
+        },
+        "catalogue_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Catalogue Digest",
+          "type": "string"
+        },
+        "code_revision": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Code Revision",
+          "type": "string"
+        },
+        "coverage": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Coverage",
+          "type": "object"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Limitations",
+          "type": "array"
+        },
+        "link_policy": {
+          "$ref": "#/$defs/LinkSelectionPolicy"
+        },
+        "mapping_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Mapping Digest",
+          "type": "string"
+        },
+        "output_digests": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Output Digests",
+          "type": "object"
+        },
+        "output_row_counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Output Row Counts",
+          "type": "object"
+        },
+        "partitions": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Partitions",
+          "type": "object"
+        },
+        "publication_state": {
+          "const": "private_local_only",
+          "title": "Publication State",
+          "type": "string"
+        },
+        "quality": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "title": "Quality",
+          "type": "object"
+        },
+        "receipt_id": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+          "title": "Receipt Id",
+          "type": "string"
+        },
+        "rights": {
+          "const": "licensed_restricted",
+          "title": "Rights",
+          "type": "string"
+        },
+        "schema_fingerprints": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Schema Fingerprints",
+          "type": "object"
+        },
+        "snapshot_id": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+          "title": "Snapshot Id",
+          "type": "string"
+        },
+        "source_digests": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Source Digests",
+          "type": "object"
+        },
+        "transformation_versions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Transformation Versions",
+          "type": "object"
+        }
+      },
+      "required": [
+        "receipt_id",
+        "snapshot_id",
+        "created_at",
+        "source_digests",
+        "schema_fingerprints",
+        "mapping_digest",
+        "transformation_versions",
+        "output_row_counts",
+        "partitions",
+        "output_digests",
+        "catalogue_digest",
+        "rights",
+        "publication_state",
+        "quality",
+        "coverage",
+        "availability_policy",
+        "link_policy",
+        "code_revision",
+        "limitations"
+      ],
+      "title": "DatasetAdmissionReceipt",
+      "type": "object"
+    },
+    "JoinQualityReport": {
+      "additionalProperties": false,
+      "properties": {
+        "ambiguous_market_dates": {
+          "minimum": 0,
+          "title": "Ambiguous Market Dates",
+          "type": "integer"
+        },
+        "blocked": {
+          "title": "Blocked",
+          "type": "boolean"
+        },
+        "eligible_link_rows": {
+          "minimum": 0,
+          "title": "Eligible Link Rows",
+          "type": "integer"
+        },
+        "missing_fundamental_availability_rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Missing Fundamental Availability Rows"
+        },
+        "report_id": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+          "title": "Report Id",
+          "type": "string"
+        },
+        "snapshot_id": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+          "title": "Snapshot Id",
+          "type": "string"
+        },
+        "stock_name_overlap_rows": {
+          "minimum": 0,
+          "title": "Stock Name Overlap Rows",
+          "type": "integer"
+        },
+        "unlinked_market_rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unlinked Market Rows"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "report_id",
+        "snapshot_id",
+        "eligible_link_rows",
+        "ambiguous_market_dates",
+        "stock_name_overlap_rows",
+        "blocked"
+      ],
+      "title": "JoinQualityReport",
+      "type": "object"
+    },
+    "LinkSelectionPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_link_types": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Allowed Link Types",
+          "type": "array"
+        },
+        "allowed_primary_values": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Allowed Primary Values",
+          "type": "array"
+        },
+        "ambiguous_eligible_links": {
+          "const": "reject",
+          "default": "reject",
+          "title": "Ambiguous Eligible Links",
+          "type": "string"
+        },
+        "cusip_fallback": {
+          "const": false,
+          "default": false,
+          "title": "Cusip Fallback",
+          "type": "boolean"
+        },
+        "date_rule": {
+          "const": "link_start <= market_date <= coalesce(link_end, infinity)",
+          "default": "link_start <= market_date <= coalesce(link_end, infinity)",
+          "title": "Date Rule",
+          "type": "string"
+        },
+        "fuzzy_matching": {
+          "const": false,
+          "default": false,
+          "title": "Fuzzy Matching",
+          "type": "boolean"
+        },
+        "join_keys": {
+          "const": "gvkey_permno",
+          "default": "gvkey_permno",
+          "title": "Join Keys",
+          "type": "string"
+        },
+        "name_fallback": {
+          "const": false,
+          "default": false,
+          "title": "Name Fallback",
+          "type": "boolean"
+        },
+        "nearest_date_fallback": {
+          "const": false,
+          "default": false,
+          "title": "Nearest Date Fallback",
+          "type": "boolean"
+        },
+        "policy_id": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+          "title": "Policy Id",
+          "type": "string"
+        },
+        "ticker_fallback": {
+          "const": false,
+          "default": false,
+          "title": "Ticker Fallback",
+          "type": "boolean"
+        },
+        "version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy_id",
+        "version",
+        "allowed_link_types",
+        "allowed_primary_values"
+      ],
+      "title": "LinkSelectionPolicy",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "catalogue_path": {
+      "format": "path",
+      "title": "Catalogue Path",
+      "type": "string"
+    },
+    "created": {
+      "title": "Created",
+      "type": "boolean"
+    },
+    "evidence_path": {
+      "format": "path",
+      "title": "Evidence Path",
+      "type": "string"
+    },
+    "join_quality": {
+      "$ref": "#/$defs/JoinQualityReport"
+    },
+    "quality_path": {
+      "format": "path",
+      "title": "Quality Path",
+      "type": "string"
+    },
+    "receipt": {
+      "$ref": "#/$defs/DatasetAdmissionReceipt"
+    },
+    "receipt_path": {
+      "format": "path",
+      "title": "Receipt Path",
+      "type": "string"
+    },
+    "snapshot_id": {
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+      "title": "Snapshot Id",
+      "type": "string"
+    },
+    "snapshot_root": {
+      "format": "path",
+      "title": "Snapshot Root",
+      "type": "string"
+    }
+  },
+  "required": [
+    "snapshot_id",
+    "created",
+    "snapshot_root",
+    "catalogue_path",
+    "receipt_path",
+    "quality_path",
+    "evidence_path",
+    "receipt",
+    "join_quality"
+  ],
+  "title": "DatasetBuildResult",
+  "type": "object"
+}

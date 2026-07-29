@@ -1,0 +1,78 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "ambiguous_market_dates": {
+      "minimum": 0,
+      "title": "Ambiguous Market Dates",
+      "type": "integer"
+    },
+    "blocked": {
+      "title": "Blocked",
+      "type": "boolean"
+    },
+    "eligible_link_rows": {
+      "minimum": 0,
+      "title": "Eligible Link Rows",
+      "type": "integer"
+    },
+    "missing_fundamental_availability_rows": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Missing Fundamental Availability Rows"
+    },
+    "report_id": {
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+      "title": "Report Id",
+      "type": "string"
+    },
+    "snapshot_id": {
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+      "title": "Snapshot Id",
+      "type": "string"
+    },
+    "stock_name_overlap_rows": {
+      "minimum": 0,
+      "title": "Stock Name Overlap Rows",
+      "type": "integer"
+    },
+    "unlinked_market_rows": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unlinked Market Rows"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "report_id",
+    "snapshot_id",
+    "eligible_link_rows",
+    "ambiguous_market_dates",
+    "stock_name_overlap_rows",
+    "blocked"
+  ],
+  "title": "JoinQualityReport",
+  "type": "object"
+}

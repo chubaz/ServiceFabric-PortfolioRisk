@@ -1,0 +1,5 @@
+duckdb<2,>=1.5
+pyarrow<26,>=25
+pydantic<3,>=2
+PyYAML<7,>=6
+risk-domain>=0.1.0

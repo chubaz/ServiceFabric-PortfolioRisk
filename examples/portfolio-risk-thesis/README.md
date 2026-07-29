@@ -32,3 +32,65 @@ Parquet and fixture-manifest digests before replacing any reviewed fixture.
 Every market and event row also carries and validates its fixture revision,
 canonical content digest, units, quality state, limitations, synthetic
 disclosure, source, and evidence reference.
+
+## Day 2 licensed local-export bridge
+
+Day 2 adds a separate `licensed_local` path in `risk_data`; it does not alter
+the Day 1 synthetic replay. The bridge accepts only a human-reviewed private
+manifest and the seven explicit CRSP/Compustat Parquet identities. It uses
+DuckDB for scans, transformations, partitioned ZSTD Parquet output, fixed
+date-effective joins, and the local catalogue at
+`catalog/crsp-compustat.duckdb`. It accepts no SQL, expression, formula,
+network provider, ticker join, or repository output path.
+That exact catalogue is the latest local pointer; every admission also retains
+an immutable digest-bound copy under `catalog/snapshots/<snapshot_id>/`, which
+is the copy used for snapshot verification and candidate-universe queries.
+
+The checked-in
+`data/real_dataset_manifest.example.yaml` contains the reviewed schema profile
+and explicit mappings but deliberately unusable placeholder paths, digests,
+revision, and retrieval time. Initialize a private manifest outside Git, review
+and change its `reviewed` flag, then use the commands below.
+
+When running from an uninstalled source checkout, `risk_data` requires both its
+own source directory and its declared `risk_domain` dependency on `PYTHONPATH`:
+
+```bash
+export PYTHONPATH="$SF_THESIS_DAY2_WT/packages/risk_domain/src:$SF_THESIS_DAY2_WT/packages/risk_data/src:$SF_THESIS_DAY2_WT/examples/portfolio-risk-thesis/src"
+
+"$SF_THESIS_VENV/bin/python" -m risk_data.cli \
+  init-crsp-compustat-manifest \
+  --schema-profile "$SF_REAL_PROFILE_ROOT/source-schemas.json" \
+  --source-root "$SF_REAL_RAW_ROOT" \
+  --manifest "$THESIS_REAL_SOURCE_MANIFEST" \
+  --revision "$THESIS_REAL_SOURCE_REVISION" \
+  --retrieved-at "$THESIS_REAL_RETRIEVED_AT"
+
+"$SF_THESIS_VENV/bin/python" -m risk_data.cli \
+  profile-crsp-compustat \
+  --source-manifest "$THESIS_REAL_SOURCE_MANIFEST" \
+  --output "$SF_REAL_PROFILE_ROOT/validated-profile.json"
+
+"$SF_THESIS_VENV/bin/python" -m risk_data.cli \
+  build-crsp-compustat \
+  --source-manifest "$THESIS_REAL_SOURCE_MANIFEST" \
+  --output-root "$SF_REAL_OUTPUT_ROOT" \
+  --mode daily-primary
+
+"$SF_THESIS_VENV/bin/python" -m risk_data.cli verify-crsp-compustat ...
+"$SF_THESIS_VENV/bin/python" -m risk_data.cli list-crsp-compustat-snapshots ...
+"$SF_THESIS_VENV/bin/python" -m risk_data.cli candidate-crsp-universe ...
+```
+
+`THESIS_REAL_SOURCE_REVISION` and `THESIS_REAL_RETRIEVED_AT` must be set to the
+reviewed source revision and its timezone-aware retrieval timestamp. The
+initializer consumes the shareable schema-only `source-schemas.json`; the
+private `source-inventory.private.json` is not a schema profile and remains
+outside Codex and Git.
+
+Market availability is explicitly a research timing model: the source market
+date becomes visible at the reviewed time on the next distinct observed market
+date, never at the same-day close; the final date remains unavailable. Annual
+and quarterly fundamentals remain separate, rows without explicit publication
+availability do not enter primary point-in-time joins, RET/RETX and RET/DLRET
+remain distinct, and no MetricPack or combined-return policy is included.

@@ -1,0 +1,178 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "date_format": {
+      "anyOf": [
+        {
+          "enum": [
+            "iso8601",
+            "yyyymmdd"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Date Format"
+    },
+    "disclosure": {
+      "minLength": 1,
+      "title": "Disclosure",
+      "type": "string"
+    },
+    "literal": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Literal"
+    },
+    "null_values": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Null Values",
+      "type": "array"
+    },
+    "operation": {
+      "enum": [
+        "rename",
+        "typed_cast",
+        "absolute_value",
+        "scale",
+        "trim",
+        "uppercase",
+        "null_map",
+        "date_conversion",
+        "timestamp_at_utc",
+        "next_observed_session_availability",
+        "literal_value",
+        "explicit_ordered_coalesce"
+      ],
+      "title": "Operation",
+      "type": "string"
+    },
+    "scale_column": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scale Column"
+    },
+    "scale_direction": {
+      "anyOf": [
+        {
+          "enum": [
+            "multiply",
+            "divide"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scale Direction"
+    },
+    "scale_factor": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scale Factor"
+    },
+    "source_columns": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Columns",
+      "type": "array"
+    },
+    "target_type": {
+      "anyOf": [
+        {
+          "enum": [
+            "VARCHAR",
+            "BIGINT",
+            "INTEGER",
+            "SMALLINT",
+            "DECIMAL",
+            "DATE",
+            "TIMESTAMPTZ",
+            "BOOLEAN"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Type"
+    },
+    "transformation_id": {
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+      "title": "Transformation Id",
+      "type": "string"
+    },
+    "version": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "transformation_id",
+    "operation",
+    "version",
+    "disclosure"
+  ],
+  "title": "WhitelistedTransformation",
+  "type": "object"
+}

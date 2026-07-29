@@ -1,0 +1,62 @@
+{
+  "$defs": {
+    "SourceSchemaColumn": {
+      "additionalProperties": false,
+      "properties": {
+        "logical_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Logical Type",
+          "type": "string"
+        },
+        "name": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "nullable": {
+          "default": true,
+          "title": "Nullable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "logical_type"
+      ],
+      "title": "SourceSchemaColumn",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "algorithm": {
+      "default": "external_arrow_v1",
+      "enum": [
+        "external_arrow_v1",
+        "duckdb_logical_v1"
+      ],
+      "title": "Algorithm",
+      "type": "string"
+    },
+    "columns": {
+      "items": {
+        "$ref": "#/$defs/SourceSchemaColumn"
+      },
+      "minItems": 1,
+      "title": "Columns",
+      "type": "array"
+    },
+    "digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Digest",
+      "type": "string"
+    }
+  },
+  "required": [
+    "digest",
+    "columns"
+  ],
+  "title": "SchemaFingerprint",
+  "type": "object"
+}

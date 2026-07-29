@@ -1,0 +1,526 @@
+{
+  "$defs": {
+    "AvailabilityPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "available_at_field": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Available At Field"
+        },
+        "disclosure": {
+          "minLength": 1,
+          "title": "Disclosure",
+          "type": "string"
+        },
+        "missing_available_at": {
+          "default": "exclude",
+          "enum": [
+            "exclude",
+            "retain_with_warning"
+          ],
+          "title": "Missing Available At",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "next_distinct_market_observation",
+            "explicit_publication_field",
+            "not_applicable"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "observed_at_field": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed At Field"
+        },
+        "policy_id": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+          "title": "Policy Id",
+          "type": "string"
+        },
+        "research_timing_model": {
+          "const": true,
+          "default": true,
+          "title": "Research Timing Model",
+          "type": "boolean"
+        },
+        "review_time": {
+          "anyOf": [
+            {
+              "format": "time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review Time"
+        },
+        "terminal_rule": {
+          "default": "unavailable",
+          "enum": [
+            "unavailable",
+            "explicit_reviewed_timestamp"
+          ],
+          "title": "Terminal Rule",
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy_id",
+        "version",
+        "mode",
+        "disclosure"
+      ],
+      "title": "AvailabilityPolicy",
+      "type": "object"
+    },
+    "SchemaFingerprint": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "default": "external_arrow_v1",
+          "enum": [
+            "external_arrow_v1",
+            "duckdb_logical_v1"
+          ],
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/SourceSchemaColumn"
+          },
+          "minItems": 1,
+          "title": "Columns",
+          "type": "array"
+        },
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "digest",
+        "columns"
+      ],
+      "title": "SchemaFingerprint",
+      "type": "object"
+    },
+    "SourceColumnMapping": {
+      "additionalProperties": false,
+      "properties": {
+        "canonical_name": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+          "title": "Canonical Name",
+          "type": "string"
+        },
+        "canonical_type": {
+          "enum": [
+            "VARCHAR",
+            "BIGINT",
+            "INTEGER",
+            "SMALLINT",
+            "DECIMAL",
+            "DATE",
+            "TIMESTAMPTZ",
+            "BOOLEAN"
+          ],
+          "title": "Canonical Type",
+          "type": "string"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "source_columns": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Columns",
+          "type": "array"
+        },
+        "transformation_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Transformation Ids",
+          "type": "array"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "canonical_name",
+        "canonical_type"
+      ],
+      "title": "SourceColumnMapping",
+      "type": "object"
+    },
+    "SourceSchemaColumn": {
+      "additionalProperties": false,
+      "properties": {
+        "logical_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Logical Type",
+          "type": "string"
+        },
+        "name": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "nullable": {
+          "default": true,
+          "title": "Nullable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "logical_type"
+      ],
+      "title": "SourceSchemaColumn",
+      "type": "object"
+    },
+    "WhitelistedTransformation": {
+      "additionalProperties": false,
+      "properties": {
+        "date_format": {
+          "anyOf": [
+            {
+              "enum": [
+                "iso8601",
+                "yyyymmdd"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date Format"
+        },
+        "disclosure": {
+          "minLength": 1,
+          "title": "Disclosure",
+          "type": "string"
+        },
+        "literal": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Literal"
+        },
+        "null_values": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Null Values",
+          "type": "array"
+        },
+        "operation": {
+          "enum": [
+            "rename",
+            "typed_cast",
+            "absolute_value",
+            "scale",
+            "trim",
+            "uppercase",
+            "null_map",
+            "date_conversion",
+            "timestamp_at_utc",
+            "next_observed_session_availability",
+            "literal_value",
+            "explicit_ordered_coalesce"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "scale_column": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scale Column"
+        },
+        "scale_direction": {
+          "anyOf": [
+            {
+              "enum": [
+                "multiply",
+                "divide"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scale Direction"
+        },
+        "scale_factor": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scale Factor"
+        },
+        "source_columns": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Columns",
+          "type": "array"
+        },
+        "target_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "VARCHAR",
+                "BIGINT",
+                "INTEGER",
+                "SMALLINT",
+                "DECIMAL",
+                "DATE",
+                "TIMESTAMPTZ",
+                "BOOLEAN"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Type"
+        },
+        "transformation_id": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+          "title": "Transformation Id",
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "transformation_id",
+        "operation",
+        "version",
+        "disclosure"
+      ],
+      "title": "WhitelistedTransformation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "availability_policy": {
+      "$ref": "#/$defs/AvailabilityPolicy"
+    },
+    "declared_units": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Declared Units",
+      "type": "object"
+    },
+    "filename": {
+      "enum": [
+        "dsf.parquet",
+        "msf.parquet",
+        "ccm_lookup.parquet",
+        "funda.parquet",
+        "fundq.parquet",
+        "dsedelist.parquet",
+        "stocknames.parquet"
+      ],
+      "title": "Filename",
+      "type": "string"
+    },
+    "frequency": {
+      "enum": [
+        "daily",
+        "monthly",
+        "annual",
+        "quarterly",
+        "event",
+        "date_effective"
+      ],
+      "title": "Frequency",
+      "type": "string"
+    },
+    "mappings": {
+      "items": {
+        "$ref": "#/$defs/SourceColumnMapping"
+      },
+      "minItems": 1,
+      "title": "Mappings",
+      "type": "array"
+    },
+    "retrieved_at": {
+      "format": "date-time",
+      "title": "Retrieved At",
+      "type": "string"
+    },
+    "revision": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Revision",
+      "type": "string"
+    },
+    "schema_fingerprint": {
+      "$ref": "#/$defs/SchemaFingerprint"
+    },
+    "source_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Source Digest",
+      "type": "string"
+    },
+    "source_kind": {
+      "enum": [
+        "crsp_daily",
+        "crsp_monthly",
+        "ccm_links",
+        "compustat_annual",
+        "compustat_quarterly",
+        "crsp_delist",
+        "crsp_stock_names"
+      ],
+      "title": "Source Kind",
+      "type": "string"
+    },
+    "source_name": {
+      "enum": [
+        "crsp_daily",
+        "crsp_monthly",
+        "ccm_links",
+        "compustat_annual",
+        "compustat_quarterly",
+        "crsp_delist",
+        "crsp_stock_names"
+      ],
+      "title": "Source Name",
+      "type": "string"
+    },
+    "source_path": {
+      "format": "path",
+      "title": "Source Path",
+      "type": "string"
+    },
+    "transformations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/WhitelistedTransformation"
+      },
+      "title": "Transformations",
+      "type": "array"
+    }
+  },
+  "required": [
+    "source_name",
+    "filename",
+    "source_path",
+    "source_digest",
+    "source_kind",
+    "schema_fingerprint",
+    "revision",
+    "retrieved_at",
+    "frequency",
+    "mappings",
+    "declared_units",
+    "availability_policy"
+  ],
+  "title": "LicensedSourceDefinition",
+  "type": "object"
+}

@@ -201,7 +201,11 @@ class PortfolioDefinition(ThesisContract):
 class DatasetMetadata(ThesisContract):
     dataset_id: str = Field(min_length=1)
     revision: str = Field(min_length=1)
-    synthetic: Literal[True]
+    profile: Literal["synthetic_local", "licensed_local"] = "synthetic_local"
+    publication_state: Literal[
+        "synthetic_reviewed", "private_local_only"
+    ] = "synthetic_reviewed"
+    synthetic: bool
     source_paths: tuple[str, ...] = Field(min_length=1)
     source_digests: tuple[str, ...] = Field(min_length=1)
     row_counts: tuple[int, ...] = Field(min_length=1)
@@ -228,6 +232,14 @@ class DatasetMetadata(ThesisContract):
             raise ValueError("source paths, digests and row counts must align")
         if self.coverage_end < self.coverage_start:
             raise ValueError("dataset coverage is reversed")
+        if self.profile == "synthetic_local" and (
+            not self.synthetic or self.publication_state != "synthetic_reviewed"
+        ):
+            raise ValueError("synthetic_local requires reviewed synthetic disclosure")
+        if self.profile == "licensed_local" and (
+            self.synthetic or self.publication_state != "private_local_only"
+        ):
+            raise ValueError("licensed_local requires private_local_only non-synthetic data")
         return self
 
 

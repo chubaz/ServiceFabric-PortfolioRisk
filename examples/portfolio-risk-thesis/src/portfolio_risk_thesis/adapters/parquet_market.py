@@ -13,6 +13,10 @@ from ..manifests import sha256_file
 
 class HistoricalMarketDataAdapter:
     def __init__(self, metadata: DatasetMetadata) -> None:
+        if metadata.profile != "synthetic_local":
+            raise ValueError(
+                "licensed_local market data must use the bounded DuckDB CRSP catalogue bridge"
+            )
         if len(metadata.source_paths) != 1:
             raise ValueError("Day 1 market adapter requires exactly one source")
         self._metadata = metadata

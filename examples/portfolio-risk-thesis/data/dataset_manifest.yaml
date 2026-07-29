@@ -1,5 +1,7 @@
 dataset_id: synthetic-thesis-day1
 revision: "2026-07-28.2"
+profile: synthetic_local
+publication_state: synthetic_reviewed
 synthetic: true
 synthetic_disclosure: "All rows are deterministic, reviewed, fictional synthetic research inputs."
 market:
