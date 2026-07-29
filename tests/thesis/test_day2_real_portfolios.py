@@ -173,11 +173,12 @@ def test_interactive_selection_wizard_repairs_metadata_and_requires_confirmation
         ]
     )
     output = tmp_path / "wizard-selection.yaml"
+    messages: list[str] = []
     written = materialization.prepare_real_selection_interactive(
         candidate_artifact_path=artifact,
         selection_path=output,
         input_fn=lambda _: next(answers),
-        print_fn=lambda _: None,
+        print_fn=messages.append,
     )
     assert written == output
     value = yaml.safe_load(output.read_text(encoding="utf-8"))
@@ -187,6 +188,8 @@ def test_interactive_selection_wizard_repairs_metadata_and_requires_confirmation
     assert len(value["portfolios"]) == 3
     assert all(len(item["positions"]) == 5 for item in value["portfolios"])
     assert output.stat().st_mode & 0o777 == 0o600
+    assert any("Day 2 latest-data cohort" in item for item in messages)
+    assert any("day2_eligible=yes" in item for item in messages)
 
 
 def test_no_selection_argument_fails_before_materialization() -> None:

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://servicefabric.local/schemas/thesis-real-data/day2-experiment-v1.schema.json",
+  "title": "Thesis Day 2 reviewed experiment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "experiment_version",
+    "experiment_id",
+    "reviewed",
+    "reviewer_id",
+    "reviewed_at",
+    "as_of",
+    "dataset_mode",
+    "source_manifest",
+    "data_root",
+    "dataset_snapshot_id",
+    "dataset_receipt_sha256",
+    "portfolios_directory",
+    "portfolio_receipt_sha256",
+    "minimum_daily_observations",
+    "lookback_returns",
+    "confidence_level",
+    "event_source",
+    "thresholds",
+    "effects"
+  ],
+  "properties": {
+    "experiment_version": {"const": "1.0"},
+    "experiment_id": {"type": "string", "minLength": 3},
+    "reviewed": {"const": true},
+    "reviewer_id": {"type": "string", "minLength": 1},
+    "reviewed_at": {"type": "string", "format": "date-time"},
+    "as_of": {"type": "string", "format": "date-time"},
+    "dataset_mode": {"const": "daily_primary"},
+    "source_manifest": {"$ref": "#/$defs/artifact"},
+    "data_root": {"type": "string", "pattern": "^/"},
+    "dataset_snapshot_id": {"type": "string", "minLength": 1},
+    "dataset_receipt_sha256": {"$ref": "#/$defs/digest"},
+    "portfolios_directory": {"type": "string", "pattern": "^/"},
+    "portfolio_receipt_sha256": {"$ref": "#/$defs/digest"},
+    "minimum_daily_observations": {"type": "integer", "minimum": 60},
+    "lookback_returns": {"type": "integer", "minimum": 60, "maximum": 504},
+    "confidence_level": {"const": "0.95"},
+    "event_source": {"const": "not_configured"},
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_daily_loss",
+        "urgent_daily_loss",
+        "review_annualized_volatility",
+        "urgent_annualized_volatility",
+        "review_maximum_drawdown",
+        "urgent_maximum_drawdown"
+      ],
+      "properties": {
+        "review_daily_loss": {"type": "string"},
+        "urgent_daily_loss": {"type": "string"},
+        "review_annualized_volatility": {"type": "string"},
+        "urgent_annualized_volatility": {"type": "string"},
+        "review_maximum_drawdown": {"type": "string"},
+        "urgent_maximum_drawdown": {"type": "string"}
+      }
+    },
+    "effects": {"type": "array", "maxItems": 0}
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^/"},
+        "sha256": {"$ref": "#/$defs/digest"}
+      }
+    }
+  }
+}
