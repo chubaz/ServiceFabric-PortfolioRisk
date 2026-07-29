@@ -12,8 +12,8 @@
   `433ee994998afd3c7e79cd1169ddcdd24e19960f`
 - Merge commit: `8280a63`
 - Integration head: uncommitted working tree by explicit instruction
-- Lifecycle: Day 1 complete; `THESIS-D2-PORTFOLIOS` in progress at
-  `portfolio_definition`
+- Lifecycle: Day 1 and portfolio definition complete; `THESIS-D2` in progress
+  at `metrics_decision_kernel`
 
 ## Files
 
@@ -158,3 +158,39 @@ make verify-thesis-day1
 
 No metrics, selection algorithm, optimizer, broker, order, trade, rebalance,
 or portfolio mutation is part of this entry point.
+
+## Accepted Day 2 portfolio checkpoint
+
+Specialist candidate `bf23f94` was accepted in merge commit `f9cf082`. It adds
+the private candidate-artifact v2 contract, human-reviewed selection contracts,
+interactive local review wizard, immutable fixed-quantity materialization,
+receipt validation, privacy boundaries, and focused regression coverage.
+
+The licensed local acceptance run produced 250 candidate evidence records,
+three explicitly human-reviewed portfolio definitions, immutable receipt
+`portfolio_receipt_38fae77d7b5c702a0559b0b4`, and `effects = 0`. Receipt
+validation passed on both the specialist and integration source trees. No
+licensed row, PERMNO, GVKEY, private selection, identifier map, generated
+portfolio, or receipt entered Git.
+
+Integration validation after merge:
+
+- `make test-thesis-real-data` — `31 passed`;
+- `make test-thesis-day1` — `57 passed`;
+- private `validate-real-portfolios` — three portfolios, validated, zero effects;
+- specialist lane check — PASS;
+- `git diff --check` and `vendor/servicefabric` cleanliness — PASS.
+
+The portfolio Make targets now invoke the implemented tests and CLI and fail
+closed when required external variables are absent. Lifecycle advances to
+`THESIS-D2 / metrics_decision_kernel`; this transition does not claim that the
+MetricPack or decision kernel is implemented.
+
+## Metrics-stage entry point
+
+Read `docs/workplans/thesis-sprint/day-2-metrics-decision-kernel.md`. Implement
+only the deterministic Morning MetricPack, data-readiness states, findings,
+materiality, review items, and decision points. Preserve null undefined
+metrics, explicit warnings and limitations, point-in-time evidence, and empty
+effects. Do not implement Day 3 agents, an LLM, providers, broker actions,
+trades, rebalancing, optimization, or portfolio mutation.

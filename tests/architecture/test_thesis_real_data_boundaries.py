@@ -9,8 +9,8 @@ ROOT = Path(__file__).parents[2]
 def test_active_stage_and_day2_lane_are_frozen() -> None:
     status = json.loads((ROOT / "config/agent/thesis-sprint/status.json").read_text())
     lanes = json.loads((ROOT / "config/agent/thesis-sprint/lanes.json").read_text())
-    assert status["current"] == "THESIS-D2-PORTFOLIOS"
-    assert status["day_2_stage"] == "portfolio_definition"
+    assert status["current"] == "THESIS-D2"
+    assert status["day_2_stage"] == "metrics_decision_kernel"
     assert lanes["integration_order"] == ["day1", "day2", "integration"]
     assert lanes["lanes"]["day2"]["branch"] == "feature/thesis-day2"
     assert lanes["lanes"]["day2"]["allowed_directories"] == [
@@ -48,12 +48,12 @@ def test_makefile_has_explicit_real_data_gate_targets() -> None:
     assert "$(MAKE) build-thesis-real-data" not in daily
 
 
-def test_unimplemented_portfolio_gates_fail_closed() -> None:
-    for target in (
-        "test-thesis-real-portfolios",
-        "materialize-thesis-real-portfolios",
-        "verify-thesis-real-portfolios",
-    ):
+def test_portfolio_gates_invoke_real_commands_and_fail_closed() -> None:
+    text = (ROOT / "Makefile").read_text()
+    assert "tests/thesis/test_day2_real_portfolios.py" in text
+    assert "-m portfolio_risk_thesis.cli init-real-portfolios" in text
+    assert "-m portfolio_risk_thesis.cli validate-real-portfolios" in text
+    for target in ("materialize-thesis-real-portfolios", "verify-thesis-real-portfolios"):
         result = subprocess.run(
             ["make", "-s", target],
             cwd=ROOT,
@@ -62,7 +62,7 @@ def test_unimplemented_portfolio_gates_fail_closed() -> None:
             check=False,
         )
         assert result.returncode != 0
-        assert f"ERROR: {target} not implemented" in result.stderr
+        assert "ERROR: set THESIS_REAL_" in result.stderr
 
 
 def run_profile(data_root: str, schema_file: str) -> subprocess.CompletedProcess[str]:

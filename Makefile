@@ -423,7 +423,7 @@ verify-thesis-day1: \
 
 .PHONY: verify-thesis-current
 verify-thesis-current: verify-thesis-day1
-> @echo "Thesis Sprint current verification: PASS (Day 2 real-data admission active)"
+> @echo "Thesis Sprint current verification: PASS (Day 2 metrics and decision-kernel stage active)"
 
 # Day 2 real-data targets execute the accepted local bridge. All licensed
 # inputs and outputs remain external and are supplied explicitly by the user.
@@ -433,6 +433,10 @@ THESIS_REAL_MANIFEST ?=
 THESIS_REAL_PROFILE_OUTPUT ?=
 THESIS_REAL_DSF ?=
 THESIS_REAL_MSF ?=
+THESIS_REAL_CANDIDATE_ARTIFACT ?=
+THESIS_REAL_PORTFOLIO_SELECTION ?=
+THESIS_REAL_PORTFOLIO_OUTPUT ?=
+THESIS_REAL_PORTFOLIO_DIRECTORY ?=
 
 .PHONY: test-thesis-real-data
 test-thesis-real-data: thesis-env
@@ -482,10 +486,21 @@ verify-thesis-real-data-daily:
   case "$$daily_file" in "$$repository_root"|"$$repository_root"/*) echo "ERROR: THESIS_REAL_DSF must remain outside Git" >&2; exit 1;; esac
 > $(MAKE) verify-thesis-real-data THESIS_REAL_DATA_ROOT="$(THESIS_REAL_DATA_ROOT)" THESIS_REAL_MANIFEST="$(THESIS_REAL_MANIFEST)" THESIS_REAL_SOURCE_SCHEMAS="$(THESIS_REAL_SOURCE_SCHEMAS)" THESIS_REAL_PROFILE_OUTPUT="$(THESIS_REAL_PROFILE_OUTPUT)"
 
-.PHONY: test-thesis-real-portfolios materialize-thesis-real-portfolios verify-thesis-real-portfolios
-test-thesis-real-portfolios materialize-thesis-real-portfolios verify-thesis-real-portfolios:
-> @echo "ERROR: $@ not implemented; requires THESIS_DATA_ROOT, THESIS_REAL_DATA_ROOT, THESIS_REAL_MANIFEST, THESIS_REAL_CANDIDATE_UNIVERSE, THESIS_REAL_SELECTION_YAML, and THESIS_REAL_PORTFOLIO_OUTPUT (all external absolute paths)" >&2
-> @exit 1
+.PHONY: test-thesis-real-portfolios
+test-thesis-real-portfolios: thesis-env
+> $(THESIS_PYTEST) tests/thesis/test_day2_real_portfolios.py -q
+
+.PHONY: materialize-thesis-real-portfolios
+materialize-thesis-real-portfolios: test-thesis-real-portfolios
+> test -n "$(strip $(THESIS_REAL_CANDIDATE_ARTIFACT))" || { echo "ERROR: set THESIS_REAL_CANDIDATE_ARTIFACT" >&2; exit 1; }
+> test -n "$(strip $(THESIS_REAL_PORTFOLIO_SELECTION))" || { echo "ERROR: set THESIS_REAL_PORTFOLIO_SELECTION" >&2; exit 1; }
+> test -n "$(strip $(THESIS_REAL_PORTFOLIO_OUTPUT))" || { echo "ERROR: set THESIS_REAL_PORTFOLIO_OUTPUT" >&2; exit 1; }
+> THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli init-real-portfolios --candidate-artifact "$(THESIS_REAL_CANDIDATE_ARTIFACT)" --selection "$(THESIS_REAL_PORTFOLIO_SELECTION)" --output-directory "$(THESIS_REAL_PORTFOLIO_OUTPUT)"
+
+.PHONY: verify-thesis-real-portfolios
+verify-thesis-real-portfolios: test-thesis-real-portfolios
+> test -n "$(strip $(THESIS_REAL_PORTFOLIO_DIRECTORY))" || { echo "ERROR: set THESIS_REAL_PORTFOLIO_DIRECTORY" >&2; exit 1; }
+> THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli validate-real-portfolios --portfolios-directory "$(THESIS_REAL_PORTFOLIO_DIRECTORY)" --receipt "$(THESIS_REAL_PORTFOLIO_DIRECTORY)/portfolio-selection-receipt.json"
 
 .PHONY: test-thesis-day2
 test-thesis-day2: test-thesis-control test-thesis-real-data

@@ -21,12 +21,12 @@ def read_json(relative: str) -> dict:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
 
 
-def test_thesis_day1_is_complete_and_day2_portfolio_definition_is_active() -> None:
+def test_thesis_day1_is_complete_and_day2_metrics_stage_is_active() -> None:
     assert read_json("config/agent/thesis-sprint/status.json") == {
-        "current": "THESIS-D2-PORTFOLIOS",
+        "current": "THESIS-D2",
         "day_1": "complete",
         "day_2": "in_progress",
-        "day_2_stage": "portfolio_definition",
+        "day_2_stage": "metrics_decision_kernel",
         "day_3": "queued",
         "day_4": "queued",
         "soft_qa": "queued",
@@ -35,13 +35,20 @@ def test_thesis_day1_is_complete_and_day2_portfolio_definition_is_active() -> No
     }
     assert read_json("config/agent/day23/status.json")["current"] == "D23-COMPLETE"
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
-    assert "ID: THESIS-D2-PORTFOLIOS" in current
+    assert "ID: THESIS-D2" in current
     assert "Status: in progress" in current
-    assert "day-2-portfolio-definition.md" in current
+    assert "day-2-metrics-decision-kernel.md" in current
     assert "prior D23 baseline remains complete" in current
-    assert "Thesis Sprint Day 1 is complete" in current
-    assert "Day 2 is active at human-governed portfolio definition" in current
-    assert "No metric decision kernel" in current
+    assert (
+        "Thesis Sprint Day 1 and the human-governed real-portfolio definition"
+        in current
+    )
+    assert (
+        "active at Morning MetricPack and deterministic decision-kernel "
+        "implementation"
+        in current
+    )
+    assert "No completed metric decision kernel" in current
 
 
 def test_lane_manifest_has_frozen_explicit_ownership() -> None:
@@ -232,7 +239,7 @@ def test_make_targets_preserve_baselines_and_stage_eventual_day1_gate() -> None:
         ".PHONY: verify-thesis-current", maxsplit=1
     )[1].split(".PHONY: demo-thesis-day1", maxsplit=1)[0]
     assert "verify-thesis-day1" in current_gate
-    assert "Day 2 real-data admission active" in current_gate
+    assert "Day 2 metrics and decision-kernel stage active" in current_gate
 
 
 def test_specialist_workflow_uses_control_plane_base_and_exact_candidate_head() -> None:
