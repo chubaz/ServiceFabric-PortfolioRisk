@@ -6,9 +6,16 @@ import hashlib
 import json
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
 SHA256_PATTERN = r"^sha256:[0-9a-f]{64}$"
@@ -45,6 +52,10 @@ def _canonical_value(value: object) -> object:
         return format(value, "f")
     if isinstance(value, datetime):
         return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, Path):
+        return str(value)
     if isinstance(value, (tuple, list)):
         return [_canonical_value(item) for item in value]
     if isinstance(value, dict):
@@ -178,7 +189,8 @@ class PortfolioDefinition(ThesisContract):
     start_date: date
     positions: tuple[FixedPosition, ...] = Field(min_length=5, max_length=8)
     cash: tuple[CashAmount, ...] = Field(min_length=1)
-    benchmark_id: str = Field(min_length=1)
+    benchmark_id: str | None = Field(default=None, min_length=1)
+    benchmark_unavailable: bool = False
     risk_thresholds: tuple[RiskThreshold, ...] = ()
 
     @field_validator("positions")
@@ -196,6 +208,202 @@ class PortfolioDefinition(ThesisContract):
         if len(currencies) != len(set(currencies)):
             raise ValueError("cash currencies must be distinct")
         return tuple(sorted(values, key=lambda item: item.currency))
+
+    @model_validator(mode="after")
+    def explicit_benchmark_state(self) -> "PortfolioDefinition":
+        if (self.benchmark_id is None) == (not self.benchmark_unavailable):
+            raise ValueError(
+                "exactly one of benchmark_id or benchmark_unavailable=true is required"
+            )
+        return self
+
+
+class CandidateArtifactReference(ThesisContract):
+    path: Path
+    sha256: str = Field(pattern=SHA256_PATTERN)
+    artifact_id: str = Field(min_length=1)
+
+    @field_validator("path")
+    @classmethod
+    def absolute_candidate_artifact(cls, value: Path) -> Path:
+        if not value.is_absolute():
+            raise ValueError("candidate artifact path must be absolute")
+        return value
+
+
+class ReviewedPositionSelection(ThesisContract):
+    candidate_id: str = Field(min_length=1)
+    instrument_alias: str = Field(
+        pattern=r"^[a-z][a-z0-9-]{2,63}$"
+    )
+    quantity: Decimal
+
+    @field_validator("quantity", mode="before")
+    @classmethod
+    def decimal_quantity(cls, value: object) -> Decimal:
+        if isinstance(value, bool) or isinstance(value, float):
+            raise ValueError("quantity must be an explicit Decimal, not binary float")
+        try:
+            result = Decimal(str(value))
+        except Exception as error:
+            raise ValueError("quantity must be an explicit Decimal") from error
+        if (
+            not result.is_finite()
+            or result <= 0
+            or result != result.to_integral_value()
+        ):
+            raise ValueError("quantity must be a fixed positive integer")
+        return result
+
+    @model_validator(mode="after")
+    def private_neutral_alias(self) -> "ReviewedPositionSelection":
+        lowered = self.instrument_alias.casefold()
+        if "permno" in lowered or "gvkey" in lowered:
+            raise ValueError("instrument alias must be private-neutral")
+        return self
+
+
+class ReviewedPortfolioSelection(ThesisContract):
+    portfolio_id: str = Field(pattern=r"^[a-z][a-z0-9_]{2,63}$")
+    title: str = Field(min_length=1)
+    base_currency: str = Field(pattern=r"^[A-Z]{3}$")
+    benchmark_id: str | None = Field(default=None, min_length=1)
+    benchmark_unavailable: bool = False
+    cash: tuple[CashAmount, ...] = Field(min_length=1)
+    positions: tuple[ReviewedPositionSelection, ...] = Field(
+        min_length=5, max_length=8
+    )
+
+    @field_validator("cash")
+    @classmethod
+    def explicit_unique_cash(
+        cls, values: tuple[CashAmount, ...]
+    ) -> tuple[CashAmount, ...]:
+        currencies = [item.currency for item in values]
+        if len(currencies) != len(set(currencies)):
+            raise ValueError("cash currencies must be distinct")
+        return tuple(sorted(values, key=lambda item: item.currency))
+
+    @field_validator("positions")
+    @classmethod
+    def explicit_unique_positions(
+        cls, values: tuple[ReviewedPositionSelection, ...]
+    ) -> tuple[ReviewedPositionSelection, ...]:
+        candidate_ids = [item.candidate_id for item in values]
+        aliases = [item.instrument_alias for item in values]
+        if len(candidate_ids) != len(set(candidate_ids)):
+            raise ValueError("portfolio candidates must be distinct")
+        if len(aliases) != len(set(aliases)):
+            raise ValueError("portfolio instrument aliases must be distinct")
+        return tuple(sorted(values, key=lambda item: item.instrument_alias))
+
+    @model_validator(mode="after")
+    def explicit_benchmark_state(self) -> "ReviewedPortfolioSelection":
+        if (self.benchmark_id is None) == (not self.benchmark_unavailable):
+            raise ValueError(
+                "exactly one of benchmark_id or benchmark_unavailable=true is required"
+            )
+        return self
+
+
+class RealPortfolioSelectionManifest(ThesisContract):
+    selection_version: str = Field(pattern=r"^[0-9]+\.[0-9]+$")
+    selection_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$")
+    reviewed: Literal[True]
+    reviewer_id: str = Field(min_length=1)
+    reviewed_at: datetime
+    candidate_artifact: CandidateArtifactReference
+    source_snapshot_id: str = Field(min_length=1)
+    as_of: datetime
+    effective_at: datetime
+    rationale: str = Field(min_length=1)
+    warnings: tuple[str, ...] = Field(min_length=1)
+    portfolios: tuple[ReviewedPortfolioSelection, ...] = Field(min_length=1)
+
+    _reviewed_at = field_validator("reviewed_at")(utc_datetime)
+    _as_of = field_validator("as_of")(utc_datetime)
+    _effective_at = field_validator("effective_at")(utc_datetime)
+
+    @field_validator("warnings")
+    @classmethod
+    def explicit_review_warnings(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not value.strip() for value in values):
+            raise ValueError("review warnings must be explicit non-empty statements")
+        return values
+
+    @field_validator("portfolios")
+    @classmethod
+    def unique_portfolios(
+        cls, values: tuple[ReviewedPortfolioSelection, ...]
+    ) -> tuple[ReviewedPortfolioSelection, ...]:
+        ids = [item.portfolio_id for item in values]
+        if len(ids) != len(set(ids)):
+            raise ValueError("reviewed portfolio IDs must be distinct")
+        return tuple(sorted(values, key=lambda item: item.portfolio_id))
+
+    @model_validator(mode="after")
+    def point_in_time_selection(self) -> "RealPortfolioSelectionManifest":
+        if self.as_of > self.effective_at:
+            raise ValueError("selection as_of must not be later than effective_at")
+        return self
+
+
+class PortfolioMaterializationReceipt(ThesisContract):
+    receipt_version: Literal["1.0"] = "1.0"
+    receipt_id: str = Field(pattern=r"^portfolio_receipt_[0-9a-f]{24}$")
+    selection_id: str = Field(min_length=1)
+    selection_digest: str = Field(pattern=SHA256_PATTERN)
+    reviewer_id: str = Field(min_length=1)
+    reviewed_at: datetime
+    effective_at: datetime
+    candidate_artifact: CandidateArtifactReference
+    source_snapshot_id: str = Field(min_length=1)
+    as_of: datetime
+    rationale: str = Field(min_length=1)
+    warnings: tuple[str, ...] = Field(min_length=1)
+    output_directory: Path
+    portfolio_definition_digests: dict[str, str] = Field(min_length=1)
+    private_instrument_map_digest: str = Field(pattern=SHA256_PATTERN)
+    portfolio_count: int = Field(ge=1)
+    effects: tuple[str, ...] = Field(default=(), max_length=0)
+    limitations: tuple[str, ...] = Field(min_length=1)
+
+    _receipt_reviewed_at = field_validator("reviewed_at")(utc_datetime)
+    _receipt_effective_at = field_validator("effective_at")(utc_datetime)
+    _receipt_as_of = field_validator("as_of")(utc_datetime)
+
+    @field_validator("output_directory")
+    @classmethod
+    def absolute_output_directory(cls, value: Path) -> Path:
+        if not value.is_absolute():
+            raise ValueError("receipt output directory must be absolute")
+        return value
+
+    @field_validator("portfolio_definition_digests")
+    @classmethod
+    def canonical_portfolio_digests(cls, values: dict[str, str]) -> dict[str, str]:
+        import re
+
+        if any(re.fullmatch(SHA256_PATTERN, value) is None for value in values.values()):
+            raise ValueError("portfolio definition digests must use canonical SHA-256")
+        return dict(sorted(values.items()))
+
+    @field_validator("warnings")
+    @classmethod
+    def explicit_receipt_warnings(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not value.strip() for value in values):
+            raise ValueError("receipt warnings must be explicit non-empty statements")
+        return values
+
+    @model_validator(mode="after")
+    def aligned_portfolio_count(self) -> "PortfolioMaterializationReceipt":
+        if self.portfolio_count != len(self.portfolio_definition_digests):
+            raise ValueError(
+                "portfolio_count must match portfolio definition digests"
+            )
+        if self.as_of > self.effective_at:
+            raise ValueError("receipt as_of must not be later than effective_at")
+        return self
 
 
 class DatasetMetadata(ThesisContract):

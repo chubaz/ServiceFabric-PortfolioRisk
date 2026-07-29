@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -48,7 +49,12 @@ def _bridge_code_revision() -> str:
     return f"bridge-{digest.hexdigest()[:24]}"
 
 
-def _write_private_json(path: Path, value: object) -> None:
+def _write_private_json(
+    path: Path,
+    value: object,
+    *,
+    governed_root: Path | None = None,
+) -> None:
     from .licensed_crsp_compustat import LicensedDataError, REPOSITORY_ROOT
 
     if not path.is_absolute():
@@ -56,14 +62,24 @@ def _write_private_json(path: Path, value: object) -> None:
     resolved = path.resolve()
     if resolved == REPOSITORY_ROOT or REPOSITORY_ROOT in resolved.parents:
         raise LicensedDataError("profile output must remain outside Git")
+    if governed_root is not None:
+        root = governed_root.resolve(strict=True)
+        if root not in resolved.parents:
+            raise LicensedDataError(
+                "candidate artifact output must remain beneath the governed data root"
+            )
     payload = json.dumps(value, indent=2, sort_keys=True) + "\n"
     if resolved.exists() and resolved.read_text(encoding="utf-8") != payload:
         raise LicensedDataError(
             "immutable profile output already exists with different content"
         )
-    resolved.parent.mkdir(parents=True, exist_ok=True)
+    parent_existed = resolved.parent.exists()
+    resolved.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if not parent_existed:
+        os.chmod(resolved.parent, 0o700)
     if not resolved.exists():
         resolved.write_text(payload, encoding="utf-8")
+    os.chmod(resolved, 0o600)
 
 
 def _add_local_import_arguments(parser: argparse.ArgumentParser) -> None:
@@ -276,8 +292,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     candidates.add_argument("--data-root", type=Path, required=True)
     candidates.add_argument("--as-of", required=True)
-    candidates.add_argument("--minimum-observations", type=int, default=60)
+    candidates.add_argument("--minimum-observations", type=int, default=260)
     candidates.add_argument("--limit", type=int, default=100)
+    candidates.add_argument(
+        "--output",
+        type=Path,
+        help="optional absolute external JSON artifact path",
+    )
     args = parser.parse_args(argv)
     if args.command == "ingest-synthetic":
         result = ingest_synthetic(args.output)
@@ -549,30 +570,33 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     if args.command == "candidate-crsp-universe":
-        from .licensed_crsp_compustat import candidate_universe
+        from .licensed_crsp_compustat import candidate_universe_artifact
 
         as_of = datetime.fromisoformat(args.as_of.replace("Z", "+00:00"))
-        rows = candidate_universe(
+        artifact = candidate_universe_artifact(
             args.data_root,
             as_of=as_of,
             minimum_observations=args.minimum_observations,
             limit=args.limit,
         )
-        identity = __import__("hashlib").sha256(
-            json.dumps(rows, sort_keys=True, default=str).encode("utf-8")
-        ).hexdigest()
-        output = args.data_root / "evidence" / f"candidate-universe-{identity[:24]}.json"
-        output.parent.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps(rows, indent=2, sort_keys=True, default=str) + "\n"
-        if output.exists() and output.read_text(encoding="utf-8") != payload:
-            raise ValueError("immutable candidate-universe artifact mismatch")
-        if not output.exists():
-            output.write_text(payload, encoding="utf-8")
+        output = args.output or (
+            args.data_root
+            / "evidence"
+            / f"{artifact['artifact_id']}.json"
+        )
+        if output.suffix.lower() != ".json":
+            raise ValueError("candidate artifact output must be a JSON file")
+        _write_private_json(
+            output,
+            artifact,
+            governed_root=args.data_root,
+        )
         print(
             json.dumps(
                 {
-                    "candidate_count": len(rows),
-                    "artifact_id": output.stem,
+                    "artifact_id": artifact["artifact_id"],
+                    "candidate_count": len(artifact["candidates"]),
+                    "snapshot_id": artifact["snapshot_id"],
                     "rows_printed": 0,
                 },
                 sort_keys=True,

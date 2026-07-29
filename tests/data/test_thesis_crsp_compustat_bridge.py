@@ -559,6 +559,160 @@ def test_candidate_universe_rejects_overlapping_stock_name_intervals(
         )
 
 
+def test_candidate_cli_writes_private_v2_evidence_without_printing_rows(
+    private_sources: tuple[Path, Path],
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    result = _build(private_sources, tmp_path)
+    output_parent = tmp_path / "data-root" / "evidence" / "reviewer-shared"
+    output_parent.mkdir()
+    output_parent.chmod(0o750)
+    output = output_parent / "candidate-artifact.json"
+    assert cli_main(
+        [
+            "candidate-crsp-universe",
+            "--data-root",
+            str(tmp_path / "data-root"),
+            "--as-of",
+            "2024-01-06T00:00:00Z",
+            "--minimum-observations",
+            "1",
+            "--limit",
+            "10",
+            "--output",
+            str(output),
+        ]
+    ) == 0
+    console_text = capsys.readouterr().out
+    console = json.loads(console_text)
+    assert set(console) == {
+        "artifact_id",
+        "candidate_count",
+        "snapshot_id",
+        "rows_printed",
+    }
+    assert console["snapshot_id"] == result.snapshot_id
+    assert console["candidate_count"] == 1
+    assert console["rows_printed"] == 0
+
+    artifact = json.loads(output.read_text(encoding="utf-8"))
+    assert artifact["artifact_version"] == "2.0"
+    assert artifact["artifact_id"] == console["artifact_id"]
+    assert artifact["snapshot_id"] == result.snapshot_id
+    assert artifact["minimum_observations"] == 1
+    assert artifact["created_from"] == {
+        "dataset_receipt_id": result.receipt.receipt_id,
+        "catalogue_digest": result.receipt.catalogue_digest,
+    }
+    candidate = artifact["candidates"][0]
+    assert set(candidate) == {
+        "candidate_id",
+        "permno",
+        "observation_count",
+        "latest_eligible_date",
+        "missing_total_return_count",
+        "missing_valuation_price_count",
+        "active_stock_names_coverage",
+        "sector",
+        "sic_code",
+        "ccm_eligible_link_count",
+        "fundamental_availability_coverage",
+        "quality_warnings",
+    }
+    assert candidate["permno"] == 10001
+    assert candidate["sic_code"] == 1234
+    assert candidate["observation_count"] == 2
+    assert "ticker" not in candidate and "company_name" not in candidate
+    assert "Fictional" not in console_text
+    assert output.stat().st_mode & 0o777 == 0o600
+    assert output_parent.stat().st_mode & 0o777 == 0o750
+
+    first = output.read_bytes()
+    assert cli_main(
+        [
+            "candidate-crsp-universe",
+            "--data-root",
+            str(tmp_path / "data-root"),
+            "--as-of",
+            "2024-01-06T00:00:00Z",
+            "--minimum-observations",
+            "1",
+            "--limit",
+            "10",
+            "--output",
+            str(output),
+        ]
+    ) == 0
+    assert output.read_bytes() == first
+    capsys.readouterr()
+
+    with pytest.raises(
+        LicensedDataError, match="beneath the governed data root"
+    ):
+        cli_main(
+            [
+                "candidate-crsp-universe",
+                "--data-root",
+                str(tmp_path / "data-root"),
+                "--as-of",
+                "2024-01-06T00:00:00Z",
+                "--minimum-observations",
+                "1",
+                "--limit",
+                "10",
+                "--output",
+                str(tmp_path / "outside-governed-root.json"),
+            ]
+        )
+    capsys.readouterr()
+
+
+def test_candidate_universe_supports_daily_catalogue_without_stock_names(
+    private_sources: tuple[Path, Path],
+    tmp_path: Path,
+) -> None:
+    manifest_path = _reviewed_manifest(private_sources, tmp_path)
+    raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    raw["sources"] = [
+        source
+        for source in raw["sources"]
+        if source["source_name"] != "crsp_stock_names"
+    ]
+    manifest_path.write_text(
+        yaml.safe_dump(raw, sort_keys=False),
+        encoding="utf-8",
+    )
+    result = build_crsp_compustat(
+        DatasetBuildSpecification(
+            manifest_path=manifest_path,
+            data_root=tmp_path / "data-root",
+            temp_directory=tmp_path / "data-root" / "tmp",
+            memory_limit="256MB",
+            threads=1,
+            code_revision="test-revision",
+        )
+    )
+    candidates = candidate_crsp_universe(
+        tmp_path / "data-root",
+        as_of=datetime(2024, 1, 6, tzinfo=UTC),
+        minimum_observations=1,
+        limit=10,
+    )
+    assert result.snapshot_id
+    assert len(candidates) == 1
+    assert candidates[0]["sic_code"] is None
+    assert candidates[0]["active_stock_names_coverage"] == {
+        "eligible_observations": 2,
+        "covered_observations": 0,
+        "missing_observations": 2,
+    }
+    assert any(
+        "StockNames coverage is incomplete" in warning
+        for warning in candidates[0]["quality_warnings"]
+    )
+
+
 def test_bridge_source_has_no_full_table_python_materialization() -> None:
     source = (
         ROOT

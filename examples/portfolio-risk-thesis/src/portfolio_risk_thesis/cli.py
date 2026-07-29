@@ -9,7 +9,13 @@ from pathlib import Path
 
 from .adapters import HistoricalEventDataAdapter, HistoricalMarketDataAdapter
 from .manifests import load_dataset_manifest, load_experiment
-from .portfolio import SnapshotBuilder, load_portfolios
+from .portfolio import (
+    SnapshotBuilder,
+    load_portfolios,
+    materialize_real_portfolios,
+    prepare_real_selection_interactive,
+    validate_materialized_real_portfolios,
+)
 from .replay import ReplayChannel, ReplayClock, ReplayStepResult
 
 
@@ -83,6 +89,33 @@ def build_parser() -> argparse.ArgumentParser:
     _shared_paths(inspect)
     inspect.add_argument("--portfolio-id", default="diversified", help="Reviewed portfolio ID")
     inspect.add_argument("--ordinal", type=int, default=0, help="Zero-based replay-step ordinal")
+
+    initialize_real = commands.add_parser(
+        "init-real-portfolios",
+        help="validate and materialize an already reviewed real-portfolio selection",
+    )
+    initialize_real.add_argument(
+        "--candidate-artifact", type=Path, required=True
+    )
+    initialize_real.add_argument("--selection", type=Path, required=True)
+    initialize_real.add_argument(
+        "--output-directory", type=Path, required=True
+    )
+
+    validate_real = commands.add_parser(
+        "validate-real-portfolios",
+        help="verify immutable materialized real-portfolio definitions and receipt",
+    )
+    validate_real.add_argument(
+        "--portfolios-directory", type=Path, required=True
+    )
+    validate_real.add_argument("--receipt", type=Path, required=True)
+    prepare_real = commands.add_parser(
+        "prepare-real-selection",
+        help="interactively author and validate a human-reviewed private selection",
+    )
+    prepare_real.add_argument("--candidate-artifact", type=Path, required=True)
+    prepare_real.add_argument("--selection", type=Path, required=True)
     return parser
 
 
@@ -142,6 +175,45 @@ def main(argv: list[str] | None = None) -> int:
                 f"new_events={len(item.step.newly_eligible_event_records)} "
                 f"latest_prices={len(item.step.latest_eligible_market_records)} "
                 f"NAV={item.snapshot.exposure_snapshot.nav}"
+            )
+        elif args.command == "init-real-portfolios":
+            receipt = materialize_real_portfolios(
+                candidate_artifact_path=args.candidate_artifact,
+                selection_path=args.selection,
+                output_directory=args.output_directory,
+            )
+            print(
+                json.dumps(
+                    {
+                        "receipt_id": receipt.receipt_id,
+                        "selection_id": receipt.selection_id,
+                        "portfolio_count": receipt.portfolio_count,
+                        "effects": 0,
+                    },
+                    sort_keys=True,
+                )
+            )
+        elif args.command == "validate-real-portfolios":
+            receipt = validate_materialized_real_portfolios(
+                portfolios_directory=args.portfolios_directory,
+                receipt_path=args.receipt,
+            )
+            print(
+                json.dumps(
+                    {
+                        "receipt_id": receipt.receipt_id,
+                        "selection_id": receipt.selection_id,
+                        "portfolio_count": receipt.portfolio_count,
+                        "validated": True,
+                        "effects": 0,
+                    },
+                    sort_keys=True,
+                )
+            )
+        elif args.command == "prepare-real-selection":
+            prepare_real_selection_interactive(
+                candidate_artifact_path=args.candidate_artifact,
+                selection_path=args.selection,
             )
         return 0
     except Exception as error:  # command boundary: concise error and non-zero status

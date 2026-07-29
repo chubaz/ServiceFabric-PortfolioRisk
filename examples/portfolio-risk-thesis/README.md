@@ -79,7 +79,11 @@ export PYTHONPATH="$SF_THESIS_DAY2_WT/packages/risk_domain/src:$SF_THESIS_DAY2_W
 
 "$SF_THESIS_VENV/bin/python" -m risk_data.cli verify-crsp-compustat ...
 "$SF_THESIS_VENV/bin/python" -m risk_data.cli list-crsp-compustat-snapshots ...
-"$SF_THESIS_VENV/bin/python" -m risk_data.cli candidate-crsp-universe ...
+"$SF_THESIS_VENV/bin/python" -m risk_data.cli candidate-crsp-universe \
+  --data-root "$SF_REAL_OUTPUT_ROOT" \
+  --as-of "$THESIS_REAL_AS_OF" \
+  --minimum-observations 260 \
+  --output "$THESIS_REAL_CANDIDATE_UNIVERSE"
 ```
 
 `THESIS_REAL_SOURCE_REVISION` and `THESIS_REAL_RETRIEVED_AT` must be set to the
@@ -94,3 +98,53 @@ date, never at the same-day close; the final date remains unavailable. Annual
 and quarterly fundamentals remain separate, rows without explicit publication
 availability do not enter primary point-in-time joins, RET/RETX and RET/DLRET
 remain distinct, and no MetricPack or combined-return policy is included.
+
+## Day 2 human-governed real portfolios
+
+The version 2 candidate artifact is private eligibility evidence, ordered only
+by private PERMNO for deterministic output. It is not a portfolio and contains
+no candidate rank or automatically chosen security, quantity, cash balance, or
+benchmark.
+
+Copy
+`selections/real_portfolio_selection.synthetic-placeholder.example.yaml` to an
+absolute private path beneath `THESIS_DATA_ROOT`. A human must replace every
+placeholder, verify the candidate-artifact SHA-256, content-derived ID, source
+snapshot, and UTC `as_of`, supply five to eight explicit candidate IDs and
+fixed positive integer quantities per portfolio, record explicit cash,
+rationale and warning acknowledgement, and set `reviewed: true` with reviewer
+and UTC timestamps. Candidate `as_of` must not be later than the portfolio
+effective time. The example itself is deliberately invalid and makes no
+security or quantity recommendation.
+
+Materialization validates that completed review; despite its name,
+`init-real-portfolios` never initializes or proposes choices:
+
+```bash
+python -m portfolio_risk_thesis.cli init-real-portfolios \
+  --candidate-artifact "$THESIS_REAL_CANDIDATE_UNIVERSE" \
+  --selection "$THESIS_REAL_SELECTION_YAML" \
+  --output-directory "$THESIS_REAL_PORTFOLIO_OUTPUT"
+
+python -m portfolio_risk_thesis.cli validate-real-portfolios \
+  --portfolios-directory \
+    "$THESIS_REAL_PORTFOLIO_OUTPUT/portfolio-definitions/$SELECTION_ID" \
+  --receipt \
+    "$THESIS_REAL_PORTFOLIO_OUTPUT/portfolio-definitions/$SELECTION_ID/portfolio-selection-receipt.json"
+```
+
+The generated portfolio YAML contains only private-neutral instrument aliases.
+The candidate-to-PERMNO map, receipt, and evidence manifest remain private,
+external, immutable, content-bound, and effect-free beneath
+`THESIS_DATA_ROOT`.
+
+For the interactive thesis workflow, use the local wizard. It repairs the
+candidate metadata automatically, displays the private candidate evidence, and
+asks the reviewer to enter candidate numbers, cash, and positive integer
+quantities. It writes nothing until the reviewer types `REVIEWED`:
+
+```bash
+python -m portfolio_risk_thesis.cli prepare-real-selection \
+  --candidate-artifact "$THESIS_REAL_CANDIDATE_UNIVERSE" \
+  --selection "$THESIS_REAL_SELECTION_YAML"
+```
