@@ -1020,7 +1020,7 @@ def _create_source_view(
     empty_shapes = {
         "crsp_daily": "permno BIGINT, observed_at TIMESTAMPTZ, available_at TIMESTAMPTZ, total_return DECIMAL(38,12), return_ex_distributions DECIMAL(38,12)",
         "crsp_monthly": "permno BIGINT, observed_at TIMESTAMPTZ, available_at TIMESTAMPTZ, total_return DECIMAL(38,12), return_ex_distributions DECIMAL(38,12)",
-        "crsp_stock_names": "permno BIGINT, valid_from DATE, valid_to DATE, ticker VARCHAR, company_name VARCHAR",
+        "crsp_stock_names": "permno BIGINT, valid_from DATE, valid_to DATE, industry_code INTEGER, ticker VARCHAR, company_name VARCHAR",
         "crsp_delist": "permno BIGINT, delisting_date DATE, delisting_code SMALLINT, delisting_price DECIMAL(38,12), delisting_return DECIMAL(38,12), delisting_return_ex_distributions DECIMAL(38,12)",
         "ccm_links": "gvkey VARCHAR, permno BIGINT, link_start DATE, link_end DATE, link_type VARCHAR, link_primary VARCHAR",
         "compustat_annual": "gvkey VARCHAR, observed_at DATE, available_at TIMESTAMPTZ, frequency VARCHAR, total_assets DECIMAL(38,12), total_liabilities DECIMAL(38,12), common_equity DECIMAL(38,12), revenue DECIMAL(38,12), net_income DECIMAL(38,12)",
@@ -1649,7 +1649,7 @@ def candidate_universe(
     data_root: Path,
     *,
     as_of: datetime,
-    minimum_observations: int = 60,
+    minimum_observations: int = 260,
     limit: int = 100,
 ) -> tuple[dict[str, object], ...]:
     if as_of.tzinfo is None or as_of.utcoffset() is None or as_of.utcoffset().total_seconds() != 0:
@@ -1676,39 +1676,180 @@ def candidate_universe(
         / "crsp-compustat.duckdb"
     )
     with duckdb.connect(str(catalogue), read_only=True) as connection:
+        connection.execute("SET enable_progress_bar = false")
         rows = connection.execute(
             """
-            WITH eligible AS (
-                SELECT permno, count(*) AS observations,
-                       max(CAST(observed_at AS DATE)) AS latest_market_date
+            WITH eligible_market AS (
+                SELECT permno, observed_at,
+                       CAST(observed_at AS DATE) AS observed_date,
+                       available_at, total_return, valuation_price
                 FROM crsp_daily
                 WHERE available_at <= ?
+            ),
+            eligible AS (
+                SELECT permno,
+                       count(*) AS observations,
+                       max(CAST(observed_at AS DATE)) AS latest_eligible_date,
+                       count(*) FILTER (WHERE total_return IS NULL)
+                           AS missing_total_return_count,
+                       count(*) FILTER (WHERE valuation_price IS NULL)
+                           AS missing_valuation_price_count
+                FROM eligible_market
                 GROUP BY permno
                 HAVING count(*) >= ?
+            ),
+            selected AS MATERIALIZED (
+                SELECT *
+                FROM eligible
+                ORDER BY permno
+                LIMIT ?
+            ),
+            selected_market AS (
+                SELECT m.*
+                FROM eligible_market m
+                JOIN selected s ON s.permno = m.permno
+            ),
+            coverage AS (
+                SELECT m.permno,
+                       count(*) FILTER (
+                           WHERE EXISTS (
+                               SELECT 1
+                               FROM security_history n
+                               WHERE n.permno = m.permno
+                                 AND m.observed_date >= n.valid_from
+                                 AND m.observed_date <=
+                                     coalesce(n.valid_to, DATE '9999-12-31')
+                           )
+                       ) AS active_stock_names_observations,
+                       count(*) FILTER (
+                           WHERE EXISTS (
+                               SELECT 1
+                               FROM ccm_active_links l
+                               WHERE l.permno = m.permno
+                                 AND m.observed_date >= l.link_start
+                                 AND m.observed_date <=
+                                     coalesce(l.link_end, DATE '9999-12-31')
+                                 AND EXISTS (
+                                     SELECT 1
+                                     FROM fundamentals_as_of f
+                                     WHERE f.gvkey = l.gvkey
+                                       AND f.observed_at <= m.observed_date
+                                       AND f.available_at <= m.available_at
+                                 )
+                           )
+                       ) AS fundamental_available_observations
+                FROM selected_market m
+                GROUP BY m.permno
             )
-            SELECT e.permno, e.observations, e.latest_market_date,
-                   n.ticker, n.company_name
-            FROM eligible e
-            LEFT JOIN security_history n
-              ON e.permno = n.permno
-             AND e.latest_market_date >= n.valid_from
-             AND e.latest_market_date <= coalesce(n.valid_to, DATE '9999-12-31')
-            ORDER BY e.observations DESC, e.permno
-            LIMIT ?
+            SELECT e.permno, e.observations, e.latest_eligible_date,
+                   e.missing_total_return_count,
+                   e.missing_valuation_price_count,
+                   c.active_stock_names_observations,
+                   (
+                       SELECT n.industry_code
+                       FROM security_history n
+                       WHERE n.permno = e.permno
+                         AND e.latest_eligible_date >= n.valid_from
+                         AND e.latest_eligible_date <=
+                             coalesce(n.valid_to, DATE '9999-12-31')
+                       ORDER BY n.valid_from DESC
+                       LIMIT 1
+                   ) AS sic_code,
+                   (
+                       SELECT count(*)
+                       FROM ccm_active_links l
+                       WHERE l.permno = e.permno
+                         AND e.latest_eligible_date >= l.link_start
+                         AND e.latest_eligible_date <=
+                             coalesce(l.link_end, DATE '9999-12-31')
+                   ) AS ccm_eligible_link_count,
+                   c.fundamental_available_observations
+            FROM selected e
+            JOIN coverage c ON c.permno = e.permno
+            ORDER BY e.permno
             """,
             [as_of, minimum_observations, limit],
         ).fetchall()
-    return tuple(
-        {
-            "permno": int(row[0]),
-            "observations": int(row[1]),
-            "latest_market_date": str(row[2]),
-            "ticker": row[3],
-            "company_name": row[4],
-            "look_ahead_risk": False,
-        }
-        for row in rows
+    candidates: list[dict[str, object]] = []
+    for row in rows:
+        permno = int(row[0])
+        observations = int(row[1])
+        active_names = int(row[5])
+        fundamental_available = int(row[8])
+        warnings: list[str] = []
+        if row[3]:
+            warnings.append("Eligible market history contains missing total-return observations.")
+        if row[4]:
+            warnings.append("Eligible market history contains missing valuation-price observations.")
+        if active_names < observations:
+            warnings.append("StockNames coverage is incomplete for eligible market observations.")
+        if int(row[7]) == 0:
+            warnings.append("No eligible CCM link is active on the latest eligible date.")
+        if fundamental_available < observations:
+            warnings.append("Point-in-time fundamental availability is incomplete.")
+        candidate_digest = _digest_value(
+            {"snapshot_id": latest.snapshot_id, "permno": permno}
+        ).removeprefix("sha256:")
+        candidates.append(
+            {
+                "candidate_id": f"candidate_{candidate_digest[:24]}",
+                "permno": permno,
+                "observation_count": observations,
+                "latest_eligible_date": str(row[2]),
+                "missing_total_return_count": int(row[3]),
+                "missing_valuation_price_count": int(row[4]),
+                "active_stock_names_coverage": {
+                    "eligible_observations": observations,
+                    "covered_observations": active_names,
+                    "missing_observations": observations - active_names,
+                },
+                "sector": None,
+                "sic_code": int(row[6]) if row[6] is not None else None,
+                "ccm_eligible_link_count": int(row[7]),
+                "fundamental_availability_coverage": {
+                    "eligible_observations": observations,
+                    "available_observations": fundamental_available,
+                    "missing_observations": observations - fundamental_available,
+                },
+                "quality_warnings": warnings,
+            }
+        )
+    return tuple(candidates)
+
+
+def candidate_universe_artifact(
+    data_root: Path,
+    *,
+    as_of: datetime,
+    minimum_observations: int = 260,
+    limit: int = 100,
+) -> dict[str, object]:
+    """Build private candidate evidence without making a portfolio choice."""
+
+    receipt = verify_dataset(data_root)
+    candidates = candidate_universe(
+        data_root,
+        as_of=as_of,
+        minimum_observations=minimum_observations,
+        limit=limit,
     )
+    artifact_body: dict[str, object] = {
+        "artifact_version": "2.0",
+        "snapshot_id": receipt.snapshot_id,
+        "as_of": as_of.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+        "minimum_observations": minimum_observations,
+        "created_from": {
+            "dataset_receipt_id": receipt.receipt_id,
+            "catalogue_digest": receipt.catalogue_digest,
+        },
+        "candidates": candidates,
+    }
+    identity = _digest_value(artifact_body).removeprefix("sha256:")
+    return {
+        "artifact_version": artifact_body["artifact_version"],
+        "artifact_id": f"candidate_artifact_{identity[:24]}",
+        **{key: value for key, value in artifact_body.items() if key != "artifact_version"},
+    }
 
 
 def reject_sql_or_expression(value: str) -> None:
