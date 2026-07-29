@@ -486,3 +486,181 @@ class HistoricalStep(ThesisContract):
 
     _previous_as_of = field_validator("previous_as_of")(lambda value: utc_datetime(value) if value else None)
     _as_of = field_validator("as_of")(utc_datetime)
+
+
+class ExternalArtifactReference(ThesisContract):
+    path: Path
+    sha256: str = Field(pattern=SHA256_PATTERN)
+
+    @field_validator("path")
+    @classmethod
+    def absolute_external_path(cls, value: Path) -> Path:
+        if not value.is_absolute():
+            raise ValueError("external artifact paths must be absolute")
+        return value
+
+
+class Day2Thresholds(ThesisContract):
+    review_daily_loss: Decimal = Field(gt=Decimal("0"), lt=Decimal("1"))
+    urgent_daily_loss: Decimal = Field(gt=Decimal("0"), lt=Decimal("1"))
+    review_annualized_volatility: Decimal = Field(gt=Decimal("0"))
+    urgent_annualized_volatility: Decimal = Field(gt=Decimal("0"))
+    review_maximum_drawdown: Decimal = Field(gt=Decimal("0"), lt=Decimal("1"))
+    urgent_maximum_drawdown: Decimal = Field(gt=Decimal("0"), lt=Decimal("1"))
+
+    _review_daily_loss = field_validator("review_daily_loss")(finite_decimal)
+    _urgent_daily_loss = field_validator("urgent_daily_loss")(finite_decimal)
+    _review_volatility = field_validator("review_annualized_volatility")(finite_decimal)
+    _urgent_volatility = field_validator("urgent_annualized_volatility")(finite_decimal)
+    _review_drawdown = field_validator("review_maximum_drawdown")(finite_decimal)
+    _urgent_drawdown = field_validator("urgent_maximum_drawdown")(finite_decimal)
+
+    @model_validator(mode="after")
+    def ordered_thresholds(self) -> "Day2Thresholds":
+        if self.urgent_daily_loss <= self.review_daily_loss:
+            raise ValueError("urgent daily-loss threshold must exceed review")
+        if self.urgent_annualized_volatility <= self.review_annualized_volatility:
+            raise ValueError("urgent volatility threshold must exceed review")
+        if self.urgent_maximum_drawdown <= self.review_maximum_drawdown:
+            raise ValueError("urgent drawdown threshold must exceed review")
+        return self
+
+
+class Day2ExperimentManifest(ThesisContract):
+    experiment_version: Literal["1.0"] = "1.0"
+    experiment_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$")
+    reviewed: Literal[True]
+    reviewer_id: str = Field(min_length=1)
+    reviewed_at: datetime
+    as_of: datetime
+    dataset_mode: Literal["daily_primary"]
+    source_manifest: ExternalArtifactReference
+    data_root: Path
+    dataset_snapshot_id: str = Field(min_length=1)
+    dataset_receipt_sha256: str = Field(pattern=SHA256_PATTERN)
+    portfolios_directory: Path
+    portfolio_receipt_sha256: str = Field(pattern=SHA256_PATTERN)
+    minimum_daily_observations: int = Field(default=60, ge=60)
+    lookback_returns: int = Field(default=60, ge=60, le=504)
+    confidence_level: Decimal = Field(
+        default=Decimal("0.95"), ge=Decimal("0.90"), le=Decimal("0.99")
+    )
+    event_source: Literal["not_configured"] = "not_configured"
+    thresholds: Day2Thresholds
+    effects: tuple[str, ...] = Field(default=(), max_length=0)
+
+    _day2_reviewed_at = field_validator("reviewed_at")(utc_datetime)
+    _day2_as_of = field_validator("as_of")(utc_datetime)
+    _confidence_level = field_validator("confidence_level")(finite_decimal)
+
+    @field_validator("data_root", "portfolios_directory")
+    @classmethod
+    def absolute_directories(cls, value: Path) -> Path:
+        if not value.is_absolute():
+            raise ValueError("Day 2 directories must be absolute")
+        return value
+
+    @model_validator(mode="after")
+    def frozen_confidence_level(self) -> "Day2ExperimentManifest":
+        if self.confidence_level != Decimal("0.95"):
+            raise ValueError("the frozen Day 2 confidence level is 0.95")
+        return self
+
+
+class MetricValue(ThesisContract):
+    metric_id: Literal[
+        "daily_return",
+        "annualized_volatility",
+        "maximum_drawdown",
+        "historical_var_95",
+        "historical_expected_shortfall_95",
+    ]
+    value: Decimal | None
+    unit: Literal["ratio"]
+    observation_count: int = Field(ge=0)
+    warning: str | None = None
+
+    _metric_value = field_validator("value")(finite_decimal)
+
+    @model_validator(mode="after")
+    def undefined_metric_has_warning(self) -> "MetricValue":
+        if (self.value is None) != (self.warning is not None):
+            raise ValueError("undefined metrics require exactly one explicit warning")
+        return self
+
+
+class DataReadiness(ThesisContract):
+    state: Literal["READY", "QUALIFIED", "BLOCKED"]
+    observation_count: int = Field(ge=0)
+    required_observation_count: int = Field(ge=1)
+    warnings: tuple[str, ...] = ()
+    limitations: tuple[str, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def readiness_is_consistent(self) -> "DataReadiness":
+        if self.state == "READY" and self.warnings:
+            raise ValueError("READY data cannot carry qualification warnings")
+        if self.state == "QUALIFIED" and not self.warnings:
+            raise ValueError("QUALIFIED data requires warnings")
+        if self.state == "BLOCKED" and not self.warnings:
+            raise ValueError("BLOCKED data requires a blocking warning")
+        return self
+
+
+class MorningMetricPack(ThesisContract):
+    metric_pack_id: str = Field(pattern=r"^metric_pack_[0-9a-f]{24}$")
+    experiment_id: str = Field(min_length=1)
+    portfolio_id: str = Field(min_length=1)
+    source_snapshot_id: str = Field(min_length=1)
+    portfolio_receipt_id: str = Field(min_length=1)
+    as_of: datetime
+    readiness: DataReadiness
+    metrics: tuple[MetricValue, ...] = Field(min_length=5, max_length=5)
+    evidence: tuple[str, ...] = Field(min_length=1)
+    assumptions: tuple[str, ...] = Field(min_length=1)
+    warnings: tuple[str, ...] = ()
+    limitations: tuple[str, ...] = Field(min_length=1)
+    effects: tuple[str, ...] = Field(default=(), max_length=0)
+    output_digest: str = Field(pattern=SHA256_PATTERN)
+
+    _metric_pack_as_of = field_validator("as_of")(utc_datetime)
+
+    @field_validator("metrics")
+    @classmethod
+    def complete_metric_set(
+        cls, values: tuple[MetricValue, ...]
+    ) -> tuple[MetricValue, ...]:
+        ids = [item.metric_id for item in values]
+        if len(ids) != len(set(ids)):
+            raise ValueError("metric IDs must be distinct")
+        return tuple(sorted(values, key=lambda item: item.metric_id))
+
+
+class DeterministicFinding(ThesisContract):
+    finding_id: str = Field(pattern=r"^finding_[0-9a-f]{24}$")
+    portfolio_id: str = Field(min_length=1)
+    outcome: Literal["NO_ISSUE", "REVIEW", "URGENT_REVIEW", "ABSTAIN"]
+    materiality: Literal["none", "review", "urgent", "undefined"]
+    triggered_metrics: tuple[str, ...] = ()
+    evidence: tuple[str, ...] = Field(min_length=1)
+    warnings: tuple[str, ...] = ()
+
+
+class ReviewItem(ThesisContract):
+    review_item_id: str = Field(pattern=r"^review_item_[0-9a-f]{24}$")
+    portfolio_id: str = Field(min_length=1)
+    priority: Literal["none", "review", "urgent", "blocked"]
+    human_review_required: Literal[True] = True
+    summary: str = Field(min_length=1)
+    finding_id: str = Field(min_length=1)
+
+
+class KernelDecisionPoint(ThesisContract):
+    decision_id: str = Field(pattern=r"^kernel_decision_[0-9a-f]{24}$")
+    portfolio_id: str = Field(min_length=1)
+    decision: Literal["NO_ISSUE", "REVIEW", "URGENT_REVIEW", "ABSTAIN"]
+    finding_id: str = Field(min_length=1)
+    review_item_id: str = Field(min_length=1)
+    deterministic: Literal[True] = True
+    human_review_required: Literal[True] = True
+    effects: tuple[str, ...] = Field(default=(), max_length=0)

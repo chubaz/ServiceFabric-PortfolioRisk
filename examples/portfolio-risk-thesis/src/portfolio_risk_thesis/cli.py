@@ -5,9 +5,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .adapters import HistoricalEventDataAdapter, HistoricalMarketDataAdapter
+from .day2 import (
+    prepare_day2_experiment,
+    run_day2_experiment,
+    validate_day2_experiment,
+)
 from .manifests import load_dataset_manifest, load_experiment
 from .portfolio import (
     SnapshotBuilder,
@@ -71,6 +77,24 @@ def _shared_paths(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--experiment-manifest", type=Path, default=DEFAULT_EXPERIMENT, help="Reviewed Day 1 experiment manifest")
 
 
+def _utc_argument(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "timestamp must be an explicit UTC ISO timestamp"
+        ) from error
+    if (
+        parsed.tzinfo is None
+        or parsed.utcoffset() is None
+        or parsed.utcoffset().total_seconds() != 0
+    ):
+        raise argparse.ArgumentTypeError(
+            "timestamp must be an explicit UTC ISO timestamp"
+        )
+    return parsed.astimezone(UTC)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -116,6 +140,55 @@ def build_parser() -> argparse.ArgumentParser:
     )
     prepare_real.add_argument("--candidate-artifact", type=Path, required=True)
     prepare_real.add_argument("--selection", type=Path, required=True)
+    prepare_real.add_argument(
+        "--show-all-candidates",
+        action="store_true",
+        help="Show historical candidates outside the Day 2 latest-data cohort",
+    )
+    prepare_real.add_argument(
+        "--uniform-quantity",
+        help="Explicit positive integer quantity to apply to every reviewed position",
+    )
+    prepare_real.add_argument(
+        "--uniform-cash-amount",
+        help="Explicit USD cash amount to apply to every reviewed portfolio",
+    )
+
+    prepare_day2 = commands.add_parser(
+        "prepare-day2-experiment",
+        help="bind reviewed private sources and portfolios to a Day 2 experiment",
+    )
+    prepare_day2.add_argument("--source-manifest", type=Path, required=True)
+    prepare_day2.add_argument("--data-root", type=Path, required=True)
+    prepare_day2.add_argument("--portfolios-directory", type=Path, required=True)
+    prepare_day2.add_argument("--experiment-manifest", type=Path, required=True)
+    prepare_day2.add_argument(
+        "--reviewer-id",
+        help="Optional override; defaults to the validated portfolio receipt reviewer",
+    )
+    prepare_day2.add_argument(
+        "--reviewed-at",
+        type=_utc_argument,
+        help="Optional override; defaults to the validated portfolio receipt review time",
+    )
+    prepare_day2.add_argument(
+        "--as-of",
+        type=_utc_argument,
+        help="Optional override; defaults to the validated portfolio receipt as_of",
+    )
+
+    validate_day2 = commands.add_parser(
+        "validate-day2",
+        help="validate the reviewed private Day 2 experiment and immutable inputs",
+    )
+    validate_day2.add_argument("--experiment-manifest", type=Path, required=True)
+
+    run_day2 = commands.add_parser(
+        "run-day2",
+        help="run the deterministic Morning MetricPack and decision kernel",
+    )
+    run_day2.add_argument("--experiment-manifest", type=Path, required=True)
+    run_day2.add_argument("--output-root", type=_external_output_root, required=True)
     return parser
 
 
@@ -214,6 +287,62 @@ def main(argv: list[str] | None = None) -> int:
             prepare_real_selection_interactive(
                 candidate_artifact_path=args.candidate_artifact,
                 selection_path=args.selection,
+                show_all_candidates=args.show_all_candidates,
+                uniform_quantity=args.uniform_quantity,
+                uniform_cash_amount=args.uniform_cash_amount,
+            )
+        elif args.command == "prepare-day2-experiment":
+            prepare_day2_experiment(
+                source_manifest_path=args.source_manifest,
+                data_root=args.data_root,
+                portfolios_directory=args.portfolios_directory,
+                experiment_manifest_path=args.experiment_manifest,
+                reviewer_id=args.reviewer_id,
+                reviewed_at=args.reviewed_at,
+                as_of=args.as_of,
+            )
+            print(
+                json.dumps(
+                    {
+                        "experiment_id": (
+                            "portfolio-risk-architecture-comparison-v1-day2"
+                        ),
+                        "reviewed": True,
+                        "effects": 0,
+                    },
+                    sort_keys=True,
+                )
+            )
+        elif args.command == "validate-day2":
+            manifest, receipt, _ = validate_day2_experiment(
+                args.experiment_manifest
+            )
+            print(
+                json.dumps(
+                    {
+                        "experiment_id": manifest.experiment_id,
+                        "portfolio_count": receipt.portfolio_count,
+                        "dataset_mode": manifest.dataset_mode,
+                        "validated": True,
+                        "effects": 0,
+                    },
+                    sort_keys=True,
+                )
+            )
+        elif args.command == "run-day2":
+            output = run_day2_experiment(
+                experiment_manifest_path=args.experiment_manifest,
+                output_root=args.output_root,
+            )
+            print(
+                json.dumps(
+                    {
+                        "run_id": output.name,
+                        "completed": True,
+                        "effects": 0,
+                    },
+                    sort_keys=True,
+                )
             )
         return 0
     except Exception as error:  # command boundary: concise error and non-zero status

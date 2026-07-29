@@ -39,6 +39,9 @@ def prepare_real_selection_interactive(
     selection_path: Path | str,
     input_fn=input,
     print_fn=print,
+    show_all_candidates: bool = False,
+    uniform_quantity: str | None = None,
+    uniform_cash_amount: str | None = None,
 ) -> Path:
     """Interactively author the reviewed thesis selection without choosing for the user."""
 
@@ -50,16 +53,32 @@ def prepare_real_selection_interactive(
     )
     artifact = _load_candidate_artifact(artifact_path)
     candidates = artifact["candidates"]
+    latest_eligible_date = max(
+        str(candidate["latest_eligible_date"]) for candidate in candidates
+    )
+    day2_candidate_numbers = {
+        number
+        for number, candidate in enumerate(candidates, 1)
+        if str(candidate["latest_eligible_date"]) == latest_eligible_date
+    }
     print_fn(
         f"Candidate artifact {artifact['artifact_id']} contains "
         f"{len(candidates)} candidates; snapshot {artifact['snapshot_id']}"
     )
+    print_fn(
+        f"Day 2 latest-data cohort: {len(day2_candidate_numbers)} candidates "
+        f"with latest eligible date {latest_eligible_date}."
+    )
     print_fn("Enter candidate numbers from this local artifact; no choice is automatic.")
     for number, candidate in enumerate(candidates, 1):
+        if not show_all_candidates and number not in day2_candidate_numbers:
+            continue
         print_fn(
             f"{number:03} {candidate['candidate_id']} "
             f"SIC={candidate.get('sic_code')} "
             f"observations={candidate['observation_count']} "
+            f"latest={candidate['latest_eligible_date']} "
+            f"day2_eligible={'yes' if number in day2_candidate_numbers else 'no'} "
             f"warnings={candidate['quality_warnings']}"
         )
 
@@ -99,6 +118,11 @@ def prepare_real_selection_interactive(
             )
         if any(number < 1 or number > len(candidates) for number in numbers):
             raise PortfolioMaterializationError("candidate number is outside the artifact")
+        if any(number not in day2_candidate_numbers for number in numbers):
+            raise PortfolioMaterializationError(
+                "Day 2 selections require candidates from the displayed "
+                "latest-data cohort"
+            )
         selected = [candidates[number - 1] for number in numbers]
         selected_ids = [item["candidate_id"] for item in selected]
         if used_candidates.intersection(selected_ids):
@@ -106,15 +130,24 @@ def prepare_real_selection_interactive(
                 "a candidate may only appear once in the interactive thesis selection"
             )
         used_candidates.update(selected_ids)
-        cash = input_fn("Explicit USD cash amount: ").strip()
+        cash = (
+            uniform_cash_amount
+            if uniform_cash_amount is not None
+            else input_fn("Explicit USD cash amount: ").strip()
+        )
         if not cash:
             raise PortfolioMaterializationError("cash amount is required")
         positions = []
         portfolio_alias = portfolio_id.replace("_", "-")
         for position_number, candidate in enumerate(selected, 1):
-            quantity = input_fn(
-                f"Quantity for {candidate['candidate_id']} (positive integer): "
-            ).strip()
+            quantity = (
+                uniform_quantity
+                if uniform_quantity is not None
+                else input_fn(
+                    f"Quantity for {candidate['candidate_id']} "
+                    "(positive integer): "
+                ).strip()
+            )
             if not quantity.isdigit() or int(quantity) <= 0:
                 raise PortfolioMaterializationError(
                     "quantities must be positive integers"

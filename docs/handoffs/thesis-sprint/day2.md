@@ -4,8 +4,8 @@
 
 - Lane: `day2`
 - Branch: `feature/thesis-day2`
-- Base and working-tree HEAD: `5815e81`
-  (`chore(thesis): align Day 2 with accepted data bridge`)
+- Base and working-tree HEAD: `1e9583c`
+  (`chore(thesis): activate Day 2 metrics stage`)
 - Candidate state: uncommitted working-tree changes; no commit, push, merge,
   lifecycle transition, network call, or consequential effect was created.
   Private portfolio definitions and evidence were materialized externally only
@@ -23,6 +23,12 @@
   immutable output materialization and verification, the two requested CLI
   commands, documentation, and an invalid synthetic-placeholder selection
   example.
+- `examples/portfolio-risk-thesis/**`: adds the reviewed Day 2 experiment
+  binding, deterministic Morning MetricPack, canonical capability invocations,
+  findings, review items, decision points, immutable private outputs, CLI
+  prepare/validate/run commands, and a placeholder-only public example.
+- `data/schemas/thesis-real-data/**`: adds the reviewed Day 2 experiment
+  manifest schema.
 - `tests/data/**` and `tests/thesis/**`: adds candidate-artifact and adversarial
   real-portfolio contract, CLI, immutability, idempotency, privacy, loader,
   network/effect, and Day 1 byte-regression coverage.
@@ -40,6 +46,16 @@ Day 1 portfolio YAML, other package, application, schema, or
 - `make test-thesis-day1` — `57 passed`.
 - All four requested CLI help surfaces — PASS.
 - `git diff --check` — PASS.
+- Metrics/kernel focused suite — `9 passed`.
+- Full thesis suite after metrics implementation — `66 passed`.
+- Private `prepare-day2-experiment` — PASS; inherited the already reviewed
+  portfolio receipt metadata and emitted no private rows or paths.
+- Private V1 `validate-day2` — correctly FAILED CLOSED because the original
+  reviewed portfolios did not have 60 synchronized daily observations.
+- Private V2 `validate-day2` — PASS with daily-primary and three portfolios.
+- Private V2 `run-day2` — PASS and idempotent; run
+  `day2_e77ee99b473419653d828dc0`, three output artifact digests verified,
+  `effects = 0`.
 
 ## Evidence produced
 
@@ -87,6 +103,22 @@ Day 1 portfolio YAML, other package, application, schema, or
   positive integer quantities, and writes nothing until `REVIEWED` is typed.
 - The three accepted Day 1 synthetic portfolio YAML files retain their exact
   pre-Day-2 SHA-256 digests.
+- Metric calculations dispatch through the canonical capability registry for
+  simple returns, annualized volatility, maximum drawdown, and historical
+  tail risk. Fixed quantities and cash are preserved, point-in-time eligibility
+  uses `available_at <= as_of`, missing values are never converted to zero, and
+  every capability result must be succeeded and effect-free.
+- The deterministic kernel covers `NO_ISSUE`, `REVIEW`, `URGENT_REVIEW`, and
+  `ABSTAIN`; undefined required metrics force `BLOCKED / ABSTAIN`. Every
+  outcome produces a human-review item and a decision point with empty effects.
+- The private experiment validator rechecks reviewed source and portfolio
+  receipts, source and output digests, daily-primary mode, snapshot binding,
+  join quality, required prices, and the 60-observation portfolio gate.
+- The selection wizard now exposes `latest_eligible_date` and an explicit
+  latest-data cohort marker and rejects candidates outside that cohort for the
+  Day 2 acceptance flow. It shows only that cohort by default and accepts
+  optional reviewer-supplied uniform quantity and cash values to reduce manual
+  entry. It still performs no ranking or automatic selection.
 
 ## Deviations
 
@@ -100,8 +132,12 @@ Day 1 portfolio YAML, other package, application, schema, or
 
 ## Blockers
 
-None. The private reviewed selection, three generated definitions, immutable
-receipt, and receipt validation are complete.
+None. The original V1 selection correctly failed the frozen 60-observation
+gate. A human reviewer then created `thesis-real-portfolios-v2` using only
+explicit latest-data-cohort choices. The immutable V2 portfolio receipt
+`portfolio_receipt_b32ae22d02471da4e6c5d966` validates with three portfolios
+and zero effects. The bound private experiment validates and its deterministic
+Day 2 run is complete and idempotent.
 
 ## Limitations
 
@@ -113,20 +149,18 @@ receipt, and receipt validation are complete.
 - The accepted source profile carries SIC when available but no separate
   sector field; artifact `sector` therefore remains missing rather than being
   inferred.
-- This scope contains no metric, finding, decision kernel, agent, optimizer,
-  network provider, broker, order, trade, rebalance, recommendation, or
-  portfolio mutation effect.
+- This scope contains no agent, optimizer, network provider, broker, order,
+  trade, rebalance, recommendation, or portfolio mutation effect.
 
 ## Rollback
 
-Restore the modified `risk_data` and thesis example files to `5815e81`, remove
-only the newly added selection example, materialization module and focused
-test file, and restore this handoff. Any external content-addressed test or
-human-run output must be reviewed and removed separately by its exact
-selection directory; never delete a broad data root.
+Restore the metric-stage files to `1e9583c` and restore this handoff. Any
+external content-addressed test or human-run output must be reviewed and
+removed separately by its exact selection or run directory; never delete a
+broad data root.
 
 ## Recommended next action
 
-Create a focused candidate commit, run the lane allowlist gate for that exact
-head, and submit it to integration for acceptance. Stop before metrics or
-decision-kernel work.
+Create a focused specialist candidate commit, run the exact Day 2 lane check,
+and submit the candidate to integration. Integration must rerun the synthetic
+suite and private V2 validation/run before advancing to Day 2 closeout.
