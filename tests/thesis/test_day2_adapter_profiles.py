@@ -48,4 +48,3 @@ def test_reviewed_real_manifest_example_contains_no_rows() -> None:
     assert "publication_state: private_local_only" in text
     assert "reviewed: true" in text
     assert "EXAMPLE ONLY" in text
-
