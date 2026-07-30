@@ -1,0 +1,9 @@
+reviewed: true
+provider_id: fixture
+model_snapshot: fixture-structured-v1
+currency: USD
+input_price_per_million_tokens: "0"
+output_price_per_million_tokens: "0"
+effective_at: "2026-07-30T00:00:00Z"
+source_reference: synthetic-fixture-zero-cost
+reviewer: synthetic-fixture-reviewer

@@ -1,0 +1,103 @@
+{
+  "$id": "https://servicefabric.local/schemas/thesis-experiment-results/repeatability-evaluation-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "affected_position_jaccard_agreement": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Affected Position Jaccard Agreement"
+    },
+    "anchor_count": {
+      "minimum": 0,
+      "title": "Anchor Count",
+      "type": "integer"
+    },
+    "architecture_id": {
+      "enum": [
+        "B0",
+        "B1",
+        "A1"
+      ],
+      "title": "Architecture Id",
+      "type": "string"
+    },
+    "evidence_reference_jaccard_agreement": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Evidence Reference Jaccard Agreement"
+    },
+    "exact_output_digest_agreement": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Exact Output Digest Agreement"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "semantic_status_agreement": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Semantic Status Agreement"
+    },
+    "severity_agreement": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Severity Agreement"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "architecture_id",
+    "anchor_count",
+    "semantic_status_agreement",
+    "severity_agreement",
+    "exact_output_digest_agreement",
+    "affected_position_jaccard_agreement",
+    "evidence_reference_jaccard_agreement"
+  ],
+  "title": "RepeatabilityEvaluation",
+  "type": "object"
+}

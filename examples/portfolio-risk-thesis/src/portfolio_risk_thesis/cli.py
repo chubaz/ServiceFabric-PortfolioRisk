@@ -34,6 +34,17 @@ from .day3.experiment import (
     run_openai_experiment,
 )
 from .day3.runner import validate_run
+from .day4.coverage import profile_day4_coverage
+from .day4.manifest import (
+    estimate_model_calls,
+    init_day4_experiment,
+    load_day4_manifest,
+)
+from .day4.runner import (
+    inspect_day4_results,
+    run_day4 as execute_day4,
+    validate_day4_run,
+)
 
 
 EXAMPLE_ROOT = Path(__file__).resolve().parents[2]
@@ -230,6 +241,89 @@ def build_parser() -> argparse.ArgumentParser:
     verify_day3_run = commands.add_parser("validate-day3-run", help="validate immutable Day 3 evidence and frozen treatment controls")
     verify_day3_run.add_argument("--run-directory", type=Path, required=True)
     verify_day3_run.add_argument("--require-successful-provider", action="store_true")
+
+    coverage_day4 = commands.add_parser(
+        "profile-day4-coverage",
+        help="write a private-neutral date-coverage profile for human window review",
+    )
+    coverage_day4.add_argument(
+        "--day2-experiment-manifest", type=Path, required=True
+    )
+    coverage_day4.add_argument("--event-manifest", type=Path, required=True)
+    coverage_day4.add_argument("--event-dataset", type=Path, required=True)
+    coverage_day4.add_argument("--output", type=Path, required=True)
+
+    initialize_day4 = commands.add_parser(
+        "init-day4-experiment",
+        help="bind reviewed inputs and write an unreviewed Day 4 template",
+    )
+    initialize_day4.add_argument("--coverage-profile", type=Path, required=True)
+    initialize_day4.add_argument(
+        "--day2-experiment-manifest", type=Path, required=True
+    )
+    initialize_day4.add_argument("--day3-event-manifest", type=Path, required=True)
+    initialize_day4.add_argument("--day3-event-dataset", type=Path, required=True)
+    initialize_day4.add_argument("--day3-model-config", type=Path, required=True)
+    initialize_day4.add_argument("--day3-acceptance-run", type=Path, required=True)
+    initialize_day4.add_argument("--pricing-manifest", type=Path, required=True)
+    initialize_day4.add_argument("--output", type=Path, required=True)
+    initialize_day4.add_argument(
+        "--experiment-id", default="portfolio-risk-day4-real-v1"
+    )
+    initialize_day4.add_argument(
+        "--portfolio",
+        action="append",
+        dest="portfolios",
+        help="Reviewed private-neutral portfolio alias; repeat exactly three times",
+    )
+    initialize_day4.add_argument(
+        "--profile", choices=("real", "synthetic_fixture"), default="real"
+    )
+
+    validate_day4 = commands.add_parser(
+        "validate-day4",
+        help="validate the reviewed Day 4 manifest and every immutable binding",
+    )
+    validate_day4.add_argument("--experiment-manifest", type=Path, required=True)
+
+    estimate_day4 = commands.add_parser(
+        "estimate-day4-calls",
+        help="print the exact reviewed Day 4 provider-call budget",
+    )
+    estimate_day4.add_argument("--experiment-manifest", type=Path, required=True)
+
+    run_day4_command = commands.add_parser(
+        "run-day4",
+        help="run or resume the manifest-driven Day 4 historical matrix",
+    )
+    run_day4_command.add_argument(
+        "--experiment-manifest", type=Path, required=True
+    )
+    run_day4_command.add_argument(
+        "--provider", choices=("fixture", "openai_responses"), required=True
+    )
+    run_day4_command.add_argument("--allow-fixture-provider", action="store_true")
+    run_day4_command.add_argument(
+        "--authorized-model-calls", type=int, required=True
+    )
+    run_day4_command.add_argument(
+        "--output-root", type=_external_output_root, required=True
+    )
+    run_day4_command.add_argument("--resume", action="store_true")
+
+    verify_day4 = commands.add_parser(
+        "validate-day4-run",
+        help="verify the complete immutable Day 4 evidence bundle",
+    )
+    verify_day4.add_argument("--run-directory", type=Path, required=True)
+    verify_day4.add_argument("--require-successful-provider", action="store_true")
+    verify_day4.add_argument("--require-exit-criteria", action="store_true")
+
+    inspect_day4 = commands.add_parser(
+        "inspect-day4-results",
+        help="print a compact B0, B1, A1 ordered descriptive summary",
+    )
+    inspect_day4.add_argument("--run-directory", type=Path, required=True)
     return parser
 
 
@@ -465,6 +559,134 @@ def main(argv: list[str] | None = None) -> int:
                     sort_keys=True,
                 )
             )
+        elif args.command == "profile-day4-coverage":
+            profile = profile_day4_coverage(
+                day2_experiment_manifest=args.day2_experiment_manifest,
+                event_manifest=args.event_manifest,
+                event_dataset=args.event_dataset,
+                output=args.output,
+            )
+            print(
+                json.dumps(
+                    {
+                        "profiled": True,
+                        "portfolio_count": profile["portfolio_count"],
+                        "output": str(args.output),
+                        "effects": 0,
+                    },
+                    sort_keys=True,
+                )
+            )
+        elif args.command == "init-day4-experiment":
+            portfolios = tuple(
+                args.portfolios
+                or (
+                    "defensive_multi_asset",
+                    "diversified",
+                    "technology_concentrated",
+                )
+            )
+            if len(portfolios) != 3:
+                raise ValueError("--portfolio must be repeated exactly three times")
+            output = init_day4_experiment(
+                args.output,
+                experiment_id=args.experiment_id,
+                portfolios=portfolios,
+                coverage_profile=args.coverage_profile,
+                day2_experiment_manifest=args.day2_experiment_manifest,
+                day3_event_manifest=args.day3_event_manifest,
+                day3_event_dataset=args.day3_event_dataset,
+                day3_model_config=args.day3_model_config,
+                day3_acceptance_run=args.day3_acceptance_run,
+                pricing_manifest=args.pricing_manifest,
+                profile=args.profile,
+            )
+            print(
+                json.dumps(
+                    {
+                        "initialized": True,
+                        "reviewed": False,
+                        "output": str(output),
+                        "effects": 0,
+                    },
+                    sort_keys=True,
+                )
+            )
+        elif args.command == "validate-day4":
+            manifest = load_day4_manifest(args.experiment_manifest)
+            print(
+                json.dumps(
+                    {
+                        "validated": True,
+                        "experiment_id": manifest.experiment_id,
+                        "contexts": len(manifest.portfolio_day_keys()),
+                        "maximum_model_calls": estimate_model_calls(manifest),
+                        "effects": 0,
+                    },
+                    sort_keys=True,
+                )
+            )
+        elif args.command == "estimate-day4-calls":
+            manifest = load_day4_manifest(args.experiment_manifest)
+            print(
+                json.dumps(
+                    {
+                        "primary_model_calls": 225,
+                        "repeat_model_calls": 45,
+                        "maximum_model_calls": estimate_model_calls(manifest),
+                        "effects": 0,
+                    },
+                    sort_keys=True,
+                )
+            )
+        elif args.command == "run-day4":
+            output = execute_day4(
+                args.experiment_manifest,
+                args.output_root,
+                provider_id=args.provider,
+                authorized_model_calls=args.authorized_model_calls,
+                allow_fixture_provider=args.allow_fixture_provider,
+                resume=args.resume,
+            )
+            print(
+                json.dumps(
+                    {
+                        "completed": True,
+                        "run_id": output.name,
+                        "effects": 0,
+                    },
+                    sort_keys=True,
+                )
+            )
+        elif args.command == "validate-day4-run":
+            run_manifest = validate_day4_run(
+                args.run_directory,
+                require_successful_provider=args.require_successful_provider,
+                require_exit_criteria=args.require_exit_criteria,
+            )
+            print(
+                json.dumps(
+                    {
+                        "validated": True,
+                        "run_id": run_manifest.run_id,
+                        "contexts": run_manifest.primary_context_count,
+                        "observations": run_manifest.total_observation_count,
+                        "labels": run_manifest.label_count,
+                        "model_calls": run_manifest.model_call_count,
+                        "effects": 0,
+                    },
+                    sort_keys=True,
+                )
+            )
+        elif args.command == "inspect-day4-results":
+            for item in inspect_day4_results(args.run_directory):
+                print(
+                    f"{item['architecture_id']} "
+                    f"portfolio_days={item['portfolio_days']} "
+                    f"alerts={item['alerts']} "
+                    f"abstentions={item['abstentions']} "
+                    f"execution_failures={item['execution_failures']} effects=0"
+                )
         return 0
     except Exception as error:  # command boundary: concise error and non-zero status
         parser.exit(1, f"{args.command} failed: {error}\n")

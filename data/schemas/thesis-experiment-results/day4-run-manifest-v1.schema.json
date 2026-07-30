@@ -1,0 +1,127 @@
+{
+  "$id": "https://servicefabric.local/schemas/thesis-experiment-results/day4-run-manifest-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "architecture_execution_sealed_at": {
+      "format": "date-time",
+      "title": "Architecture Execution Sealed At",
+      "type": "string"
+    },
+    "artifact_digests": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Artifact Digests",
+      "type": "object"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "effects": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 0,
+      "title": "Effects",
+      "type": "array"
+    },
+    "execution_plan_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Execution Plan Digest",
+      "type": "string"
+    },
+    "experiment_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Experiment Digest",
+      "type": "string"
+    },
+    "human_review_required": {
+      "const": true,
+      "default": true,
+      "title": "Human Review Required",
+      "type": "boolean"
+    },
+    "label_count": {
+      "const": 45,
+      "default": 45,
+      "title": "Label Count",
+      "type": "integer"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "model_call_count": {
+      "const": 270,
+      "default": 270,
+      "title": "Model Call Count",
+      "type": "integer"
+    },
+    "primary_context_count": {
+      "const": 45,
+      "default": 45,
+      "title": "Primary Context Count",
+      "type": "integer"
+    },
+    "primary_observation_count": {
+      "const": 135,
+      "default": 135,
+      "title": "Primary Observation Count",
+      "type": "integer"
+    },
+    "provider_error_count": {
+      "minimum": 0,
+      "title": "Provider Error Count",
+      "type": "integer"
+    },
+    "repeat_observation_count": {
+      "const": 18,
+      "default": 18,
+      "title": "Repeat Observation Count",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "run_manifest_digest": {
+      "default": "",
+      "title": "Run Manifest Digest",
+      "type": "string"
+    },
+    "total_observation_count": {
+      "const": 153,
+      "default": 153,
+      "title": "Total Observation Count",
+      "type": "integer"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "experiment_digest",
+    "execution_plan_digest",
+    "created_at",
+    "architecture_execution_sealed_at",
+    "artifact_digests",
+    "provider_error_count"
+  ],
+  "title": "Day4RunManifest",
+  "type": "object"
+}

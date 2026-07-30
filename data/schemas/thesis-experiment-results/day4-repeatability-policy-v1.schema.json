@@ -1,0 +1,93 @@
+{
+  "$defs": {
+    "PortfolioDayKey": {
+      "additionalProperties": false,
+      "properties": {
+        "as_of": {
+          "format": "date-time",
+          "title": "As Of",
+          "type": "string"
+        },
+        "key_digest": {
+          "default": "",
+          "title": "Key Digest",
+          "type": "string"
+        },
+        "portfolio_id": {
+          "minLength": 1,
+          "title": "Portfolio Id",
+          "type": "string"
+        },
+        "window_id": {
+          "enum": [
+            "stress_a",
+            "stress_b",
+            "control"
+          ],
+          "title": "Window Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "portfolio_id",
+        "window_id",
+        "as_of"
+      ],
+      "title": "PortfolioDayKey",
+      "type": "object"
+    }
+  },
+  "$id": "https://servicefabric.local/schemas/thesis-experiment-results/day4-repeatability-policy-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "additional_repetitions": {
+      "const": 1,
+      "default": 1,
+      "title": "Additional Repetitions",
+      "type": "integer"
+    },
+    "anchors": {
+      "items": {
+        "$ref": "#/$defs/PortfolioDayKey"
+      },
+      "maxItems": 9,
+      "minItems": 9,
+      "title": "Anchors",
+      "type": "array"
+    },
+    "architectures": {
+      "default": [
+        "B1",
+        "A1"
+      ],
+      "items": {
+        "enum": [
+          "B0",
+          "B1",
+          "A1"
+        ],
+        "type": "string"
+      },
+      "title": "Architectures",
+      "type": "array"
+    },
+    "expected_additional_model_calls": {
+      "const": 45,
+      "default": 45,
+      "title": "Expected Additional Model Calls",
+      "type": "integer"
+    },
+    "expected_additional_observations": {
+      "const": 18,
+      "default": 18,
+      "title": "Expected Additional Observations",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "anchors"
+  ],
+  "title": "Day4RepeatabilityPolicy",
+  "type": "object"
+}

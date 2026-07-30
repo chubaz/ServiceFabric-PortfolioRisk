@@ -1,0 +1,9 @@
+version: "1"
+profile: synthetic_fixture
+source: data/fixtures/synthetic/thesis-day4/labels.parquet
+future_business_sessions: 5
+disclosure:
+  - Entirely synthetic outcomes for deterministic test coverage.
+  - Loaded only after all architecture outputs and the call ledger are sealed.
+  - Not investment advice and not evidence of predictive performance.
+effects: []

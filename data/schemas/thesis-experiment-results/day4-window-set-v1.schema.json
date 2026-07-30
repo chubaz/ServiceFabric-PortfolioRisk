@@ -1,0 +1,94 @@
+{
+  "$defs": {
+    "HistoricalWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "stress",
+            "control"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "relevant_portfolios": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Relevant Portfolios",
+          "type": "array"
+        },
+        "review_dates": {
+          "items": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 5,
+          "title": "Review Dates",
+          "type": "array"
+        },
+        "trigger_available_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trigger Available At"
+        },
+        "window_id": {
+          "enum": [
+            "stress_a",
+            "stress_b",
+            "control"
+          ],
+          "title": "Window Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "window_id",
+        "kind",
+        "rationale",
+        "review_dates"
+      ],
+      "title": "HistoricalWindow",
+      "type": "object"
+    }
+  },
+  "$id": "https://servicefabric.local/schemas/thesis-experiment-results/day4-window-set-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "window_set_digest": {
+      "default": "",
+      "title": "Window Set Digest",
+      "type": "string"
+    },
+    "windows": {
+      "items": {
+        "$ref": "#/$defs/HistoricalWindow"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "Windows",
+      "type": "array"
+    }
+  },
+  "required": [
+    "windows"
+  ],
+  "title": "Day4WindowSet",
+  "type": "object"
+}

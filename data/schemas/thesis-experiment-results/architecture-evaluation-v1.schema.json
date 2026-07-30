@@ -1,0 +1,314 @@
+{
+  "$id": "https://servicefabric.local/schemas/thesis-experiment-results/architecture-evaluation-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "abstention_rate": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Abstention Rate"
+    },
+    "abstentions": {
+      "minimum": 0,
+      "title": "Abstentions",
+      "type": "integer"
+    },
+    "alerts": {
+      "minimum": 0,
+      "title": "Alerts",
+      "type": "integer"
+    },
+    "alerts_per_100_portfolio_days": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Alerts Per 100 Portfolio Days"
+    },
+    "architecture_id": {
+      "enum": [
+        "B0",
+        "B1",
+        "A1"
+      ],
+      "title": "Architecture Id",
+      "type": "string"
+    },
+    "critic_pass_rate": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Critic Pass Rate"
+    },
+    "currency": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Currency"
+    },
+    "evaluated_coverage": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Evaluated Coverage"
+    },
+    "evidence_reference_coverage": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Evidence Reference Coverage"
+    },
+    "execution_failures": {
+      "minimum": 0,
+      "title": "Execution Failures",
+      "type": "integer"
+    },
+    "false_negatives": {
+      "minimum": 0,
+      "title": "False Negatives",
+      "type": "integer"
+    },
+    "false_positives": {
+      "minimum": 0,
+      "title": "False Positives",
+      "type": "integer"
+    },
+    "input_tokens": {
+      "minimum": 0,
+      "title": "Input Tokens",
+      "type": "integer"
+    },
+    "label_view": {
+      "enum": [
+        "event_window",
+        "outcome",
+        "composite"
+      ],
+      "title": "Label View",
+      "type": "string"
+    },
+    "median_event_detection_delay_seconds": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Median Event Detection Delay Seconds"
+    },
+    "median_latency_ms": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Median Latency Ms"
+    },
+    "median_outcome_lead_time_seconds": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Median Outcome Lead Time Seconds"
+    },
+    "output_tokens": {
+      "minimum": 0,
+      "title": "Output Tokens",
+      "type": "integer"
+    },
+    "p95_latency_ms": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "P95 Latency Ms"
+    },
+    "portfolio_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Portfolio Id"
+    },
+    "precision": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Precision"
+    },
+    "provider_cost": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Provider Cost"
+    },
+    "recall": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Recall"
+    },
+    "total_portfolio_days": {
+      "minimum": 0,
+      "title": "Total Portfolio Days",
+      "type": "integer"
+    },
+    "true_negatives": {
+      "minimum": 0,
+      "title": "True Negatives",
+      "type": "integer"
+    },
+    "true_positives": {
+      "minimum": 0,
+      "title": "True Positives",
+      "type": "integer"
+    },
+    "unsupported_claim_rate": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Unsupported Claim Rate"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "window_id": {
+      "anyOf": [
+        {
+          "enum": [
+            "stress_a",
+            "stress_b",
+            "control"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Window Id"
+    }
+  },
+  "required": [
+    "architecture_id",
+    "label_view",
+    "total_portfolio_days",
+    "alerts",
+    "abstentions",
+    "execution_failures",
+    "true_positives",
+    "false_positives",
+    "true_negatives",
+    "false_negatives",
+    "precision",
+    "recall",
+    "alerts_per_100_portfolio_days",
+    "abstention_rate",
+    "evaluated_coverage",
+    "evidence_reference_coverage",
+    "unsupported_claim_rate",
+    "critic_pass_rate",
+    "median_event_detection_delay_seconds",
+    "median_outcome_lead_time_seconds",
+    "median_latency_ms",
+    "p95_latency_ms",
+    "input_tokens",
+    "output_tokens",
+    "provider_cost"
+  ],
+  "title": "ArchitectureEvaluation",
+  "type": "object"
+}
