@@ -4,9 +4,9 @@
 
 - Lane: `day4`
 - Branch: `feature/thesis-day4`
-- Lane base: reviewed Day 4 activation head on
-  `integration/thesis-experiment`; record the exact commit before starting.
-- Candidate head: pending specialist implementation.
+- Lane base: `696c9f19c763d33bfde5c290f0049eefc2f9100a`.
+- Candidate head: the implementation commit containing this handoff on
+  `feature/thesis-day4`.
 - Lifecycle: `THESIS-D4` in progress; human soft QA queued.
 
 ## Allowed changes
@@ -72,21 +72,35 @@ handoff. Do not commit a claim that one architecture wins.
 
 ## Completion report
 
-Before handoff, replace the pending values and record:
+The specialist implementation changes only the declared Day 4 lane:
 
-- exact lane base and candidate head;
-- changed paths;
-- tests executed and their results;
-- evidence produced and its manifest digest;
-- deviations;
-- blockers;
-- limitations;
-- rollback;
-- recommended next action.
+- the Day 2 historical-as-of adapter and Day 4 CLI surface;
+- reviewed fixture and real-example manifests plus synthetic labels/pricing;
+- contracts, manifest validation, coverage, post-seal labels, descriptive
+  evaluation, the resumable runner, reporting, dashboard, and schemas;
+- focused Day 4 contract, manifest, label, evaluation, runner, and report tests.
+
+Validation completed:
+
+- 44 focused Day 4 tests passed;
+- 57 Day 2–4 and Day 3 vertical-slice regression tests passed;
+- the complete fixture matrix ran twice, with the second pass resuming all
+  immutable task evidence without duplicate calls;
+- the accepted fixture bundle contains 45 contexts, 135 primary observations,
+  18 repeats, 45 labels, 270 receipts, five rule-selected cases, three SVGs,
+  the offline dashboard, and public-safe Markdown;
+- `validate-day4-run --require-successful-provider --require-exit-criteria`
+  passed;
+- fixture evidence-manifest file digest:
+  `sha256:096ed3b593d8e3983afd1d3d43c4de446e99085929bba5efb23e532c2222280a`;
+- `git diff --check` passed.
 
 ## Current deviations
 
-None. Day 4 implementation has not yet been produced by this activation.
+The synthetic fixture uses zero-token deterministic receipts and deliberately
+includes one control-window false-positive pattern and one critic-created
+abstention pattern so every frozen acceptance rule is exercised. No actual
+provider is called.
 
 ## Current blockers
 
@@ -108,6 +122,7 @@ by targeting its exact immutable run directory.
 
 ## Recommended next action
 
-Create `feature/thesis-day4` from the reviewed activation head, implement only
-the declared lane paths, run the focused and preserved Day 3 gates, record the
-exact candidate head, and stop without merge.
+Validate lane ownership, push `feature/thesis-day4`, merge it with a merge
+commit into `integration/thesis-experiment`, replace the activation Make
+stubs, and run the integrated fixture and preserved Day 3 gates. Then prepare
+the external real manifest for explicit human review before any provider call.

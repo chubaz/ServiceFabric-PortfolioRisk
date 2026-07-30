@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 import tempfile
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -55,6 +56,23 @@ EVIDENCE_FILE = "evidence-manifest.json"
 
 class Day2ExperimentError(ValueError):
     """The reviewed experiment or its private immutable evidence is invalid."""
+
+
+@dataclass(frozen=True)
+class Day2AsOfEvaluation:
+    """One reviewed portfolio evaluated at one explicit historical timestamp."""
+
+    metric_pack: MorningMetricPack
+    finding: DeterministicFinding
+    review_item: ReviewItem
+    decision: KernelDecisionPoint
+    position_weights: tuple[tuple[str, Decimal], ...]
+    nav_history: tuple[tuple[datetime, Decimal], ...]
+
+
+@dataclass(frozen=True)
+class _PortfolioReceiptReference:
+    receipt_id: str
 
 
 def _external_path(value: Path | str, label: str, *, must_exist: bool) -> Path:
@@ -298,6 +316,27 @@ def _portfolio_prices(
     as_of: datetime,
     required_returns: int,
 ) -> tuple[tuple[datetime, Decimal], ...]:
+    prices, _ = _portfolio_series_and_weights(
+        connection,
+        portfolio=portfolio,
+        bindings=bindings,
+        as_of=as_of,
+        required_returns=required_returns,
+    )
+    return prices
+
+
+def _portfolio_series_and_weights(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    portfolio: Any,
+    bindings: dict[str, int],
+    as_of: datetime,
+    required_returns: int,
+) -> tuple[
+    tuple[tuple[datetime, Decimal], ...],
+    tuple[tuple[str, Decimal], ...],
+]:
     permnos = [bindings[position.instrument_id] for position in portfolio.positions]
     placeholders = ",".join("?" for _ in permnos)
     rows = connection.execute(
@@ -335,7 +374,7 @@ def _portfolio_prices(
         for position in portfolio.positions
     }
     cash = sum((item.amount for item in portfolio.cash), Decimal("0"))
-    return tuple(
+    prices = tuple(
         (
             observed_at,
             cash
@@ -350,6 +389,26 @@ def _portfolio_prices(
         )
         for observed_at in selected_dates
     )
+    latest_date = selected_dates[-1]
+    nav = prices[-1][1]
+    if nav <= 0:
+        raise Day2ExperimentError(
+            f"portfolio {portfolio.portfolio_id} has non-positive NAV"
+        )
+    weights = tuple(
+        sorted(
+            (
+                position.instrument_id,
+                (
+                    position.quantity
+                    * by_permno[bindings[position.instrument_id]][latest_date]
+                    / nav
+                ),
+            )
+            for position in portfolio.positions
+        )
+    )
+    return prices, weights
 
 
 def _invoke(registry: CapabilityRegistry, capability: str, request: object) -> Any:
@@ -694,3 +753,122 @@ def run_day2_experiment(
     )
     _write_immutable_directory(target, files)
     return target
+
+
+def evaluate_day2_portfolio_as_of(
+    *,
+    experiment_manifest_path: Path | str,
+    portfolio_id: str,
+    as_of: datetime,
+) -> Day2AsOfEvaluation:
+    """Reuse the accepted Day 2 kernel for one reviewed portfolio-day."""
+
+    base, portfolio_receipt, catalogue = validate_day2_experiment(
+        experiment_manifest_path
+    )
+    return evaluate_validated_day2_portfolio_as_of(
+        manifest=base,
+        portfolio_receipt=portfolio_receipt,
+        catalogue=catalogue,
+        portfolio_id=portfolio_id,
+        as_of=as_of,
+    )
+
+
+def evaluate_validated_day2_portfolio_as_of(
+    *,
+    manifest: Day2ExperimentManifest,
+    portfolio_receipt: PortfolioMaterializationReceipt,
+    catalogue: Path,
+    portfolio_id: str,
+    as_of: datetime,
+) -> Day2AsOfEvaluation:
+    """Evaluate one date after the reviewed inputs have been validated once."""
+
+    if as_of.tzinfo is None or as_of.utcoffset() != UTC.utcoffset(as_of):
+        raise Day2ExperimentError("historical as_of must be explicit UTC")
+    evaluated_manifest = Day2ExperimentManifest.model_validate(
+        manifest.model_dump(mode="python") | {"as_of": as_of.astimezone(UTC)}
+    )
+    bindings, portfolios = _load_private_bindings(
+        evaluated_manifest.portfolios_directory
+    )
+    try:
+        portfolio = next(
+            item for item in portfolios if item.portfolio_id == portfolio_id
+        )
+    except StopIteration as error:
+        raise Day2ExperimentError(
+            f"unknown reviewed portfolio: {portfolio_id}"
+        ) from error
+    with duckdb.connect(str(catalogue), read_only=True) as connection:
+        connection.execute("SET enable_progress_bar = false")
+        prices, weights = _portfolio_series_and_weights(
+            connection,
+            portfolio=portfolio,
+            bindings=bindings,
+            as_of=evaluated_manifest.as_of,
+            required_returns=max(
+                evaluated_manifest.lookback_returns,
+                evaluated_manifest.minimum_daily_observations,
+            ),
+        )
+    pack = _metric_pack(
+        manifest=evaluated_manifest,
+        portfolio=portfolio,
+        portfolio_receipt=portfolio_receipt,
+        prices=prices,
+        registry=CapabilityRegistry(),
+    )
+    finding, review_item, decision = deterministic_decision(
+        pack, evaluated_manifest
+    )
+    return Day2AsOfEvaluation(
+        metric_pack=pack,
+        finding=finding,
+        review_item=review_item,
+        decision=decision,
+        position_weights=weights,
+        nav_history=prices,
+    )
+
+
+def evaluate_day2_portfolio_series(
+    *,
+    manifest: Day2ExperimentManifest,
+    portfolio: Any,
+    portfolio_receipt_id: str,
+    nav_history: tuple[tuple[datetime, Decimal], ...],
+    position_weights: tuple[tuple[str, Decimal], ...],
+) -> Day2AsOfEvaluation:
+    """Evaluate a reviewed synthetic series through the same Day 2 engines."""
+
+    if len(nav_history) < max(
+        manifest.lookback_returns,
+        manifest.minimum_daily_observations,
+    ) + 1:
+        raise Day2ExperimentError("synthetic series has insufficient Day 2 lookback")
+    if nav_history[-1][0] != manifest.as_of:
+        raise Day2ExperimentError("synthetic series does not end at manifest as_of")
+    if any(
+        timestamp.tzinfo is None
+        or timestamp.utcoffset() != UTC.utcoffset(timestamp)
+        for timestamp, _ in nav_history
+    ):
+        raise Day2ExperimentError("synthetic series timestamps must be explicit UTC")
+    pack = _metric_pack(
+        manifest=manifest,
+        portfolio=portfolio,
+        portfolio_receipt=_PortfolioReceiptReference(portfolio_receipt_id),  # type: ignore[arg-type]
+        prices=nav_history,
+        registry=CapabilityRegistry(),
+    )
+    finding, review_item, decision = deterministic_decision(pack, manifest)
+    return Day2AsOfEvaluation(
+        metric_pack=pack,
+        finding=finding,
+        review_item=review_item,
+        decision=decision,
+        position_weights=position_weights,
+        nav_history=nav_history,
+    )

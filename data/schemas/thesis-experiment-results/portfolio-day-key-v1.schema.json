@@ -1,0 +1,38 @@
+{
+  "$id": "https://servicefabric.local/schemas/thesis-experiment-results/portfolio-day-key-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "as_of": {
+      "format": "date-time",
+      "title": "As Of",
+      "type": "string"
+    },
+    "key_digest": {
+      "default": "",
+      "title": "Key Digest",
+      "type": "string"
+    },
+    "portfolio_id": {
+      "minLength": 1,
+      "title": "Portfolio Id",
+      "type": "string"
+    },
+    "window_id": {
+      "enum": [
+        "stress_a",
+        "stress_b",
+        "control"
+      ],
+      "title": "Window Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "portfolio_id",
+    "window_id",
+    "as_of"
+  ],
+  "title": "PortfolioDayKey",
+  "type": "object"
+}

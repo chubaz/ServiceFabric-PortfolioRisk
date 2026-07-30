@@ -1,0 +1,82 @@
+{
+  "$id": "https://servicefabric.local/schemas/thesis-experiment-results/alert-outcome-match-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "alert_at": {
+      "format": "date-time",
+      "title": "Alert At",
+      "type": "string"
+    },
+    "alert_task_id": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Alert Task Id",
+      "type": "string"
+    },
+    "architecture_id": {
+      "enum": [
+        "B0",
+        "B1",
+        "A1"
+      ],
+      "title": "Architecture Id",
+      "type": "string"
+    },
+    "evidence_refs": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "lead_time_seconds": {
+      "minimum": 0,
+      "title": "Lead Time Seconds",
+      "type": "integer"
+    },
+    "match_id": {
+      "default": "",
+      "title": "Match Id",
+      "type": "string"
+    },
+    "matching_lookback_business_days": {
+      "exclusiveMinimum": 0,
+      "title": "Matching Lookback Business Days",
+      "type": "integer"
+    },
+    "outcome_at": {
+      "format": "date-time",
+      "title": "Outcome At",
+      "type": "string"
+    },
+    "outcome_label_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Outcome Label Digest",
+      "type": "string"
+    },
+    "portfolio_id": {
+      "minLength": 1,
+      "title": "Portfolio Id",
+      "type": "string"
+    },
+    "rule": {
+      "const": "closest_eligible_prior_unmatched_alert",
+      "default": "closest_eligible_prior_unmatched_alert",
+      "title": "Rule",
+      "type": "string"
+    }
+  },
+  "required": [
+    "architecture_id",
+    "portfolio_id",
+    "alert_task_id",
+    "outcome_label_digest",
+    "alert_at",
+    "outcome_at",
+    "lead_time_seconds",
+    "matching_lookback_business_days"
+  ],
+  "title": "AlertOutcomeMatch",
+  "type": "object"
+}

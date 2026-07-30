@@ -1,0 +1,177 @@
+{
+  "$defs": {
+    "ModelCallReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture_id": {
+          "enum": [
+            "B0",
+            "B1",
+            "A1"
+          ],
+          "title": "Architecture Id",
+          "type": "string"
+        },
+        "elapsed_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "integer"
+        },
+        "input_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "model_id": {
+          "title": "Model Id",
+          "type": "string"
+        },
+        "output_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "parsed_output_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Parsed Output Digest",
+          "type": "string"
+        },
+        "prompt_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Prompt Digest",
+          "type": "string"
+        },
+        "provider_id": {
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "raw_response_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Raw Response Digest",
+          "type": "string"
+        },
+        "request_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Request Digest",
+          "type": "string"
+        },
+        "response_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Id"
+        },
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "provider_id",
+        "model_id",
+        "architecture_id",
+        "role_id",
+        "prompt_digest",
+        "request_digest",
+        "raw_response_digest",
+        "parsed_output_digest"
+      ],
+      "title": "ModelCallReceipt",
+      "type": "object"
+    }
+  },
+  "$id": "https://servicefabric.local/schemas/thesis-experiment-results/day4-task-receipt-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "attempted_at": {
+      "format": "date-time",
+      "title": "Attempted At",
+      "type": "string"
+    },
+    "completed_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Completed At"
+    },
+    "model_call_receipts": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ModelCallReceipt"
+      },
+      "title": "Model Call Receipts",
+      "type": "array"
+    },
+    "provider_error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Error"
+    },
+    "receipt_digest": {
+      "default": "",
+      "title": "Receipt Digest",
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "pending",
+        "completed",
+        "failed"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "task_id": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Task Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "state",
+    "attempted_at"
+  ],
+  "title": "Day4TaskReceipt",
+  "type": "object"
+}
