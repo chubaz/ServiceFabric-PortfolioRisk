@@ -482,35 +482,53 @@ demo-thesis-day3-real: verify-thesis-day3-real
 test-thesis-day4-boundaries: thesis-env
 	$(THESIS_PYTEST) tests/architecture/test_thesis_day4_boundaries.py -q
 
-# Day 4 implementation targets are deliberately unavailable during activation.
-# The specialist lane must replace these fail-closed recipes when the reviewed
-# manifest-driven runner, synthetic fixtures, and static dashboard are merged.
+THESIS_DAY4_FIXTURE_MANIFEST := examples/portfolio-risk-thesis/experiments/day4_fixture.yaml
+THESIS_DAY4_FIXTURE_OUTPUT ?= $(THESIS_DATA_ROOT)/day4-fixture
+THESIS_DAY4_EXPERIMENT_MANIFEST ?=
+THESIS_DAY4_OUTPUT_ROOT ?=
+THESIS_DAY4_RUN_DIR ?=
+
 .PHONY: test-thesis-day4
-test-thesis-day4:
-	@echo "ERROR: Thesis Sprint Day 4 implementation is not integrated" >&2; exit 1
+test-thesis-day4: thesis-env
+	$(THESIS_PYTEST) tests/thesis/test_day4_contracts.py tests/thesis/test_day4_manifest.py tests/thesis/test_day4_labels.py tests/thesis/test_day4_evaluation.py tests/thesis/test_day4_runner.py tests/thesis/test_day4_report.py -q
 
 .PHONY: demo-thesis-day4-fixture
-demo-thesis-day4-fixture:
-	@echo "ERROR: Thesis Sprint Day 4 fixture demo is not integrated" >&2; exit 1
+demo-thesis-day4-fixture: thesis-env
+	test -n "$(THESIS_DATA_ROOT)" || { echo "ERROR: set THESIS_DATA_ROOT" >&2; exit 1; }
+	case "$(abspath $(THESIS_DATA_ROOT))" in "$(CURDIR)"|"$(CURDIR)"/*) echo "ERROR: THESIS_DATA_ROOT must remain outside Git" >&2; exit 1;; esac
+	mkdir -p "$(THESIS_DAY4_FIXTURE_OUTPUT)"
+	THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli run-day4 --experiment-manifest "$(THESIS_DAY4_FIXTURE_MANIFEST)" --provider fixture --allow-fixture-provider --authorized-model-calls 270 --output-root "$(THESIS_DAY4_FIXTURE_OUTPUT)" --resume
+	THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli validate-day4-run --run-directory "$$(find "$(THESIS_DAY4_FIXTURE_OUTPUT)" -maxdepth 1 -type d -name 'day4_*' | sort | tail -n 1)" --require-successful-provider --require-exit-criteria
 
 .PHONY: verify-thesis-day4
-verify-thesis-day4:
-	@echo "ERROR: Thesis Sprint Day 4 verification is not integrated" >&2; exit 1
+verify-thesis-day4: verify-thesis-day3 test-thesis-day4-boundaries test-thesis-day4 demo-thesis-day4-fixture
+	git diff --check
+	@echo "Thesis Sprint Day 4 fixture verification: PASS"
 
 .PHONY: verify-thesis-day4-real
-verify-thesis-day4-real:
-	@echo "ERROR: Thesis Sprint Day 4 private gate is not integrated" >&2; exit 1
+verify-thesis-day4-real: verify-thesis-day4
+	@test -n "$(THESIS_DAY4_EXPERIMENT_MANIFEST)" || { echo "ERROR: set THESIS_DAY4_EXPERIMENT_MANIFEST" >&2; exit 1; }
+	@test -n "$(THESIS_DAY4_OUTPUT_ROOT)" || { echo "ERROR: set THESIS_DAY4_OUTPUT_ROOT" >&2; exit 1; }
+	@test -n "$(THESIS_DAY4_RUN_DIR)" || { echo "ERROR: set THESIS_DAY4_RUN_DIR" >&2; exit 1; }
+	PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli validate-day4 --experiment-manifest "$(THESIS_DAY4_EXPERIMENT_MANIFEST)"
+	PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli validate-day4-run --run-directory "$(THESIS_DAY4_RUN_DIR)" --require-successful-provider --require-exit-criteria
+	@echo "Thesis Sprint Day 4 local provider verification: PASS"
 
 .PHONY: run-thesis-day4-direct
-run-thesis-day4-direct:
-	@echo "ERROR: Thesis Sprint Day 4 direct runner is not integrated" >&2; exit 1
+run-thesis-day4-direct: thesis-env
+	@test -n "$(THESIS_DAY4_EXPERIMENT_MANIFEST)" || { echo "ERROR: set THESIS_DAY4_EXPERIMENT_MANIFEST" >&2; exit 1; }
+	@test -n "$(THESIS_DAY4_OUTPUT_ROOT)" || { echo "ERROR: set THESIS_DAY4_OUTPUT_ROOT" >&2; exit 1; }
+	@test -n "$$OPENAI_API_KEY" || { echo "ERROR: OPENAI_API_KEY must be loaded explicitly" >&2; exit 1; }
+	THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli run-day4 --experiment-manifest "$(THESIS_DAY4_EXPERIMENT_MANIFEST)" --provider openai_responses --authorized-model-calls 270 --output-root "$(THESIS_DAY4_OUTPUT_ROOT)" --resume
 
 .PHONY: serve-thesis-day4-dashboard
 serve-thesis-day4-dashboard:
-	@echo "ERROR: Thesis Sprint Day 4 dashboard server is not integrated" >&2; exit 1
+	@test -n "$(THESIS_DAY4_RUN_DIR)" || { echo "ERROR: set THESIS_DAY4_RUN_DIR" >&2; exit 1; }
+	@test -f "$(THESIS_DAY4_RUN_DIR)/dashboard/index.html" || { echo "ERROR: dashboard is missing" >&2; exit 1; }
+	cd "$(THESIS_DAY4_RUN_DIR)/dashboard" && "$(THESIS_PYTHON)" -m http.server 8765 --bind 127.0.0.1
 
 .PHONY: verify-thesis-current
-verify-thesis-current: verify-thesis-day3 test-thesis-day4-boundaries
+verify-thesis-current: verify-thesis-day4
 	@echo "Thesis Sprint current verification: PASS (Day 3 complete; Day 4 in progress; human QA queued)"
 
 # Day 2 real-data targets execute the accepted local bridge. All licensed
