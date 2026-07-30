@@ -378,15 +378,21 @@ def test_repo_fixtures_are_text_only_explicitly_synthetic_and_fictional() -> Non
         / "data"
         / "fixtures"
         / "synthetic"
-            / "thesis-day1"
-            / "market.parquet",
-            REPOSITORY_ROOT
-            / "data"
-            / "fixtures"
-            / "synthetic"
-            / "thesis-day3"
-            / "events.parquet",
-        }
+        / "thesis-day1"
+        / "market.parquet",
+        REPOSITORY_ROOT
+        / "data"
+        / "fixtures"
+        / "synthetic"
+        / "thesis-day3"
+        / "events.parquet",
+        REPOSITORY_ROOT
+        / "data"
+        / "fixtures"
+        / "synthetic"
+        / "thesis-day4"
+        / "labels.parquet",
+    }
     assert files and all(
         path.suffix in {".csv", ".json"} or path in allowed_parquet for path in files
     )
