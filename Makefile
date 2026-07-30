@@ -421,8 +421,24 @@ verify-thesis-day1: \
 	@echo "Thesis Sprint Day 1 verification: PASS"
 
 .PHONY: verify-thesis-current
-verify-thesis-current: verify-thesis-day2
-	@echo "Thesis Sprint current verification: PASS (Day 2 complete; Day 3 queued)"
+test-thesis-day3: thesis-env
+	$(THESIS_PYTEST) tests/thesis/test_day3_contracts.py tests/thesis/test_day3_treatments.py tests/thesis/test_day3_critic.py -q
+
+.PHONY: test-thesis-day3-boundaries
+test-thesis-day3-boundaries: thesis-env
+	$(THESIS_PYTEST) tests/architecture/test_thesis_day3_boundaries.py -q
+
+.PHONY: test-thesis-day3-provider test-thesis-day3-critic test-thesis-day3-architectures
+test-thesis-day3-provider test-thesis-day3-critic test-thesis-day3-architectures: test-thesis-day3
+
+.PHONY: verify-thesis-day3
+verify-thesis-day3: verify-thesis-day2 test-thesis-day3-boundaries test-thesis-day3
+	git diff --check
+	@echo "Thesis Sprint Day 3 fixture verification: PASS"
+
+.PHONY: verify-thesis-current
+verify-thesis-current: verify-thesis-day3
+	@echo "Thesis Sprint current verification: PASS (Day 3 in progress)"
 
 # Day 2 real-data targets execute the accepted local bridge. All licensed
 # inputs and outputs remain external and are supplied explicitly by the user.
