@@ -1,0 +1,1 @@
+Interpret only authoritative metrics, readiness, warnings, and evidence.

@@ -1,0 +1,2 @@
+version: "1"
+prompts: [common-system-v1, b1-synthesizer-v1, a1-market-data-v1, a1-portfolio-exposure-v1, a1-news-sentiment-v1, a1-alert-synthesis-v1]
