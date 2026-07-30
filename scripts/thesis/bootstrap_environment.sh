@@ -23,6 +23,6 @@ fi
 
 "$venv_path/bin/python" -m pip install \
   --require-hashes \
-  -r "$repository_root/requirements/day1.lock"
+  -r "$repository_root/requirements/thesis.lock"
 "$venv_path/bin/python" -m pip check
 echo "Thesis Sprint environment ready: $venv_path"

@@ -200,6 +200,17 @@ Do not use:
 
 No secret directory is granted to Codex.
 
+## Thesis Sprint Day 3 model boundary
+
+Day 3 may use only the thesis-specific, explicitly selected structured model
+provider. Public CI uses the deterministic fixture provider and has no network
+access. An OpenAI Responses provider is permitted only for explicitly
+authorized local runs with `OPENAI_API_KEY` supplied from the environment;
+there is no provider fallback. Requests contain only private-neutral aliases,
+derived metrics, curated summaries, and evidence IDs. They never contain
+licensed rows, PERMNO, GVKEY, local paths, credentials, or chain-of-thought.
+All outputs are effect-free and require human review.
+
 ## Day 2–3 three-part programme
 
 The completed Part 1 workplan is

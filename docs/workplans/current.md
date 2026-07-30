@@ -2,7 +2,7 @@
 
 - ID: THESIS-D3
 - Title: Agent architecture treatments
-- Status: queued
+- Status: in progress
 - Namespace: thesis-sprint
 - Workplan: docs/workplans/thesis-sprint/day-3-agent-architectures.md
 - Completed experiment day: THESIS-D2
@@ -17,9 +17,9 @@ contains three explicitly reviewed fixed-quantity portfolios, an immutable
 selection receipt, Morning MetricPacks, data-readiness states, deterministic
 findings, review items, decision points, and empty effects.
 
-Day 3 is queued. No B0, B1, or A1 agent architecture, LLM integration,
-architecture comparison, evaluation result, experiment result, or QA
-completion is implemented or claimed.
+Day 3 is in progress. B0, B1, and A1 treatment implementation is in progress;
+Day 4 remains queued. No architecture evaluation, QA completion, or result
+claim is made by this control-plane activation.
 
 The public gate remains synthetic. The licensed daily-primary acceptance run
 is local and external to Git; its bounded DuckDB scans and joins retain

@@ -1,5 +1,4 @@
 SHELL := /usr/bin/env bash
-.RECIPEPREFIX := >
 
 PYTHON ?= python3
 BOOTSTRAP_VENV ?= .venv-bootstrap
@@ -30,84 +29,84 @@ DAY1_SERVICEFABRIC_HOME ?= $(DAY1_STATE_ROOT)/servicefabric-home-day1
 
 .PHONY: env-check
 env-check:
-> ./scripts/bootstrap/check_environment.sh
+	./scripts/bootstrap/check_environment.sh
 
 .PHONY: repo-check
 repo-check:
-> ./scripts/bootstrap/check_repository.sh
+	./scripts/bootstrap/check_repository.sh
 
 .PHONY: bootstrap-venv
 bootstrap-venv:
-> test -x "$(BOOTSTRAP_PYTHON)" || $(PYTHON) -m venv "$(BOOTSTRAP_VENV)"
-> $(BOOTSTRAP_PIP) install setuptools==80.9.0 wheel==0.45.1
-> $(BOOTSTRAP_PIP) install --no-build-isolation -e vendor/servicefabric/packages/servicefabric_release_readiness
+	test -x "$(BOOTSTRAP_PYTHON)" || $(PYTHON) -m venv "$(BOOTSTRAP_VENV)"
+	$(BOOTSTRAP_PIP) install setuptools==80.9.0 wheel==0.45.1
+	$(BOOTSTRAP_PIP) install --no-build-isolation -e vendor/servicefabric/packages/servicefabric_release_readiness
 
 .PHONY: upstream-doctor
 upstream-doctor: bootstrap-venv
-> $(SERVICEFABRIC_DOCTOR) doctor --repository-root vendor/servicefabric
+	$(SERVICEFABRIC_DOCTOR) doctor --repository-root vendor/servicefabric
 
 .PHONY: preflight
 preflight: env-check repo-check upstream-doctor
-> git diff --check
-> @echo "Day 0 preparation preflight: PASS"
+	git diff --check
+	@echo "Day 0 preparation preflight: PASS"
 
 .PHONY: clean-bootstrap
 clean-bootstrap:
-> rm -rf "$(BOOTSTRAP_VENV)"
+	rm -rf "$(BOOTSTRAP_VENV)"
 
 .PHONY: day0-env
 day0-env:
-> test -f requirements/day0.lock || { \
->   echo "ERROR: requirements/day0.lock is missing" >&2; \
->   exit 1; \
-> }
-> DAY0_VENV="$(DAY0_VENV)" ./scripts/day0/bootstrap_environment.sh
-> test -x "$(DAY0_PYTHON)" || { \
->   echo "ERROR: Day 0 Python was not created at $(DAY0_PYTHON)" >&2; \
->   exit 1; \
-> }
-> $(DAY0_PYTHON) -m pip check
+	test -f requirements/day0.lock || { \
+	  echo "ERROR: requirements/day0.lock is missing" >&2; \
+	  exit 1; \
+	}
+	DAY0_VENV="$(DAY0_VENV)" ./scripts/day0/bootstrap_environment.sh
+	test -x "$(DAY0_PYTHON)" || { \
+	  echo "ERROR: Day 0 Python was not created at $(DAY0_PYTHON)" >&2; \
+	  exit 1; \
+	}
+	$(DAY0_PYTHON) -m pip check
 
 .PHONY: test-architecture
 test-architecture: day0-env
-> $(DAY0_PYTEST) tests/architecture -q
+	$(DAY0_PYTEST) tests/architecture -q
 
 .PHONY: test-domain
 test-domain: day0-env
-> $(DAY0_PYTEST) tests/contracts tests/domain -q
+	$(DAY0_PYTEST) tests/contracts tests/domain -q
 
 .PHONY: test-planning
 test-planning: day0-env
-> $(DAY0_PYTEST) tests/planning -q
+	$(DAY0_PYTEST) tests/planning -q
 
 .PHONY: test-data
 test-data: day0-env
-> $(DAY0_PYTEST) tests/data -q
+	$(DAY0_PYTEST) tests/data -q
 
 .PHONY: test-capabilities
 test-capabilities: day0-env
-> $(DAY0_PYTEST) tests/capabilities -q
+	$(DAY0_PYTEST) tests/capabilities -q
 
 .PHONY: test-agents
 test-agents: day0-env
-> $(DAY0_PYTEST) tests/agents -q
+	$(DAY0_PYTEST) tests/agents -q
 
 .PHONY: test-application
 test-application: day0-env
-> $(DAY0_PYTEST) tests/application -q
+	$(DAY0_PYTEST) tests/application -q
 
 .PHONY: test-integration
 test-integration: day0-env
-> $(DAY0_PYTEST) tests/integration -q
+	$(DAY0_PYTEST) tests/integration -q
 
 .PHONY: test-journeys
 test-journeys: day0-env
-> $(DAY0_PYTEST) $(HISTORICAL_JOURNEY_TESTS) -q
+	$(DAY0_PYTEST) $(HISTORICAL_JOURNEY_TESTS) -q
 
 .PHONY: verify-wave-0a
 verify-wave-0a: test-architecture test-integration
-> git diff --check
-> @echo "D0-WAVE-0A verification: PASS"
+	git diff --check
+	@echo "D0-WAVE-0A verification: PASS"
 
 .PHONY: verify-wave-0b
 verify-wave-0b: \
@@ -120,13 +119,13 @@ verify-wave-0b: \
   test-agents \
   test-application \
   test-integration
-> git diff --check
-> @echo "D0-WAVE-0B verification: PASS"
+	git diff --check
+	@echo "D0-WAVE-0B verification: PASS"
 
 .PHONY: verify-wave-0c
 verify-wave-0c: verify-wave-0b test-journeys
-> git diff --check
-> @echo "D0-WAVE-0C verification: PASS"
+	git diff --check
+	@echo "D0-WAVE-0C verification: PASS"
 
 .PHONY: verify-day0
 verify-day0: \
@@ -140,75 +139,75 @@ verify-day0: \
   test-application \
   test-integration \
   test-journeys
-> python3 scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
-> git diff --check
-> @echo "Day 0 verification: PASS"
+	python3 scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+	git diff --check
+	@echo "Day 0 verification: PASS"
 
 .PHONY: demo-day0-headless
 demo-day0-headless: day0-env
-> PORTFOLIO_RISK_DATA_ROOT="$(PORTFOLIO_RISK_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS)" $(DAY0_PYTHON) scripts/day0/run_monitoring_demo.py
+	PORTFOLIO_RISK_DATA_ROOT="$(PORTFOLIO_RISK_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS)" $(DAY0_PYTHON) scripts/day0/run_monitoring_demo.py
 
 .PHONY: servicefabric-smoke
 servicefabric-smoke:
-> SERVICEFABRIC_RUNTIME_VENV="$(SERVICEFABRIC_RUNTIME_VENV)" \
-> SERVICEFABRIC_HOME="$(SERVICEFABRIC_HOME)" \
-> PORTFOLIO_RISK_DATA_ROOT="$(PORTFOLIO_RISK_DATA_ROOT)" \
-> ./scripts/day0/servicefabric_smoke.sh
+	SERVICEFABRIC_RUNTIME_VENV="$(SERVICEFABRIC_RUNTIME_VENV)" \
+	SERVICEFABRIC_HOME="$(SERVICEFABRIC_HOME)" \
+	PORTFOLIO_RISK_DATA_ROOT="$(PORTFOLIO_RISK_DATA_ROOT)" \
+	./scripts/day0/servicefabric_smoke.sh
 
 .PHONY: day1-prep-context
 day1-prep-context:
-> $(PYTHON) scripts/day1/show_context.py
+	$(PYTHON) scripts/day1/show_context.py
 
 .PHONY: verify-day1-prep
 verify-day1-prep: day0-env
-> $(PYTHON) scripts/day1/check_preparation.py --require-prepared
-> $(DAY0_PYTEST) tests/architecture/test_day1_preparation.py -q
-> $(MAKE) repo-check
-> $(MAKE) test-architecture
-> $(PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
-> git diff --check
-> @echo "Day 1 preparation verification: PASS"
+	$(PYTHON) scripts/day1/check_preparation.py --require-prepared
+	$(DAY0_PYTEST) tests/architecture/test_day1_preparation.py -q
+	$(MAKE) repo-check
+	$(MAKE) test-architecture
+	$(PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+	git diff --check
+	@echo "Day 1 preparation verification: PASS"
 
 .PHONY: day1-env
 day1-env:
-> test -f requirements/day1.lock || { echo "ERROR: requirements/day1.lock is missing" >&2; exit 1; }
-> DAY1_VENV="$(DAY1_VENV)" ./scripts/day1/bootstrap_environment.sh
-> test -x "$(DAY1_PYTHON)" || { echo "ERROR: Day 1 Python was not created at $(DAY1_PYTHON)" >&2; exit 1; }
-> $(DAY1_PYTHON) -m pip check
+	test -f requirements/day1.lock || { echo "ERROR: requirements/day1.lock is missing" >&2; exit 1; }
+	DAY1_VENV="$(DAY1_VENV)" ./scripts/day1/bootstrap_environment.sh
+	test -x "$(DAY1_PYTHON)" || { echo "ERROR: Day 1 Python was not created at $(DAY1_PYTHON)" >&2; exit 1; }
+	$(DAY1_PYTHON) -m pip check
 
 .PHONY: test-day1-architecture
 test-day1-architecture: day1-env
-> $(DAY1_PYTEST) tests/architecture/test_day1_preparation.py tests/architecture/test_day1_runtime_boundaries.py -q
+	$(DAY1_PYTEST) tests/architecture/test_day1_preparation.py tests/architecture/test_day1_runtime_boundaries.py -q
 
 .PHONY: test-day1-knowledge
 test-day1-knowledge: day1-env
-> $(DAY1_PYTEST) tests/planning -q
-> if test -d tests/research; then $(DAY1_PYTEST) tests/research -q; else echo "No Day 1 research tests yet"; fi
+	$(DAY1_PYTEST) tests/planning -q
+	if test -d tests/research; then $(DAY1_PYTEST) tests/research -q; else echo "No Day 1 research tests yet"; fi
 
 .PHONY: test-day1-experience
 test-day1-experience: day1-env
-> $(DAY1_PYTEST) tests/application -q
+	$(DAY1_PYTEST) tests/application -q
 
 .PHONY: test-day1-data
 test-day1-data: day1-env
-> $(DAY1_PYTEST) tests/data -q
+	$(DAY1_PYTEST) tests/data -q
 
 .PHONY: test-day1-analytics
 test-day1-analytics: day1-env
-> $(DAY1_PYTEST) tests/contracts tests/domain -q
-> if test -d tests/analytics; then $(DAY1_PYTEST) tests/analytics -q; else echo "No Day 1 analytics tests yet"; fi
+	$(DAY1_PYTEST) tests/contracts tests/domain -q
+	if test -d tests/analytics; then $(DAY1_PYTEST) tests/analytics -q; else echo "No Day 1 analytics tests yet"; fi
 
 .PHONY: test-day1-agents
 test-day1-agents: day1-env
-> $(DAY1_PYTEST) tests/capabilities tests/agents -q
+	$(DAY1_PYTEST) tests/capabilities tests/agents -q
 
 .PHONY: test-day1-integration
 test-day1-integration: day1-env
-> $(DAY1_PYTEST) tests/integration -q
+	$(DAY1_PYTEST) tests/integration -q
 
 .PHONY: test-day1-journeys
 test-day1-journeys: day1-env
-> $(DAY1_PYTEST) $(HISTORICAL_JOURNEY_TESTS) -q
+	$(DAY1_PYTEST) $(HISTORICAL_JOURNEY_TESTS) -q
 
 .PHONY: verify-wave-1a
 verify-wave-1a: \
@@ -224,41 +223,41 @@ verify-wave-1a: \
   test-day1-journeys \
   test-day1-knowledge \
   test-day1-architecture
-> $(DAY1_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
-> git diff --check
-> @echo "D1-WAVE-1A verification: PASS"
+	$(DAY1_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+	git diff --check
+	@echo "D1-WAVE-1A verification: PASS"
 
 .PHONY: verify-wave-1b
 verify-wave-1b: verify-wave-1a test-day1-data test-day1-journeys
-> git diff --check
-> @echo "D1-WAVE-1B verification: PASS"
+	git diff --check
+	@echo "D1-WAVE-1B verification: PASS"
 
 .PHONY: verify-wave-1c
 verify-wave-1c: verify-wave-1b test-day1-analytics test-day1-agents
-> git diff --check
-> @echo "D1-WAVE-1C verification: PASS"
+	git diff --check
+	@echo "D1-WAVE-1C verification: PASS"
 
 .PHONY: verify-day1-current
 verify-day1-current: day1-env
-> $(DAY1_PYTHON) scripts/day1/verify_current.py
+	$(DAY1_PYTHON) scripts/day1/verify_current.py
 
 .PHONY: verify-day1
 verify-day1: verify-wave-1c test-day1-journeys
-> if grep -q "^- ID: THESIS-" docs/workplans/current.md; then echo "Day 1 historical lifecycle is covered by regression tests; Thesis Sprint owns the active pointer"; else $(DAY1_PYTHON) scripts/day1/check_preparation.py; fi
-> $(DAY1_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
-> git diff --check
-> @echo "Day 1 verification: PASS"
+	if grep -q "^- ID: THESIS-" docs/workplans/current.md; then echo "Day 1 historical lifecycle is covered by regression tests; Thesis Sprint owns the active pointer"; else $(DAY1_PYTHON) scripts/day1/check_preparation.py; fi
+	$(DAY1_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+	git diff --check
+	@echo "Day 1 verification: PASS"
 
 .PHONY: demo-day1-headless
 demo-day1-headless: day1-env
-> PORTFOLIO_RISK_DATA_ROOT="$(DAY1_PORTFOLIO_RISK_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(DAY1_PACKAGE_PATHS)" $(DAY1_PYTHON) scripts/day1/run_day1_demo.py
+	PORTFOLIO_RISK_DATA_ROOT="$(DAY1_PORTFOLIO_RISK_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(DAY1_PACKAGE_PATHS)" $(DAY1_PYTHON) scripts/day1/run_day1_demo.py
 
 .PHONY: servicefabric-day1-smoke
 servicefabric-day1-smoke:
-> SERVICEFABRIC_RUNTIME_VENV="$(DAY1_SERVICEFABRIC_RUNTIME_VENV)" \
-> SERVICEFABRIC_HOME="$(DAY1_SERVICEFABRIC_HOME)" \
-> PORTFOLIO_RISK_DATA_ROOT="$(DAY1_PORTFOLIO_RISK_DATA_ROOT)" \
-> ./scripts/day1/servicefabric_smoke.sh
+	SERVICEFABRIC_RUNTIME_VENV="$(DAY1_SERVICEFABRIC_RUNTIME_VENV)" \
+	SERVICEFABRIC_HOME="$(DAY1_SERVICEFABRIC_HOME)" \
+	PORTFOLIO_RISK_DATA_ROOT="$(DAY1_PORTFOLIO_RISK_DATA_ROOT)" \
+	./scripts/day1/servicefabric_smoke.sh
 
 DAY23_VENV ?= $(CURDIR)/.venv-day23
 ifeq ($(strip $(DAY23_VENV)),)
@@ -278,88 +277,88 @@ D23_PART2_HEAD := day23-complete
 
 .PHONY: day23-env
 day23-env:
-> test -f requirements/day1.lock || { echo "ERROR: requirements/day1.lock is missing" >&2; exit 1; }
-> DAY23_VENV="$(DAY23_VENV)" ./scripts/day23/bootstrap_environment.sh
-> test -x "$(DAY23_PYTHON)" || { echo "ERROR: Day 2–3 Python was not created at $(DAY23_PYTHON)" >&2; exit 1; }
-> $(DAY23_PYTHON) -m pip check
+	test -f requirements/day1.lock || { echo "ERROR: requirements/day1.lock is missing" >&2; exit 1; }
+	DAY23_VENV="$(DAY23_VENV)" ./scripts/day23/bootstrap_environment.sh
+	test -x "$(DAY23_PYTHON)" || { echo "ERROR: Day 2–3 Python was not created at $(DAY23_PYTHON)" >&2; exit 1; }
+	$(DAY23_PYTHON) -m pip check
 
 .PHONY: test-d23-control
 test-d23-control: day23-env
-> $(DAY23_PYTEST) tests/architecture/test_day23_control_plane.py -q
+	$(DAY23_PYTEST) tests/architecture/test_day23_control_plane.py -q
 
 .PHONY: test-d23-data
 test-d23-data: day23-env
-> $(DAY23_PYTEST) tests/data -q
+	$(DAY23_PYTEST) tests/data -q
 
 .PHONY: test-d23-experience
 test-d23-experience: day23-env
-> $(DAY23_PYTEST) tests/application -q
+	$(DAY23_PYTEST) tests/application -q
 
 .PHONY: test-d23-integration
 test-d23-integration: day23-env
-> $(DAY23_PYTEST) tests/integration -q
+	$(DAY23_PYTEST) tests/integration -q
 
 .PHONY: test-d23-journeys
 test-d23-journeys: day23-env
-> $(DAY23_PYTEST) $(HISTORICAL_JOURNEY_TESTS) -q
+	$(DAY23_PYTEST) $(HISTORICAL_JOURNEY_TESTS) -q
 
 .PHONY: verify-d23-phase1
 verify-d23-phase1: day23-env verify-day1 verify-day0 test-d23-control test-d23-data test-d23-experience test-d23-integration test-d23-journeys
-> $(PYTHON) scripts/day23/check_lane_paths.py --all-lanes --base day1-complete --head $(D23_PART1_HEAD) --manifest config/agent/day23/part1-lanes.json
-> git diff --check
-> @echo "D23 Phase 1 verification: PASS"
+	$(PYTHON) scripts/day23/check_lane_paths.py --all-lanes --base day1-complete --head $(D23_PART1_HEAD) --manifest config/agent/day23/part1-lanes.json
+	git diff --check
+	@echo "D23 Phase 1 verification: PASS"
 
 .PHONY: demo-d23-phase1
 demo-d23-phase1: day23-env
-> PORTFOLIO_RISK_DATA_ROOT="$(DAY23_PORTFOLIO_RISK_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(DAY23_PACKAGE_PATHS)" $(DAY23_PYTHON) scripts/day23/run_phase1_demo.py
+	PORTFOLIO_RISK_DATA_ROOT="$(DAY23_PORTFOLIO_RISK_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(DAY23_PACKAGE_PATHS)" $(DAY23_PYTHON) scripts/day23/run_phase1_demo.py
 
 .PHONY: servicefabric-d23-phase1-smoke
 servicefabric-d23-phase1-smoke: demo-d23-phase1
-> DAY23_SERVICEFABRIC_RUNTIME_VENV="$(DAY23_SERVICEFABRIC_RUNTIME_VENV)" \
-> DAY23_SERVICEFABRIC_HOME="$(DAY23_SERVICEFABRIC_HOME)" \
-> PORTFOLIO_RISK_DATA_ROOT="$(DAY23_PORTFOLIO_RISK_DATA_ROOT)" \
-> ./scripts/day23/servicefabric_phase1_smoke.sh
+	DAY23_SERVICEFABRIC_RUNTIME_VENV="$(DAY23_SERVICEFABRIC_RUNTIME_VENV)" \
+	DAY23_SERVICEFABRIC_HOME="$(DAY23_SERVICEFABRIC_HOME)" \
+	PORTFOLIO_RISK_DATA_ROOT="$(DAY23_PORTFOLIO_RISK_DATA_ROOT)" \
+	./scripts/day23/servicefabric_phase1_smoke.sh
 
 .PHONY: test-d23-monitoring-core
 test-d23-monitoring-core: day23-env
-> $(DAY23_PYTEST) tests/contracts tests/domain tests/data tests/analytics tests/capabilities tests/agents -q
+	$(DAY23_PYTEST) tests/contracts tests/domain tests/data tests/analytics tests/capabilities tests/agents -q
 
 .PHONY: test-d23-monitoring-experience
 test-d23-monitoring-experience: day23-env
-> $(DAY23_PYTEST) tests/application -q
+	$(DAY23_PYTEST) tests/application -q
 
 .PHONY: test-d23-part2-integration
 test-d23-part2-integration: day23-env
-> $(DAY23_PYTEST) tests/integration -q
+	$(DAY23_PYTEST) tests/integration -q
 
 .PHONY: test-d23-part2-journeys
 test-d23-part2-journeys: day23-env
-> $(DAY23_PYTEST) $(HISTORICAL_JOURNEY_TESTS) -q
+	$(DAY23_PYTEST) $(HISTORICAL_JOURNEY_TESTS) -q
 
 .PHONY: check-d23-application-manifest
 check-d23-application-manifest: day23-env
-> $(DAY23_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+	$(DAY23_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
 
 .PHONY: verify-d23-part2
 verify-d23-part2: verify-d23-phase1 test-d23-monitoring-core test-d23-monitoring-experience test-d23-part2-integration test-d23-part2-journeys check-d23-application-manifest
-> $(PYTHON) scripts/day23/check_lane_paths.py --all-lanes --base $(D23_PART1_HEAD) --head $(D23_PART2_HEAD) --manifest config/agent/day23/lanes.json
-> git diff --check
-> @echo "D23 Part 2 verification: PASS"
+	$(PYTHON) scripts/day23/check_lane_paths.py --all-lanes --base $(D23_PART1_HEAD) --head $(D23_PART2_HEAD) --manifest config/agent/day23/lanes.json
+	git diff --check
+	@echo "D23 Part 2 verification: PASS"
 
 .PHONY: verify-d23-current
 verify-d23-current: verify-d23-part2
-> @echo "D23 current verification: PASS"
+	@echo "D23 current verification: PASS"
 
 .PHONY: demo-d23-part2
 demo-d23-part2: day23-env
-> PORTFOLIO_RISK_DATA_ROOT="$(DAY23_PORTFOLIO_RISK_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(DAY23_PACKAGE_PATHS)" $(DAY23_PYTHON) scripts/day23/run_part2_demo.py
+	PORTFOLIO_RISK_DATA_ROOT="$(DAY23_PORTFOLIO_RISK_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(DAY23_PACKAGE_PATHS)" $(DAY23_PYTHON) scripts/day23/run_part2_demo.py
 
 .PHONY: servicefabric-d23-part2-smoke
 servicefabric-d23-part2-smoke: demo-d23-part2
-> DAY23_SERVICEFABRIC_RUNTIME_VENV="$(DAY23_SERVICEFABRIC_RUNTIME_VENV)" \
-> DAY23_SERVICEFABRIC_HOME="$(DAY23_SERVICEFABRIC_HOME)" \
-> PORTFOLIO_RISK_DATA_ROOT="$(DAY23_PORTFOLIO_RISK_DATA_ROOT)" \
-> ./scripts/day23/servicefabric_part2_smoke.sh
+	DAY23_SERVICEFABRIC_RUNTIME_VENV="$(DAY23_SERVICEFABRIC_RUNTIME_VENV)" \
+	DAY23_SERVICEFABRIC_HOME="$(DAY23_SERVICEFABRIC_HOME)" \
+	PORTFOLIO_RISK_DATA_ROOT="$(DAY23_PORTFOLIO_RISK_DATA_ROOT)" \
+	./scripts/day23/servicefabric_part2_smoke.sh
 
 THESIS_VENV ?= $(CURDIR)/.venv-thesis
 ifeq ($(strip $(THESIS_VENV)),)
@@ -380,32 +379,32 @@ THESIS_DAY1_LANE_HEAD ?= $(THESIS_DAY1_CANDIDATE_HEAD)
 
 .PHONY: thesis-env
 thesis-env:
-> test -f requirements/day1.lock || { echo "ERROR: requirements/day1.lock is missing" >&2; exit 1; }
-> THESIS_VENV="$(THESIS_VENV)" ./scripts/thesis/bootstrap_environment.sh
-> test -x "$(THESIS_PYTHON)" || { echo "ERROR: Thesis Python was not created at $(THESIS_PYTHON)" >&2; exit 1; }
-> $(THESIS_PYTHON) -m pip check
+	test -f requirements/thesis.lock || { echo "ERROR: requirements/thesis.lock is missing" >&2; exit 1; }
+	THESIS_VENV="$(THESIS_VENV)" ./scripts/thesis/bootstrap_environment.sh
+	test -x "$(THESIS_PYTHON)" || { echo "ERROR: Thesis Python was not created at $(THESIS_PYTHON)" >&2; exit 1; }
+	$(THESIS_PYTHON) -m pip check
 
 .PHONY: test-thesis-control
 test-thesis-control: thesis-env
-> $(THESIS_PYTEST) tests/architecture/test_thesis_sprint_control_plane.py -q
+	$(THESIS_PYTEST) tests/architecture/test_thesis_sprint_control_plane.py -q
 
 .PHONY: test-thesis-day1
 test-thesis-day1: thesis-env
-> if test -d tests/thesis; then $(THESIS_PYTEST) tests/thesis -q; else echo "No Thesis Sprint Day 1 implementation tests yet"; fi
+	if test -d tests/thesis; then $(THESIS_PYTEST) tests/thesis -q; else echo "No Thesis Sprint Day 1 implementation tests yet"; fi
 
 .PHONY: test-thesis-integration
 test-thesis-integration: thesis-env
-> if test -n "$(strip $(THESIS_INTEGRATION_TESTS))"; then $(THESIS_PYTEST) $(THESIS_INTEGRATION_TESTS) -q; else echo "No Thesis Sprint integration tests yet"; fi
+	if test -n "$(strip $(THESIS_INTEGRATION_TESTS))"; then $(THESIS_PYTEST) $(THESIS_INTEGRATION_TESTS) -q; else echo "No Thesis Sprint integration tests yet"; fi
 
 .PHONY: test-thesis-journeys
 test-thesis-journeys: thesis-env
-> if test -n "$(strip $(THESIS_JOURNEY_TESTS))"; then $(THESIS_PYTEST) $(THESIS_JOURNEY_TESTS) -q; else echo "No Thesis Sprint journey tests yet"; fi
+	if test -n "$(strip $(THESIS_JOURNEY_TESTS))"; then $(THESIS_PYTEST) $(THESIS_JOURNEY_TESTS) -q; else echo "No Thesis Sprint journey tests yet"; fi
 
 .PHONY: check-thesis-day1-fixture-digests
 check-thesis-day1-fixture-digests: thesis-env
-> test -f "$(THESIS_FIXTURE_VALIDATOR)" || { echo "ERROR: Day 1 fixture digest validator is not implemented" >&2; exit 1; }
-> test -d data/fixtures/synthetic/thesis-day1 || { echo "ERROR: Day 1 synthetic fixtures are not implemented" >&2; exit 1; }
-> THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" $(THESIS_PYTHON) "$(THESIS_FIXTURE_VALIDATOR)" --fixtures data/fixtures/synthetic/thesis-day1
+	test -f "$(THESIS_FIXTURE_VALIDATOR)" || { echo "ERROR: Day 1 fixture digest validator is not implemented" >&2; exit 1; }
+	test -d data/fixtures/synthetic/thesis-day1 || { echo "ERROR: Day 1 synthetic fixtures are not implemented" >&2; exit 1; }
+	THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" $(THESIS_PYTHON) "$(THESIS_FIXTURE_VALIDATOR)" --fixtures data/fixtures/synthetic/thesis-day1
 
 .PHONY: verify-thesis-day1
 verify-thesis-day1: \
@@ -415,15 +414,15 @@ verify-thesis-day1: \
   test-thesis-integration \
   test-thesis-journeys \
   check-thesis-day1-fixture-digests
-> test -n "$(THESIS_DAY1_LANE_BASE)" || { echo "ERROR: unable to resolve the Thesis Sprint control-plane commit" >&2; exit 1; }
-> git merge-base --is-ancestor "$(THESIS_DAY1_LANE_BASE)" "$(THESIS_DAY1_LANE_HEAD)" || { echo "ERROR: specialist candidate must descend from the Thesis Sprint control-plane commit" >&2; exit 1; }
-> $(THESIS_PYTHON) scripts/thesis/check_lane_paths.py --lane day1 --base "$(THESIS_DAY1_LANE_BASE)" --head "$(THESIS_DAY1_LANE_HEAD)" --manifest config/agent/thesis-sprint/lanes.json
-> git diff --check
-> @echo "Thesis Sprint Day 1 verification: PASS"
+	test -n "$(THESIS_DAY1_LANE_BASE)" || { echo "ERROR: unable to resolve the Thesis Sprint control-plane commit" >&2; exit 1; }
+	git merge-base --is-ancestor "$(THESIS_DAY1_LANE_BASE)" "$(THESIS_DAY1_LANE_HEAD)" || { echo "ERROR: specialist candidate must descend from the Thesis Sprint control-plane commit" >&2; exit 1; }
+	$(THESIS_PYTHON) scripts/thesis/check_lane_paths.py --lane day1 --base "$(THESIS_DAY1_LANE_BASE)" --head "$(THESIS_DAY1_LANE_HEAD)" --manifest config/agent/thesis-sprint/lanes.json
+	git diff --check
+	@echo "Thesis Sprint Day 1 verification: PASS"
 
 .PHONY: verify-thesis-current
 verify-thesis-current: verify-thesis-day2
-> @echo "Thesis Sprint current verification: PASS (Day 2 complete; Day 3 queued)"
+	@echo "Thesis Sprint current verification: PASS (Day 2 complete; Day 3 queued)"
 
 # Day 2 real-data targets execute the accepted local bridge. All licensed
 # inputs and outputs remain external and are supplied explicitly by the user.
@@ -445,11 +444,11 @@ THESIS_DAY2_DEMO := scripts/thesis/run_day2_demo.py
 
 .PHONY: test-thesis-real-data
 test-thesis-real-data: thesis-env
-> $(THESIS_PYTEST) tests/architecture/test_thesis_real_data_boundaries.py tests/data/test_thesis_crsp_compustat_bridge.py tests/thesis/test_day2_adapter_profiles.py -q
+	$(THESIS_PYTEST) tests/architecture/test_thesis_real_data_boundaries.py tests/data/test_thesis_crsp_compustat_bridge.py tests/thesis/test_day2_adapter_profiles.py -q
 
 .PHONY: profile-thesis-real-data
 profile-thesis-real-data:
-> @real_root='$(strip $(THESIS_REAL_DATA_ROOT))'; schema_file='$(strip $(THESIS_REAL_SOURCE_SCHEMAS))'; manifest='$(strip $(THESIS_REAL_MANIFEST))'; \
+	@real_root='$(strip $(THESIS_REAL_DATA_ROOT))'; schema_file='$(strip $(THESIS_REAL_SOURCE_SCHEMAS))'; manifest='$(strip $(THESIS_REAL_MANIFEST))'; \
   test -n "$$real_root" || { echo "ERROR: set THESIS_REAL_DATA_ROOT to an external private directory" >&2; exit 1; }; \
   test -n "$$schema_file" || { echo "ERROR: set THESIS_REAL_SOURCE_SCHEMAS explicitly" >&2; exit 1; }; \
   case "$$real_root" in /*) ;; *) echo "ERROR: THESIS_REAL_DATA_ROOT must be absolute" >&2; exit 1;; esac; \
@@ -468,20 +467,20 @@ profile-thesis-real-data:
   case "$$schema_file" in "$$repository_root"|"$$repository_root"/*) echo "ERROR: THESIS_REAL_SOURCE_SCHEMAS must remain outside Git" >&2; exit 1;; esac; \
   case "$$manifest" in "$$repository_root"|"$$repository_root"/*) echo "ERROR: THESIS_REAL_MANIFEST must remain outside Git" >&2; exit 1;; esac; \
   test -f "$$manifest" || { echo "ERROR: THESIS_REAL_MANIFEST must exist" >&2; exit 1; }
-> $(THESIS_PYTHON) -m risk_data.cli profile-crsp-compustat --manifest "$(THESIS_REAL_MANIFEST)" --output "$(THESIS_REAL_PROFILE_OUTPUT)"
+	$(THESIS_PYTHON) -m risk_data.cli profile-crsp-compustat --manifest "$(THESIS_REAL_MANIFEST)" --output "$(THESIS_REAL_PROFILE_OUTPUT)"
 
 .PHONY: build-thesis-real-data
 build-thesis-real-data: profile-thesis-real-data
-> test -n "$(THESIS_REAL_DATA_ROOT)" || { echo "ERROR: set THESIS_REAL_DATA_ROOT explicitly" >&2; exit 1; }
-> $(THESIS_PYTHON) -m risk_data.cli build-crsp-compustat --manifest "$(THESIS_REAL_MANIFEST)" --data-root "$(THESIS_REAL_DATA_ROOT)" --mode daily-primary
+	test -n "$(THESIS_REAL_DATA_ROOT)" || { echo "ERROR: set THESIS_REAL_DATA_ROOT explicitly" >&2; exit 1; }
+	$(THESIS_PYTHON) -m risk_data.cli build-crsp-compustat --manifest "$(THESIS_REAL_MANIFEST)" --data-root "$(THESIS_REAL_DATA_ROOT)" --mode daily-primary
 
 .PHONY: verify-thesis-real-data
 verify-thesis-real-data: test-thesis-real-data build-thesis-real-data
-> $(THESIS_PYTHON) -m risk_data.cli verify-crsp-compustat --data-root "$(THESIS_REAL_DATA_ROOT)" --mode daily-primary
+	$(THESIS_PYTHON) -m risk_data.cli verify-crsp-compustat --data-root "$(THESIS_REAL_DATA_ROOT)" --mode daily-primary
 
 .PHONY: verify-thesis-real-data-daily
 verify-thesis-real-data-daily:
-> @daily_file='$(strip $(THESIS_REAL_DSF))'; \
+	@daily_file='$(strip $(THESIS_REAL_DSF))'; \
   test -n "$$daily_file" || { echo "ERROR: daily-primary requires explicit dsf.parquet" >&2; exit 1; }; \
   case "$$daily_file" in /*) ;; *) echo "ERROR: THESIS_REAL_DSF must be absolute" >&2; exit 1;; esac; \
   test "$${daily_file##*/}" = "dsf.parquet" || { echo "ERROR: daily-primary path must name dsf.parquet" >&2; exit 1; }; \
@@ -489,45 +488,45 @@ verify-thesis-real-data-daily:
   repository_root=$$(realpath -- "$(CURDIR)") || exit 1; \
   daily_file=$$(realpath -- "$$daily_file") || exit 1; \
   case "$$daily_file" in "$$repository_root"|"$$repository_root"/*) echo "ERROR: THESIS_REAL_DSF must remain outside Git" >&2; exit 1;; esac
-> $(MAKE) verify-thesis-real-data THESIS_REAL_DATA_ROOT="$(THESIS_REAL_DATA_ROOT)" THESIS_REAL_MANIFEST="$(THESIS_REAL_MANIFEST)" THESIS_REAL_SOURCE_SCHEMAS="$(THESIS_REAL_SOURCE_SCHEMAS)" THESIS_REAL_PROFILE_OUTPUT="$(THESIS_REAL_PROFILE_OUTPUT)"
+	$(MAKE) verify-thesis-real-data THESIS_REAL_DATA_ROOT="$(THESIS_REAL_DATA_ROOT)" THESIS_REAL_MANIFEST="$(THESIS_REAL_MANIFEST)" THESIS_REAL_SOURCE_SCHEMAS="$(THESIS_REAL_SOURCE_SCHEMAS)" THESIS_REAL_PROFILE_OUTPUT="$(THESIS_REAL_PROFILE_OUTPUT)"
 
 .PHONY: test-thesis-real-portfolios
 test-thesis-real-portfolios: thesis-env
-> $(THESIS_PYTEST) tests/thesis/test_day2_real_portfolios.py -q
+	$(THESIS_PYTEST) tests/thesis/test_day2_real_portfolios.py -q
 
 .PHONY: materialize-thesis-real-portfolios
 materialize-thesis-real-portfolios: test-thesis-real-portfolios
-> test -n "$(strip $(THESIS_REAL_CANDIDATE_ARTIFACT))" || { echo "ERROR: set THESIS_REAL_CANDIDATE_ARTIFACT" >&2; exit 1; }
-> test -n "$(strip $(THESIS_REAL_PORTFOLIO_SELECTION))" || { echo "ERROR: set THESIS_REAL_PORTFOLIO_SELECTION" >&2; exit 1; }
-> test -n "$(strip $(THESIS_REAL_PORTFOLIO_OUTPUT))" || { echo "ERROR: set THESIS_REAL_PORTFOLIO_OUTPUT" >&2; exit 1; }
-> THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli init-real-portfolios --candidate-artifact "$(THESIS_REAL_CANDIDATE_ARTIFACT)" --selection "$(THESIS_REAL_PORTFOLIO_SELECTION)" --output-directory "$(THESIS_REAL_PORTFOLIO_OUTPUT)"
+	test -n "$(strip $(THESIS_REAL_CANDIDATE_ARTIFACT))" || { echo "ERROR: set THESIS_REAL_CANDIDATE_ARTIFACT" >&2; exit 1; }
+	test -n "$(strip $(THESIS_REAL_PORTFOLIO_SELECTION))" || { echo "ERROR: set THESIS_REAL_PORTFOLIO_SELECTION" >&2; exit 1; }
+	test -n "$(strip $(THESIS_REAL_PORTFOLIO_OUTPUT))" || { echo "ERROR: set THESIS_REAL_PORTFOLIO_OUTPUT" >&2; exit 1; }
+	THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli init-real-portfolios --candidate-artifact "$(THESIS_REAL_CANDIDATE_ARTIFACT)" --selection "$(THESIS_REAL_PORTFOLIO_SELECTION)" --output-directory "$(THESIS_REAL_PORTFOLIO_OUTPUT)"
 
 .PHONY: verify-thesis-real-portfolios
 verify-thesis-real-portfolios: test-thesis-real-portfolios
-> test -n "$(strip $(THESIS_REAL_PORTFOLIO_DIRECTORY))" || { echo "ERROR: set THESIS_REAL_PORTFOLIO_DIRECTORY" >&2; exit 1; }
-> THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli validate-real-portfolios --portfolios-directory "$(THESIS_REAL_PORTFOLIO_DIRECTORY)" --receipt "$(THESIS_REAL_PORTFOLIO_DIRECTORY)/portfolio-selection-receipt.json"
+	test -n "$(strip $(THESIS_REAL_PORTFOLIO_DIRECTORY))" || { echo "ERROR: set THESIS_REAL_PORTFOLIO_DIRECTORY" >&2; exit 1; }
+	THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli validate-real-portfolios --portfolios-directory "$(THESIS_REAL_PORTFOLIO_DIRECTORY)" --receipt "$(THESIS_REAL_PORTFOLIO_DIRECTORY)/portfolio-selection-receipt.json"
 
 .PHONY: test-thesis-day2
 test-thesis-day2: thesis-env
-> $(THESIS_PYTEST) tests/thesis/test_day2_metrics_kernel.py tests/journeys/test_thesis_day2_vertical_slice.py -q
+	$(THESIS_PYTEST) tests/thesis/test_day2_metrics_kernel.py tests/journeys/test_thesis_day2_vertical_slice.py -q
 
 .PHONY: verify-thesis-day2
 verify-thesis-day2: verify-thesis-day1 test-thesis-real-data test-thesis-day2
-> git diff --check
-> @echo "Thesis Sprint Day 2 synthetic verification: PASS"
+	git diff --check
+	@echo "Thesis Sprint Day 2 synthetic verification: PASS"
 
 .PHONY: verify-thesis-day2-real
 verify-thesis-day2-real: verify-thesis-day2 demo-thesis-day2-real
-> @echo "Thesis Sprint Day 2 licensed local verification: PASS"
+	@echo "Thesis Sprint Day 2 licensed local verification: PASS"
 
 .PHONY: demo-thesis-day2-real
 demo-thesis-day2-real: thesis-env
-> @test -f "$(THESIS_DAY2_DEMO)" || { echo "ERROR: Day 2 demo is not implemented" >&2; exit 1; }
-> @test -n "$(strip $(THESIS_REAL_SOURCE_MANIFEST))" || { echo "ERROR: set THESIS_REAL_SOURCE_MANIFEST" >&2; exit 1; }
-> @test -n "$(strip $(THESIS_REAL_EXPERIMENT_MANIFEST))" || { echo "ERROR: set THESIS_REAL_EXPERIMENT_MANIFEST" >&2; exit 1; }
-> @test -n "$(strip $(THESIS_REAL_OUTPUT_ROOT))" || { echo "ERROR: set THESIS_REAL_OUTPUT_ROOT" >&2; exit 1; }
-> @test -n "$(strip $(THESIS_DAY2_OUTPUT_ROOT))" || { echo "ERROR: set THESIS_DAY2_OUTPUT_ROOT" >&2; exit 1; }
-> @PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" \
+	@test -f "$(THESIS_DAY2_DEMO)" || { echo "ERROR: Day 2 demo is not implemented" >&2; exit 1; }
+	@test -n "$(strip $(THESIS_REAL_SOURCE_MANIFEST))" || { echo "ERROR: set THESIS_REAL_SOURCE_MANIFEST" >&2; exit 1; }
+	@test -n "$(strip $(THESIS_REAL_EXPERIMENT_MANIFEST))" || { echo "ERROR: set THESIS_REAL_EXPERIMENT_MANIFEST" >&2; exit 1; }
+	@test -n "$(strip $(THESIS_REAL_OUTPUT_ROOT))" || { echo "ERROR: set THESIS_REAL_OUTPUT_ROOT" >&2; exit 1; }
+	@test -n "$(strip $(THESIS_DAY2_OUTPUT_ROOT))" || { echo "ERROR: set THESIS_DAY2_OUTPUT_ROOT" >&2; exit 1; }
+	@PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" \
   THESIS_REAL_SOURCE_MANIFEST="$(THESIS_REAL_SOURCE_MANIFEST)" \
   THESIS_REAL_EXPERIMENT_MANIFEST="$(THESIS_REAL_EXPERIMENT_MANIFEST)" \
   THESIS_REAL_OUTPUT_ROOT="$(THESIS_REAL_OUTPUT_ROOT)" \
@@ -536,7 +535,7 @@ demo-thesis-day2-real: thesis-env
 
 .PHONY: demo-thesis-day1
 demo-thesis-day1: thesis-env
-> test -f "$(THESIS_DEMO)" || { echo "ERROR: Day 1 demo is not implemented" >&2; exit 1; }
-> case "$(abspath $(THESIS_DATA_ROOT))" in "$(CURDIR)"|"$(CURDIR)"/*) echo "ERROR: THESIS_DATA_ROOT must remain outside Git" >&2; exit 1;; esac
-> mkdir -p "$(THESIS_DATA_ROOT)"
-> THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) "$(THESIS_DEMO)" --data-root "$(THESIS_DATA_ROOT)"
+	test -f "$(THESIS_DEMO)" || { echo "ERROR: Day 1 demo is not implemented" >&2; exit 1; }
+	case "$(abspath $(THESIS_DATA_ROOT))" in "$(CURDIR)"|"$(CURDIR)"/*) echo "ERROR: THESIS_DATA_ROOT must remain outside Git" >&2; exit 1;; esac
+	mkdir -p "$(THESIS_DATA_ROOT)"
+	THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) "$(THESIS_DEMO)" --data-root "$(THESIS_DATA_ROOT)"
