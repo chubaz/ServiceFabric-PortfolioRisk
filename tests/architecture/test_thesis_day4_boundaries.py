@@ -51,7 +51,7 @@ def test_day4_activation_state_and_specialist_lane_are_explicit() -> None:
     }
 
 
-def test_make_stages_day4_without_claiming_implementation() -> None:
+def test_make_exposes_integrated_day4_gates_without_release_claim() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     assert ".RECIPEPREFIX" not in makefile
 
@@ -71,17 +71,23 @@ def test_make_stages_day4_without_claiming_implementation() -> None:
     boundary_recipe = _make_recipe(makefile, "test-thesis-day4-boundaries")
     assert "tests/architecture/test_thesis_day4_boundaries.py" in boundary_recipe
 
-    for target in targets[1:-1]:
+    expected_recipe_markers = {
+        "test-thesis-day4": "test_day4_runner.py",
+        "demo-thesis-day4-fixture": "run-day4",
+        "verify-thesis-day4": "fixture verification: PASS",
+        "verify-thesis-day4-real": "--require-exit-criteria",
+        "run-thesis-day4-direct": "--provider openai_responses",
+        "serve-thesis-day4-dashboard": "http.server 8765",
+    }
+    for target, marker in expected_recipe_markers.items():
         recipe = _make_recipe(makefile, target)
-        assert "not integrated" in recipe
-        assert "exit 1" in recipe
+        assert marker in recipe
+        assert "not integrated" not in recipe
 
-    assert (
-        "verify-thesis-current: verify-thesis-day3 "
-        "test-thesis-day4-boundaries"
-    ) in makefile
+    assert "verify-thesis-current: verify-thesis-day4" in makefile
     current_recipe = _make_recipe(makefile, "verify-thesis-current")
     assert "Day 4 in progress; human QA queued" in current_recipe
+    assert "release approved" not in current_recipe.casefold()
 
 
 def test_ci_runs_only_the_current_public_fixture_gate() -> None:
