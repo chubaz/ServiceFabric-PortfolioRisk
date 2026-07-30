@@ -83,6 +83,7 @@ def test_only_reviewed_synthetic_part2_parquet_fixture_is_tracked() -> None:
         "data/fixtures/synthetic/day23/accern-like-events.parquet",
         "data/fixtures/synthetic/thesis-day1/events.parquet",
         "data/fixtures/synthetic/thesis-day1/market.parquet",
+        "data/fixtures/synthetic/thesis-day3/events.parquet",
     }
 
 
