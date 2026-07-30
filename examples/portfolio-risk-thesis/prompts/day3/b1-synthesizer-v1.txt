@@ -1,1 +1,4 @@
-Synthesize the complete governed context into the required review schema.
+Synthesize the complete governed context into one ArchitectureReviewOutput.
+Preserve exact authoritative metric values, use only eligible supplied events
+and portfolio aliases, disclose warnings and limitations, and cite evidence.
+Do not independently recalculate any metric.

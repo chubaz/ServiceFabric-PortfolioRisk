@@ -1,0 +1,26 @@
+version: "1"
+profile: local_real_example
+provider:
+  provider_id: openai_responses
+  model_id: gpt-4.1-mini-2025-04-14
+  model_snapshot: gpt-4.1-mini-2025-04-14
+  prompt_manifest_digest: sha256:230f60aed989878c5cf6eb6a9b8f9833dfa46afb1c50d86b3f81b638a220bc40
+  temperature: "0"
+  temperature_supported: true
+  maximum_output_tokens: 1600
+  timeout_seconds: 90
+  retry_count: 1
+  store: false
+  tools: []
+  response_schema_version: v1
+privacy:
+  private_neutral_aliases_only: true
+  licensed_rows_allowed: false
+  provider_identifiers_allowed: false
+  local_paths_allowed: false
+  credentials_allowed: false
+human_review_required: true
+effects: []
+limitations:
+  - Copy only the provider object into the external model configuration.
+  - Keep all experiment paths and evidence outside Git.

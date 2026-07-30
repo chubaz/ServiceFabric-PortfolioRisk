@@ -1,0 +1,19 @@
+version: "1"
+profile: synthetic_fixture
+provider:
+  provider_id: fixture
+  model_id: fixture-structured-v1
+  model_snapshot: fixture-structured-v1
+  prompt_manifest_digest: sha256:230f60aed989878c5cf6eb6a9b8f9833dfa46afb1c50d86b3f81b638a220bc40
+  temperature: null
+  temperature_supported: false
+  maximum_output_tokens: 1600
+  timeout_seconds: 30
+  retry_count: 0
+  store: false
+  tools: []
+  response_schema_version: v1
+human_review_required: true
+effects: []
+limitations:
+  - Deterministic synthetic fixture only; no actual model call.

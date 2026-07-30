@@ -12,3 +12,10 @@ Final statuses are `NO_ISSUE`, `REVIEW`, `URGENT_REVIEW`, `ABSTAIN`, and
 `ABSTAINED_AGENT_OUTPUT`. A deterministic critic verifies evidence, exact
 metric values, eligible events, portfolio membership, allowed next steps,
 human review, and empty effects. A failure becomes `ABSTAINED_AGENT_OUTPUT`.
+
+The critic additionally enforces status/severity consistency, unique claim
+identities, portfolio membership, known top-level references, evidence for
+every factual claim, structured support for numeric statements, privacy
+markers, and the absence of transaction language. It never repairs a model
+output. The original semantic output digest and all critic violations remain
+available in the evidence bundle.

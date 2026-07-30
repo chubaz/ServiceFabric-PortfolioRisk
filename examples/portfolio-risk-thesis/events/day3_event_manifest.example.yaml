@@ -1,0 +1,17 @@
+events:
+  - event_id: reviewed-event-001
+    event_time: "2024-01-02T15:00:00Z"
+    available_at: "2024-01-02T15:05:00Z"
+    entity_alias: entity-001
+    instrument_aliases:
+      - position-001
+    title: Short reviewed title
+    short_summary: Short human-authored summary without an outcome label.
+    sentiment: neutral
+    relevance: "0.50"
+    source_reference: reviewer-source-reference
+    evidence_digest: sha256:dfb340b42ba5799e0f3da7a3a36af10f412e7df392dfeeb86563aa65e0585240
+    profile: private_curated
+    publication_state: reviewed
+    limitations:
+      - No article body or retrospective outcome label is included.

@@ -8,6 +8,8 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 
+import yaml
+
 from .adapters import HistoricalEventDataAdapter, HistoricalMarketDataAdapter
 from .day2 import (
     prepare_day2_experiment,
@@ -23,6 +25,15 @@ from .portfolio import (
     validate_materialized_real_portfolios,
 )
 from .replay import ReplayChannel, ReplayClock, ReplayStepResult
+from .day3.events import initialize_event_template, materialize_events, read_events, validate_event_manifest
+from .day3.contracts import PositionExposure
+from .day3.experiment import (
+    load_bundle,
+    prepare_experiment,
+    run_fixture_experiment,
+    run_openai_experiment,
+)
+from .day3.runner import validate_run
 
 
 EXAMPLE_ROOT = Path(__file__).resolve().parents[2]
@@ -189,6 +200,36 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_day2.add_argument("--experiment-manifest", type=Path, required=True)
     run_day2.add_argument("--output-root", type=_external_output_root, required=True)
+
+    init_events = commands.add_parser("init-day3-events", help="write an external reviewed curated-event template")
+    init_events.add_argument("--output", type=Path, required=True)
+    materialize_events_command = commands.add_parser("materialize-day3-events", help="materialize reviewed events to immutable Parquet")
+    materialize_events_command.add_argument("--manifest", type=Path, required=True)
+    materialize_events_command.add_argument("--output", type=Path, required=True)
+    validate_events = commands.add_parser("validate-day3-events", help="validate curated event manifest and Parquet")
+    validate_events.add_argument("--manifest", type=Path, required=True)
+    validate_events.add_argument("--dataset", type=Path, required=True)
+    prepare_day3 = commands.add_parser("prepare-day3-experiment", help="bind immutable Day 2 evidence, reviewed events and model configuration")
+    prepare_day3.add_argument("--day2-run-directory", type=Path, required=True)
+    prepare_day3.add_argument("--event-manifest", type=Path, required=True)
+    prepare_day3.add_argument("--event-dataset", type=Path, required=True)
+    prepare_day3.add_argument("--model-config", type=Path, required=True)
+    prepare_day3.add_argument("--portfolio-id", required=True)
+    prepare_day3.add_argument("--exposures", type=Path, required=True, help="External YAML list of private-neutral exposure aliases")
+    prepare_day3.add_argument("--output", type=Path, required=True)
+    validate_day3 = commands.add_parser("validate-day3", help="validate a Day 3 experiment without calling a model")
+    validate_day3.add_argument("--experiment-manifest", type=Path, required=True)
+    run_day3 = commands.add_parser("run-day3", help="run the explicitly selected Day 3 provider")
+    run_day3.add_argument("--experiment-manifest", type=Path, required=True)
+    run_day3.add_argument("--provider", choices=("fixture", "openai_responses"), required=True)
+    run_day3.add_argument("--allow-fixture-provider", action="store_true")
+    run_day3.add_argument("--fixture-responses", type=Path)
+    run_day3.add_argument("--output-root", type=Path, required=True)
+    inspect_day3 = commands.add_parser("inspect-day3-comparison", help="print a compact Day 3 comparison")
+    inspect_day3.add_argument("--run-directory", type=Path, required=True)
+    verify_day3_run = commands.add_parser("validate-day3-run", help="validate immutable Day 3 evidence and frozen treatment controls")
+    verify_day3_run.add_argument("--run-directory", type=Path, required=True)
+    verify_day3_run.add_argument("--require-successful-provider", action="store_true")
     return parser
 
 
@@ -334,11 +375,91 @@ def main(argv: list[str] | None = None) -> int:
                 experiment_manifest_path=args.experiment_manifest,
                 output_root=args.output_root,
             )
+        elif args.command == "init-day3-events":
+            output = initialize_event_template(args.output)
+            print(json.dumps({"initialized": True, "filename": output.name, "effects": 0}, sort_keys=True))
+        elif args.command == "materialize-day3-events":
+            output = materialize_events(args.manifest, args.output)
+            print(json.dumps({"materialized": True, "filename": output.name, "effects": 0}, sort_keys=True))
+        elif args.command == "validate-day3-events":
+            manifest = validate_event_manifest(args.manifest)
+            dataset = read_events(args.dataset)
+            if manifest != dataset:
+                raise ValueError("event dataset does not exactly match reviewed manifest")
+            print(json.dumps({"validated": True, "event_count": len(manifest), "effects": 0}, sort_keys=True))
+        elif args.command == "prepare-day3-experiment":
+            raw_exposures = yaml.safe_load(args.exposures.read_text(encoding="utf-8"))
+            if not isinstance(raw_exposures, list):
+                raise ValueError("exposures file must be a YAML list")
+            output = prepare_experiment(day2_run_directory=args.day2_run_directory, event_manifest=args.event_manifest, event_dataset=args.event_dataset, model_config=args.model_config, portfolio_id=args.portfolio_id, exposures=tuple(PositionExposure.model_validate(value) for value in raw_exposures), output=args.output)
+            print(json.dumps({"prepared": True, "filename": output.name, "effects": 0}, sort_keys=True))
+        elif args.command == "validate-day3":
+            bundle, configuration = load_bundle(args.experiment_manifest)
+            print(json.dumps({"validated": True, "context_digest": bundle.context_digest, "provider": configuration.provider_id, "effects": 0}, sort_keys=True))
+        elif args.command == "run-day3":
+            if args.provider == "fixture":
+                if not args.allow_fixture_provider:
+                    raise ValueError("fixture provider requires --allow-fixture-provider")
+                if args.fixture_responses is None:
+                    raise ValueError("fixture provider requires --fixture-responses")
+                response_document = json.loads(
+                    args.fixture_responses.read_text(encoding="utf-8")
+                )
+                responses = {
+                    (
+                        str(item["architecture_id"]),
+                        str(item["role_id"]),
+                        str(item["prompt_digest"]),
+                        str(item["context_digest"]),
+                    ): item["output"]
+                    for item in response_document["responses"]
+                }
+                output = run_fixture_experiment(
+                    args.experiment_manifest,
+                    args.output_root,
+                    responses,
+                )
+            else:
+                output = run_openai_experiment(args.experiment_manifest, args.output_root)
+            print(json.dumps({"completed": True, "run_id": output.name, "effects": 0}, sort_keys=True))
+        elif args.command == "inspect-day3-comparison":
+            comparison = json.loads((args.run_directory / "architecture-comparison.json").read_text(encoding="utf-8"))
+            for item in comparison["architectures"]:
+                print(
+                    f"{item['architecture_id']} status={item['status']} "
+                    f"critic_passed={item['critic_passed']} "
+                    f"unsupported_claims={item['unsupported_claim_count']} "
+                    f"evidence_coverage={item['evidence_reference_coverage']} "
+                    f"model_calls={item['model_calls']} "
+                    f"input_tokens={item['input_tokens']} "
+                    f"output_tokens={item['output_tokens']} "
+                    f"latency_ms={item['latency_ms']} effects={item['effects']}"
+                )
+            print(f"context_digest={comparison['context_digest']}")
             print(
                 json.dumps(
                     {
-                        "run_id": output.name,
+                        "run_id": args.run_directory.name,
                         "completed": True,
+                        "effects": 0,
+                    },
+                    sort_keys=True,
+                )
+            )
+        elif args.command == "validate-day3-run":
+            comparison = validate_run(
+                args.run_directory,
+                require_successful_provider=args.require_successful_provider,
+            )
+            print(
+                json.dumps(
+                    {
+                        "validated": True,
+                        "context_digest": comparison.context_digest,
+                        "model_calls": {
+                            run.architecture_id: len(run.receipts)
+                            for run in comparison.runs
+                        },
                         "effects": 0,
                     },
                     sort_keys=True,

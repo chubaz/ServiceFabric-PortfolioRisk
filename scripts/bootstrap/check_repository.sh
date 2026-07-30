@@ -53,23 +53,17 @@ forbidden_tracked="$(
 )"
 
 local_data_tracked="$(
-  while IFS= read -r tracked_path; do
-    case "$tracked_path" in
-      *.duckdb|*.duckdb.wal|*.sqlite|*.sqlite3|*.db)
-        printf '%s\n' "$tracked_path"
-        ;;
-      *.parquet|*.arrow|*.feather)
-        case "$tracked_path" in
-          data/fixtures/synthetic/*) ;;
-          *) printf '%s\n' "$tracked_path" ;;
-        esac
-        ;;
-    esac
-  done < <(git ls-files)
+  git ls-files | awk '
+    /\.(duckdb|duckdb\.wal|sqlite|sqlite3|db)$/ { print; next }
+    /\.(parquet|arrow|feather)$/ && !/^data\/fixtures\/synthetic\// { print }
+  '
 )"
 
 if [[ -n "$local_data_tracked" ]]; then
-  forbidden_tracked="${forbidden_tracked}${forbidden_tracked:+$'\n'}${local_data_tracked}"
+  if [[ -n "$forbidden_tracked" ]]; then
+    forbidden_tracked+=$'\n'
+  fi
+  forbidden_tracked+="$local_data_tracked"
 fi
 
 if [[ -n "$forbidden_tracked" ]]; then

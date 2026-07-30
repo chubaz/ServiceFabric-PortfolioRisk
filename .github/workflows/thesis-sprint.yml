@@ -26,9 +26,16 @@ jobs:
       - name: Verify synthetic Thesis Day 2 vertical slice
         run: make verify-thesis-day2
       - name: Verify network-free Day 3 fixture treatments
+        env:
+          OPENAI_API_KEY: ''
         run: make test-thesis-day3
+      - name: Write network-free Day 3 fixture evidence
+        env:
+          OPENAI_API_KEY: ''
+          THESIS_DATA_ROOT: ${{ runner.temp }}/thesis-day3
+        run: make demo-thesis-day3-fixture
       - name: Record synthetic-only CI boundary
-        run: echo "CI runs schema-compatible synthetic fixtures only; verify-thesis-day2-real is a licensed local gate and is never invoked"
+        run: echo "CI runs network-blocked schema-compatible fixture providers only; verify-thesis-day2-real is a licensed local gate, and licensed or OpenAI local gates are never invoked"
       - name: Write the external synthetic Day 1 demo
         run: THESIS_DATA_ROOT="${RUNNER_TEMP}/thesis-day1" make demo-thesis-day1
       - name: Validate whitespace

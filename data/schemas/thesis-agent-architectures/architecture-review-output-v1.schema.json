@@ -1,0 +1,217 @@
+{
+  "$defs": {
+    "StructuredClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "affected_positions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Positions",
+          "type": "array"
+        },
+        "claim_id": {
+          "minLength": 1,
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "claim_type": {
+          "enum": [
+            "metric",
+            "event",
+            "portfolio",
+            "interpretation"
+          ],
+          "title": "Claim Type",
+          "type": "string"
+        },
+        "event_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Ref"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "metric_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metric Ref"
+        },
+        "reported_metric_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reported Metric Value"
+        },
+        "statement": {
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_id",
+        "statement",
+        "claim_type"
+      ],
+      "title": "StructuredClaim",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "affected_positions": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Affected Positions",
+      "type": "array"
+    },
+    "architecture_id": {
+      "enum": [
+        "B0",
+        "B1",
+        "A1"
+      ],
+      "title": "Architecture Id",
+      "type": "string"
+    },
+    "contradictory_claims": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StructuredClaim"
+      },
+      "title": "Contradictory Claims",
+      "type": "array"
+    },
+    "effects": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Effects",
+      "type": "array"
+    },
+    "event_refs": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Event Refs",
+      "type": "array"
+    },
+    "evidence_refs": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "human_review_required": {
+      "const": true,
+      "default": true,
+      "title": "Human Review Required",
+      "type": "boolean"
+    },
+    "metric_refs": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Metric Refs",
+      "type": "array"
+    },
+    "output_digest": {
+      "default": "",
+      "title": "Output Digest",
+      "type": "string"
+    },
+    "recommended_next_steps": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Recommended Next Steps",
+      "type": "array"
+    },
+    "severity": {
+      "maximum": 3,
+      "minimum": 0,
+      "title": "Severity",
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "NO_ISSUE",
+        "REVIEW",
+        "URGENT_REVIEW",
+        "ABSTAIN",
+        "ABSTAINED_AGENT_OUTPUT"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "summary": {
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "supporting_claims": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StructuredClaim"
+      },
+      "title": "Supporting Claims",
+      "type": "array"
+    },
+    "uncertainties": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Uncertainties",
+      "type": "array"
+    }
+  },
+  "required": [
+    "architecture_id",
+    "status",
+    "severity",
+    "summary"
+  ],
+  "title": "ArchitectureReviewOutput",
+  "type": "object"
+}

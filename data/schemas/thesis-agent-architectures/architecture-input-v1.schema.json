@@ -1,0 +1,259 @@
+{
+  "$defs": {
+    "EligibleAgentEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "available_at": {
+          "format": "date-time",
+          "title": "Available At",
+          "type": "string"
+        },
+        "entity_alias": {
+          "pattern": "^[a-z][a-z0-9-]{2,63}$",
+          "title": "Entity Alias",
+          "type": "string"
+        },
+        "event_id": {
+          "minLength": 1,
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_time": {
+          "format": "date-time",
+          "title": "Event Time",
+          "type": "string"
+        },
+        "evidence_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Evidence Digest",
+          "type": "string"
+        },
+        "instrument_aliases": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Instrument Aliases",
+          "type": "array"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "profile": {
+          "enum": [
+            "synthetic_curated",
+            "public_curated",
+            "private_curated"
+          ],
+          "title": "Profile",
+          "type": "string"
+        },
+        "publication_state": {
+          "const": "reviewed",
+          "title": "Publication State",
+          "type": "string"
+        },
+        "relevance": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Relevance"
+        },
+        "sentiment": {
+          "enum": [
+            "positive",
+            "negative",
+            "neutral"
+          ],
+          "title": "Sentiment",
+          "type": "string"
+        },
+        "short_summary": {
+          "minLength": 1,
+          "title": "Short Summary",
+          "type": "string"
+        },
+        "source_reference": {
+          "minLength": 1,
+          "title": "Source Reference",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_time",
+        "available_at",
+        "entity_alias",
+        "instrument_aliases",
+        "title",
+        "short_summary",
+        "sentiment",
+        "relevance",
+        "source_reference",
+        "evidence_digest",
+        "profile",
+        "publication_state"
+      ],
+      "title": "EligibleAgentEvent",
+      "type": "object"
+    },
+    "PositionExposure": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_refs": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "position_alias": {
+          "pattern": "^[a-z][a-z0-9-]{2,63}$",
+          "title": "Position Alias",
+          "type": "string"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Weight"
+        }
+      },
+      "required": [
+        "position_alias",
+        "weight",
+        "evidence_refs"
+      ],
+      "title": "PositionExposure",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "as_of": {
+      "format": "date-time",
+      "title": "As Of",
+      "type": "string"
+    },
+    "context_digest": {
+      "default": "",
+      "title": "Context Digest",
+      "type": "string"
+    },
+    "decision_point": {
+      "minLength": 1,
+      "title": "Decision Point",
+      "type": "string"
+    },
+    "deterministic_finding": {
+      "minLength": 1,
+      "title": "Deterministic Finding",
+      "type": "string"
+    },
+    "events": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/EligibleAgentEvent"
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "exposures": {
+      "items": {
+        "$ref": "#/$defs/PositionExposure"
+      },
+      "minItems": 1,
+      "title": "Exposures",
+      "type": "array"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "metrics": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "type": "string"
+          }
+        ]
+      },
+      "minProperties": 1,
+      "title": "Metrics",
+      "type": "object"
+    },
+    "portfolio_id": {
+      "minLength": 1,
+      "title": "Portfolio Id",
+      "type": "string"
+    },
+    "review_item": {
+      "minLength": 1,
+      "title": "Review Item",
+      "type": "string"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "portfolio_id",
+    "as_of",
+    "metrics",
+    "deterministic_finding",
+    "review_item",
+    "decision_point",
+    "exposures",
+    "evidence_refs"
+  ],
+  "title": "ArchitectureInputBundle",
+  "type": "object"
+}

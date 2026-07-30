@@ -1,1 +1,3 @@
-Interpret only authoritative metrics, readiness, warnings, and evidence.
+Interpret only the five authoritative metric values, readiness warnings,
+limitations, and evidence supplied in this role slice. Do not infer portfolio
+exposure or event meaning. Do not recalculate any metric.

@@ -420,25 +420,67 @@ verify-thesis-day1: \
 	git diff --check
 	@echo "Thesis Sprint Day 1 verification: PASS"
 
-.PHONY: verify-thesis-current
+.PHONY: test-thesis-day3
 test-thesis-day3: thesis-env
-	$(THESIS_PYTEST) tests/thesis/test_day3_contracts.py tests/thesis/test_day3_treatments.py tests/thesis/test_day3_critic.py -q
+	$(THESIS_PYTEST) tests/thesis/test_day3_contracts.py tests/thesis/test_day3_context.py tests/thesis/test_day3_events.py tests/thesis/test_day3_provider.py tests/thesis/test_day3_critic.py tests/thesis/test_day3_treatments.py tests/thesis/test_day3_runner.py tests/journeys/test_thesis_day3_vertical_slice.py -q
 
 .PHONY: test-thesis-day3-boundaries
 test-thesis-day3-boundaries: thesis-env
 	$(THESIS_PYTEST) tests/architecture/test_thesis_day3_boundaries.py -q
 
 .PHONY: test-thesis-day3-provider test-thesis-day3-critic test-thesis-day3-architectures
-test-thesis-day3-provider test-thesis-day3-critic test-thesis-day3-architectures: test-thesis-day3
+test-thesis-day3-provider: thesis-env
+	$(THESIS_PYTEST) tests/thesis/test_day3_provider.py -q
+
+test-thesis-day3-critic: thesis-env
+	$(THESIS_PYTEST) tests/thesis/test_day3_critic.py -q
+
+test-thesis-day3-architectures: thesis-env
+	$(THESIS_PYTEST) tests/thesis/test_day3_treatments.py tests/thesis/test_day3_runner.py tests/journeys/test_thesis_day3_vertical_slice.py -q
 
 .PHONY: verify-thesis-day3
 verify-thesis-day3: verify-thesis-day2 test-thesis-day3-boundaries test-thesis-day3
 	git diff --check
 	@echo "Thesis Sprint Day 3 fixture verification: PASS"
 
+.PHONY: demo-thesis-day3-fixture
+demo-thesis-day3-fixture: thesis-env
+	test -n "$(THESIS_DATA_ROOT)" || { echo "ERROR: set THESIS_DATA_ROOT" >&2; exit 1; }
+	case "$(abspath $(THESIS_DATA_ROOT))" in "$(CURDIR)"|"$(CURDIR)"/*) echo "ERROR: THESIS_DATA_ROOT must remain outside Git" >&2; exit 1;; esac
+	mkdir -p "$(THESIS_DATA_ROOT)"
+	THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) scripts/thesis/run_day3_demo.py
+
+.PHONY: complete-thesis-day3-interactive
+complete-thesis-day3-interactive: thesis-env
+	THESIS_VENV="$(THESIS_VENV)" ./scripts/thesis/complete_day3_interactive.sh
+
+.PHONY: run-thesis-day3-direct
+run-thesis-day3-direct: thesis-env
+	THESIS_VENV="$(THESIS_VENV)" ./scripts/thesis/run_day3_direct.sh
+
+.PHONY: verify-thesis-day3-real
+verify-thesis-day3-real: verify-thesis-day3
+	@test -n "$(THESIS_REAL_EXPERIMENT_MANIFEST)" || { echo "ERROR: set THESIS_REAL_EXPERIMENT_MANIFEST" >&2; exit 1; }
+	@test -n "$(THESIS_DAY2_RUN_DIR)" || { echo "ERROR: set THESIS_DAY2_RUN_DIR" >&2; exit 1; }
+	@test -n "$(THESIS_DAY3_EVENT_MANIFEST)" || { echo "ERROR: set THESIS_DAY3_EVENT_MANIFEST" >&2; exit 1; }
+	@test -n "$(THESIS_DAY3_EVENT_DATASET)" || { echo "ERROR: set THESIS_DAY3_EVENT_DATASET" >&2; exit 1; }
+	@test -n "$(THESIS_DAY3_MODEL_CONFIG)" || { echo "ERROR: set THESIS_DAY3_MODEL_CONFIG" >&2; exit 1; }
+	@test -n "$(THESIS_DAY3_EXPERIMENT_MANIFEST)" || { echo "ERROR: set THESIS_DAY3_EXPERIMENT_MANIFEST" >&2; exit 1; }
+	@test -n "$(THESIS_DAY3_OUTPUT_ROOT)" || { echo "ERROR: set THESIS_DAY3_OUTPUT_ROOT" >&2; exit 1; }
+	@test -n "$(THESIS_DAY3_RUN_DIR)" || { echo "ERROR: set THESIS_DAY3_RUN_DIR" >&2; exit 1; }
+	@test -n "$$OPENAI_API_KEY" || { echo "ERROR: OPENAI_API_KEY must be loaded from Keychain" >&2; exit 1; }
+	PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli validate-day3-events --manifest "$(THESIS_DAY3_EVENT_MANIFEST)" --dataset "$(THESIS_DAY3_EVENT_DATASET)"
+	PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli validate-day3 --experiment-manifest "$(THESIS_DAY3_EXPERIMENT_MANIFEST)"
+	PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli validate-day3-run --run-directory "$(THESIS_DAY3_RUN_DIR)" --require-successful-provider
+	@echo "Thesis Sprint Day 3 local provider verification: PASS"
+
+.PHONY: demo-thesis-day3-real
+demo-thesis-day3-real: verify-thesis-day3-real
+	@echo "Day 3 real comparison already exists and passed the immutable local gate."
+
 .PHONY: verify-thesis-current
 verify-thesis-current: verify-thesis-day3
-	@echo "Thesis Sprint current verification: PASS (Day 3 in progress)"
+	@echo "Thesis Sprint current verification: PASS (Day 3 complete; Day 4 queued)"
 
 # Day 2 real-data targets execute the accepted local bridge. All licensed
 # inputs and outputs remain external and are supplied explicitly by the user.
@@ -511,15 +553,17 @@ test-thesis-real-portfolios: thesis-env
 	$(THESIS_PYTEST) tests/thesis/test_day2_real_portfolios.py -q
 
 .PHONY: materialize-thesis-real-portfolios
-materialize-thesis-real-portfolios: test-thesis-real-portfolios
+materialize-thesis-real-portfolios:
 	test -n "$(strip $(THESIS_REAL_CANDIDATE_ARTIFACT))" || { echo "ERROR: set THESIS_REAL_CANDIDATE_ARTIFACT" >&2; exit 1; }
 	test -n "$(strip $(THESIS_REAL_PORTFOLIO_SELECTION))" || { echo "ERROR: set THESIS_REAL_PORTFOLIO_SELECTION" >&2; exit 1; }
 	test -n "$(strip $(THESIS_REAL_PORTFOLIO_OUTPUT))" || { echo "ERROR: set THESIS_REAL_PORTFOLIO_OUTPUT" >&2; exit 1; }
+	$(MAKE) test-thesis-real-portfolios
 	THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli init-real-portfolios --candidate-artifact "$(THESIS_REAL_CANDIDATE_ARTIFACT)" --selection "$(THESIS_REAL_PORTFOLIO_SELECTION)" --output-directory "$(THESIS_REAL_PORTFOLIO_OUTPUT)"
 
 .PHONY: verify-thesis-real-portfolios
-verify-thesis-real-portfolios: test-thesis-real-portfolios
+verify-thesis-real-portfolios:
 	test -n "$(strip $(THESIS_REAL_PORTFOLIO_DIRECTORY))" || { echo "ERROR: set THESIS_REAL_PORTFOLIO_DIRECTORY" >&2; exit 1; }
+	$(MAKE) test-thesis-real-portfolios
 	THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m portfolio_risk_thesis.cli validate-real-portfolios --portfolios-directory "$(THESIS_REAL_PORTFOLIO_DIRECTORY)" --receipt "$(THESIS_REAL_PORTFOLIO_DIRECTORY)/portfolio-selection-receipt.json"
 
 .PHONY: test-thesis-day2

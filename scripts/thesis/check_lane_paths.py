@@ -99,7 +99,7 @@ def validate_manifest(manifest: object) -> list[str]:
     seen: dict[str, str] = {}
     # Thesis Day 2 deliberately reopens the existing example/test surfaces for
     # the admission specialist; files remain independently reviewed by lane.
-    shared_day2 = {
+    shared_specialist_paths = {
         "examples/portfolio-risk-thesis",
         "tests/thesis",
     }
@@ -127,7 +127,7 @@ def validate_manifest(manifest: object) -> list[str]:
                 continue
             previous = seen.setdefault(path, lane_name)
             if previous != lane_name and not (
-                lane_name == "day2" and path in shared_day2
+                lane_name in {"day2", "day3"} and path in shared_specialist_paths
             ):
                 errors.append(
                     f"{lane_name}: allowance {path!r} duplicates lane {previous!r}"
