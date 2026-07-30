@@ -478,9 +478,40 @@ verify-thesis-day3-real: verify-thesis-day3
 demo-thesis-day3-real: verify-thesis-day3-real
 	@echo "Day 3 real comparison already exists and passed the immutable local gate."
 
+.PHONY: test-thesis-day4-boundaries
+test-thesis-day4-boundaries: thesis-env
+	$(THESIS_PYTEST) tests/architecture/test_thesis_day4_boundaries.py -q
+
+# Day 4 implementation targets are deliberately unavailable during activation.
+# The specialist lane must replace these fail-closed recipes when the reviewed
+# manifest-driven runner, synthetic fixtures, and static dashboard are merged.
+.PHONY: test-thesis-day4
+test-thesis-day4:
+	@echo "ERROR: Thesis Sprint Day 4 implementation is not integrated" >&2; exit 1
+
+.PHONY: demo-thesis-day4-fixture
+demo-thesis-day4-fixture:
+	@echo "ERROR: Thesis Sprint Day 4 fixture demo is not integrated" >&2; exit 1
+
+.PHONY: verify-thesis-day4
+verify-thesis-day4:
+	@echo "ERROR: Thesis Sprint Day 4 verification is not integrated" >&2; exit 1
+
+.PHONY: verify-thesis-day4-real
+verify-thesis-day4-real:
+	@echo "ERROR: Thesis Sprint Day 4 private gate is not integrated" >&2; exit 1
+
+.PHONY: run-thesis-day4-direct
+run-thesis-day4-direct:
+	@echo "ERROR: Thesis Sprint Day 4 direct runner is not integrated" >&2; exit 1
+
+.PHONY: serve-thesis-day4-dashboard
+serve-thesis-day4-dashboard:
+	@echo "ERROR: Thesis Sprint Day 4 dashboard server is not integrated" >&2; exit 1
+
 .PHONY: verify-thesis-current
-verify-thesis-current: verify-thesis-day3
-	@echo "Thesis Sprint current verification: PASS (Day 3 complete; Day 4 queued)"
+verify-thesis-current: verify-thesis-day3 test-thesis-day4-boundaries
+	@echo "Thesis Sprint current verification: PASS (Day 3 complete; Day 4 in progress; human QA queued)"
 
 # Day 2 real-data targets execute the accepted local bridge. All licensed
 # inputs and outputs remain external and are supplied explicitly by the user.

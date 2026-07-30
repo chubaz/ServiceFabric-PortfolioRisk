@@ -2,7 +2,7 @@
 
 - ID: THESIS-D4
 - Title: Experiment execution and results
-- Status: queued
+- Status: in progress
 - Namespace: thesis-sprint
 - Workplan: docs/workplans/thesis-sprint/day-4-experiment-results.md
 - Completed experiment day: THESIS-D3
@@ -21,8 +21,10 @@ and empty effects.
 Day 3 closed after the network-free fixture gate and the explicitly authorized
 local provider gate both passed. B0 made zero model calls, B1 made one, and A1
 made four; invalid or unsupported claims remained deterministic abstentions.
-Day 4 remains queued. No architecture ranking, outcome evaluation, QA
-completion, or performance claim is made by this transition.
+Day 4 experiment execution and descriptive evaluation are in progress. Human
+soft QA remains queued. No architecture ranking, statistical-significance
+claim, predictive claim, investment-performance claim, or QA completion is
+made by this transition.
 
 The public gate remains synthetic. Licensed daily-primary evidence and the
 authorized provider acceptance run remain local and external to Git.

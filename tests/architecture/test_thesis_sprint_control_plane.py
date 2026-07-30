@@ -21,14 +21,14 @@ def read_json(relative: str) -> dict:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
 
 
-def test_thesis_day3_is_complete_and_day4_is_queued() -> None:
+def test_thesis_day3_is_complete_and_day4_is_in_progress() -> None:
     assert read_json("config/agent/thesis-sprint/status.json") == {
         "current": "THESIS-D4",
         "day_1": "complete",
         "day_2": "complete",
         "day_2_stage": "complete",
         "day_3": "complete",
-        "day_4": "queued",
+        "day_4": "in_progress",
         "soft_qa": "queued",
         "base_tag": "day23-complete",
         "experiment_id": "portfolio-risk-architecture-comparison-v1",
@@ -36,20 +36,27 @@ def test_thesis_day3_is_complete_and_day4_is_queued() -> None:
     assert read_json("config/agent/day23/status.json")["current"] == "D23-COMPLETE"
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
     assert "ID: THESIS-D4" in current
-    assert "Status: queued" in current
+    assert "Status: in progress" in current
     assert "day-4-experiment-results.md" in current
     assert "prior D23 baseline remains complete" in current
     assert "Thesis Sprint Day 1, Day 2, and Day 3 are complete" in current
     assert "Morning MetricPacks" in current
     assert "Day 3 closed" in current
-    assert "Day 4 remains queued" in current
+    assert "Day 4 experiment execution and descriptive evaluation are in progress" in current
+    assert "Human\nsoft QA remains queued" in current
 
 
 def test_lane_manifest_has_frozen_explicit_ownership() -> None:
     manifest = read_json("config/agent/thesis-sprint/lanes.json")
     assert manifest["namespace"] == "thesis-sprint"
     assert manifest["base_tag"] == "day23-complete"
-    assert manifest["integration_order"] == ["day1", "day2", "day3", "integration"]
+    assert manifest["integration_order"] == [
+        "day1",
+        "day2",
+        "day3",
+        "day4",
+        "integration",
+    ]
     assert validate_manifest(manifest) == []
     assert manifest["lanes"] == {
         "integration": {
@@ -102,6 +109,16 @@ def test_lane_manifest_has_frozen_explicit_ownership() -> None:
                 "tests/thesis",
             ],
             "allowed_files": ["docs/handoffs/thesis-sprint/day1.md"],
+        },
+        "day4": {
+            "branch": "feature/thesis-day4",
+            "allowed_directories": [
+                "examples/portfolio-risk-thesis",
+                "data/fixtures/synthetic/thesis-day4",
+                "data/schemas/thesis-experiment-results",
+                "tests/thesis",
+            ],
+            "allowed_files": ["docs/handoffs/thesis-sprint/day4.md"],
         },
     }
 
@@ -243,7 +260,7 @@ def test_make_targets_preserve_baselines_and_stage_eventual_day1_gate() -> None:
         ".PHONY: verify-thesis-current", maxsplit=1
     )[1].split(".PHONY: demo-thesis-day1", maxsplit=1)[0]
     assert "verify-thesis-day2" in current_gate
-    assert "Day 3 complete; Day 4 queued" in current_gate
+    assert "Day 4 in progress; human QA queued" in current_gate
 
 
 def test_specialist_workflow_uses_control_plane_base_and_exact_candidate_head() -> None:
@@ -303,9 +320,9 @@ def test_ci_uses_locked_python_and_current_gate_without_process_host_smoke() -> 
     assert "submodules: recursive" in workflow
     assert "python-version: '3.11'" in workflow
     assert "pip install --require-hashes -r requirements/thesis.lock" in workflow
-    assert "make verify-thesis-day2" in workflow
-    assert "make test-thesis-day3" in workflow
+    assert "make verify-thesis-current" in workflow
+    assert "make demo-thesis-day3-fixture" in workflow
     assert "make demo-thesis-day1" in workflow
-    assert "verify-thesis-day2-real is a licensed local gate" in workflow
+    assert "never invokes private real-data or model gates" in workflow
     assert "run: make verify-thesis-day2-real" not in workflow
     assert "servicefabric" not in workflow.lower()

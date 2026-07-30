@@ -1,7 +1,7 @@
 {
   "namespace": "thesis-sprint",
   "base_tag": "day23-complete",
-  "integration_order": ["day1", "day2", "day3", "integration"],
+  "integration_order": ["day1", "day2", "day3", "day4", "integration"],
   "lanes": {
     "integration": {
       "branch": "integration/thesis-experiment",
@@ -55,6 +55,16 @@
         "tests/thesis"
       ],
       "allowed_files": ["docs/handoffs/thesis-sprint/day3.md"]
+    },
+    "day4": {
+      "branch": "feature/thesis-day4",
+      "allowed_directories": [
+        "examples/portfolio-risk-thesis",
+        "data/fixtures/synthetic/thesis-day4",
+        "data/schemas/thesis-experiment-results",
+        "tests/thesis"
+      ],
+      "allowed_files": ["docs/handoffs/thesis-sprint/day4.md"]
     }
   },
   "frozen_directories": [

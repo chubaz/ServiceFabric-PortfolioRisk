@@ -256,17 +256,18 @@ Day 1, or Day 2–3 lifecycle records. Lifecycle state is authoritative in
 `config/agent/thesis-sprint/status.json`, and the active workplan is named by
 `docs/workplans/current.md`.
 
-Thesis Sprint has exactly two branches and lanes:
+Thesis Sprint has exactly five branches and lanes:
 
 - integration authority: `integration/thesis-experiment`;
-- Day 1 specialist: `feature/thesis-day1`.
+- Day 1 specialist: `feature/thesis-day1`;
+- Day 2 specialist: `feature/thesis-day2`;
+- Day 3 specialist: `feature/thesis-day3`;
+- Day 4 specialist: `feature/thesis-day4`.
 
-Ownership is frozen in `config/agent/thesis-sprint/lanes.json`. The specialist
-may change only `examples/portfolio-risk-thesis/**`,
-`data/fixtures/synthetic/thesis-day1/**`, `tests/thesis/**`, and the exact file
-`docs/handoffs/thesis-sprint/day1.md`; it stops without merge. Integration owns
-the control plane, CI, shared contracts and architecture, cross-module thesis
-tests, lifecycle state, and merge decisions.
+Ownership is frozen in `config/agent/thesis-sprint/lanes.json`. Each specialist
+may change only its declared directories and exact handoff file and stops
+without merge. Integration owns the control plane, CI, shared contracts and
+architecture, cross-module thesis tests, lifecycle state, and merge decisions.
 
 The Day 1 specialist branch starts from the reviewed integration control-plane
 commit that first adds `config/agent/thesis-sprint/status.json`, not directly
@@ -285,6 +286,32 @@ Day 1 implements no LLM or agent architecture. The B0, B1, and A1 comparison
 is later work. Kafka, Redis, WebSocket, schedulers, network providers, broker
 connectivity, orders, trades, rebalancing, optimization, and portfolio
 mutation effects are prohibited.
+
+Thesis Day 4 reuses the accepted Day 2 deterministic metrics and decision
+kernel and the accepted Day 3 B0, B1, and A1 treatments. It does not define a
+second architecture runner, duplicate calculations or treatments, add a
+dependency or frontend framework, modify `apps/**`, or add another large
+interactive shell script. One reviewed manifest drives a resumable experiment
+runner. Generated private or real results, labels, pricing, receipts, reports,
+charts, and the offline static dashboard remain immutable external artifacts
+beneath the reviewed private root. Reviewed synthetic Day 4 fixtures are the
+only Git exception.
+
+The frozen Day 4 primary panel contains exactly three reviewed portfolios,
+three predeclared non-overlapping windows, five reviewed daily-close dates per
+window, 45 portfolio-day contexts, and 135 B0/B1/A1 primary results. The
+repeatability panel contains nine predeclared anchors and 18 additional B1/A1
+results; B0 is deterministic and is not recalled. The maximum authorized model
+call budget is 270. Labels are unavailable until architecture execution is
+complete and no label path or value may enter an architecture input or model
+payload.
+
+Day 4 evaluation is descriptive. It has no significance test, winner field,
+architecture recommendation, predictive claim, investment-performance claim,
+or automatic release decision. Provider errors are execution failures, not
+abstentions, and an accepted real run requires zero provider errors.
+Consequential actions remain prohibited and Day 4 completes only after
+explicit human QA.
 
 ## Completion report
 

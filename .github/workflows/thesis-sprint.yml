@@ -23,20 +23,18 @@ jobs:
           python-version: '3.11'
       - name: Install locked thesis environment
         run: python -m pip install --require-hashes -r requirements/thesis.lock
-      - name: Verify synthetic Thesis Day 2 vertical slice
-        run: make verify-thesis-day2
-      - name: Verify network-free Day 3 fixture treatments
+      - name: Verify current public fixture-only thesis boundary
         env:
           OPENAI_API_KEY: ''
-        run: make test-thesis-day3
+        run: make verify-thesis-current
       - name: Write network-free Day 3 fixture evidence
         env:
           OPENAI_API_KEY: ''
           THESIS_DATA_ROOT: ${{ runner.temp }}/thesis-day3
         run: make demo-thesis-day3-fixture
-      - name: Record synthetic-only CI boundary
-        run: echo "CI runs network-blocked schema-compatible fixture providers only; verify-thesis-day2-real is a licensed local gate, and licensed or OpenAI local gates are never invoked"
       - name: Write the external synthetic Day 1 demo
         run: THESIS_DATA_ROOT="${RUNNER_TEMP}/thesis-day1" make demo-thesis-day1
+      - name: Record public-only CI boundary
+        run: echo "CI is fixture-only, has no API key, exercises the network-blocked fixture provider, uses public synthetic data only, and never invokes private real-data or model gates"
       - name: Validate whitespace
         run: git diff --check
