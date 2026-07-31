@@ -36,6 +36,7 @@ secrets/
 .local/
 .agent-runs/
 codex/runs/
+apps/portfolio-risk-workbench/labs/generated_agents/
 
 # ServiceFabric runtime state
 .servicefabric/
