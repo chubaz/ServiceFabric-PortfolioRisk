@@ -178,6 +178,7 @@
     livePortfolios: [],
     liveCatalog: [],
     liveConnected: false,
+    dataQueryResult: null,
     agentRuntime: null,
     riskAgentTemplates: null,
     agentBlueprint: null,
@@ -237,6 +238,9 @@
     $("#full-experiment-workspace").classList.toggle("hidden", !full);
     $$(".lab-page").forEach((page) => page.classList.toggle("active", page.id === `lab-${name}`));
     $$(".workspace-tab").forEach((button) => button.classList.toggle("active", button.dataset.workspace === name));
+    $(".mode-badge").textContent = name === "dataset" && labState.liveConnected
+      ? "Local data · read-only"
+      : "Synthetic sandbox";
     if (name === "dataset") populateDatasetPortfolios();
     if (name === "graph") refreshGraphAgents();
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -312,6 +316,91 @@
         <td>${escapeHtml(row.value)}</td>
         <td><span class="quality-${row.quality}">${escapeHtml(row.qualityLabel || row.quality)}</span></td>
       </tr>`).join("") : `<tr><td colspan="6">The query returned no records.</td></tr>`;
+  }
+
+  function dataCell(value) {
+    if (value == null) return "—";
+    if (typeof value === "object") return JSON.stringify(value);
+    return String(value);
+  }
+
+  function renderDataQuery(payload) {
+    const previewRows = payload.rows.slice(0, 500);
+    const table = $("#data-query-table");
+    table.querySelector("thead").innerHTML = `<tr>${payload.columns.map((column) =>
+      `<th scope="col">${escapeHtml(column)}</th>`).join("")}</tr>`;
+    table.querySelector("tbody").innerHTML = previewRows.length
+      ? previewRows.map((row) => `<tr>${row.map((value) => {
+        const rendered = dataCell(value);
+        return `<td title="${escapeHtml(rendered)}">${escapeHtml(rendered)}</td>`;
+      }).join("")}</tr>`).join("")
+      : `<tr><td colspan="${Math.max(payload.column_count, 1)}">No rows returned.</td></tr>`;
+    $("#data-query-title").textContent = payload.question;
+    const previewNote = payload.row_count > previewRows.length
+      ? ` · showing first ${previewRows.length.toLocaleString("en-US")}`
+      : "";
+    const truncationNote = payload.truncated ? " · capped" : "";
+    $("#data-query-result-meta").textContent = `${payload.row_count.toLocaleString("en-US")} rows · ${payload.column_count} columns · ${payload.elapsed_ms} ms${previewNote}${truncationNote}`;
+    $("#data-query-sql").textContent = payload.sql;
+    $("#data-query-result").classList.remove("hidden");
+    $("#data-query-message").textContent = "";
+    $("#data-query-message").classList.remove("error");
+    $("#dataset-query-status").textContent = "Ready";
+    $("#dataset-query-status").classList.remove("warning");
+  }
+
+  async function askDatabase(event) {
+    event.preventDefault();
+    const question = $("#data-query-question").value.trim();
+    if (!question) return;
+    const button = $("#data-query-run");
+    button.disabled = true;
+    button.textContent = "Running…";
+    $("#data-query-message").textContent = "Luna is writing SQL…";
+    $("#data-query-message").classList.remove("error");
+    $("#dataset-query-status").textContent = "Running";
+    try {
+      const response = await fetch("/api/query/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || `Query failed with HTTP ${response.status}.`);
+      labState.dataQueryResult = payload;
+      $("#data-query-agent").textContent = "Luna · low";
+      renderDataQuery(payload);
+    } catch (error) {
+      $("#data-query-message").textContent = error.message;
+      $("#data-query-message").classList.add("error");
+      $("#dataset-query-status").textContent = "Query failed";
+      $("#dataset-query-status").classList.add("warning");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Run";
+    }
+  }
+
+  function csvCell(value) {
+    let rendered = value == null ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
+    if (/^[=+@]/.test(rendered) || /^-[^0-9.]/.test(rendered)) rendered = `'${rendered}`;
+    return `"${rendered.replaceAll('"', '""')}"`;
+  }
+
+  function exportDataQueryCsv() {
+    const payload = labState.dataQueryResult;
+    if (!payload) return;
+    const csv = [payload.columns, ...payload.rows]
+      .map((row) => row.map(csvCell).join(","))
+      .join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `duckdb-query-${new Date().toISOString().slice(0, 19).replaceAll(":", "-")}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   }
 
   function liveValueSummary(record) {
@@ -466,6 +555,9 @@
       const catalog = await catalogResponse.json();
       const portfolios = await portfoliosResponse.json();
       labState.liveConnected = health.status === "ok";
+      if ($("#lab-dataset").classList.contains("active")) {
+        $(".mode-badge").textContent = "Local data · read-only";
+      }
       labState.liveCatalog = catalog.datasets;
       labState.livePortfolios = portfolios.portfolios.map((portfolio) => ({
         id: portfolio.portfolio_id,
@@ -480,19 +572,25 @@
       $("#duckdb-connection-status").textContent = "Connected";
       $("#duckdb-connection-status").className = "quality-good";
       $("#duckdb-connection-copy").textContent = `${health.reviewed_portfolios} reviewed portfolios · ${health.datasets} Parquet datasets · read-only localhost service.`;
+      $("#data-query-agent").textContent = health.sql_agent?.available ? "Luna · low" : "Luna unavailable";
+      $("#dataset-query-status").textContent = health.sql_agent?.available ? "Connected" : "Key required";
+      $("#dataset-query-status").classList.toggle("warning", !health.sql_agent?.available);
       const named = ["dsf", "fundq", "stocknames", "ccmxpf_linktable"];
       $("#duckdb-catalog").innerHTML = labState.liveCatalog.filter((item) => named.includes(item.dataset)).map((item) =>
         `<div><strong>${escapeHtml(item.dataset)}</strong><span>${Number(item.row_count).toLocaleString("en-US")} rows</span><small>${escapeHtml(item.minimum_date)} → ${escapeHtml(item.maximum_date)}</small></div>`).join("");
       configureDatasetMode();
-      await runDatasetQuery();
     } catch (error) {
       labState.liveConnected = false;
       $("#duckdb-connection-status").textContent = "Not connected";
       $("#duckdb-connection-status").className = "quality-missing";
       $("#duckdb-connection-copy").textContent = "Open this application through the local DuckDB service URL; file:// pages cannot call the API.";
       $("#duckdb-catalog").innerHTML = "";
+      $("#data-query-agent").textContent = "Luna unavailable";
+      $("#data-query-message").textContent = "Open the live local service to query data.";
+      $("#data-query-message").classList.add("error");
+      $("#dataset-query-status").textContent = "Offline";
+      $("#dataset-query-status").classList.add("warning");
       configureDatasetMode();
-      await runDatasetQuery();
     }
   }
 
@@ -1807,6 +1905,8 @@
 
   function bind() {
     $$(".workspace-tab").forEach((button) => button.addEventListener("click", () => switchWorkspace(button.dataset.workspace)));
+    $("#data-query-form").addEventListener("submit", askDatabase);
+    $("#data-query-export").addEventListener("click", exportDataQueryCsv);
     $("#run-dataset-query").addEventListener("click", runDatasetQuery);
     $("#dataset-mode").addEventListener("change", () => {
       configureDatasetMode();

@@ -20,7 +20,7 @@
       });
     }
   </script>
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=6">
 </head>
 <body>
   <header class="app-header">
@@ -29,7 +29,7 @@
       <span><strong>Portfolio Replay Lab</strong><small>Build the context. Then test the agents.</small></span>
     </a>
     <nav class="workspace-switcher" aria-label="Independent laboratories">
-      <button class="workspace-tab active" type="button" data-workspace="dataset">Dataset</button>
+      <button class="workspace-tab active" type="button" data-workspace="dataset">Database</button>
       <button class="workspace-tab" type="button" data-workspace="portfolio">Portfolio</button>
       <button class="workspace-tab" type="button" data-workspace="agent">Agent</button>
       <button class="workspace-tab" type="button" data-workspace="graph">Agent graph</button>
@@ -43,11 +43,39 @@
 
   <main class="lab-workspace" id="lab-workspace">
     <section class="lab-page active" id="lab-dataset" aria-labelledby="lab-dataset-title">
-      <div class="lab-heading">
-        <div><span class="eyebrow">Independent component 01</span><h1 id="lab-dataset-title">Query the data available to a portfolio</h1><p>Select a portfolio, replay date and data scenario. The result shows exactly which point-in-time records a capability would receive, including unavailable and stale observations.</p></div>
-        <span class="stage-status" id="dataset-query-status">Ready</span>
+      <div class="lab-heading data-lab-heading">
+        <div><span class="eyebrow">Database</span><h1 id="lab-dataset-title">Ask the data</h1><p>Describe the table you need.</p></div>
+        <span class="stage-status" id="dataset-query-status">Checking</span>
       </div>
-      <div class="lab-split">
+
+      <section class="data-query-studio" aria-label="Natural-language database query">
+        <form class="data-query-form" id="data-query-form">
+          <label for="data-query-question" class="sr-only">Describe the data to retrieve</label>
+          <input id="data-query-question" type="text" maxlength="1000" autocomplete="off" placeholder="Show the 25 largest companies by assets in 2023" required>
+          <button class="data-query-run" id="data-query-run" type="submit">Run</button>
+        </form>
+        <div class="data-query-meta">
+          <span id="data-query-agent">Luna · low</span>
+          <span>Read-only</span>
+          <span>10,000 rows · 200 columns max</span>
+        </div>
+        <div class="data-query-message" id="data-query-message">Ready</div>
+        <section class="data-query-result hidden" id="data-query-result" aria-live="polite">
+          <header>
+            <div><strong id="data-query-title">Results</strong><span id="data-query-result-meta"></span></div>
+            <button class="button ghost" id="data-query-export" type="button">Export CSV</button>
+          </header>
+          <div class="data-grid-wrap">
+            <table class="data-grid" id="data-query-table"><thead></thead><tbody></tbody></table>
+          </div>
+          <details class="data-query-sql"><summary>SQL</summary><pre id="data-query-sql"></pre></details>
+        </section>
+      </section>
+
+      <details class="position-query-disclosure">
+        <summary>Portfolio query</summary>
+        <div class="position-query-body">
+        <div class="lab-split">
         <section class="lab-panel">
           <div class="panel-heading"><div><span class="panel-label">Query definition</span><h2>Position-driven request</h2></div><span class="truth-chip" id="dataset-adapter-truth">Connecting to DuckDB</span></div>
           <div class="lab-form-grid">
@@ -79,6 +107,8 @@
         <div class="panel-heading"><div><span class="panel-label">Eligible records</span><h2 id="dataset-result-title">Run a query to inspect records</h2></div><div class="result-meta" id="dataset-result-meta"></div></div>
         <div class="table-wrap"><table><thead><tr><th>Position</th><th>Dataset</th><th>Observed</th><th>Available</th><th>Value / finding</th><th>Quality</th></tr></thead><tbody id="dataset-results-body"><tr><td colspan="6">No query has run.</td></tr></tbody></table></div>
       </section>
+        </div>
+      </details>
     </section>
 
     <section class="lab-page" id="lab-portfolio" aria-labelledby="lab-portfolio-title">
@@ -1031,6 +1061,6 @@ checkpoint store and server route are connected, selecting it returns BLOCKED.</
   </dialog>
 
   <script src="./app.js"></script>
-  <script src="./labs.js"></script>
+  <script src="./labs.js?v=6"></script>
 </body>
 </html>

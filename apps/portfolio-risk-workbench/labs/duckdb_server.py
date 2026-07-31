@@ -30,12 +30,27 @@ from agent_studio import (
     SectionPlanRequest,
     advise_blueprint,
     compile_blueprint,
+    _keychain_key,
     plan_blueprint,
     plan_blueprint_section,
     run_blueprint,
     run_output_pass,
     risk_agent_templates,
     runtime_status,
+)
+
+
+SQL_AGENT_MODEL = "gpt-5.6-luna"
+SQL_AGENT_REASONING_EFFORT = "low"
+MAX_QUERY_ROWS = 10_000
+MAX_QUERY_COLUMNS = 200
+QUERY_TIMEOUT_SECONDS = 20
+
+DISALLOWED_SQL_PATTERNS = (
+    r"\b(attach|call|copy|create|delete|detach|drop|export|import|insert|install|load|merge|pragma|replace|reset|set|truncate|update|vacuum)\b",
+    r"\b(read_[a-z0-9_]*|scan_[a-z0-9_]*|glob|query|query_table|parquet_scan|sqlite_scan|postgres_scan)\s*\(",
+    r"\b(duckdb_[a-z0-9_]*|pragma_[a-z0-9_]*)\s*\(",
+    r"https?://|s3://|\\|\.\./|\.parquet\b|\.csv\b|\.duckdb\b",
 )
 
 
@@ -121,6 +136,14 @@ class PortfolioQueryRequest(BaseModel):
     include_native_ids: bool = False
 
 
+class NaturalLanguageQueryRequest(BaseModel):
+    question: str = Field(min_length=3, max_length=1000)
+
+
+class SqlOnlyPlan(BaseModel):
+    sql: str = Field(min_length=8, max_length=20_000)
+
+
 def json_safe(value: Any) -> Any:
     if isinstance(value, (date, datetime)):
         return value.isoformat()
@@ -136,6 +159,7 @@ def json_safe(value: Any) -> Any:
 class ReadOnlyDataPlane:
     def __init__(self) -> None:
         self.connection = duckdb.connect(":memory:")
+        self.parser_connection = duckdb.connect(":memory:")
         self.connection.execute("SET threads=4")
         self.connection.execute("SET memory_limit='4GB'")
         self.lock = threading.Lock()
@@ -152,6 +176,7 @@ class ReadOnlyDataPlane:
             item["portfolio_id"]: item for item in self.selection["portfolios"]
         }
         self.catalog = self._build_catalog()
+        self._register_query_views()
 
     def path(self, dataset: str) -> str:
         definition = DATASETS.get(dataset)
@@ -207,6 +232,91 @@ class ReadOnlyDataPlane:
                 }
             )
         return json_safe(catalog)
+
+    def _register_query_views(self) -> None:
+        with self.lock:
+            for dataset in DATASETS:
+                path_literal = self.path(dataset).replace("'", "''")
+                self.connection.execute(
+                    f"CREATE VIEW {dataset} AS "
+                    f"SELECT * FROM read_parquet('{path_literal}')"
+                )
+
+    def sql_agent_catalog(self) -> str:
+        tables = []
+        for item in self.catalog:
+            columns = ", ".join(
+                f'{column["column_name"]} {column["column_type"]}'
+                for column in item["columns"]
+            )
+            tables.append(
+                f'{item["dataset"]} — {item["description"]}\n{columns}'
+            )
+        return "\n\n".join(tables)
+
+    def validate_generated_sql(self, sql: str) -> str:
+        cleaned = sql.strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```(?:sql)?\s*", "", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"\s*```$", "", cleaned)
+        cleaned = cleaned.strip().rstrip(";").strip()
+        if not cleaned:
+            raise ValueError("Luna returned an empty query")
+        for pattern in DISALLOWED_SQL_PATTERNS:
+            if re.search(pattern, cleaned, flags=re.IGNORECASE):
+                raise ValueError("query contains an operation outside the read-only boundary")
+        with self.lock:
+            statements = self.connection.extract_statements(cleaned)
+            table_names = self.parser_connection.get_table_names(cleaned)
+        if len(statements) != 1 or statements[0].type != duckdb.StatementType.SELECT:
+            raise ValueError("exactly one read-only SELECT statement is required")
+        unknown_tables = table_names.difference(DATASETS)
+        if not table_names or unknown_tables:
+            names = ", ".join(sorted(unknown_tables)) or "none"
+            raise ValueError(
+                f"query must use only the allow-listed datasets; unknown tables: {names}"
+            )
+        return cleaned
+
+    def execute_generated_sql(self, sql: str) -> dict[str, Any]:
+        cleaned = self.validate_generated_sql(sql)
+        bounded_sql = (
+            "SELECT * FROM (" + cleaned + ") AS luna_query "
+            f"LIMIT {MAX_QUERY_ROWS + 1}"
+        )
+        started = time.perf_counter()
+        timer = threading.Timer(QUERY_TIMEOUT_SECONDS, self.connection.interrupt)
+        timer.daemon = True
+        with self.lock:
+            timer.start()
+            try:
+                relation = self.connection.execute(bounded_sql)
+                columns = [item[0] for item in relation.description]
+                if len(columns) > MAX_QUERY_COLUMNS:
+                    raise ValueError(
+                        f"query returned {len(columns)} columns; the maximum is {MAX_QUERY_COLUMNS}"
+                    )
+                rows = relation.fetchmany(MAX_QUERY_ROWS + 1)
+            finally:
+                timer.cancel()
+        truncated = len(rows) > MAX_QUERY_ROWS
+        rows = rows[:MAX_QUERY_ROWS]
+        return json_safe(
+            {
+                "sql": cleaned,
+                "columns": columns,
+                "rows": rows,
+                "row_count": len(rows),
+                "column_count": len(columns),
+                "truncated": truncated,
+                "elapsed_ms": round((time.perf_counter() - started) * 1000, 2),
+                "limits": {
+                    "rows": MAX_QUERY_ROWS,
+                    "columns": MAX_QUERY_COLUMNS,
+                    "seconds": QUERY_TIMEOUT_SECONDS,
+                },
+            }
+        )
 
     def public_portfolios(self) -> list[dict[str, Any]]:
         values = []
@@ -515,6 +625,94 @@ class ReadOnlyDataPlane:
         )
 
 
+def plan_sql(question: str) -> tuple[str, dict[str, Any]]:
+    api_key = _keychain_key(include_value=True)
+    if not api_key:
+        raise RuntimeError("OpenAI credential is unavailable")
+    from openai import OpenAI
+
+    started = time.perf_counter()
+    client = OpenAI(api_key=str(api_key))
+    response = client.responses.create(
+        model=SQL_AGENT_MODEL,
+        reasoning={"effort": SQL_AGENT_REASONING_EFFORT},
+        store=False,
+        tools=[],
+        input=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": (
+                            "You are Luna, a narrow DuckDB SQL generator. Your only job is "
+                            "to create one read-only SELECT statement answering the user's "
+                            "question. Use only the supplied tables and columns. Never use "
+                            "file paths, URLs, table functions, external scans, system tables, "
+                            "DDL, DML, PRAGMA, COPY, ATTACH, INSTALL, LOAD, or multiple "
+                            "statements. Select only useful columns, never more than 200. "
+                            "Double-quote every table and column identifier because names "
+                            "such as at may be DuckDB keywords. "
+                            "Always include a LIMIT no greater than 10000, including for "
+                            "aggregate queries. Prefer clear aliases and deterministic ordering "
+                            "when ranking. Return only the SQL field required by the schema; "
+                            "do not explain, narrate, or interpret results."
+                        ),
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": json.dumps(
+                            {
+                                "question": question,
+                                "duckdb_catalog": data_plane.sql_agent_catalog(),
+                                "hard_limits": {
+                                    "rows": MAX_QUERY_ROWS,
+                                    "columns": MAX_QUERY_COLUMNS,
+                                },
+                            },
+                            sort_keys=True,
+                        ),
+                    }
+                ],
+            },
+        ],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "duckdb_sql_only",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {"sql": {"type": "string"}},
+                    "required": ["sql"],
+                    "additionalProperties": False,
+                },
+            }
+        },
+        max_output_tokens=1200,
+    )
+    plan = SqlOnlyPlan.model_validate(json.loads(response.output_text))
+    usage = getattr(response, "usage", None)
+    receipt = {
+        "provider": "openai_responses",
+        "model": getattr(response, "model", SQL_AGENT_MODEL),
+        "reasoning_effort": SQL_AGENT_REASONING_EFFORT,
+        "response_id": getattr(response, "id", None),
+        "input_tokens": int(getattr(usage, "input_tokens", 0) or 0),
+        "output_tokens": int(getattr(usage, "output_tokens", 0) or 0),
+        "elapsed_ms": round((time.perf_counter() - started) * 1000, 2),
+        "store": False,
+        "tools": [],
+        "data_shared": "catalog schema only; no licensed rows",
+    }
+    return plan.sql, receipt
+
+
 data_plane = ReadOnlyDataPlane()
 app = FastAPI(
     title="Portfolio Replay Lab — CRSP/Compustat DuckDB API",
@@ -532,6 +730,13 @@ def health() -> dict[str, Any]:
         "raw_root": str(RAW_ROOT),
         "datasets": len(data_plane.catalog),
         "reviewed_portfolios": len(data_plane.portfolios),
+        "sql_agent": {
+            "model": SQL_AGENT_MODEL,
+            "reasoning_effort": SQL_AGENT_REASONING_EFFORT,
+            "available": bool(_keychain_key()),
+            "max_rows": MAX_QUERY_ROWS,
+            "max_columns": MAX_QUERY_COLUMNS,
+        },
     }
 
 
@@ -560,6 +765,31 @@ def query_portfolio(request: PortfolioQueryRequest) -> dict[str, Any]:
         raise
     except duckdb.Error as error:
         raise HTTPException(status_code=422, detail=f"DuckDB query failed: {error}") from error
+
+
+@app.post("/api/query/ask")
+def ask_database(request: NaturalLanguageQueryRequest) -> dict[str, Any]:
+    try:
+        sql, receipt = plan_sql(request.question)
+        result = data_plane.execute_generated_sql(sql)
+        return {
+            "question": request.question,
+            **result,
+            "receipt": receipt,
+        }
+    except (ValueError, json.JSONDecodeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except duckdb.Error as error:
+        raise HTTPException(
+            status_code=422,
+            detail=f"DuckDB could not execute the generated query: {error}",
+        ) from error
+    except Exception as error:
+        safe_type = re.sub(r"[^A-Za-z0-9_-]", "_", type(error).__name__)[:64]
+        raise HTTPException(
+            status_code=502,
+            detail=f"Luna SQL generation failed: {safe_type}",
+        ) from error
 
 
 @app.get("/api/agents/runtime")

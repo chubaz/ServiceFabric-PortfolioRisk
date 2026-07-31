@@ -4,6 +4,13 @@ This directory contains the work-in-progress interactive laboratories used to
 test portfolio data access, portfolio construction, agent blueprints, agent
 graphs, capabilities, and replay workflows independently.
 
+The Dataset page includes a compact natural-language query utility. GPT-5.6
+Luna with low reasoning receives catalog schema only and returns one DuckDB
+`SELECT`; it never receives licensed rows. The server validates the statement,
+executes it locally against allow-listed read-only views, and independently
+caps the result at 10,000 rows and 200 columns. The visible result can be
+exported as CSV.
+
 ## Local use
 
 The application deliberately runs only on localhost and reads licensed data
@@ -28,6 +35,8 @@ with `PORTFOLIO_RISK_AGENT_OUTPUT_ROOT`.
 
 - DuckDB queries are read-only, position-filtered, and restricted to the
   allow-listed CRSP/Compustat datasets.
+- Natural-language SQL generation cannot read paths, load extensions, call
+  external scans, mutate data, or execute multiple statements.
 - Native identifiers remain hidden unless explicitly requested.
 - Synthetic scenarios are visibly labelled.
 - Agent execution is effect-free and cannot trade, rebalance, or mutate a live
