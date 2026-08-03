@@ -47,6 +47,19 @@ from agent_studio import (
     synthetic_behavior_provenance,
 )
 from workflow_cycle_runtime import workflow_cycle_manager
+from registry_sources import (
+    discover_registry_projections,
+    discovered_payload,
+    document_payload,
+    registry_store,
+)
+from risk_registry import (
+    AssetKind,
+    LifecycleState,
+    RegistryConflict,
+    RegistryIdentity,
+    RegistryNotFound,
+)
 
 
 SQL_AGENT_MODEL = "gpt-5.6-luna"
@@ -92,6 +105,11 @@ LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
             "data": "Browser-local agent drafts and registered catalogue previews",
             "authority": "Compiled plan preview · not registered or executable",
             "persistence": "Browser-local draft · not published",
+        },
+        "registry": {
+            "data": "Existing definitions · indexed metadata points to canonical sources",
+            "authority": "Local lifecycle review only · no financial effects",
+            "persistence": "Persistent local development registry · not production publication",
         },
         "cycle": {
             "data": "Mixed · licensed daily anchors + simulated seeded intraday",
@@ -240,16 +258,6 @@ def find_private_root(start: Path) -> Path:
 
 
 PROTOTYPE_ROOT = Path(__file__).resolve().parent
-PRIVATE_ROOT = find_private_root(PROTOTYPE_ROOT)
-RAW_ROOT = PRIVATE_ROOT / "raw"
-SELECTION_ROOT = (
-    PRIVATE_ROOT
-    / "portfolio-definitions"
-    / "portfolio-definitions"
-    / "thesis-real-portfolios-day4-v1"
-)
-SELECTION_PATH = PRIVATE_ROOT / "config" / "portfolio-selection-day4.yaml"
-INSTRUMENT_MAP_PATH = SELECTION_ROOT / "private-instrument-map.json"
 
 DATASETS: dict[str, dict[str, Any]] = {
     "stocknames": {
@@ -366,6 +374,32 @@ class WorkflowCycleAgentAttachRequest(BaseModel):
     agent_id: str = Field(min_length=1, max_length=120)
 
 
+class RegistryBootstrapRequest(BaseModel):
+    actor: str = Field(default="local.developer", min_length=3, max_length=128)
+
+
+class RegistryIndexRequest(BaseModel):
+    identity: RegistryIdentity
+    actor: str = Field(default="local.developer", min_length=3, max_length=128)
+
+
+class RegistryTransitionRequest(BaseModel):
+    kind: AssetKind
+    namespace: str = Field(min_length=1, max_length=160)
+    asset_id: str = Field(min_length=1, max_length=256)
+    version: str = Field(min_length=1, max_length=128)
+    to_state: LifecycleState
+    actor: str = Field(min_length=3, max_length=128)
+    rationale: str = Field(min_length=3, max_length=1200)
+    replacement_reference: str | None = Field(default=None, max_length=512)
+    expected_revision: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class RegistryCompareRequest(BaseModel):
+    left: RegistryIdentity
+    right: RegistryIdentity
+
+
 def json_safe(value: Any) -> Any:
     if isinstance(value, (date, datetime)):
         return value.isoformat()
@@ -380,13 +414,25 @@ def json_safe(value: Any) -> Any:
 
 class ReadOnlyDataPlane:
     def __init__(self) -> None:
+        self.private_root = find_private_root(PROTOTYPE_ROOT)
+        self.raw_root = self.private_root / "raw"
+        selection_root = (
+            self.private_root
+            / "portfolio-definitions"
+            / "portfolio-definitions"
+            / "thesis-real-portfolios-day4-v1"
+        )
+        selection_path = (
+            self.private_root / "config" / "portfolio-selection-day4.yaml"
+        )
+        instrument_map_path = selection_root / "private-instrument-map.json"
         self.connection = duckdb.connect(":memory:")
         self.parser_connection = duckdb.connect(":memory:")
         self.connection.execute("SET threads=4")
         self.connection.execute("SET memory_limit='4GB'")
         self.lock = threading.Lock()
-        self.selection = yaml.safe_load(SELECTION_PATH.read_text())
-        instrument_map = json.loads(INSTRUMENT_MAP_PATH.read_text())
+        self.selection = yaml.safe_load(selection_path.read_text())
+        instrument_map = json.loads(instrument_map_path.read_text())
         self.alias_to_permno = {
             item["instrument_alias"]: int(item["permno"])
             for item in instrument_map["instruments"]
@@ -404,8 +450,8 @@ class ReadOnlyDataPlane:
         definition = DATASETS.get(dataset)
         if not definition:
             raise KeyError(dataset)
-        path = (RAW_ROOT / definition["file"]).resolve()
-        if path.parent != RAW_ROOT.resolve() or not path.is_file():
+        path = (self.raw_root / definition["file"]).resolve()
+        if path.parent != self.raw_root.resolve() or not path.is_file():
             raise RuntimeError(f"dataset file unavailable: {dataset}")
         return str(path)
 
@@ -1175,7 +1221,25 @@ def plan_sql(question: str) -> tuple[str, dict[str, Any]]:
     return plan.sql, receipt
 
 
-data_plane = ReadOnlyDataPlane()
+class LazyReadOnlyDataPlane:
+    """Open licensed local data only when a data endpoint actually needs it."""
+
+    def __init__(self) -> None:
+        self._value: ReadOnlyDataPlane | None = None
+        self._lock = threading.Lock()
+
+    def _get(self) -> ReadOnlyDataPlane:
+        if self._value is None:
+            with self._lock:
+                if self._value is None:
+                    self._value = ReadOnlyDataPlane()
+        return self._value
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._get(), name)
+
+
+data_plane = LazyReadOnlyDataPlane()
 app = FastAPI(
     title="Portfolio Replay Lab — CRSP/Compustat DuckDB API",
     version="0.1.0",
@@ -1535,7 +1599,7 @@ def health() -> dict[str, Any]:
         "engine": "duckdb",
         "access": "read_only",
         "bind": "localhost",
-        "raw_root": str(RAW_ROOT),
+        "raw_root": str(data_plane.raw_root),
         "datasets": len(data_plane.catalog),
         "reviewed_portfolios": len(data_plane.portfolios),
         "runtime_boundary": LAB_RUNTIME_BOUNDARY,
@@ -1599,6 +1663,196 @@ def ask_database(request: NaturalLanguageQueryRequest) -> dict[str, Any]:
             status_code=502,
             detail=f"Luna SQL generation failed: {safe_type}",
         ) from error
+
+
+@app.get("/api/registry/catalogue")
+def registry_catalogue(
+    kind: AssetKind | None = None,
+    state: LifecycleState | None = None,
+    q: str | None = None,
+    include_discovered: bool = True,
+) -> dict[str, Any]:
+    store = registry_store()
+    indexed = store.list(kind=kind, state=state, query=q)
+    indexed_by_reference = {
+        document.projection.identity.reference: document for document in indexed
+    }
+    records = [document_payload(document) for document in indexed]
+    if include_discovered and state is None:
+        needle = (q or "").strip().casefold()
+        for projection in discover_registry_projections():
+            if kind is not None and projection.identity.kind is not kind:
+                continue
+            if projection.identity.reference in indexed_by_reference:
+                continue
+            if needle and not any(
+                needle in value.casefold()
+                for value in (
+                    projection.identity.asset_id,
+                    projection.display_name,
+                    projection.summary,
+                    *projection.tags,
+                )
+            ):
+                continue
+            records.append(discovered_payload(projection, indexed=False))
+    records.sort(
+        key=lambda item: (
+            item["projection"]["identity"]["kind"],
+            item["projection"]["display_name"].casefold(),
+            item["projection"]["identity"]["version"],
+        )
+    )
+    counts: dict[str, int] = {}
+    states: dict[str, int] = {}
+    for record in records:
+        asset_kind = record["projection"]["identity"]["kind"]
+        counts[asset_kind] = counts.get(asset_kind, 0) + 1
+        states[record["state"]] = states.get(record["state"], 0) + 1
+    return {
+        "profile": "development",
+        "production_publication": False,
+        "canonical_definitions_embedded": False,
+        "storage": "local development registry",
+        "records": records,
+        "counts": counts,
+        "states": states,
+    }
+
+
+@app.post("/api/registry/bootstrap")
+def bootstrap_registry(request: RegistryBootstrapRequest) -> dict[str, Any]:
+    store = registry_store()
+    projections = discover_registry_projections()
+    preview = store.preview_many(projections)
+    documents, conflicts = store.index_many(projections, actor=request.actor)
+    return {
+        "discovered": len(projections),
+        "indexed_total": len(documents),
+        "newly_indexed": preview["would_index"] if not conflicts else 0,
+        "already_indexed": preview["already_indexed"],
+        "conflicts": conflicts,
+        "records": [document_payload(document) for document in documents],
+        "storage": "local development registry",
+        "production_publication": False,
+    }
+
+
+@app.post("/api/registry/bootstrap/preview")
+def preview_registry_bootstrap(request: RegistryBootstrapRequest) -> dict[str, Any]:
+    projections = discover_registry_projections()
+    preview = registry_store().preview_many(projections)
+    return {
+        **preview,
+        "actor": request.actor,
+        "consequence": (
+            "Create local metadata projections and initial candidate receipts only; "
+            "do not copy, run, deploy, or externally publish definitions."
+        ),
+        "production_publication": False,
+    }
+
+
+@app.post("/api/registry/index")
+def index_registry_item(request: RegistryIndexRequest) -> dict[str, Any]:
+    projection = next(
+        (
+            item
+            for item in discover_registry_projections()
+            if item.identity == request.identity
+        ),
+        None,
+    )
+    if projection is None:
+        raise HTTPException(status_code=404, detail="source definition not found")
+    try:
+        return document_payload(registry_store().index(projection, actor=request.actor))
+    except RegistryConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/api/registry/items/{kind}/{asset_id}/{version}")
+def registry_item(
+    kind: AssetKind, asset_id: str, version: str, namespace: str
+) -> dict[str, Any]:
+    identity = RegistryIdentity(
+        kind=kind, namespace=namespace, asset_id=asset_id, version=version
+    )
+    try:
+        document = registry_store().get(identity)
+    except RegistryNotFound as error:
+        raise HTTPException(status_code=404, detail="registry item not found") from error
+    payload = document_payload(document)
+    current = {
+        item.identity.reference: item for item in discover_registry_projections()
+    }.get(identity.reference)
+    payload["source_drift"] = bool(
+        current and current.source.source_digest != document.projection.source.source_digest
+    )
+    payload["current_source_digest"] = current.source.source_digest if current else None
+    return payload
+
+
+@app.post("/api/registry/transition")
+def transition_registry_item(request: RegistryTransitionRequest) -> dict[str, Any]:
+    identity = RegistryIdentity(
+        kind=request.kind,
+        namespace=request.namespace,
+        asset_id=request.asset_id,
+        version=request.version,
+    )
+    try:
+        indexed = registry_store().get(identity)
+        current = next(
+            (
+                item
+                for item in discover_registry_projections()
+                if item.identity == identity
+            ),
+            None,
+        )
+        if (
+            request.to_state is LifecycleState.PUBLISHED
+            and (
+                current is None
+                or current.source.definition_digest
+                != indexed.projection.source.definition_digest
+                or current.source.adapter_digest
+                != indexed.projection.source.adapter_digest
+            )
+        ):
+            raise RegistryConflict(
+                "publication requires a current source and source-adapter observation"
+            )
+        document = registry_store().transition(
+            identity,
+            request.to_state,
+            actor=request.actor,
+            rationale=request.rationale,
+            replacement_reference=request.replacement_reference,
+            expected_revision=request.expected_revision,
+        )
+        return document_payload(document)
+    except RegistryNotFound as error:
+        raise HTTPException(status_code=404, detail="registry item not found") from error
+    except (RegistryConflict, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/registry/compare")
+def compare_registry_items(request: RegistryCompareRequest) -> dict[str, Any]:
+    try:
+        comparison = registry_store().compare(request.left, request.right)
+    except RegistryNotFound as error:
+        raise HTTPException(status_code=404, detail="registry item not found") from error
+    except RegistryConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    return {
+        "left": document_payload(comparison["left"]),
+        "right": document_payload(comparison["right"]),
+        "same_asset": comparison["same_asset"],
+        "differences": comparison["differences"],
+    }
 
 
 @app.get("/api/agents/runtime")

@@ -1,10 +1,11 @@
 {
-  "current": "PLATFORM-P0",
+  "current": "PLATFORM-P1",
   "phase_0": "accepted",
-  "active_wave": "acceptance",
-  "baseline_commit": "81660bd3d4be9c8fb6725e5836e7821f9947eb17",
-  "accepted_candidate_commit": "76651ea8a580832698e99e594581db9c12969dd4",
-  "phase_1": "queued",
+  "active_wave": "accepted",
+  "baseline_commit": "21339db19357277ca9a9a1ca50107f1a884d7aeb",
+  "phase_0_accepted_candidate_commit": "76651ea8a580832698e99e594581db9c12969dd4",
+  "phase_1_accepted_candidate_commit": "a68ef6fce9d39f5341fa8675c093db2eba95aed6",
+  "phase_1": "accepted",
   "prior_thesis_state": "deferred",
   "development_profile_only": true,
   "external_effects": "disabled"

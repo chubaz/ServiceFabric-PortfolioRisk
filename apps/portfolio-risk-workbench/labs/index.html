@@ -33,6 +33,7 @@
       <button class="workspace-tab" type="button" data-workspace="portfolio">Portfolio</button>
       <button class="workspace-tab" type="button" data-workspace="agent">Agent</button>
       <button class="workspace-tab" type="button" data-workspace="graph">Agent graph</button>
+      <button class="workspace-tab" type="button" data-workspace="registry">Registry</button>
       <button class="workspace-tab" type="button" data-workspace="cycle">Simulated cycle</button>
       <button class="workspace-tab" type="button" data-workspace="full">Full experiment</button>
     </nav>
@@ -653,6 +654,31 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
           <span class="panel-label">Compile report</span>
           <div id="graph-validation"><div class="empty-state">Add agents or select a pattern, then compile.</div></div>
           <details><summary>LangGraph adapter plan</summary><pre id="graph-compile-plan">No plan compiled.</pre></details>
+        </aside>
+      </div>
+    </section>
+
+    <section class="lab-page" id="lab-registry" aria-labelledby="lab-registry-title">
+      <div class="lab-heading registry-heading">
+        <div><span class="eyebrow">Local development catalogue</span><h1 id="lab-registry-title">Definition Registry</h1><p>Find, inspect, and index reusable definitions without replacing their canonical sources.</p></div>
+        <div class="registry-heading-actions"><span class="stage-status" id="registry-status">Loading</span><button class="button ghost" id="registry-refresh" type="button">Preview sources</button><button class="button primary" id="registry-index-all" type="button">Index discovered definitions</button></div>
+      </div>
+      <div class="registry-boundary" role="note">Indexing stores metadata, a source pointer, a digest, and lifecycle receipts. It does not copy, run, deploy, or externally publish the definition.</div>
+      <div class="registry-summary" id="registry-summary" aria-live="polite"></div>
+      <section class="registry-toolbar lab-panel" aria-label="Registry filters">
+        <label class="field"><span>Search</span><input id="registry-search" type="search" placeholder="Name, identifier, source or tag"></label>
+        <label class="field"><span>Kind</span><select id="registry-kind-filter"><option value="">All kinds</option><option value="agent">Agents</option><option value="capability">Capabilities</option><option value="evaluation">Evaluations</option><option value="report">Reports</option><option value="dashboard">Dashboards</option><option value="scenario">Scenarios</option><option value="workflow">Workflows</option></select></label>
+        <label class="field"><span>Index state</span><select id="registry-index-filter"><option value="">All</option><option value="discovered">Discovered only</option><option value="indexed">Indexed</option></select></label>
+        <label class="field"><span>Lifecycle</span><select id="registry-lifecycle-filter"><option value="">All lifecycle states</option><option value="candidate">Candidate</option><option value="validated">Validated</option><option value="published">Published locally</option><option value="deprecated">Deprecated</option><option value="retired">Retired</option><option value="archived">Archived</option></select></label>
+        <button class="button ghost" id="registry-clear-filters" type="button">Clear</button>
+      </section>
+      <div class="registry-layout">
+        <section class="lab-panel registry-catalogue" aria-label="Registry catalogue">
+          <div class="panel-heading"><div><span class="panel-label">Catalogue</span><h2 id="registry-results-title">Definitions</h2></div><span class="truth-chip" id="registry-result-count">0 results</span></div>
+          <div class="registry-list" id="registry-list"><div class="empty-state">Loading source definitions.</div></div>
+        </section>
+        <aside class="lab-panel registry-detail" id="registry-detail" aria-live="polite">
+          <div class="empty-state">Select a definition to inspect its source and lifecycle.</div>
         </aside>
       </div>
     </section>

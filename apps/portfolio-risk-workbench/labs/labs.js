@@ -258,6 +258,9 @@
     cycleSnapshot: null,
     cyclePollTimer: null,
     cycleDashboardPage: "overview",
+    registryRecords: [],
+    selectedRegistryReference: null,
+    registryLoading: false,
   };
 
   function canonicalCurrentPortfolio() {
@@ -303,7 +306,7 @@
     $("#truth-persistence").textContent = view.persistence || "Persistence not declared";
   }
 
-  function switchWorkspace(name) {
+  function switchWorkspace(name, updateHistory = true) {
     labState.activeWorkspace = name;
     const full = name === "full";
     $("#lab-workspace").classList.toggle("hidden", full);
@@ -312,12 +315,21 @@
     $$(".workspace-tab").forEach((button) => {
       const active = button.dataset.workspace === name;
       button.classList.toggle("active", active);
-      button.setAttribute("aria-current", active ? "page" : "false");
+      if (active) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
     });
     renderRuntimeTruth(name);
     if (name === "dataset") populateDatasetPortfolios();
     if (name === "graph") refreshGraphAgents();
+    if (name === "registry") loadRegistryCatalogue();
     if (name === "cycle") populateCyclePortfolios();
+    if (updateHistory) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("workspace") !== name) {
+        url.searchParams.set("workspace", name);
+        window.history.pushState({ workspace: name }, "", url);
+      }
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -2980,8 +2992,235 @@
     $("#agent-builder-status").textContent = "Concise report structure applied";
   }
 
+  const registryStateLabels = {
+    discovered: "Discovered only",
+    candidate: "Candidate",
+    validated: "Validated",
+    published: "Published locally",
+    deprecated: "Deprecated",
+    retired: "Retired",
+    archived: "Archived",
+  };
+
+  function registryIdentity(record) {
+    return record.projection.identity;
+  }
+
+  function registryFilteredRecords() {
+    const search = ($("#registry-search")?.value || "").trim().toLowerCase();
+    const kind = $("#registry-kind-filter")?.value || "";
+    const indexState = $("#registry-index-filter")?.value || "";
+    const lifecycle = $("#registry-lifecycle-filter")?.value || "";
+    return labState.registryRecords.filter((record) => {
+      const projection = record.projection;
+      const identity = registryIdentity(record);
+      const haystack = [projection.display_name, identity.asset_id, identity.kind, projection.summary, projection.source.source_reference, ...(projection.tags || [])].join(" ").toLowerCase();
+      if (search && !haystack.includes(search)) return false;
+      if (kind && identity.kind !== kind) return false;
+      if (indexState === "discovered" && record.indexed) return false;
+      if (indexState === "indexed" && !record.indexed) return false;
+      if (lifecycle && record.state !== lifecycle) return false;
+      return true;
+    });
+  }
+
+  function registryValue(value) {
+    if (value == null || value === "") return "Not declared";
+    if (Array.isArray(value)) return value.length ? value.join(", ") : "None";
+    if (typeof value === "object") return JSON.stringify(value);
+    if (typeof value === "boolean") return value ? "Yes" : "No";
+    return String(value);
+  }
+
+  function renderRegistrySummary() {
+    const records = labState.registryRecords;
+    const discovered = records.filter((record) => !record.indexed).length;
+    const indexed = records.filter((record) => record.indexed).length;
+    const incompatible = records.filter((record) => ["incompatible", "unavailable"].includes(record.projection.compatibility.status)).length;
+    $("#registry-summary").innerHTML = [
+      [records.length, "source definitions"],
+      [discovered, "discovered only"],
+      [indexed, "indexed locally"],
+      [incompatible, "compatibility warnings"],
+    ].map(([value, label]) => `<div><strong>${value}</strong><span>${escapeHtml(label)}</span></div>`).join("");
+  }
+
+  function renderRegistryList() {
+    const records = registryFilteredRecords();
+    $("#registry-result-count").textContent = `${records.length} result${records.length === 1 ? "" : "s"}`;
+    if (!records.length) {
+      $("#registry-list").innerHTML = '<div class="empty-state">No definitions match these filters. The source preview remains unchanged.</div>';
+      $("#registry-detail").innerHTML = '<div class="empty-state">Clear a filter to inspect a definition.</div>';
+      return;
+    }
+    if (!records.some((record) => record.reference === labState.selectedRegistryReference)) {
+      labState.selectedRegistryReference = records[0].reference;
+    }
+    $("#registry-list").innerHTML = records.map((record) => {
+      const projection = record.projection;
+      const identity = registryIdentity(record);
+      const selected = record.reference === labState.selectedRegistryReference;
+      const lifecycle = record.indexed ? `<span class="registry-badge lifecycle">${escapeHtml(registryStateLabels[record.state] || record.state)}</span>` : "";
+      return `<button class="registry-result ${selected ? "selected" : ""}" type="button" data-registry-reference="${escapeHtml(record.reference)}" aria-pressed="${selected}">
+        <span class="registry-result-top"><b>${escapeHtml(identity.kind)}</b><span class="registry-badge ${record.indexed ? "indexed" : "discovered"}">${record.indexed ? "Indexed" : "Discovered only"}</span>${lifecycle}</span>
+        <strong>${escapeHtml(projection.display_name)}</strong>
+        <code>${escapeHtml(identity.asset_id)} · ${escapeHtml(identity.version)}</code>
+        <small>${escapeHtml(projection.summary)}</small>
+      </button>`;
+    }).join("");
+    renderRegistryDetail();
+  }
+
+  function renderRegistryDetail() {
+    const record = labState.registryRecords.find((item) => item.reference === labState.selectedRegistryReference);
+    if (!record) return;
+    const projection = record.projection;
+    const identity = registryIdentity(record);
+    const source = projection.source;
+    const compatible = projection.compatibility.status;
+    const versions = labState.registryRecords.filter((item) => {
+      const other = registryIdentity(item);
+      return item.indexed && other.kind === identity.kind && other.namespace === identity.namespace && other.asset_id === identity.asset_id && item.reference !== record.reference;
+    });
+    const next = (record.allowed_transitions || [])[0];
+    const publishBlocked = next === "published" && (!source.canonical || compatible !== "compatible");
+    const receipts = record.receipts || [];
+    const relationships = (projection.relationships || []).map((relationship) => `<article><b>${escapeHtml(relationship.relationship.replaceAll("_", " "))}</b><span>${escapeHtml(relationship.target_native_id)} · ${escapeHtml(relationship.resolution)}</span>${relationship.target_reference ? `<code>${escapeHtml(relationship.target_reference)}</code>` : ""}</article>`).join("");
+    $("#registry-detail").innerHTML = `
+      <header class="registry-detail-header"><span class="panel-label">${escapeHtml(identity.kind)} · ${escapeHtml(identity.version)}</span><h2>${escapeHtml(projection.display_name)}</h2><code>${escapeHtml(identity.asset_id)}</code><p>${escapeHtml(projection.summary)}</p></header>
+      <div class="registry-detail-badges"><span class="registry-badge ${record.indexed ? "indexed" : "discovered"}">${record.indexed ? "Indexed" : "Discovered only"}</span>${record.indexed ? `<span class="registry-badge lifecycle">${escapeHtml(registryStateLabels[record.state])}</span>` : ""}<span class="registry-badge">${escapeHtml(compatible)}</span></div>
+      ${record.indexed ? '<p class="registry-helper">Local metadata projection. The canonical source remains authoritative.</p>' : '<p class="registry-helper">Found at its source. No persistent registry projection exists yet.</p>'}
+      <details open><summary>Source and provenance</summary><dl class="registry-facts">
+        <div><dt>Source</dt><dd>${escapeHtml(source.source_reference)}</dd></div>
+        <div><dt>Source authority</dt><dd>${source.canonical ? "Reusable canonical source" : "Accepted or application-local candidate source"}</dd></div>
+        <div><dt>Source SHA-256</dt><dd><code>${escapeHtml(source.source_digest)}</code></dd></div>
+        <div><dt>Definition SHA-256</dt><dd><code>${escapeHtml(source.definition_digest)}</code></dd></div>
+        <div><dt>Namespace</dt><dd>${escapeHtml(identity.namespace)}</dd></div>
+        <div><dt>Source contract</dt><dd>${escapeHtml(projection.source_contract)}</dd></div>
+        <div><dt>Repository commit</dt><dd><code>${escapeHtml(projection.provenance.repository_commit)}</code></dd></div>
+        <div><dt>Adapter</dt><dd>${escapeHtml(source.adapter_id)}</dd></div>
+        <div><dt>Adapter SHA-256</dt><dd><code>${escapeHtml(source.adapter_digest)}</code></dd></div>
+        <div><dt>Observed</dt><dd>${escapeHtml(new Date(projection.provenance.discovered_at).toLocaleString())}</dd></div>
+      </dl></details>
+      <details open><summary>Compatibility and exact relationships</summary><dl class="registry-facts"><div><dt>Status</dt><dd>${escapeHtml(compatible)}</dd></div><div><dt>Evaluated source</dt><dd><code>${escapeHtml(registryValue(projection.compatibility.evaluated_source_digest))}</code></dd></div><div><dt>Evaluator revision</dt><dd><code>${escapeHtml(projection.compatibility.evaluator_revision)}</code></dd></div><div><dt>Exact lineage</dt><dd>${escapeHtml(registryValue(projection.lineage))}</dd></div></dl><div class="registry-receipts">${relationships || '<div class="empty-state">No cross-definition relationship is declared.</div>'}</div></details>
+      <details ${record.indexed ? "open" : ""}><summary>Lifecycle receipts</summary><div class="registry-receipts">${receipts.length ? receipts.map((receipt) => `<article><b>${escapeHtml(registryStateLabels[receipt.to_state] || receipt.to_state)}</b><span>${escapeHtml(receipt.actor)} · ${escapeHtml(new Date(receipt.occurred_at).toLocaleString())}</span><p>${escapeHtml(receipt.rationale)}</p></article>`).join("") : '<div class="empty-state">Lifecycle begins only after explicit indexing.</div>'}</div></details>
+      <div class="registry-actions">
+        ${record.indexed ? "" : '<button class="button primary" id="registry-index-one" type="button">Index this definition</button>'}
+        ${next ? `<label class="field wide"><span>Lifecycle rationale</span><input id="registry-transition-rationale" placeholder="Why is this transition justified?"></label><button class="button ${publishBlocked ? "ghost" : "primary"}" id="registry-transition" type="button" data-next-state="${next}" ${publishBlocked ? "disabled" : ""}>Move to ${escapeHtml(registryStateLabels[next])}</button>` : ""}
+        ${publishBlocked ? '<p class="registry-blocked">Publication is blocked: this source lacks a reusable canonical contract or compatible runtime observation.</p>' : ""}
+        ${versions.length ? `<label class="field wide"><span>Compare with version</span><select id="registry-compare-version">${versions.map((item) => `<option value="${escapeHtml(item.reference)}">${escapeHtml(registryIdentity(item).version)}</option>`).join("")}</select></label><button class="button ghost" id="registry-compare" type="button">Compare versions</button>` : '<small class="registry-no-version">No second indexed version is available for comparison.</small>'}
+      </div>
+      <div id="registry-comparison"></div>`;
+  }
+
+  async function loadRegistryCatalogue() {
+    if (labState.registryLoading) return;
+    labState.registryLoading = true;
+    $("#registry-status").textContent = "Loading";
+    try {
+      const result = await agentApi("/api/registry/catalogue");
+      labState.registryRecords = result.records || [];
+      $("#registry-status").textContent = "Ready";
+      $("#registry-index-all").disabled = !labState.registryRecords.some((record) => !record.indexed);
+      renderRegistrySummary();
+      renderRegistryList();
+    } catch (error) {
+      $("#registry-status").textContent = "Unavailable";
+      $("#registry-list").innerHTML = `<div class="empty-state"><strong>Registry unavailable.</strong><br>${escapeHtml(error.message)}</div>`;
+    } finally {
+      labState.registryLoading = false;
+    }
+  }
+
+  async function indexRegistry(record) {
+    const identity = registryIdentity(record);
+    if (!window.confirm(`Index ${record.projection.display_name} as a local candidate?\n\nThis stores metadata, digests, and one lifecycle receipt. It does not copy, run, deploy, or publish the definition.`)) return;
+    $("#registry-status").textContent = "Indexing";
+    await agentApi("/api/registry/index", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identity, actor: "local.developer" }) });
+    await loadRegistryCatalogue();
+  }
+
+  async function indexAllRegistryDefinitions() {
+    const request = { actor: "local.developer" };
+    $("#registry-status").textContent = "Preparing preview";
+    const preview = await agentApi("/api/registry/bootstrap/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) });
+    if ((preview.conflicts || []).length) {
+      $("#registry-status").textContent = `Blocked · ${preview.conflicts.length} conflict${preview.conflicts.length === 1 ? "" : "s"}`;
+      window.alert(`Nothing was indexed. Resolve these conflicts first:\n\n${preview.conflicts.join("\n")}`);
+      return;
+    }
+    if (!preview.would_index) {
+      $("#registry-status").textContent = "All definitions already indexed";
+      return;
+    }
+    if (!window.confirm(`Index ${preview.would_index} discovered definition${preview.would_index === 1 ? "" : "s"}?\n\n${preview.consequence}\n\n${preview.already_indexed} existing projection${preview.already_indexed === 1 ? " is" : "s are"} unchanged.`)) return;
+    $("#registry-status").textContent = "Indexing prevalidated batch";
+    const result = await agentApi("/api/registry/bootstrap", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) });
+    if ((result.conflicts || []).length) throw new Error(`Bootstrap blocked: ${result.conflicts.join("; ")}`);
+    await loadRegistryCatalogue();
+  }
+
+  async function transitionRegistry(record, nextState) {
+    const rationale = ($("#registry-transition-rationale")?.value || "").trim();
+    if (rationale.length < 3) {
+      $("#registry-transition-rationale").focus();
+      return;
+    }
+    const identity = registryIdentity(record);
+    const replacement = nextState === "deprecated" ? window.prompt("Exact replacement reference (required for deprecation)", "") : null;
+    if (nextState === "deprecated" && !replacement) return;
+    if (!window.confirm(`Move ${record.projection.display_name} from ${registryStateLabels[record.state]} to ${registryStateLabels[nextState]}?\n\nThis appends one local, tamper-evident lifecycle receipt. It does not run, deploy, or externally publish the definition.`)) return;
+    await agentApi("/api/registry/transition", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...identity, to_state: nextState, actor: "local.developer", rationale, replacement_reference: replacement, expected_revision: record.revision }) });
+    await loadRegistryCatalogue();
+  }
+
+  async function compareRegistryVersions(record, other) {
+    const result = await agentApi("/api/registry/compare", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ left: registryIdentity(record), right: registryIdentity(other) }) });
+    $("#registry-comparison").innerHTML = `<section class="registry-comparison"><strong>${result.differences.length} changed projection field${result.differences.length === 1 ? "" : "s"}</strong>${result.differences.map((difference) => `<article><b>${escapeHtml(difference.field)}</b><div><span>Current</span><code>${escapeHtml(registryValue(difference.left))}</code></div><div><span>Compared</span><code>${escapeHtml(registryValue(difference.right))}</code></div></article>`).join("") || '<p>No projection differences.</p>'}</section>`;
+  }
+
   function bind() {
     $$(".workspace-tab").forEach((button) => button.addEventListener("click", () => switchWorkspace(button.dataset.workspace)));
+    window.addEventListener("popstate", () => {
+      const workspace = new URLSearchParams(window.location.search).get("workspace") || "dataset";
+      if (["dataset", "portfolio", "agent", "graph", "registry", "cycle", "full"].includes(workspace)) switchWorkspace(workspace, false);
+    });
+    $("#registry-refresh").addEventListener("click", loadRegistryCatalogue);
+    $("#registry-index-all").addEventListener("click", () => indexAllRegistryDefinitions().catch((error) => { $("#registry-status").textContent = error.message; }));
+    ["#registry-search", "#registry-kind-filter", "#registry-index-filter", "#registry-lifecycle-filter"].forEach((selector) => {
+      $(selector).addEventListener(selector === "#registry-search" ? "input" : "change", () => {
+        const discoveredOnly = $("#registry-index-filter").value === "discovered";
+        $("#registry-lifecycle-filter").disabled = discoveredOnly;
+        if (discoveredOnly) $("#registry-lifecycle-filter").value = "";
+        renderRegistryList();
+      });
+    });
+    $("#registry-clear-filters").addEventListener("click", () => {
+      $("#registry-search").value = "";
+      $("#registry-kind-filter").value = "";
+      $("#registry-index-filter").value = "";
+      $("#registry-lifecycle-filter").value = "";
+      $("#registry-lifecycle-filter").disabled = false;
+      renderRegistryList();
+      $("#registry-search").focus();
+    });
+    $("#registry-list").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-registry-reference]");
+      if (!button) return;
+      labState.selectedRegistryReference = button.dataset.registryReference;
+      renderRegistryList();
+    });
+    $("#registry-detail").addEventListener("click", (event) => {
+      const record = labState.registryRecords.find((item) => item.reference === labState.selectedRegistryReference);
+      if (!record) return;
+      if (event.target.closest("#registry-index-one")) indexRegistry(record).catch((error) => { $("#registry-status").textContent = error.message; });
+      const transition = event.target.closest("#registry-transition");
+      if (transition) transitionRegistry(record, transition.dataset.nextState).catch((error) => { $("#registry-status").textContent = error.message; });
+      if (event.target.closest("#registry-compare")) {
+        const other = labState.registryRecords.find((item) => item.reference === $("#registry-compare-version").value);
+        if (other) compareRegistryVersions(record, other).catch((error) => { $("#registry-status").textContent = error.message; });
+      }
+    });
     $("#create-cycle-session").addEventListener("click", createCycleSession);
     $("#cycle-start").addEventListener("click", () => controlCycle("start").catch((error) => { $("#cycle-runtime-status").textContent = error.message; }));
     $("#cycle-pause").addEventListener("click", () => controlCycle("pause").catch((error) => { $("#cycle-runtime-status").textContent = error.message; }));
@@ -3493,7 +3732,7 @@
     initializeLiveConnection();
     initializeAgentRuntime();
     const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
-    if (["dataset", "portfolio", "agent", "graph", "cycle", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace);
+    if (["dataset", "portfolio", "agent", "graph", "registry", "cycle", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace, false);
   }
 
   initialize();

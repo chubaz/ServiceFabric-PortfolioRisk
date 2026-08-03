@@ -5,5 +5,13 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-for package in ("risk_domain", "risk_analytics", "risk_data", "risk_planning", "risk_capabilities", "risk_agents"):
+for package in (
+    "risk_domain",
+    "risk_analytics",
+    "risk_data",
+    "risk_planning",
+    "risk_capabilities",
+    "risk_agents",
+    "risk_registry",
+):
     sys.path.insert(0, str(ROOT / "packages" / package / "src"))
