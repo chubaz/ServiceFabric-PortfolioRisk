@@ -57,6 +57,36 @@ def test_due_diligence_reuses_decision_repository_and_has_dedicated_workspace() 
     assert "The output is a candidate proposal revision for review." in javascript
 
 
+def test_unified_application_separates_development_application_and_research() -> None:
+    server = read("apps/portfolio-risk-workbench/labs/duckdb_server.py")
+    html = read("apps/portfolio-risk-workbench/labs/index.html")
+    javascript = read("apps/portfolio-risk-workbench/labs/labs.js")
+    architecture = read("docs/architecture/platform-operating-zones.md")
+    for zone in ("system", "application", "research"):
+        assert f'data-zone="{zone}"' in html
+    assert 'id="lab-system"' in html
+    assert 'id="lab-application"' in html
+    assert 'id="lab-experiments"' in html
+    assert "/api/platform/workspaces" in server
+    assert "_require_experiment_registry_assets" in server
+    assert "Only explicitly indexed, versioned definitions" in server
+    assert "function switchZone" in javascript
+    assert "function renderApplicationBoundary" in javascript
+    assert "A discovered source is not a saved definition" in architecture
+    assert "Artifact retention is explicit and does not promote an object" in architecture
+
+
+def test_future_zone_dependencies_are_visible_and_non_executable() -> None:
+    html = read("apps/portfolio-risk-workbench/labs/index.html")
+    architecture = read("docs/architecture/platform-operating-zones.md")
+    for phase in ("PLATFORM-P7", "PLATFORM-P8", "PLATFORM-P9", "PLATFORM-P14", "PLATFORM-P15"):
+        assert phase in architecture
+    assert "PLATFORM-P9 Mandate Lab" in html
+    assert "Executable composition · PLATFORM-P14" in html
+    assert "fractioned_human\" disabled" in html
+    assert "parallel_headless\" disabled" in html
+
+
 def test_phase6_gate_is_focused_and_later_phases_remain_deferred() -> None:
     makefile = read("Makefile")
     gate = makefile.split(".PHONY: verify-platform-phase6", 1)[1]

@@ -222,7 +222,9 @@
     liveCatalog: [],
     liveConnected: false,
     runtimeBoundary: null,
-    activeWorkspace: "dataset",
+    activeZone: "system",
+    activeWorkspace: "system",
+    platformArchitecture: null,
     dataQueryResult: null,
     agentRuntime: null,
     riskAgentTemplates: null,
@@ -325,6 +327,33 @@
     return name;
   }
 
+  const zoneDefaults = {
+    system: "system",
+    application: "application",
+    research: "experiments",
+  };
+
+  function workspaceSupportsZone(name, zone) {
+    return Boolean($(`.workspace-tab[data-workspace="${name}"][data-zone="${zone}"]`));
+  }
+
+  function switchZone(zone, preferredWorkspace = null, updateHistory = true) {
+    if (!zoneDefaults[zone]) return;
+    labState.activeZone = zone;
+    document.body.dataset.operatingZone = zone;
+    $$(".operating-zone-tab").forEach((button) => {
+      const active = button.dataset.zone === zone;
+      button.classList.toggle("active", active);
+      if (active) button.setAttribute("aria-current", "true");
+      else button.removeAttribute("aria-current");
+    });
+    $$(".workspace-tab").forEach((button) => button.classList.toggle("hidden", button.dataset.zone !== zone));
+    const target = preferredWorkspace && workspaceSupportsZone(preferredWorkspace, zone)
+      ? preferredWorkspace
+      : zoneDefaults[zone];
+    switchWorkspace(target, updateHistory, zone);
+  }
+
   function renderRuntimeTruth(name = labState.activeWorkspace) {
     const boundary = labState.runtimeBoundary;
     if (!boundary) {
@@ -341,19 +370,30 @@
     $("#truth-persistence").textContent = view.persistence || "Persistence not declared";
   }
 
-  function switchWorkspace(name, updateHistory = true) {
+  function switchWorkspace(name, updateHistory = true, zoneOverride = null) {
+    const supportedZones = $$(`.workspace-tab[data-workspace="${name}"]`).map((button) => button.dataset.zone);
+    const zone = zoneOverride || (supportedZones.includes(labState.activeZone) ? labState.activeZone : supportedZones[0]);
+    if (zone && zone !== labState.activeZone) {
+      labState.activeZone = zone;
+      document.body.dataset.operatingZone = zone;
+      $$(".operating-zone-tab").forEach((button) => button.classList.toggle("active", button.dataset.zone === zone));
+      $$(".workspace-tab").forEach((button) => button.classList.toggle("hidden", button.dataset.zone !== zone));
+    }
     labState.activeWorkspace = name;
     const full = name === "full";
     $("#lab-workspace").classList.toggle("hidden", full);
     $("#full-experiment-workspace").classList.toggle("hidden", !full);
     $$(".lab-page").forEach((page) => page.classList.toggle("active", page.id === `lab-${name}`));
     $$(".workspace-tab").forEach((button) => {
-      const active = button.dataset.workspace === name;
+      const active = button.dataset.workspace === name && button.dataset.zone === labState.activeZone;
       button.classList.toggle("active", active);
       if (active) button.setAttribute("aria-current", "page");
       else button.removeAttribute("aria-current");
     });
     renderRuntimeTruth(name);
+    const activeZoneTitle = $(`.operating-zone-tab[data-zone="${labState.activeZone}"]`)?.textContent || "Development";
+    $("#active-zone-badge").textContent = activeZoneTitle;
+    if (name === "system" || name === "application") loadPlatformWorkspaces();
     if (name === "dataset") populateDatasetPortfolios();
     if (name === "graph") refreshGraphAgents();
     if (name === "registry") loadRegistryCatalogue();
@@ -367,7 +407,11 @@
       if (name === "decision-diligence" && labState.selectedDecisionId) url.searchParams.set("proposal", labState.selectedDecisionId);
       if (url.searchParams.get("workspace") !== name) {
         url.searchParams.set("workspace", name);
+        url.searchParams.set("zone", labState.activeZone);
         window.history.pushState({ workspace: name }, "", url);
+      } else if (url.searchParams.get("zone") !== labState.activeZone) {
+        url.searchParams.set("zone", labState.activeZone);
+        window.history.pushState({ workspace: name, zone: labState.activeZone }, "", url);
       }
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -3226,6 +3270,105 @@
     $("#agent-builder-status").textContent = "Concise report structure applied";
   }
 
+  function definitionOptions(kind) {
+    return (labState.platformArchitecture?.saved_definitions || []).filter((item) => item.identity.kind === kind);
+  }
+
+  function populateDefinitionSelect(selector, kind, emptyLabel) {
+    const select = $(selector);
+    if (!select) return;
+    const records = definitionOptions(kind);
+    select.innerHTML = records.length
+      ? records.map((item) => `<option value="${escapeHtml(item.reference)}">${escapeHtml(item.display_name)} · ${escapeHtml(item.lifecycle_state)} · ${escapeHtml(item.identity.version)}</option>`).join("")
+      : `<option value="">${escapeHtml(emptyLabel)}</option>`;
+    select.disabled = !records.length;
+  }
+
+  function renderPlatformWorkspaces(payload) {
+    labState.platformArchitecture = payload;
+    const counts = payload.saved_counts || {};
+    const total = Object.values(counts).reduce((sum, value) => sum + Number(value), 0);
+    const eligible = (payload.saved_definitions || []).filter((item) => item.experiment_eligible).length;
+    $("#system-definition-summary").innerHTML = [
+      [total, "saved definitions"],
+      [counts.agent || 0, "saved agents"],
+      [counts.capability || 0, "saved capabilities"],
+      [eligible, "experiment-eligible workflows / evaluations"],
+    ].map(([value, label]) => `<div><strong>${value}</strong><span>${escapeHtml(label)}</span></div>`).join("");
+    $("#platform-terminology").innerHTML = Object.entries(payload.terminology || {}).map(([term, meaning]) => `<article><strong>${escapeHtml(term.replaceAll("_", " "))}</strong><p>${escapeHtml(meaning)}</p></article>`).join("");
+
+    populateDefinitionSelect("#application-agent", "agent", "No saved agent definition");
+    populateDefinitionSelect("#application-capability", "capability", "No saved capability definition");
+    populateDefinitionSelect("#application-report", "report", "No saved report definition");
+    populateDefinitionSelect("#application-dashboard", "dashboard", "No saved dashboard definition");
+    populateDefinitionSelect("#application-scenario", "scenario", "No saved scenario definition");
+    $("#application-fixture").innerHTML = (payload.fixture_profiles || []).map((item) => `<option value="${escapeHtml(item.fixture_id)}">${escapeHtml(item.label)}</option>`).join("");
+    $("#application-portfolio").innerHTML = (payload.portfolios || []).length
+      ? payload.portfolios.map((item) => `<option value="${escapeHtml(item.portfolio_id)}">${escapeHtml(item.title)} · ${item.holdings?.length || 0} positions</option>`).join("")
+      : '<option value="">No reviewed portfolio available</option>';
+    $("#application-future-dependencies").innerHTML = (payload.future_dependencies || []).map((item) => `<article><b>${escapeHtml(item.phase)}</b><strong>${escapeHtml(item.capability)}</strong><span>${escapeHtml(item.unlocks)}</span></article>`).join("");
+    const hasAgent = definitionOptions("agent").length > 0;
+    $("#application-open-runner").disabled = !hasAgent;
+    $("#application-status").textContent = hasAgent ? "Boundary ready" : "Index an agent first";
+    renderApplicationBoundary();
+  }
+
+  async function loadPlatformWorkspaces(force = false) {
+    if (labState.platformArchitecture && !force) {
+      renderPlatformWorkspaces(labState.platformArchitecture);
+      return;
+    }
+    try {
+      const payload = await agentApi("/api/platform/workspaces");
+      renderPlatformWorkspaces(payload);
+    } catch (error) {
+      $("#application-status").textContent = "Unavailable";
+      $("#system-definition-summary").innerHTML = `<div><strong>Unavailable</strong><span>${escapeHtml(error.message)}</span></div>`;
+    }
+  }
+
+  function selectedPlatformDefinition(selector) {
+    const reference = $(selector)?.value;
+    return (labState.platformArchitecture?.saved_definitions || []).find((item) => item.reference === reference) || null;
+  }
+
+  function renderApplicationBoundary() {
+    if (!labState.platformArchitecture) return;
+    const fixtureId = $("#application-fixture").value;
+    const fixture = (labState.platformArchitecture.fixture_profiles || []).find((item) => item.fixture_id === fixtureId);
+    const portfolio = (labState.platformArchitecture.portfolios || []).find((item) => item.portfolio_id === $("#application-portfolio").value);
+    const selections = [
+      ["Agent", selectedPlatformDefinition("#application-agent")],
+      ["Capability", selectedPlatformDefinition("#application-capability")],
+      ["Report", selectedPlatformDefinition("#application-report")],
+      ["Dashboard", selectedPlatformDefinition("#application-dashboard")],
+      ["Scenario", selectedPlatformDefinition("#application-scenario")],
+    ];
+    $("#application-preview").innerHTML = `<div class="panel-heading"><div><span class="panel-label">Exact application boundary</span><h2>${escapeHtml(fixture?.label || "No fixture selected")}</h2></div><span class="truth-chip">${escapeHtml(fixture?.data_truth || "unknown")}</span></div>
+      <p class="application-premise">${escapeHtml(fixture?.description || "Select a fixture context.")}</p>
+      <dl class="application-boundary-list"><div><dt>Portfolio</dt><dd>${escapeHtml(portfolio?.title || "Unavailable")}</dd></div>${selections.map(([label, item]) => `<div><dt>${escapeHtml(label)}</dt><dd>${item ? `${escapeHtml(item.display_name)}<small>${escapeHtml(item.reference)} · ${escapeHtml(item.lifecycle_state)}</small>` : "Not selected"}</dd></div>`).join("")}</dl>
+      <div class="application-gate"><strong>${selections[0][1] ? "Boundary is reviewable" : "Blocked: no saved agent"}</strong><span>The current runner supports the same real and synthetic fixture modes, but does not yet compile the selected Registry AgentRole into its Studio blueprint. PLATFORM-P8 binds the selected agent and every selected definition into one executable vertical slice; until then, all unbound selections remain declared test intent.</span></div>`;
+  }
+
+  function openApplicationRunner() {
+    const agent = selectedPlatformDefinition("#application-agent");
+    if (!agent) {
+      showToast("Save an agent definition in the Registry before opening Agent Application.", "error");
+      return;
+    }
+    const fixture = $("#application-fixture").value;
+    if (fixture === "simulated_intraday") {
+      switchWorkspace("cycle", true, "application");
+      return;
+    }
+    switchWorkspace("agent", true, "application");
+    switchAgentOutputTab("run");
+    setAgentRunDataMode(fixture === "licensed_real" ? "real_duckdb" : "synthetic_behavior_sample");
+    const portfolioId = $("#application-portfolio").value;
+    if (fixture === "licensed_real" && portfolioId && $("#agent-real-portfolio")) $("#agent-real-portfolio").value = portfolioId;
+    setTimeout(() => $("#agent-output-run")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  }
+
   const registryStateLabels = {
     discovered: "Discovered only",
     candidate: "Candidate",
@@ -3366,12 +3509,19 @@
     }
   }
 
+  async function refreshDefinitionConsumers() {
+    labState.platformArchitecture = null;
+    labState.experimentOptions = null;
+    await loadPlatformWorkspaces(true);
+  }
+
   async function indexRegistry(record) {
     const identity = registryIdentity(record);
     if (!window.confirm(`Index ${record.projection.display_name} as a local candidate?\n\nThis stores metadata, digests, and one lifecycle receipt. It does not copy, run, deploy, or publish the definition.`)) return;
     $("#registry-status").textContent = "Indexing";
     await agentApi("/api/registry/index", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identity, actor: "local.developer" }) });
     await loadRegistryCatalogue();
+    await refreshDefinitionConsumers();
   }
 
   async function indexAllRegistryDefinitions() {
@@ -3392,6 +3542,7 @@
     const result = await agentApi("/api/registry/bootstrap", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) });
     if ((result.conflicts || []).length) throw new Error(`Bootstrap blocked: ${result.conflicts.join("; ")}`);
     await loadRegistryCatalogue();
+    await refreshDefinitionConsumers();
   }
 
   async function transitionRegistry(record, nextState) {
@@ -3406,6 +3557,7 @@
     if (!window.confirm(`Move ${record.projection.display_name} from ${registryStateLabels[record.state]} to ${registryStateLabels[nextState]}?\n\nThis appends one local, tamper-evident lifecycle receipt. It does not run, deploy, or externally publish the definition.`)) return;
     await agentApi("/api/registry/transition", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...identity, to_state: nextState, actor: "local.developer", rationale, replacement_reference: replacement, expected_revision: record.revision }) });
     await loadRegistryCatalogue();
+    await refreshDefinitionConsumers();
   }
 
   async function compareRegistryVersions(record, other) {
@@ -3590,8 +3742,8 @@
     const kind = mode === "evaluation_only" ? "evaluation" : "workflow";
     const assets = options.system_assets.filter((item) => item.identity.kind === kind);
     $("#experiment-system-asset").innerHTML = assets.length
-      ? assets.map((item) => `<option value="${escapeHtml(item.reference)}">${escapeHtml(item.display_name)} · ${escapeHtml(item.identity.version)}</option>`).join("")
-      : `<option value="">No discovered ${escapeHtml(kind)} definition</option>`;
+      ? assets.map((item) => `<option value="${escapeHtml(item.reference)}">${escapeHtml(item.display_name)} · ${escapeHtml(item.lifecycle_state)} · ${escapeHtml(item.identity.version)}</option>`).join("")
+      : `<option value="">No saved ${escapeHtml(kind)} definition · use System Development → Registry</option>`;
     const truth = $("#experiment-truth").value;
     const portfolios = (options.portfolios || []).filter((item) => item.data_truth === truth);
     $("#experiment-portfolio").innerHTML = portfolios.length
@@ -3681,7 +3833,7 @@
     event.preventDefault();
     const reference = $("#experiment-system-asset").value;
     const asset = (labState.experimentOptions?.system_assets || []).find((item) => item.reference === reference);
-    if (!asset) throw new Error("Select a discovered workflow or evaluation definition.");
+    if (!asset) throw new Error("Select a saved workflow or evaluation definition from the Registry.");
     const slug = $("#experiment-name").value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70) || "experiment";
     const id = `${slug}-${Date.now().toString(36)}`;
     await agentApi("/api/experiments/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
@@ -3751,11 +3903,23 @@
   }
 
   function bind() {
-    $$(".workspace-tab").forEach((button) => button.addEventListener("click", () => switchWorkspace(button.dataset.workspace)));
+    $$(".operating-zone-tab").forEach((button) => button.addEventListener("click", () => switchZone(button.dataset.zone)));
+    $$(".workspace-tab").forEach((button) => button.addEventListener("click", () => switchWorkspace(button.dataset.workspace, true, button.dataset.zone)));
+    $$('[data-open-workspace]').forEach((button) => button.addEventListener("click", () => switchWorkspace(button.dataset.openWorkspace)));
+    $$('[data-open-registry-kind]').forEach((button) => button.addEventListener("click", () => {
+      switchWorkspace("registry", true, "system");
+      $("#registry-kind-filter").value = button.dataset.openRegistryKind;
+      renderRegistryList();
+    }));
     window.addEventListener("popstate", () => {
-      const workspace = new URLSearchParams(window.location.search).get("workspace") || "dataset";
-      if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "decisions", "decision-diligence", "cycle", "full"].includes(workspace)) switchWorkspace(workspace, false);
+      const params = new URLSearchParams(window.location.search);
+      const workspace = params.get("workspace") || "system";
+      const zone = params.get("zone");
+      if (["system", "application", "dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "decisions", "decision-diligence", "cycle", "full"].includes(workspace)) switchWorkspace(workspace, false, zoneDefaults[zone] ? zone : null);
     });
+    $("#application-review").addEventListener("click", renderApplicationBoundary);
+    $("#application-open-runner").addEventListener("click", openApplicationRunner);
+    ["#application-agent", "#application-fixture", "#application-portfolio", "#application-capability", "#application-report", "#application-dashboard", "#application-scenario"].forEach((selector) => $(selector).addEventListener("change", renderApplicationBoundary));
     $("#registry-refresh").addEventListener("click", loadRegistryCatalogue);
     $("#registry-index-all").addEventListener("click", () => indexAllRegistryDefinitions().catch((error) => { $("#registry-status").textContent = error.message; }));
     ["#registry-search", "#registry-kind-filter", "#registry-index-filter", "#registry-lifecycle-filter"].forEach((selector) => {
@@ -4391,10 +4555,14 @@
     configureDatasetMode();
     initializeLiveConnection();
     initializeAgentRuntime();
-    const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
-    const requestedProposal = new URLSearchParams(window.location.search).get("proposal");
+    loadPlatformWorkspaces();
+    const requestParams = new URLSearchParams(window.location.search);
+    const requestedWorkspace = requestParams.get("workspace");
+    const requestedZone = requestParams.get("zone");
+    const requestedProposal = requestParams.get("proposal");
     if (requestedProposal) labState.selectedDecisionId = requestedProposal;
-    if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "decisions", "decision-diligence", "cycle", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace, false);
+    if (["system", "application", "dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "decisions", "decision-diligence", "cycle", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace, false, zoneDefaults[requestedZone] ? requestedZone : null);
+    else switchZone("system", "system", false);
   }
 
   initialize();

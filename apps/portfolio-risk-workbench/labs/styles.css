@@ -722,6 +722,54 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
 .workspace-tab { background: transparent; border: 0; border-radius: 8px; color: var(--muted); cursor: pointer; font-size: 9px; font-weight: 800; padding: 8px 10px; white-space: nowrap; }
 .workspace-tab:hover { color: var(--ink); }
 .workspace-tab.active { background: var(--navy); color: white; }
+
+.workspace-navigation { display: grid; gap: 5px; justify-items: center; min-width: 0; }
+.operating-zone-switcher { align-items: center; display: flex; gap: 4px; }
+.operating-zone-tab { background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--muted); cursor: pointer; font-size: 8px; font-weight: 800; letter-spacing: .04em; padding: 4px 7px 5px; white-space: nowrap; }
+.operating-zone-tab:hover { color: var(--ink); }
+.operating-zone-tab.active { border-bottom-color: var(--teal); color: var(--teal-dark); }
+
+.platform-zone-heading { margin-bottom: 18px; }
+.platform-zone-heading h1 { font-size: clamp(32px, 3.8vw, 50px); }
+.zone-rule { align-items: start; background: #edf4f2; border: 1px solid #c9ddda; border-radius: 10px; display: grid; gap: 4px; grid-template-columns: 150px minmax(0, 1fr); margin-bottom: 10px; padding: 10px 12px; }
+.zone-rule strong { color: var(--teal-dark); font-size: 9px; }
+.zone-rule span { color: var(--muted); font-size: 8px; line-height: 1.5; }
+.definition-lifecycle, .application-flow { align-items: center; background: var(--navy); border-radius: 10px; color: #b8cdce; display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; overflow-x: auto; padding: 10px 12px; white-space: nowrap; }
+.definition-lifecycle span, .definition-lifecycle strong, .application-flow span, .application-flow strong { font-size: 8px; }
+.definition-lifecycle b, .application-flow b { color: #79b9b5; font-size: 9px; }
+.definition-lifecycle strong, .application-flow strong { color: white; }
+.system-object-grid { display: grid; gap: 9px; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 10px; }
+.system-object-card { background: var(--surface); border: 1px solid var(--line); border-radius: 11px; display: flex; flex-direction: column; min-height: 170px; padding: 13px; }
+.system-object-card > span { color: var(--teal); font-size: 7px; font-weight: 800; letter-spacing: .06em; min-height: 20px; text-transform: uppercase; }
+.system-object-card h2 { color: var(--navy); font-family: Georgia, serif; font-size: 18px; font-weight: 500; margin: 3px 0 7px; }
+.system-object-card p { color: var(--muted); flex: 1; font-size: 8px; line-height: 1.5; margin: 0 0 10px; }
+.system-object-card small { color: var(--amber); display: block; font-size: 7px; font-weight: 700; margin-top: 7px; }
+.system-object-card.future { background: #faf9f4; border-style: dashed; }
+.system-object-card.partial { border-color: #dfc995; }
+.terminology-panel { margin-top: 10px; }
+.terminology-grid { display: grid; gap: 7px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.terminology-grid article { background: var(--surface-2); border-radius: 8px; padding: 9px; }
+.terminology-grid strong { color: var(--navy); display: block; font-size: 8px; text-transform: capitalize; }
+.terminology-grid p { color: var(--muted); font-size: 7px; line-height: 1.45; margin: 4px 0 0; }
+
+.application-layout { display: grid; gap: 10px; grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr); margin-bottom: 10px; }
+.application-form-grid { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.application-form-grid .application-wide { grid-column: 1 / -1; }
+.application-preview { min-width: 0; }
+.application-premise { color: var(--muted); font-size: 8px; line-height: 1.5; }
+.application-boundary-list { display: grid; gap: 1px; margin: 10px 0; }
+.application-boundary-list > div { background: var(--surface-2); display: grid; gap: 8px; grid-template-columns: 80px minmax(0, 1fr); padding: 8px; }
+.application-boundary-list dt { color: var(--muted); font-size: 7px; font-weight: 800; text-transform: uppercase; }
+.application-boundary-list dd { font-size: 8px; margin: 0; overflow-wrap: anywhere; }
+.application-boundary-list small { color: var(--muted); display: block; font-size: 6px; line-height: 1.4; margin-top: 3px; }
+.application-gate { border-left: 3px solid var(--teal); display: grid; gap: 4px; padding: 5px 9px; }
+.application-gate strong { font-size: 8px; }
+.application-gate span { color: var(--muted); font-size: 7px; line-height: 1.45; }
+.future-capability-strip, .experimental-process-note { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 10px; }
+.future-capability-strip article, .experimental-process-note > div { background: #faf9f4; border: 1px dashed #d8c69d; border-radius: 9px; display: grid; gap: 4px; padding: 9px; }
+.future-capability-strip b { color: var(--amber); font-size: 7px; }
+.future-capability-strip strong, .experimental-process-note strong { color: var(--navy); font-size: 8px; }
+.future-capability-strip span, .experimental-process-note span { color: var(--muted); font-size: 7px; line-height: 1.45; }
 .lab-workspace { margin: 0 auto; max-width: 1500px; padding: 42px clamp(22px, 4vw, 62px) 80px; }
 .lab-page { display: none; }
 .lab-page.active { display: block; }
@@ -1810,6 +1858,10 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
 
 @media (max-width: 1050px) {
   .workspace-switcher { max-width: 54vw; overflow-x: auto; }
+  .workspace-navigation { max-width: 58vw; }
+  .operating-zone-switcher { max-width: 100%; overflow-x: auto; }
+  .system-object-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .terminology-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .builder-layout, .agent-layout, .graph-layout, .agent-studio-grid, .agent-design-layout { grid-template-columns: 1fr; }
   .agent-inspector-panel { position: static; }
   .agent-runtime-strip { grid-template-columns: repeat(2, 1fr); }
@@ -1850,9 +1902,14 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
   .runtime-truth-strip > div:nth-child(odd) { border-left: 0; }
   .runtime-truth-strip > div:nth-child(n+3) { border-bottom: 0; }
   .workspace-switcher { max-width: 100%; order: 3; width: 100%; }
+  .workspace-navigation { max-width: 100%; order: 3; width: 100%; }
+  .operating-zone-switcher { justify-content: flex-start; width: 100%; }
   .workspace-tab { flex: 1 0 auto; }
   .lab-workspace { padding: 30px 16px 60px; }
   .lab-heading { grid-template-columns: 1fr; }
+  .zone-rule { grid-template-columns: 1fr; }
+  .system-object-grid, .terminology-grid, .application-layout, .application-form-grid, .future-capability-strip, .experimental-process-note { grid-template-columns: 1fr; }
+  .application-form-grid .application-wide { grid-column: auto; }
   .data-query-form { grid-template-columns: 1fr; }
   .data-query-run { width: 100%; }
   .data-query-result > header { align-items: stretch; flex-direction: column; }

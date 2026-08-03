@@ -107,6 +107,29 @@ high-risk boundary changes.
 - no portfolio, broker, order, trade, hedge, rebalance or mutation effect;
 - no Phase 7 context-boundary model or Phase 8 vertical-slice expansion.
 
+## Post-acceptance structural correction
+
+Before Phase 7, the unified Labs shell was corrected to expose three operating
+zones without replacing the accepted Phase 6 stores or decision contracts:
+
+1. **System Development** for authoring, singular fixture tests and explicit
+   Registry saving;
+2. **Agent Application** for loading saved definitions into a labelled fixture
+   and reviewing object/agent behaviour through the existing isolated runner;
+3. **Experimental Research** for persistent experiment composition, queueing and
+   comparison.
+
+The correction also closes an experiment admission defect: source discovery is
+no longer enough to enter a new experiment. Workflow and evaluation identities
+must be explicitly indexed in the Registry and remain candidate, validated or
+locally published. This gate is enforced by the API as well as the selection UI.
+
+The terminology and future dependency reminders are normative in
+`docs/architecture/platform-operating-zones.md`. PLATFORM-P7, P8, P9, P14 and
+P15 placeholders remain non-executable and name the exact later capability that
+will activate them. Artifacts are defined as deliberately retained run work
+products; they do not become reusable definitions without a separate promotion.
+
 ## Acceptance evidence
 
 - Focused gate: 39 tests passed across inherited Phase 5 boundaries, Phase 6

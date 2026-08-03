@@ -118,6 +118,11 @@ SQL_AGENT_MODEL = "gpt-5.6-luna"
 SQL_AGENT_REASONING_EFFORT = "low"
 MAX_QUERY_ROWS = 10_000
 MAX_QUERY_COLUMNS = 200
+EXPERIMENT_ELIGIBLE_REGISTRY_STATES = {
+    LifecycleState.CANDIDATE,
+    LifecycleState.VALIDATED,
+    LifecycleState.PUBLISHED,
+}
 QUERY_TIMEOUT_SECONDS = 20
 
 LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
@@ -158,6 +163,16 @@ LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
             "authority": "Compiled plan preview · not registered or executable",
             "persistence": "Browser-local draft · not published",
         },
+        "system": {
+            "data": "Canonical sources and saved registry metadata · no run output is treated as a definition",
+            "authority": "Author, isolate-test and govern reusable definitions · external effects prohibited",
+            "persistence": "Saved definitions use the local versioned Registry; browser drafts remain explicitly unsaved",
+        },
+        "application": {
+            "data": "Explicit fixture context plus saved, versioned system definitions",
+            "authority": "Effect-free isolated object and agent testing · no code mutation or external effects",
+            "persistence": "Run work products are temporary until separately retained as artifacts",
+        },
         "registry": {
             "data": "Existing definitions · indexed metadata points to canonical sources",
             "authority": "Local lifecycle review only · no financial effects",
@@ -179,7 +194,7 @@ LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
             "persistence": "Content-addressed local repository · outside Git · not production publication",
         },
         "experiments": {
-            "data": "Immutable source revisions and explicit real/synthetic/simulated declarations",
+            "data": "Immutable source revisions and saved registry definitions with explicit real/synthetic/simulated declarations",
             "authority": "Local research orchestration only · external effects prohibited",
             "persistence": "Restart-safe experiment metadata outside Git · outputs remain separate artifacts",
         },
@@ -1782,6 +1797,125 @@ def health() -> dict[str, Any]:
     }
 
 
+@app.get("/api/platform/workspaces")
+def platform_workspaces() -> dict[str, Any]:
+    """Project existing stores into the three user-facing operating zones."""
+
+    documents = registry_store().list()
+    eligible_states = EXPERIMENT_ELIGIBLE_REGISTRY_STATES
+    saved = [
+        {
+            "identity": item.projection.identity.model_dump(mode="json"),
+            "reference": item.projection.identity.reference,
+            "display_name": item.projection.display_name,
+            "summary": item.projection.summary,
+            "lifecycle_state": item.state.value,
+            "registry_revision": item.receipts[-1].receipt_digest,
+            "experiment_eligible": (
+                item.state in eligible_states
+                and item.projection.identity.kind
+                in {AssetKind.WORKFLOW, AssetKind.EVALUATION}
+            ),
+        }
+        for item in documents
+    ]
+    saved_counts: dict[str, int] = {}
+    for item in saved:
+        kind = item["identity"]["kind"]
+        saved_counts[kind] = saved_counts.get(kind, 0) + 1
+    return {
+        "schema_version": "portfolio-risk.platform-workspaces/v1",
+        "zones": [
+            {
+                "zone_id": "system",
+                "title": "System Development",
+                "purpose": "Author, isolate-test, validate and save reusable definitions.",
+                "accepts": "Drafts and canonical source definitions",
+                "produces": "Saved, versioned Registry definitions",
+            },
+            {
+                "zone_id": "application",
+                "title": "Agent Application",
+                "purpose": "Load saved definitions into a labelled fixture context and inspect how agents use them.",
+                "accepts": "Saved definitions plus licensed, synthetic or simulated fixture context",
+                "produces": "Temporary run work products and review evidence",
+            },
+            {
+                "zone_id": "research",
+                "title": "Experimental Research",
+                "purpose": "Compose reproducible experiments and comparisons from saved definitions.",
+                "accepts": "Registry identities, immutable source bindings and explicit policies",
+                "produces": "Experiment records, run work products, evaluations and retained artifacts",
+            },
+        ],
+        "terminology": {
+            "definition": "A reusable system object with a stable identity and version.",
+            "fixture_context": "A labelled, bounded input environment used to exercise a definition.",
+            "run_work_product": "An output created during one application or experiment run.",
+            "artifact": "A run work product deliberately retained with provenance and lifecycle policy.",
+            "experiment": "A reproducible composition of saved definitions, source bindings and execution/evaluation policy.",
+        },
+        "definition_lifecycle": [
+            "author_draft",
+            "isolated_fixture_test",
+            "index_candidate",
+            "validate",
+            "publish_locally",
+            "load_into_application_or_experiment",
+        ],
+        "saved_definitions": saved,
+        "saved_counts": saved_counts,
+        "portfolios": data_plane.public_portfolios(),
+        "fixture_profiles": [
+            {
+                "fixture_id": "licensed_real",
+                "label": "Licensed historical fixture",
+                "data_truth": "licensed_real",
+                "description": "Point-in-time CRSP/Compustat records queried locally through DuckDB.",
+            },
+            {
+                "fixture_id": "reviewed_synthetic",
+                "label": "Reviewed synthetic fixture",
+                "data_truth": "reviewed_synthetic",
+                "description": "Named deterministic cases for normal, failure and adversarial behavior.",
+            },
+            {
+                "fixture_id": "simulated_intraday",
+                "label": "Real-anchored simulated intraday",
+                "data_truth": "simulated_intraday",
+                "description": "Seeded intraday evolution between licensed daily close anchors.",
+            },
+        ],
+        "future_dependencies": [
+            {
+                "phase": "PLATFORM-P7",
+                "capability": "Fixture Context compiler and cumulative Environment Risk Context boundary",
+                "unlocks": "Portable context fixtures that can be reused across object tests.",
+            },
+            {
+                "phase": "PLATFORM-P8",
+                "capability": "End-to-end Agent Application execution adapter",
+                "unlocks": "Execute the selected saved agent against the selected saved objects in one vertical slice.",
+            },
+            {
+                "phase": "PLATFORM-P9",
+                "capability": "Mandate Lab and registered portfolio/mandate versions",
+                "unlocks": "First-class mandate and portfolio selection rather than source-binding text references.",
+            },
+            {
+                "phase": "PLATFORM-P14",
+                "capability": "Agent graph and workflow composition",
+                "unlocks": "Fractioned human-review, supra-agent and modular workflow experimental policies.",
+            },
+            {
+                "phase": "PLATFORM-P15",
+                "capability": "Provider and external adapter registry",
+                "unlocks": "Governed MCP, API and external integration selection.",
+            },
+        ],
+    }
+
+
 @app.get("/api/catalog")
 def catalog() -> dict[str, Any]:
     return {
@@ -2225,16 +2359,42 @@ def experiment_options() -> dict[str, Any]:
     return _experiment_options_payload()
 
 
+def _experiment_registry_documents() -> list[Any]:
+    """Return only saved registry definitions that may enter new experiments."""
+
+    return [
+        document
+        for document in registry_store().list()
+        if document.projection.identity.kind in {AssetKind.WORKFLOW, AssetKind.EVALUATION}
+        and document.state in EXPERIMENT_ELIGIBLE_REGISTRY_STATES
+    ]
+
+
+def _require_experiment_registry_assets(identities: tuple[RegistryIdentity, ...]) -> None:
+    eligible = {
+        document.projection.identity.reference: document
+        for document in _experiment_registry_documents()
+    }
+    missing = [identity.reference for identity in identities if identity.reference not in eligible]
+    if missing:
+        raise ExperimentConflict(
+            "experiment assets must be saved in the Registry and remain candidate, validated, "
+            "or published: " + ", ".join(missing)
+        )
+
+
 def _experiment_options_payload() -> dict[str, Any]:
     assets = [
         {
-            "identity": item.identity.model_dump(mode="json"),
-            "reference": item.identity.reference,
-            "display_name": item.display_name,
-            "summary": item.summary,
+            "identity": document.projection.identity.model_dump(mode="json"),
+            "reference": document.projection.identity.reference,
+            "display_name": document.projection.display_name,
+            "summary": document.projection.summary,
+            "lifecycle_state": document.state.value,
+            "registry_revision": document.receipts[-1].receipt_digest,
+            "saved": True,
         }
-        for item in discover_registry_projections()
-        if item.identity.kind in {AssetKind.WORKFLOW, AssetKind.EVALUATION}
+        for document in _experiment_registry_documents()
     ]
     selection_id = data_plane.selection["selection_id"]
     snapshot_id = data_plane.selection["source_snapshot_id"]
@@ -2273,6 +2433,13 @@ def _experiment_options_payload() -> dict[str, Any]:
         )
     return {
         "system_assets": assets,
+        "eligibility_policy": {
+            "registry_required": True,
+            "accepted_lifecycle_states": sorted(
+                state.value for state in EXPERIMENT_ELIGIBLE_REGISTRY_STATES
+            ),
+            "meaning": "Only explicitly indexed, versioned definitions can enter a new experiment.",
+        },
         "defaults": {
             "snapshot_policy_reference": "snapshot-policy:point-in-time-available-at@v1",
             "mandate_reference": "mandate:research-default@v1",
@@ -2294,9 +2461,7 @@ def draft_experiment(request: ExperimentDraftRequest) -> dict[str, Any]:
             raise ExperimentConflict(
                 f"{request.presentation_mode.value} requires a {expected_kind.value} definition"
             )
-        known = {item.identity.reference for item in discover_registry_projections()}
-        if request.system_asset.reference not in known:
-            raise ExperimentConflict("system asset must resolve to a discovered canonical definition")
+        _require_experiment_registry_assets((request.system_asset,))
         options = _experiment_options_payload()
         portfolio_option = next(
             (
@@ -2363,6 +2528,7 @@ def draft_experiment(request: ExperimentDraftRequest) -> dict[str, Any]:
 @app.post("/api/experiments")
 def create_experiment(request: ExperimentCreateRequest) -> dict[str, Any]:
     try:
+        _require_experiment_registry_assets(request.definition.system_assets)
         record = experiment_store().create(
             request.definition,
             actor=request.actor,
@@ -2388,14 +2554,7 @@ def transition_experiment(
     try:
         if request.to_state == ExperimentState.VALIDATED:
             current = experiment_store().get(experiment_id)
-            known = {item.identity.reference for item in discover_registry_projections()}
-            unresolved = [
-                item.reference for item in current.definition.system_assets if item.reference not in known
-            ]
-            if unresolved:
-                raise ExperimentConflict(
-                    "validation cannot resolve canonical system assets: " + ", ".join(unresolved)
-                )
+            _require_experiment_registry_assets(current.definition.system_assets)
         record = experiment_store().transition(
             experiment_id,
             request.to_state,
