@@ -261,6 +261,11 @@
     registryRecords: [],
     selectedRegistryReference: null,
     registryLoading: false,
+    artifactRecords: [],
+    artifactCandidates: [],
+    selectedArtifactId: null,
+    selectedArtifactDetail: null,
+    artifactLoading: false,
   };
 
   function canonicalCurrentPortfolio() {
@@ -322,6 +327,7 @@
     if (name === "dataset") populateDatasetPortfolios();
     if (name === "graph") refreshGraphAgents();
     if (name === "registry") loadRegistryCatalogue();
+    if (name === "artifacts") loadArtifactCatalogue();
     if (name === "cycle") populateCyclePortfolios();
     if (updateHistory) {
       const url = new URL(window.location.href);
@@ -3179,11 +3185,167 @@
     $("#registry-comparison").innerHTML = `<section class="registry-comparison"><strong>${result.differences.length} changed projection field${result.differences.length === 1 ? "" : "s"}</strong>${result.differences.map((difference) => `<article><b>${escapeHtml(difference.field)}</b><div><span>Current</span><code>${escapeHtml(registryValue(difference.left))}</code></div><div><span>Compared</span><code>${escapeHtml(registryValue(difference.right))}</code></div></article>`).join("") || '<p>No projection differences.</p>'}</section>`;
   }
 
+  function artifactBytes(value) {
+    const size = Number(value || 0);
+    if (size < 1024) return `${size.toLocaleString()} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function artifactLabel(value) {
+    return String(value || "unavailable").replaceAll("_", " ");
+  }
+
+  function filteredArtifacts() {
+    const search = ($("#artifact-search")?.value || "").trim().toLowerCase();
+    const view = $("#artifact-view-filter")?.value || "active";
+    const truth = $("#artifact-truth-filter")?.value || "";
+    const retention = $("#artifact-retention-filter")?.value || "";
+    return labState.artifactRecords.filter((record) => {
+      const manifest = record.manifest;
+      const matchesSearch = !search || [manifest.title, manifest.artifact_id, manifest.run_id, manifest.created_by].some((item) => String(item || "").toLowerCase().includes(search));
+      const matchesView = view === "all"
+        || (view === "recovery" && ["tombstoned", "deleted"].includes(record.state))
+        || record.state === view;
+      return matchesSearch && matchesView && (!truth || manifest.data_truth === truth) && (!retention || manifest.retention === retention);
+    });
+  }
+
+  function renderArtifactSummary(summary = {}) {
+    $("#artifact-summary").innerHTML = [
+      [summary.retained_runs || 0, "retained runs"],
+      [summary.artifacts || 0, "artifacts"],
+      [summary.files || 0, "declared files"],
+      [artifactBytes(summary.total_size_bytes || 0), `${summary.need_attention || 0} need attention`],
+    ].map(([value, label]) => `<div><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`).join("");
+  }
+
+  function renderArtifactCandidates() {
+    const candidates = labState.artifactCandidates;
+    $("#artifact-admission").classList.toggle("hidden", !candidates.length);
+    $("#artifact-candidate-count").textContent = `${candidates.length} candidate${candidates.length === 1 ? "" : "s"}`;
+    $("#artifact-candidates").innerHTML = candidates.map((candidate) => `<article class="artifact-candidate">
+      <div><strong>${escapeHtml(candidate.run_id)}</strong><span class="registry-badge ${candidate.eligible ? "indexed" : ""}">${candidate.eligible ? "Compatible" : "Blocked"}</span><p>${candidate.eligible ? `${artifactLabel(candidate.data_truth)} · ${candidate.file_count} files · ${artifactBytes(candidate.total_size_bytes)}` : artifactLabel(candidate.blockers?.[0])}</p>${(candidate.warnings || []).map((warning) => `<small>${escapeHtml(warning)}</small>`).join("")}</div>
+      <button class="button ${candidate.eligible ? "primary" : "ghost"}" type="button" data-admit-run="${escapeHtml(candidate.run_id)}" ${candidate.eligible ? "" : "disabled"}>Review and retain</button>
+    </article>`).join("");
+  }
+
+  function renderArtifactList() {
+    const records = filteredArtifacts();
+    $("#artifact-result-count").textContent = `${records.length} result${records.length === 1 ? "" : "s"}`;
+    if (!records.length) {
+      $("#artifact-list").innerHTML = '<div class="empty-state">No retained outputs match this view. Temporary runs are never imported automatically.</div>';
+      $("#artifact-detail").innerHTML = '<div class="empty-state">Select or admit a retained output to inspect it.</div>';
+      return;
+    }
+    if (!records.some((item) => item.manifest.artifact_id === labState.selectedArtifactId)) labState.selectedArtifactId = records[0].manifest.artifact_id;
+    $("#artifact-list").innerHTML = records.map((record) => {
+      const manifest = record.manifest;
+      return `<button class="registry-result ${manifest.artifact_id === labState.selectedArtifactId ? "selected" : ""}" type="button" data-artifact-id="${escapeHtml(manifest.artifact_id)}">
+        <span class="registry-result-top"><b>${escapeHtml(manifest.kind)}</b><span class="registry-badge lifecycle">${escapeHtml(artifactLabel(record.state))}</span></span>
+        <strong>${escapeHtml(manifest.title)}</strong><code>${escapeHtml(manifest.run_id || manifest.artifact_id)}</code>
+        <small>${escapeHtml(artifactLabel(manifest.data_truth))} · ${manifest.files.length} files · ${artifactBytes(manifest.total_size_bytes)}</small>
+      </button>`;
+    }).join("");
+    selectArtifact(labState.selectedArtifactId, false);
+  }
+
+  async function selectArtifact(artifactId, reload = true) {
+    labState.selectedArtifactId = artifactId;
+    if (reload || !labState.selectedArtifactDetail || labState.selectedArtifactDetail.manifest.artifact_id !== artifactId) {
+      $("#artifact-detail").innerHTML = '<div class="empty-state">Verifying the selected manifest and declared bytes.</div>';
+      try {
+        labState.selectedArtifactDetail = await agentApi(`/api/artifacts/${encodeURIComponent(artifactId)}`);
+      } catch (error) {
+        $("#artifact-detail").innerHTML = `<div class="empty-state"><strong>Artifact unavailable.</strong><br>${escapeHtml(error.message)}</div>`;
+        return;
+      }
+    }
+    $$("[data-artifact-id]").forEach((button) => button.classList.toggle("selected", button.dataset.artifactId === artifactId));
+    renderArtifactDetail(labState.selectedArtifactDetail);
+  }
+
+  function renderArtifactDetail(record) {
+    const manifest = record.manifest;
+    const verification = record.verification || {};
+    const preview = record.deletion_preview;
+    const receipts = record.receipts || [];
+    const files = manifest.files.map((file) => `<article class="artifact-file-row">
+      <div><strong>${escapeHtml(file.path)}</strong><span>${escapeHtml(file.role)} · ${artifactBytes(file.size_bytes)}</span><code>${escapeHtml(file.file_id)}</code></div>
+      <div>${file.preview_mode !== "none" ? `<button class="text-button" data-preview-file="${escapeHtml(file.file_id)}" type="button">Preview</button>` : '<span class="registry-badge">Preview blocked</span>'}${file.download_allowed ? `<button class="text-button" data-download-file="${escapeHtml(file.file_id)}" type="button">Download</button>` : ""}</div>
+    </article>`).join("");
+    const lifecycleAction = record.state === "active"
+      ? '<button class="button ghost" id="artifact-archive" type="button">Archive</button>'
+      : ["archived", "tombstoned"].includes(record.state)
+        ? '<button class="button ghost" id="artifact-restore" type="button">Restore</button>'
+        : "";
+    const deletionAction = preview?.eligible
+      ? `<button class="button danger" id="artifact-delete-action" type="button">${preview.operation === "finalize_delete" ? "Finalize deletion" : "Move to recovery"}</button>`
+      : "";
+    $("#artifact-detail").innerHTML = `<header class="registry-detail-header"><span class="panel-label">${escapeHtml(manifest.kind)} · ${escapeHtml(artifactLabel(record.state))}</span><h2>${escapeHtml(manifest.title)}</h2><code>${escapeHtml(manifest.artifact_id)}</code><p>${escapeHtml(manifest.run_id ? `Retained output of ${manifest.run_id}` : "Immutable generated artifact")}</p></header>
+      <div class="registry-detail-badges"><span class="registry-badge ${verification.valid ? "indexed" : ""}">${verification.valid ? "Integrity verified" : "Integrity attention"}</span><span class="registry-badge">${escapeHtml(artifactLabel(manifest.data_truth))}</span><span class="registry-badge">${escapeHtml(artifactLabel(manifest.rights))}</span><span class="registry-badge">${escapeHtml(artifactLabel(manifest.retention))}</span></div>
+      <details open><summary>Declared files</summary><div class="artifact-files">${files}</div><pre class="artifact-preview hidden" id="artifact-file-preview"></pre></details>
+      <details><summary>Provenance and policy</summary><dl class="registry-facts"><div><dt>Created</dt><dd>${escapeHtml(new Date(manifest.created_at).toLocaleString())}</dd></div><div><dt>Producer</dt><dd>${escapeHtml(manifest.created_by)}</dd></div><div><dt>Creation method</dt><dd>${escapeHtml(manifest.creation_method)}</dd></div><div><dt>Rights policy</dt><dd>${escapeHtml(manifest.rights_policy_id)}</dd></div><div><dt>Publication</dt><dd>${escapeHtml(artifactLabel(manifest.publication))}</dd></div><div><dt>Manifest digest</dt><dd><code>${escapeHtml(manifest.artifact_digest)}</code></dd></div></dl></details>
+      <details><summary>Lifecycle receipts</summary><div class="registry-receipts">${receipts.map((receipt) => `<article><b>${escapeHtml(artifactLabel(receipt.operation))}</b><span>${escapeHtml(receipt.actor)} · ${escapeHtml(new Date(receipt.occurred_at).toLocaleString())}</span><p>${escapeHtml(receipt.rationale)}</p></article>`).join("")}</div></details>
+      <div class="registry-actions"><button class="button" id="artifact-verify" type="button">Verify files</button>${lifecycleAction}${deletionAction}${preview && !preview.eligible ? `<p class="registry-blocked">Deletion unavailable: ${escapeHtml(preview.blockers.join(" · "))}</p>` : ""}</div>`;
+  }
+
+  async function loadArtifactCatalogue() {
+    if (labState.artifactLoading) return;
+    labState.artifactLoading = true;
+    $("#artifact-status").textContent = "Loading";
+    try {
+      const result = await agentApi("/api/artifacts/catalogue?include_deleted=true");
+      labState.artifactRecords = result.records || [];
+      labState.artifactCandidates = result.candidates || [];
+      renderArtifactSummary(result.summary);
+      renderArtifactCandidates();
+      renderArtifactList();
+      $("#artifact-status").textContent = "Ready";
+    } catch (error) {
+      $("#artifact-status").textContent = "Unavailable";
+      $("#artifact-list").innerHTML = `<div class="empty-state"><strong>Repository unavailable.</strong><br>${escapeHtml(error.message)}</div>`;
+    } finally {
+      labState.artifactLoading = false;
+    }
+  }
+
+  async function admitTemporaryRun(runId) {
+    const preview = await agentApi(`/api/artifacts/admission/${encodeURIComponent(runId)}/preview`);
+    if (!preview.eligible) throw new Error(preview.blockers.join(" · "));
+    if (!window.confirm(`Retain ${runId}?\n\nThis copies exactly ${preview.file_count} validated files into immutable content-addressed storage. The temporary source folder remains unchanged.`)) return;
+    await agentApi("/api/artifacts/admission", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: runId, confirmation_token: preview.confirmation_token, actor: "local.developer" }) });
+    await loadArtifactCatalogue();
+  }
+
+  async function artifactTransition(action) {
+    const record = labState.selectedArtifactDetail;
+    if (!record) return;
+    const rationale = window.prompt(`Why should this artifact be ${action === "archive" ? "archived" : "restored"}?`, "Reviewed local lifecycle change.");
+    if (!rationale) return;
+    await agentApi(`/api/artifacts/${encodeURIComponent(record.manifest.artifact_id)}/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor: "local.developer", rationale, expected_revision: record.revision }) });
+    labState.selectedArtifactDetail = null;
+    await loadArtifactCatalogue();
+  }
+
+  async function artifactDeletion() {
+    const record = labState.selectedArtifactDetail;
+    const preview = record?.deletion_preview;
+    if (!record || !preview?.eligible) return;
+    if (!window.confirm(`${preview.consequence}\n\nContinue with this exact reviewed revision?`)) return;
+    const rationale = window.prompt("Record the reason for this governed deletion step.", "Disposable local research output no longer required.");
+    if (!rationale) return;
+    const action = preview.operation === "finalize_delete" ? "finalize" : "tombstone";
+    await agentApi(`/api/artifacts/${encodeURIComponent(record.manifest.artifact_id)}/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor: "local.developer", rationale, expected_revision: preview.expected_revision, confirmation_token: preview.confirmation_token }) });
+    labState.selectedArtifactDetail = null;
+    await loadArtifactCatalogue();
+  }
+
   function bind() {
     $$(".workspace-tab").forEach((button) => button.addEventListener("click", () => switchWorkspace(button.dataset.workspace)));
     window.addEventListener("popstate", () => {
       const workspace = new URLSearchParams(window.location.search).get("workspace") || "dataset";
-      if (["dataset", "portfolio", "agent", "graph", "registry", "cycle", "full"].includes(workspace)) switchWorkspace(workspace, false);
+      if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "cycle", "full"].includes(workspace)) switchWorkspace(workspace, false);
     });
     $("#registry-refresh").addEventListener("click", loadRegistryCatalogue);
     $("#registry-index-all").addEventListener("click", () => indexAllRegistryDefinitions().catch((error) => { $("#registry-status").textContent = error.message; }));
@@ -3220,6 +3382,41 @@
         const other = labState.registryRecords.find((item) => item.reference === $("#registry-compare-version").value);
         if (other) compareRegistryVersions(record, other).catch((error) => { $("#registry-status").textContent = error.message; });
       }
+    });
+    $("#artifact-refresh").addEventListener("click", loadArtifactCatalogue);
+    ["#artifact-search", "#artifact-view-filter", "#artifact-truth-filter", "#artifact-retention-filter"].forEach((selector) => {
+      $(selector).addEventListener(selector === "#artifact-search" ? "input" : "change", renderArtifactList);
+    });
+    $("#artifact-clear-filters").addEventListener("click", () => {
+      $("#artifact-search").value = "";
+      $("#artifact-view-filter").value = "active";
+      $("#artifact-truth-filter").value = "";
+      $("#artifact-retention-filter").value = "";
+      renderArtifactList();
+      $("#artifact-search").focus();
+    });
+    $("#artifact-candidates").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-admit-run]");
+      if (button) admitTemporaryRun(button.dataset.admitRun).catch((error) => { $("#artifact-status").textContent = error.message; });
+    });
+    $("#artifact-list").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-artifact-id]");
+      if (button) selectArtifact(button.dataset.artifactId);
+    });
+    $("#artifact-detail").addEventListener("click", (event) => {
+      const record = labState.selectedArtifactDetail;
+      if (!record) return;
+      if (event.target.closest("#artifact-verify")) selectArtifact(record.manifest.artifact_id).catch((error) => { $("#artifact-status").textContent = error.message; });
+      if (event.target.closest("#artifact-archive")) artifactTransition("archive").catch((error) => { $("#artifact-status").textContent = error.message; });
+      if (event.target.closest("#artifact-restore")) artifactTransition("restore").catch((error) => { $("#artifact-status").textContent = error.message; });
+      if (event.target.closest("#artifact-delete-action")) artifactDeletion().catch((error) => { $("#artifact-status").textContent = error.message; });
+      const previewButton = event.target.closest("[data-preview-file]");
+      if (previewButton) agentApi(`/api/artifacts/${encodeURIComponent(record.manifest.artifact_id)}/files/${encodeURIComponent(previewButton.dataset.previewFile)}/preview`).then((result) => {
+        $("#artifact-file-preview").textContent = result.text;
+        $("#artifact-file-preview").classList.remove("hidden");
+      }).catch((error) => { $("#artifact-status").textContent = error.message; });
+      const downloadButton = event.target.closest("[data-download-file]");
+      if (downloadButton) window.location.assign(`/api/artifacts/${encodeURIComponent(record.manifest.artifact_id)}/files/${encodeURIComponent(downloadButton.dataset.downloadFile)}/download`);
     });
     $("#create-cycle-session").addEventListener("click", createCycleSession);
     $("#cycle-start").addEventListener("click", () => controlCycle("start").catch((error) => { $("#cycle-runtime-status").textContent = error.message; }));
@@ -3732,7 +3929,7 @@
     initializeLiveConnection();
     initializeAgentRuntime();
     const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
-    if (["dataset", "portfolio", "agent", "graph", "registry", "cycle", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace, false);
+    if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "cycle", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace, false);
   }
 
   initialize();

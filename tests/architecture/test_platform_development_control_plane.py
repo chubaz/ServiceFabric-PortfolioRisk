@@ -17,11 +17,12 @@ def read_json(relative: str) -> dict:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
 
 
-def test_phase0_acceptance_is_preserved_under_the_phase1_pointer() -> None:
+def test_phase0_acceptance_is_preserved_under_the_active_platform_pointer() -> None:
     status = read_json("config/agent/platform-development/status.json")
-    assert status["current"] == "PLATFORM-P1"
+    assert status["current"] == "PLATFORM-P2"
     assert status["phase_0"] == "accepted"
-    assert status["phase_1"] in {"in_progress", "accepted"}
+    assert status["phase_1"] == "accepted"
+    assert status["phase_2"] in {"in_progress", "accepted"}
     assert status["phase_0_accepted_candidate_commit"] == (
         "76651ea8a580832698e99e594581db9c12969dd4"
     )
@@ -29,10 +30,10 @@ def test_phase0_acceptance_is_preserved_under_the_phase1_pointer() -> None:
     assert status["development_profile_only"] is True
     assert status["external_effects"] == "disabled"
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
-    assert "ID: PLATFORM-P1" in current
+    assert "ID: PLATFORM-P2" in current
     assert "Namespace: platform-development" in current
-    assert "integration/platform-registry-kernel" in current
-    assert "make verify-platform-phase1" in current
+    assert "integration/platform-artifact-repository" in current
+    assert "make verify-platform-phase2" in current
     assert "does not reopen or reinterpret" in current
     assert "Phase 0 is accepted" in current
 
@@ -107,7 +108,7 @@ def test_every_phase0_task_has_a_bounded_instruction() -> None:
 def test_active_agent_instructions_preserve_profile_and_effect_boundaries() -> None:
     instructions = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     assert "Active platform development programme" in instructions
-    assert "PLATFORM-P1" in instructions
+    assert "PLATFORM-P2" in instructions
     assert "Real, synthetic, fixture, simulated, missing, and" in instructions
     assert "Studio–Codex controls remain\ndevelopment-only" in instructions
     assert "external effects remain disabled" in instructions
