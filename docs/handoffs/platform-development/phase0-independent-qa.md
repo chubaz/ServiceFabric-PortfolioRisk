@@ -468,3 +468,185 @@ consequence path has focused runtime and UI-handler coverage, dispatch a third
 independent review. Do not mark Phase 0 complete, move the active wave to an
 accepted baseline, or make PR #20 ready while this second **FAIL** remains the
 latest QA verdict.
+
+---
+
+## Final re-review — 2026-08-03 — candidate `76651ea8a580832698e99e594581db9c12969dd4`
+
+- Lane: P0-05 independent QA, third and final review
+- Branch: `review/platform-p0-qa-r3`
+- Candidate: `76651ea8a580832698e99e594581db9c12969dd4`
+- Programme baseline: `81660bd3d4be9c8fb6725e5836e7821f9947eb17`
+- Prior two FAIL reviews above: preserved verbatim
+- Verdict: **PASS**
+- Scope: independent review only; no candidate defect was repaired and nothing
+  was merged
+
+### Final verdict
+
+Candidate `76651ea8a580832698e99e594581db9c12969dd4` satisfies the Phase 0
+independent-QA contract. The three QA-01-R2 inconsistencies are closed, QA-02
+and QA-03 remain closed, every required local gate passes, the full programme
+range fits the integration lane grant, and no financial or external effect was
+introduced.
+
+The candidate is ready to become the immutable Phase 0 baseline after the
+integration owner confirms the still-running GitHub workflow completes
+successfully and performs the documented acceptance transition. This PASS does
+not itself merge the candidate, change lifecycle status, make PR #20 ready, or
+resolve any downstream Decision/ERC/OperatingProfile question.
+
+### QA-01-R3 — closed
+
+**Finding and proposal are distinct and stable**
+
+`workflow_cycle_runtime.py:294-339` now creates and retains a standalone
+`artifact_type: finding`, including its own ID, observation time, synthetic
+evidence summary, and empty effects. The decision proposal is a separate
+artifact and references only `finding_id`; the finding prose is no longer
+embedded as the proposal itself. `snapshot()` exposes `findings` separately
+from `decision_proposals`, `decisions`, and `consequence_receipts`
+(`:650-657`).
+
+The focused HTTP/runtime probe froze the first finding and proposal before
+resolution and confirmed both were unchanged afterward. The proposal continued
+to reference the separately exposed finding by ID. The committed runtime test
+asserts the same boundary and verifies both `effects` arrays are empty.
+
+**Resolver is explicit**
+
+`WorkflowCycleDecisionRequest` no longer supplies a resolver default
+(`duckdb_server.py:358-361`). An actual request without `resolver_id` returned
+HTTP 422. The browser presents a dedicated Resolver ID input, trims and checks
+it before making the request, focuses the field on failure, and sends the
+entered identifier (`index.html:723-725`; `labs.js:2926-2940`). No runtime or UI
+path retains the former generic `local-human-reviewer` value.
+
+This remains a local Development-profile asserted identity, not an
+authenticated production principal. That limitation is truthful and does not
+block this in-memory Phase 0 demonstration; authenticated resolver identity is
+required before the boundary is promoted beyond the local development surface.
+
+**Acceptance and manual resume agree**
+
+Resolving the proposal as `accepted` produced one separate decision and one
+separate consequence receipt. The decision retained the entered human resolver
+and `effects: []`. The receipt recorded `manual_resume_permitted`,
+`portfolio_effects: []`, and `external_effects: []`. The response remained
+`status: paused` with `running: false`.
+
+The browser action is now “Accept proposal” and contains no follow-up control
+request. A later, separate Start request changed the focused probe to
+`status: running`, matching the preview that the accepted decision merely
+permits manual resume. Repeated resolution of the same proposal remains
+rejected.
+
+### QA-02-R3 — remains closed
+
+The code-generated Agent path remains `synthetic_behavior_sample` across the
+request, preview, source context, result, UI, saved manifest, and retained input
+provenance. It records the selected scenario, `reviewed_fixture: false`, a
+`synthetic://` reference, no licensed-data use, and the warning that the sample
+is neither a reviewed fixture nor historical evidence. The application test
+still persists a temporary sample run and checks its actual manifest and
+provenance values.
+
+### QA-03-R3 — remains closed
+
+The integration lane still grants the Labs application and application-test
+paths assigned by P0-04. Independent calls to the committed lane validator
+returned:
+
+- visible synthesis range: ten changed-path records, zero violations;
+- R3 correction range `cfe4bc3..76651ea`: nine records, zero violations;
+- full programme range
+  `81660bd3d4be9c8fb6725e5836e7821f9947eb17..76651ea8a580832698e99e594581db9c12969dd4`:
+  twenty-nine records, zero violations.
+
+The independent-QA lane remains restricted to this exact handoff file. No
+specialist grant was broadened.
+
+### Reproduced verification
+
+- `PIP_NO_INDEX=1 make BOOTSTRAP_VENV=.venv-bootstrap-qa
+  DAY0_VENV=.venv-day0-qa verify-platform-phase0`: **PASS**, 25 tests.
+- `PIP_NO_INDEX=1 make DAY0_VENV=.venv-day0-qa test-application
+  test-architecture`: **PASS**, 96 application tests and 100 architecture
+  tests.
+- ServiceFabric application-package manifest hash check: **PASS**.
+- `node --check apps/portfolio-risk-workbench/labs/labs.js`: **PASS**.
+- Python compilation of `agent_studio.py`, `duckdb_server.py`, and
+  `workflow_cycle_runtime.py`: **PASS**.
+- `git diff --check`: **PASS**.
+- Focused in-memory FastAPI/TestClient and workflow-runtime probe: **PASS**.
+- Visible-synthesis, R3-correction, and complete-programme lane validation:
+  **PASS**, zero violations in every range.
+
+The QA virtual environments were copied from the integration worktree's pinned
+local environments and executed with `PIP_NO_INDEX=1`. The focused API probe
+created and deleted only an in-memory workflow-cycle session. No dependency
+network, licensed query, paid model call, private run folder, persisted runtime
+artifact, or external-effect system was used.
+
+### GitHub and lifecycle evidence
+
+The connected GitHub read confirmed PR #20 is open, draft, mergeable, and points
+at the exact reviewed head
+`76651ea8a580832698e99e594581db9c12969dd4`. At the final independent read:
+
+- `preparation` run 55: **success**;
+- `Day 0` run 59: **success**;
+- `Day 1 lifecycle` run 57: **success**;
+- `thesis-sprint` run 48: **success**;
+- `day23` run 44: **in progress**.
+
+The in-progress historical regression workflow is not a semantic defect
+in the reviewed candidate and therefore does not overturn the local PASS. It
+remains a mandatory integration acceptance gate: do not mark the PR ready,
+merge, or freeze the Phase 1 baseline unless it finishes successfully at this
+exact head.
+
+The integration handoff continues to expose all seven downstream unresolved
+decisions: `DEC-002`, `DEC-013`, `DEC-014`, `ERC-027`, portfolio-applied
+environment placement, cross-experiment ERC ancestry, and final
+`OperatingProfile` naming. This review does not reinterpret them. Each still
+blocks only its stated downstream surface.
+
+### Scope integrity and residual risk
+
+- The complete programme range contains no change under `private-data`,
+  `.agent-runs`, `state`, or committed fixture/data paths.
+- `vendor/servicefabric` remains pinned at
+  `7632b61d94a966346f95eb6c5bb2a5ea27f3bc14`.
+- No broker, order, trade, hedge, rebalance, optimization, portfolio mutation,
+  or new external-effect endpoint was introduced.
+- Workflow findings and proposals are ordinary in-memory mappings rather than
+  the future canonical Decision v1 family. The reviewed lifecycle does not
+  mutate them, API serialization isolates browser clients, and Phase 0 does not
+  claim registry durability. Canonical immutability and persistence remain
+  downstream work.
+- No independent browser automation or screenshot was performed in R3. The
+  interaction boundary was verified through rendered source, the actual
+  browser handler, committed application tests, and the HTTP/runtime probe;
+  integration's desktop and 740px visual evidence remains the visual record.
+- Development authoring controls remain fixed to the Development profile.
+  Server-side enforcement is still required before Experimental or Persistent
+  Research profiles become executable.
+
+### Changed path and rollback
+
+This final re-review changes only
+`docs/handoffs/platform-development/phase0-independent-qa.md`. Revert the
+documentation-only QA commit to roll it back. No implementation, vendor source,
+private data, generated artifact, workbook, runtime service, PR metadata, or
+external system was modified.
+
+### Acceptance recommendation
+
+Independent QA recommends **accepting candidate
+`76651ea8a580832698e99e594581db9c12969dd4` as the Phase 0 baseline** once the
+pending GitHub workflow is green at that exact SHA. Integration may then
+record the acceptance transition, update the lifecycle pointer, and make PR
+#20 ready according to its existing authority. Phase 1 must start from the
+resulting immutable accepted commit; this review grants no additional runtime,
+data, financial, or external-effect authority.
