@@ -70,6 +70,38 @@ button { color: inherit; }
 }
 .stage-status.warning { background: var(--amber-pale); color: var(--amber); }
 
+.runtime-truth-strip {
+  background: #102f35;
+  border-bottom: 1px solid #284b51;
+  color: white;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  position: sticky;
+  top: 72px;
+  z-index: 29;
+}
+.runtime-truth-strip > div {
+  border-left: 1px solid #284b51;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 16px;
+}
+.runtime-truth-strip > div:first-child { border-left: 0; }
+.runtime-truth-strip span {
+  color: #8fb9b7;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.runtime-truth-strip strong {
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .app-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: calc(100vh - 72px); }
 .workflow-rail {
   background: var(--navy);
@@ -1132,7 +1164,12 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
 .cycle-decision-panel span { color: #8c671f; font-size: 6px; font-weight: 800; text-transform: uppercase; }
 .cycle-decision-panel strong { font-size: 9px; max-width: 800px; }
 .cycle-decision-panel small { color: #776d59; font-size: 7px; }
-.cycle-decision-panel > div:last-child { display: flex; gap: 6px; }
+.cycle-decision-panel p { color: #665b48; font-size: 8px; margin: 2px 0 0; }
+.cycle-decision-panel ul { color: #776d59; display: grid; font-size: 7px; gap: 2px; margin: 4px 0 0; padding-left: 14px; }
+.cycle-decision-panel li strong { font-size: inherit; }
+.cycle-decision-panel > div:last-child { align-items: flex-end; display: flex; flex-wrap: wrap; gap: 6px; }
+.cycle-resolver-field { display: grid; gap: 2px; min-width: 170px; }
+.cycle-resolver-field input { font-size: 8px; min-height: 30px; }
 @media (max-width: 1180px) {
   .cycle-setup-panel { grid-template-columns: 1fr; }
   .cycle-console-bar { grid-template-columns: 1fr; }
@@ -1541,6 +1578,10 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
 
 @media (max-width: 760px) {
   .app-header { flex-wrap: wrap; height: auto; min-height: 72px; padding-bottom: 8px; padding-top: 8px; }
+  .runtime-truth-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); position: static; }
+  .runtime-truth-strip > div { border-bottom: 1px solid #284b51; padding: 7px 10px; }
+  .runtime-truth-strip > div:nth-child(odd) { border-left: 0; }
+  .runtime-truth-strip > div:nth-child(n+3) { border-bottom: 0; }
   .workspace-switcher { max-width: 100%; order: 3; width: 100%; }
   .workspace-tab { flex: 1 0 auto; }
   .lab-workspace { padding: 30px 16px 60px; }

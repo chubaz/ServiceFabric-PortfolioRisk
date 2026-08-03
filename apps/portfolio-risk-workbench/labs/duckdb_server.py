@@ -44,6 +44,7 @@ from agent_studio import (
     run_output_pass,
     risk_agent_templates,
     runtime_status,
+    synthetic_behavior_provenance,
 )
 from workflow_cycle_runtime import workflow_cycle_manager
 
@@ -53,6 +54,57 @@ SQL_AGENT_REASONING_EFFORT = "low"
 MAX_QUERY_ROWS = 10_000
 MAX_QUERY_COLUMNS = 200
 QUERY_TIMEOUT_SECONDS = 20
+
+LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
+    "profile": {
+        "id": "development",
+        "label": "Development",
+        "development_controls": True,
+    },
+    "external_effects": "disabled",
+    "views": {
+        "dataset.live": {
+            "data": "Licensed local historical data · query-specific point-in-time checks",
+            "authority": "Read-only · no synthetic fallback · external effects prohibited",
+            "persistence": "Unsaved browser result · CSV export is not published",
+        },
+        "dataset.synthetic": {
+            "data": "Synthetic behavior fixture · not empirical evidence",
+            "authority": "Read-only test path · external effects prohibited",
+            "persistence": "Unsaved browser result · not a registry asset",
+        },
+        "portfolio": {
+            "data": "Instrument origin shown in the builder · verify before use",
+            "authority": "Prototype constraints only · no mandate authority",
+            "persistence": "Browser-local draft · not published",
+        },
+        "agent.synthetic_behavior_sample": {
+            "data": "Synthetic behavior sample · exact input preview required",
+            "authority": "Findings and proposals only · effects none",
+            "persistence": "Temporary local run · deletable · not published",
+        },
+        "agent.real_duckdb": {
+            "data": "Licensed local historical data · point-in-time qualified per run",
+            "authority": "Model interpretation is effect-free · review required",
+            "persistence": "Temporary local run · deletable · rights restricted",
+        },
+        "graph": {
+            "data": "Browser-local agent drafts and registered catalogue previews",
+            "authority": "Compiled plan preview · not registered or executable",
+            "persistence": "Browser-local draft · not published",
+        },
+        "cycle": {
+            "data": "Mixed · licensed daily anchors + simulated seeded intraday",
+            "authority": "Findings and decision proposals only · effects none",
+            "persistence": "In-memory session · lost when the service restarts",
+        },
+        "full": {
+            "data": "Synthetic browser experiment · selected inputs must be inspected",
+            "authority": "Simulated PortfolioEvents only · external effects prohibited",
+            "persistence": "Unsaved browser state · not persistent",
+        },
+    },
+}
 
 # Luna receives a deliberately small, question-specific projection of the physical
 # catalog.  The Parquet files remain fully queryable by DuckDB, while routine model
@@ -276,7 +328,9 @@ class SqlOnlyPlan(BaseModel):
 
 
 class AgentInputPreviewRequest(BaseModel):
-    data_mode: Literal["synthetic_fixture", "real_duckdb"] = "synthetic_fixture"
+    data_mode: Literal["synthetic_behavior_sample", "real_duckdb"] = (
+        "synthetic_behavior_sample"
+    )
     scenario: Literal["routine", "concentration", "loss", "missing"] = "concentration"
     portfolio_id: str | None = Field(default=None, max_length=80)
     as_of: date | None = None
@@ -303,6 +357,8 @@ class WorkflowCycleControlRequest(BaseModel):
 
 class WorkflowCycleDecisionRequest(BaseModel):
     outcome: Literal["accepted", "investigate", "rejected"]
+    resolver_id: str = Field(min_length=3, max_length=120)
+    resolver_type: Literal["human"] = "human"
 
 
 class WorkflowCycleAgentAttachRequest(BaseModel):
@@ -1129,16 +1185,9 @@ app = FastAPI(
 def prepare_agent_input(
     request: AgentInputPreviewRequest,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    if request.data_mode == "synthetic_fixture":
+    if request.data_mode == "synthetic_behavior_sample":
         context = _scenario_context(request.scenario)
-        return context, {
-            "data_mode": "synthetic_fixture",
-            "label": f"SYNTHETIC FIXTURE · {request.scenario}",
-            "fixture": request.scenario,
-            "licensed_data_used": False,
-            "point_in_time": False,
-            "warning": "Values are deliberately synthetic and must not be interpreted as historical observations.",
-        }
+        return context, synthetic_behavior_provenance(request.scenario)
 
     if not request.portfolio_id or not request.as_of:
         raise HTTPException(
@@ -1489,6 +1538,7 @@ def health() -> dict[str, Any]:
         "raw_root": str(RAW_ROOT),
         "datasets": len(data_plane.catalog),
         "reviewed_portfolios": len(data_plane.portfolios),
+        "runtime_boundary": LAB_RUNTIME_BOUNDARY,
         "sql_agent": {
             "model": SQL_AGENT_MODEL,
             "reasoning_effort": SQL_AGENT_REASONING_EFFORT,
@@ -1594,18 +1644,30 @@ def control_workflow_cycle_session(
         raise HTTPException(status_code=422, detail=str(error)) from error
 
 
-@app.post("/api/workflow-cycle/sessions/{session_id}/decisions/{decision_id}")
-def resolve_workflow_cycle_decision(
+@app.post(
+    "/api/workflow-cycle/sessions/{session_id}/decision-proposals/{proposal_id}/resolve"
+)
+def resolve_workflow_cycle_decision_proposal(
     session_id: str,
-    decision_id: str,
+    proposal_id: str,
     request: WorkflowCycleDecisionRequest,
 ) -> dict[str, Any]:
     try:
         session = workflow_cycle_manager.get(session_id)
-        session.resolve_decision(decision_id, request.outcome)
+        session.resolve_proposal(
+            proposal_id,
+            request.outcome,
+            resolver_id=request.resolver_id,
+            resolver_type=request.resolver_type,
+        )
         return session.snapshot()
     except KeyError as error:
-        raise HTTPException(status_code=404, detail="session or decision not found") from error
+        raise HTTPException(
+            status_code=404,
+            detail="session or decision proposal not found",
+        ) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 @app.post("/api/workflow-cycle/sessions/{session_id}/agents")

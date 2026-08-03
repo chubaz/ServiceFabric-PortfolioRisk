@@ -243,7 +243,7 @@ verify-day1-current: day1-env
 
 .PHONY: verify-day1
 verify-day1: verify-wave-1c test-day1-journeys
-	if grep -q "^- ID: THESIS-" docs/workplans/current.md; then echo "Day 1 historical lifecycle is covered by regression tests; Thesis Sprint owns the active pointer"; else $(DAY1_PYTHON) scripts/day1/check_preparation.py; fi
+	if grep -q "^- ID: D1-" docs/workplans/current.md; then $(DAY1_PYTHON) scripts/day1/check_preparation.py; else echo "Day 1 historical lifecycle is covered by regression tests; a later programme owns the active pointer"; fi
 	$(DAY1_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
 	git diff --check
 	@echo "Day 1 verification: PASS"
@@ -414,9 +414,13 @@ verify-thesis-day1: \
   test-thesis-integration \
   test-thesis-journeys \
   check-thesis-day1-fixture-digests
-	test -n "$(THESIS_DAY1_LANE_BASE)" || { echo "ERROR: unable to resolve the Thesis Sprint control-plane commit" >&2; exit 1; }
-	git merge-base --is-ancestor "$(THESIS_DAY1_LANE_BASE)" "$(THESIS_DAY1_LANE_HEAD)" || { echo "ERROR: specialist candidate must descend from the Thesis Sprint control-plane commit" >&2; exit 1; }
-	$(THESIS_PYTHON) scripts/thesis/check_lane_paths.py --lane day1 --base "$(THESIS_DAY1_LANE_BASE)" --head "$(THESIS_DAY1_LANE_HEAD)" --manifest config/agent/thesis-sprint/lanes.json
+	@if grep -q "^- ID: THESIS-" docs/workplans/current.md; then \
+	  test -n "$(THESIS_DAY1_LANE_BASE)" || { echo "ERROR: unable to resolve the Thesis Sprint control-plane commit" >&2; exit 1; }; \
+	  git merge-base --is-ancestor "$(THESIS_DAY1_LANE_BASE)" "$(THESIS_DAY1_LANE_HEAD)" || { echo "ERROR: specialist candidate must descend from the Thesis Sprint control-plane commit" >&2; exit 1; }; \
+	  $(THESIS_PYTHON) scripts/thesis/check_lane_paths.py --lane day1 --base "$(THESIS_DAY1_LANE_BASE)" --head "$(THESIS_DAY1_LANE_HEAD)" --manifest config/agent/thesis-sprint/lanes.json; \
+	else \
+	  echo "Thesis Day 1 lane ownership is historical; a later programme owns the active pointer"; \
+	fi
 	git diff --check
 	@echo "Thesis Sprint Day 1 verification: PASS"
 
@@ -648,3 +652,9 @@ demo-thesis-day1: thesis-env
 	case "$(abspath $(THESIS_DATA_ROOT))" in "$(CURDIR)"|"$(CURDIR)"/*) echo "ERROR: THESIS_DATA_ROOT must remain outside Git" >&2; exit 1;; esac
 	mkdir -p "$(THESIS_DATA_ROOT)"
 	THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) "$(THESIS_DEMO)" --data-root "$(THESIS_DATA_ROOT)"
+
+.PHONY: verify-platform-phase0
+verify-platform-phase0: preflight day0-env
+	$(DAY0_PYTEST) tests/architecture/test_platform_development_control_plane.py tests/architecture/test_thesis_sprint_control_plane.py -q
+	git diff --check
+	@echo "Platform development Phase 0 control plane: PASS"

@@ -1,0 +1,73 @@
+{
+  "namespace": "platform-development",
+  "base_commit": "81660bd3d4be9c8fb6725e5836e7821f9947eb17",
+  "integration_order": [
+    "canonical-decisions",
+    "storage-runtime",
+    "ui-policy",
+    "integration",
+    "independent-qa"
+  ],
+  "waves": {
+    "activation": ["integration"],
+    "parallel-audit": ["canonical-decisions", "storage-runtime", "ui-policy"],
+    "synthesis": ["integration"],
+    "acceptance": ["independent-qa", "integration"]
+  },
+  "lanes": {
+    "integration": {
+      "branch": "integration/platform-development",
+      "allowed_directories": [
+        ".github",
+        "apps/portfolio-risk-workbench",
+        "config/agent/platform-development",
+        "docs/workplans/platform-development",
+        "docs/handoffs/platform-development",
+        "scripts/platform-development",
+        "tests/architecture",
+        "tests/application"
+      ],
+      "allowed_files": [
+        "AGENTS.md",
+        "Makefile",
+        "README.md",
+        "docs/workplans/current.md"
+      ]
+    },
+    "canonical-decisions": {
+      "branch": "feature/platform-p0-canonical-decisions",
+      "allowed_directories": [],
+      "allowed_files": [
+        "docs/handoffs/platform-development/phase0-canonical-decisions.md"
+      ]
+    },
+    "storage-runtime": {
+      "branch": "feature/platform-p0-storage-runtime",
+      "allowed_directories": [],
+      "allowed_files": [
+        "docs/handoffs/platform-development/phase0-storage-runtime.md"
+      ]
+    },
+    "ui-policy": {
+      "branch": "feature/platform-p0-ui-policy",
+      "allowed_directories": [],
+      "allowed_files": [
+        "docs/handoffs/platform-development/phase0-ui-policy.md"
+      ]
+    },
+    "independent-qa": {
+      "branch": "review/platform-p0-qa-r3",
+      "allowed_directories": [],
+      "allowed_files": [
+        "docs/handoffs/platform-development/phase0-independent-qa.md"
+      ]
+    }
+  },
+  "frozen_directories": ["vendor/servicefabric"],
+  "rules": {
+    "specialist_may_merge": false,
+    "specialist_work_is_read_only_except_exact_handoff": true,
+    "shared_contract_owner": "integration",
+    "generated_mutable_artifacts_are_external_to_git": true
+  }
+}

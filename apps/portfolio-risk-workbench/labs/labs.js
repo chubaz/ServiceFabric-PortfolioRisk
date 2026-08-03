@@ -202,12 +202,14 @@
     livePortfolios: [],
     liveCatalog: [],
     liveConnected: false,
+    runtimeBoundary: null,
+    activeWorkspace: "dataset",
     dataQueryResult: null,
     agentRuntime: null,
     riskAgentTemplates: null,
     agentBlueprint: null,
     agentCompile: null,
-    agentRunDataMode: "synthetic_fixture",
+    agentRunDataMode: "synthetic_behavior_sample",
     agentRunExecutionMode: "deterministic",
     agentInputPreview: null,
     agentRuns: [],
@@ -279,19 +281,40 @@
     ];
   }
 
+  function truthViewKey(name) {
+    if (name === "dataset") return `dataset.${$("#dataset-mode")?.value === "synthetic" ? "synthetic" : "live"}`;
+    if (name === "agent") return `agent.${labState.agentRunDataMode}`;
+    return name;
+  }
+
+  function renderRuntimeTruth(name = labState.activeWorkspace) {
+    const boundary = labState.runtimeBoundary;
+    if (!boundary) {
+      $("#truth-profile").textContent = "Local service unavailable";
+      $("#truth-data").textContent = "Origin not verified";
+      $("#truth-authority").textContent = "External effects prohibited";
+      $("#truth-persistence").textContent = "Persistence not established";
+      return;
+    }
+    const view = boundary.views?.[truthViewKey(name)] || {};
+    $("#truth-profile").textContent = boundary.profile?.label || "Unknown profile";
+    $("#truth-data").textContent = view.data || "Data origin unavailable";
+    $("#truth-authority").textContent = view.authority || `External effects ${boundary.external_effects || "unknown"}`;
+    $("#truth-persistence").textContent = view.persistence || "Persistence not declared";
+  }
+
   function switchWorkspace(name) {
+    labState.activeWorkspace = name;
     const full = name === "full";
     $("#lab-workspace").classList.toggle("hidden", full);
     $("#full-experiment-workspace").classList.toggle("hidden", !full);
     $$(".lab-page").forEach((page) => page.classList.toggle("active", page.id === `lab-${name}`));
-    $$(".workspace-tab").forEach((button) => button.classList.toggle("active", button.dataset.workspace === name));
-    $(".mode-badge").textContent = name === "dataset" && labState.liveConnected
-      ? "Local data · read-only"
-      : name === "agent"
-        ? "Agent laboratory · local"
-        : name === "cycle"
-          ? "Synthetic intraday · real close anchors"
-        : "Local research workbench";
+    $$(".workspace-tab").forEach((button) => {
+      const active = button.dataset.workspace === name;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-current", active ? "page" : "false");
+    });
+    renderRuntimeTruth(name);
     if (name === "dataset") populateDatasetPortfolios();
     if (name === "graph") refreshGraphAgents();
     if (name === "cycle") populateCyclePortfolios();
@@ -516,7 +539,7 @@
     const domains = $$("[data-dataset-domain]:checked")
       .map((input) => input.value)
       .filter((value) => ["market", "fundamental", "identity", "links"].includes(value));
-    if (!domains.length) throw new Error("Select at least one live dataset.");
+    if (!domains.length) throw new Error("Select at least one licensed dataset.");
     const request = {
       portfolio_id: portfolio.id,
       as_of: asOf,
@@ -531,7 +554,7 @@
       body: JSON.stringify(request),
     });
     const payload = await response.json();
-    if (!response.ok) throw new Error(payload.detail || `Live query failed with HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(payload.detail || `Licensed-data query failed with HTTP ${response.status}.`);
     const rows = payload.records.map((record) => ({
       identity: record.instrument_alias,
       domain: record.dataset,
@@ -545,9 +568,9 @@
     const eligible = payload.quality_counts.eligible || 0;
     const warnings = payload.quality_counts.fallback_date || 0;
     const missing = payload.quality_counts.missing || 0;
-    $("#dataset-result-title").textContent = `${payload.record_count} live records for ${portfolio.title}`;
+    $("#dataset-result-title").textContent = `${payload.record_count} licensed historical records for ${portfolio.title}`;
     $("#dataset-result-meta").innerHTML = `<span>${eligible} eligible</span><span>${warnings} availability fallbacks</span><span>${missing} missing</span><span>${payload.elapsed_ms} ms</span>`;
-    $("#dataset-query-status").textContent = missing ? "Live · gaps found" : warnings ? "Live · qualified" : "Live · complete";
+    $("#dataset-query-status").textContent = missing ? "Licensed · gaps found" : warnings ? "Licensed · qualified" : "Licensed · complete";
     $("#dataset-query-status").classList.toggle("warning", warnings + missing > 0);
     $("#dataset-trace").innerHTML = [
       `Resolved ${payload.position_count} approved aliases through the private CRSP mapping.`,
@@ -599,11 +622,11 @@
     } catch (error) {
       $("#dataset-query-status").textContent = "Connection required";
       $("#dataset-query-status").classList.add("warning");
-      $("#dataset-results-body").innerHTML = `<tr><td colspan="6"><strong>Live query unavailable.</strong><br>${escapeHtml(error.message)}</td></tr>`;
+      $("#dataset-results-body").innerHTML = `<tr><td colspan="6"><strong>Licensed-data query unavailable.</strong><br>${escapeHtml(error.message)}</td></tr>`;
       $("#dataset-trace").innerHTML = `<li>${escapeHtml(error.message)}</li><li>No synthetic fallback was used.</li>`;
     } finally {
       button.disabled = false;
-      button.textContent = $("#dataset-mode").value === "live" ? "Query live Parquet data" : "Run synthetic fixture";
+      button.textContent = $("#dataset-mode").value === "live" ? "Query licensed Parquet data" : "Run synthetic fixture";
     }
   }
 
@@ -618,10 +641,11 @@
     if (eventInput) eventInput.checked = !live;
     if (identityInput) identityInput.checked = live;
     $("#dataset-adapter-truth").textContent = live
-      ? (labState.liveConnected ? "Live DuckDB · read-only" : "DuckDB service required")
-      : "Explicit synthetic fixture";
-    $("#run-dataset-query").textContent = live ? "Query live Parquet data" : "Run synthetic fixture";
+      ? (labState.liveConnected ? "Licensed local data · read-only" : "DuckDB service required")
+      : "Synthetic behavior fixture";
+    $("#run-dataset-query").textContent = live ? "Query licensed Parquet data" : "Run synthetic fixture";
     populateDatasetPortfolios();
+    renderRuntimeTruth();
   }
 
   async function initializeLiveConnection() {
@@ -638,9 +662,7 @@
       const catalog = await catalogResponse.json();
       const portfolios = await portfoliosResponse.json();
       labState.liveConnected = health.status === "ok";
-      if ($("#lab-dataset").classList.contains("active")) {
-        $(".mode-badge").textContent = "Local data · read-only";
-      }
+      labState.runtimeBoundary = health.runtime_boundary || null;
       labState.liveCatalog = catalog.datasets;
       labState.livePortfolios = portfolios.portfolios.map((portfolio) => ({
         id: portfolio.portfolio_id,
@@ -664,8 +686,10 @@
       $("#duckdb-catalog").innerHTML = labState.liveCatalog.filter((item) => named.includes(item.dataset)).map((item) =>
         `<div><strong>${escapeHtml(item.dataset)}</strong><span>${Number(item.row_count).toLocaleString("en-US")} rows</span><small>${escapeHtml(item.minimum_date)} → ${escapeHtml(item.maximum_date)}</small></div>`).join("");
       configureDatasetMode();
+      renderRuntimeTruth();
     } catch (error) {
       labState.liveConnected = false;
+      labState.runtimeBoundary = null;
       $("#duckdb-connection-status").textContent = "Not connected";
       $("#duckdb-connection-status").className = "quality-missing";
       $("#duckdb-connection-copy").textContent = "Open this application through the local DuckDB service URL; file:// pages cannot call the API.";
@@ -677,6 +701,7 @@
       $("#dataset-query-status").classList.add("warning");
       populateAgentRunPortfolios();
       configureDatasetMode();
+      renderRuntimeTruth();
     }
   }
 
@@ -1900,11 +1925,12 @@
     $$("[data-agent-data-mode]").forEach((button) => button.classList.toggle("active", button.dataset.agentDataMode === mode));
     $$("[data-agent-run-mode-panel]").forEach((panel) => panel.classList.toggle("hidden", panel.dataset.agentRunModePanel !== mode));
     const real = mode === "real_duckdb";
-    $("#agent-run-mode-badge").textContent = real ? "New run · Real point-in-time data" : "New run · Synthetic fixture";
+    $("#agent-run-mode-badge").textContent = real ? "New run · Licensed point-in-time data" : "New run · Synthetic behavior sample";
     $("#agent-run-mode-badge").className = `run-mode-identity ${real ? "real" : "synthetic"}`;
     $("#agent-input-preview-status").textContent = "Preview not loaded";
     $("#agent-input-json").textContent = "{}";
     $("#agent-input-provenance").innerHTML = `<p>${real ? "Select a reviewed portfolio and as-of date, then load the exact DuckDB input." : "Select a named fixture, then load its deliberately synthetic values."}</p>`;
+    renderRuntimeTruth();
   }
 
   function setAgentRunExecutionMode(mode) {
@@ -1912,15 +1938,15 @@
     const live = mode === "live_llm";
     $$('[data-agent-execution-mode]').forEach((button) => button.classList.toggle("active", button.dataset.agentExecutionMode === mode));
     $("#agent-live-run-model-field").classList.toggle("hidden", !live);
-    $("#agent-run-status").textContent = live ? "Live call not run" : "Deterministic check not run";
-    $("#test-agent").textContent = live ? "Run live LLM and save" : "Run and save";
+    $("#agent-run-status").textContent = live ? "Model call not run" : "Deterministic check not run";
+    $("#test-agent").textContent = live ? "Run model and save" : "Run and save";
   }
 
   function renderAgentInputPreview(preview) {
     labState.agentInputPreview = preview;
     const provenance = preview.provenance || {};
     const real = provenance.data_mode === "real_duckdb";
-    $("#agent-input-preview-status").textContent = provenance.label || (real ? "Real input" : "Synthetic fixture");
+    $("#agent-input-preview-status").textContent = provenance.label || (real ? "Licensed historical input" : "Synthetic behavior sample");
     $("#agent-input-json").textContent = JSON.stringify(preview.context, null, 2);
     const chips = [
       `<span class="run-provenance-chip ${real ? "real" : "warning"}">${escapeHtml(provenance.label || provenance.data_mode)}</span>`,
@@ -2079,11 +2105,11 @@
       status_label: waiting ? "Awaiting human review" : uniqueLimitations.length ? "Completed with limitations" : "Review ready",
       tone: waiting ? "review" : uniqueLimitations.length ? "limited" : "complete",
       outcome_sought: outcomeSought,
-      premise: `Requested outcome: ${outcomeSought}. Data basis: ${real ? "point-in-time CRSP/Compustat records from local DuckDB" : `the named ${meta.scenario || "test"} synthetic fixture`}.`,
+      premise: `Requested outcome: ${outcomeSought}. Data basis: ${real ? "point-in-time CRSP/Compustat records from local DuckDB" : `the code-generated ${meta.scenario || "test"} behavior sample`}.`,
       portfolio: input.portfolio_name || input.portfolio_id || "Supplied portfolio",
       as_of: input.as_of_date || meta.as_of || "Not specified",
-      data_basis: real ? "Point-in-time CRSP/Compustat records from local DuckDB" : `Named synthetic fixture: ${meta.scenario || "test"}`,
-      execution_basis: meta.execution_mode === "live_llm" ? `Live OpenAI interpretation · ${meta.execution_model || "configured model"}` : "Deterministic LangGraph interpretation · no LLM call",
+      data_basis: real ? "Point-in-time CRSP/Compustat records from local DuckDB" : `Code-generated synthetic behavior sample: ${meta.scenario || "test"}`,
+      execution_basis: meta.execution_mode === "live_llm" ? `OpenAI model-backed interpretation · ${meta.execution_model || "configured model"}` : "Deterministic LangGraph interpretation · no LLM call",
       executive_conclusion: output.narrative || "No final narrative was produced.",
       observations: [
         { label: "Daily return", value: runPercentage(input.daily_return, 2), note: "Available point-in-time portfolio signal" },
@@ -2103,7 +2129,7 @@
   function runPremiseMarkup(presentation, meta = {}) {
     return `<article class="run-premise-card">
       <header><div><span>Outcome sought</span><strong>${escapeHtml(presentation.outcome_sought)}</strong></div><b>${escapeHtml(meta.data_label || presentation.data_basis)}</b></header>
-      <dl><div><dt>Portfolio</dt><dd>${escapeHtml(presentation.portfolio)}</dd></div><div><dt>As of</dt><dd>${escapeHtml(presentation.as_of)}</dd></div><div><dt>Output</dt><dd>${escapeHtml(meta.output_contract || "Review artifact")}</dd></div><div><dt>Execution</dt><dd>${escapeHtml(presentation.execution_basis || (meta.execution_mode === "live_llm" ? `Live LLM · ${meta.execution_model || "configured model"}` : "Deterministic · no LLM"))}</dd></div></dl>
+      <dl><div><dt>Portfolio</dt><dd>${escapeHtml(presentation.portfolio)}</dd></div><div><dt>As of</dt><dd>${escapeHtml(presentation.as_of)}</dd></div><div><dt>Output</dt><dd>${escapeHtml(meta.output_contract || "Review artifact")}</dd></div><div><dt>Execution</dt><dd>${escapeHtml(presentation.execution_basis || (meta.execution_mode === "live_llm" ? `Model call · ${meta.execution_model || "configured model"}` : "Deterministic · no LLM"))}</dd></div></dl>
       <p>The exact frozen input remains available above and in <strong>input.json</strong>; the conversation stays focused on the work and outcome.</p>
     </article>`;
   }
@@ -2154,7 +2180,7 @@
     const output = contents["output.json"] || {};
     const activity = contents["activity.json"] || [];
     const real = manifest.data_mode === "real_duckdb" || provenance.data_mode === "real_duckdb";
-    $("#agent-run-mode-badge").textContent = real ? "Viewing saved run · Real point-in-time data" : "Viewing saved run · Synthetic fixture";
+    $("#agent-run-mode-badge").textContent = real ? "Saved run · Licensed historical data" : "Saved run · Synthetic behavior sample";
     $("#agent-run-mode-badge").className = `run-mode-identity ${real ? "real" : "synthetic"}`;
     const presentation = output.presentation || buildRunPresentation(input, output, { ...manifest, purpose: blueprint.purpose }, provenance);
     $("#agent-run-chat").innerHTML = `
@@ -2180,9 +2206,9 @@
   function renderAgentRunRepository() {
     $("#agent-run-repository").innerHTML = labState.agentRuns.length ? labState.agentRuns.map((run) => `
       <button class="run-repository-item ${labState.selectedAgentRunId === run.run_id ? "active" : ""}" type="button" data-agent-run-id="${escapeHtml(run.run_id)}">
-        <b class="${run.data_mode === "real_duckdb" ? "real" : "synthetic"}">${run.data_mode === "real_duckdb" ? "Real data" : "Synthetic fixture"}</b>
+        <b class="${run.data_mode === "real_duckdb" ? "real" : "synthetic"}">${run.data_mode === "real_duckdb" ? "Licensed historical" : run.data_mode === "synthetic_behavior_sample" ? "Synthetic behavior sample" : "Legacy unversioned synthetic"}</b>
         <strong>${escapeHtml(run.agent_name)}</strong>
-        <span>${escapeHtml(run.created_at)} · ${escapeHtml(run.status)}${run.execution_mode === "live_llm" ? ` · live LLM` : " · deterministic"}</span>
+        <span>${escapeHtml(run.created_at)} · ${escapeHtml(run.status)}${run.execution_mode === "live_llm" ? ` · model call` : " · deterministic"}</span>
       </button>`).join("") : '<div class="empty-state">No saved agent runs.</div>';
   }
 
@@ -2771,13 +2797,16 @@
     const market = snapshot.market || {};
     const candles = market.candles?.portfolio || [];
     if (labState.cycleDashboardPage === "market") {
-      $("#cycle-dashboard-view").innerHTML = `<section class="cycle-page-intro"><span>Live market tape</span><p>Each completed candle contains sixty deterministic pseudo-random second updates. The current candle grows until the simulated minute closes.</p></section>${cycleCandleChart(candles)}${cyclePositionTable(market.positions || [])}`;
+      $("#cycle-dashboard-view").innerHTML = `<section class="cycle-page-intro"><span>Simulated market tape</span><p>Each completed candle contains sixty deterministic pseudo-random second updates. The current candle grows until the simulated minute closes.</p></section>${cycleCandleChart(candles)}${cyclePositionTable(market.positions || [])}`;
       return;
     }
     if (labState.cycleDashboardPage === "risk") {
-      const decisions = snapshot.decisions || [];
+      const findings = new Map((snapshot.findings || []).map((item) => [item.finding_id, item]));
+      const proposals = snapshot.decision_proposals || [];
+      const decisions = new Map((snapshot.decisions || []).map((item) => [item.proposal_id, item]));
+      const receipts = new Map((snapshot.consequence_receipts || []).map((item) => [item.proposal_id, item]));
       const history = snapshot.daily_history || [];
-      $("#cycle-dashboard-view").innerHTML = `${cycleMetricCards(snapshot)}<div class="cycle-risk-columns"><section><span>Decision queue</span>${decisions.length ? decisions.map((item) => `<article class="cycle-decision-card"><b>${escapeHtml(item.status)}</b><strong>${escapeHtml(item.finding)}</strong><small>${escapeHtml(cycleTimeLabel(item.as_of))}</small></article>`).join("") : '<div class="empty-state">No threshold has created a decision.</div>'}</section><section><span>Completed dates</span>${history.length ? history.map((item) => `<article class="cycle-history-row"><strong>${escapeHtml(item.date)}</strong><b class="${Number(item.return) < 0 ? "negative" : "positive"}">${runPercentage(item.return, 2)}</b><small>${escapeHtml(cycleMoney(item.close_nav))}</small></article>`).join("") : '<div class="empty-state">No simulated day has closed.</div>'}</section></div>`;
+      $("#cycle-dashboard-view").innerHTML = `${cycleMetricCards(snapshot)}<div class="cycle-risk-columns"><section><span>Decision proposals and resolutions</span>${proposals.length ? proposals.map((item) => { const finding = findings.get(item.finding_id); const decision = decisions.get(item.proposal_id); const receipt = receipts.get(item.proposal_id); return `<article class="cycle-decision-card"><b>${decision ? `resolved · ${escapeHtml(decision.outcome)}` : "awaiting human resolution"}</b><strong>${escapeHtml(finding?.summary || `Finding ${item.finding_id}`)}</strong><small>${decision ? `Resolver ${escapeHtml(decision.resolver?.resolver_id || "unknown")} · ${escapeHtml(receipt?.consequence || "No consequence receipt")}` : escapeHtml(cycleTimeLabel(item.as_of))}</small></article>`; }).join("") : '<div class="empty-state">No threshold finding has created a decision proposal.</div>'}</section><section><span>Completed dates</span>${history.length ? history.map((item) => `<article class="cycle-history-row"><strong>${escapeHtml(item.date)}</strong><b class="${Number(item.return) < 0 ? "negative" : "positive"}">${runPercentage(item.return, 2)}</b><small>${escapeHtml(cycleMoney(item.close_nav))}</small></article>`).join("") : '<div class="empty-state">No simulated day has closed.</div>'}</section></div>`;
       return;
     }
     if (labState.cycleDashboardPage === "agents") {
@@ -2789,7 +2818,7 @@
   }
 
   function renderCycleReport(report = {}) {
-    $("#cycle-report-title").textContent = report.title || "Live portfolio risk review";
+    $("#cycle-report-title").textContent = report.title || "Simulated portfolio risk review";
     $("#cycle-report-status").textContent = report.status || "Waiting";
     $("#cycle-report-sections").innerHTML = (report.sections || []).map((section) => `<article class="cycle-report-section ${section.section_id === "executive_signal" ? "lead" : ""}"><span>${escapeHtml(section.title)}</span>${section.content ? `<p>${escapeHtml(section.content)}</p>` : ""}${section.items?.length ? `<ul>${section.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}</article>`).join("");
   }
@@ -2822,11 +2851,15 @@
     renderCycleDashboard(snapshot);
     renderCycleReport(snapshot.report);
     renderCycleAgents(snapshot);
-    const decision = (snapshot.decisions || []).find((item) => item.status === "pending");
-    $("#cycle-decision-panel").classList.toggle("hidden", !decision);
-    if (decision) {
-      $("#cycle-decision-panel").dataset.decisionId = decision.decision_id;
-      $("#cycle-decision-finding").textContent = decision.finding;
+    const resolvedProposalIds = new Set((snapshot.decisions || []).map((item) => item.proposal_id));
+    const proposal = (snapshot.decision_proposals || []).find((item) => !resolvedProposalIds.has(item.proposal_id));
+    const finding = (snapshot.findings || []).find((item) => item.finding_id === proposal?.finding_id);
+    $("#cycle-decision-panel").classList.toggle("hidden", !proposal);
+    if (proposal) {
+      $("#cycle-decision-panel").dataset.proposalId = proposal.proposal_id;
+      $("#cycle-decision-finding").textContent = finding?.summary || `Finding ${proposal.finding_id}`;
+      $("#cycle-decision-question").textContent = proposal.question;
+      $("#cycle-decision-consequences").innerHTML = (proposal.options || []).map((option) => `<li><strong>${escapeHtml(option.label)}</strong> — ${escapeHtml(option.consequence)}</li>`).join("");
     }
   }
 
@@ -2891,15 +2924,19 @@
   }
 
   async function resolveCycleDecision(outcome) {
-    const decisionId = $("#cycle-decision-panel").dataset.decisionId;
-    if (!labState.cycleSessionId || !decisionId) return;
-    let snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}/decisions/${encodeURIComponent(decisionId)}`, {
-      method: "POST",
-      body: JSON.stringify({ outcome }),
-    });
-    if (outcome === "accepted") {
-      snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}/control`, { method: "POST", body: JSON.stringify({ action: "start" }) });
+    const proposalId = $("#cycle-decision-panel").dataset.proposalId;
+    if (!labState.cycleSessionId || !proposalId) return;
+    const resolverId = $("#cycle-decision-resolver").value.trim();
+    if (resolverId.length < 3) {
+      showToast("Enter a resolver ID before recording the decision.", "error");
+      $("#cycle-decision-resolver").focus();
+      return;
     }
+    const snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}/decision-proposals/${encodeURIComponent(proposalId)}/resolve`, {
+      method: "POST",
+      body: JSON.stringify({ outcome, resolver_id: resolverId, resolver_type: "human" }),
+    });
+    $("#cycle-decision-resolver").value = "";
     renderCycleSnapshot(snapshot);
   }
 
@@ -3445,7 +3482,7 @@
     renderSavedAgents();
     renderBasicBuilder();
     setAgentBuilderMode("basic");
-    setAgentRunDataMode("synthetic_fixture");
+    setAgentRunDataMode("synthetic_behavior_sample");
     setAgentRunExecutionMode("deterministic");
     populateAgentRunPortfolios();
     populateCyclePortfolios();

@@ -782,7 +782,9 @@ class CompileRequest(BaseModel):
 class RunRequest(BaseModel):
     blueprint: AgentBlueprint
     scenario: Literal["routine", "concentration", "loss", "missing"] = "concentration"
-    data_mode: Literal["synthetic_fixture", "real_duckdb"] = "synthetic_fixture"
+    data_mode: Literal["synthetic_behavior_sample", "real_duckdb"] = (
+        "synthetic_behavior_sample"
+    )
     execution_mode: Literal["deterministic", "live_llm"] = "deterministic"
     execution_model: Literal[
         "gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6", "gpt-5.4"
@@ -794,7 +796,7 @@ class RunRequest(BaseModel):
     datasets: list[str] = Field(default_factory=list, max_length=8)
     run_label: str | None = Field(default=None, max_length=120)
     persist_run: bool = True
-    auto_approve_review: bool = True
+    auto_approve_review: bool = False
 
 
 class OutputPassRunRequest(BaseModel):
@@ -3272,17 +3274,32 @@ def _scenario_context(scenario: str) -> dict[str, Any]:
             "base_currency": "USD",
             "positions": positions,
             "cash_balances": [{"currency": "USD", "amount": str(cash_value)}],
-            "source_id": "agent-studio-synthetic-fixture",
-            "source_type": "synthetic_fixture",
-            "source_reference": f"fixture://agent-studio/{scenario}",
-            "source_label": f"Named synthetic fixture: {scenario}",
+            "source_id": "agent-studio-synthetic-behavior-sample",
+            "source_type": "synthetic_behavior_sample",
+            "source_reference": f"synthetic://agent-studio/{scenario}",
+            "source_label": f"Generated synthetic behavior sample: {scenario}",
             "source_detail": (
                 "Used deliberately synthetic positions, prices and cash supplied by "
-                "the selected named fixture."
+                "a code-defined scenario. This is not a reviewed fixture."
             ),
             "evidence_id": f"synthetic-evidence:{scenario}:2008-09-15",
         },
         **contexts[scenario],
+    }
+
+
+def synthetic_behavior_provenance(scenario: str) -> dict[str, Any]:
+    return {
+        "data_mode": "synthetic_behavior_sample",
+        "label": f"SYNTHETIC BEHAVIOR SAMPLE · {scenario}",
+        "scenario": scenario,
+        "licensed_data_used": False,
+        "point_in_time": False,
+        "reviewed_fixture": False,
+        "warning": (
+            "Values are generated in code for behavior testing and must not be "
+            "interpreted as a reviewed fixture or historical observation."
+        ),
     }
 
 
@@ -3966,7 +3983,7 @@ def _run_presentation(result: dict[str, Any]) -> dict[str, Any]:
     data_basis = (
         "Point-in-time CRSP/Compustat records from local DuckDB"
         if real_data
-        else f"Named synthetic fixture: {result.get('scenario', 'test')}"
+        else f"Code-generated synthetic behavior sample: {result.get('scenario', 'test')}"
     )
     review_boundary = (
         "The isolated test automatically released the graph's review interrupt. "
@@ -3987,7 +4004,7 @@ def _run_presentation(result: dict[str, Any]) -> dict[str, Any]:
         "as_of": context.get("as_of_date") or result.get("as_of") or "Not specified",
         "data_basis": data_basis,
         "execution_basis": (
-            f"Live OpenAI interpretation · {result.get('execution_model')}"
+            f"OpenAI model-backed interpretation · {result.get('execution_model')}"
             if result.get("execution_mode") == "live_llm"
             else "Deterministic LangGraph interpretation · no LLM call"
         ),
@@ -4127,6 +4144,7 @@ def _persist_run(result: dict[str, Any]) -> dict[str, Any]:
                 "human_review": output["review"],
                 "interrupted": result["interrupted"],
                 "auto_approved": result["auto_approved"],
+                "checkpoint_release": result["checkpoint_release"],
             }
         ),
         "review-brief.md": _review_brief(result),
@@ -4157,6 +4175,10 @@ def _persist_run(result: dict[str, Any]) -> dict[str, Any]:
         "as_of": result.get("as_of"),
         "created_at": result["created_at"],
         "elapsed_ms": result["elapsed_ms"],
+        "operating_profile": result["operating_profile"],
+        "authority_boundary": result["authority_boundary"],
+        "external_effects": result["external_effects"],
+        "persistence_class": result["persistence_class"],
         "folder": str(directory),
         "files": files,
     }
@@ -4261,8 +4283,11 @@ def run_blueprint(request: RunRequest) -> dict[str, Any]:
                 Command(
                     resume={
                         "approved": True,
-                        "reviewer": "Agent Studio isolated test",
-                        "note": "Automatically approved for isolated execution only.",
+                        "reviewer": "test_harness",
+                        "note": (
+                            "Review checkpoint released by the effect-free isolated "
+                            "test harness; this is not human approval."
+                        ),
                     }
                 ),
                 config,
@@ -4288,8 +4313,9 @@ def run_blueprint(request: RunRequest) -> dict[str, Any]:
         "data_label": (
             "REAL · point-in-time DuckDB / CRSP-Compustat"
             if request.data_mode == "real_duckdb"
-            else f"SYNTHETIC FIXTURE · {request.scenario}"
+            else f"SYNTHETIC BEHAVIOR SAMPLE · {request.scenario}"
         ),
+        "scenario": request.scenario,
         "input_context": input_context,
         "input_provenance": request.input_provenance,
         "assignment_summary": request.run_label or request.blueprint.purpose,
@@ -4307,6 +4333,26 @@ def run_blueprint(request: RunRequest) -> dict[str, Any]:
         "interrupted": interrupted,
         "interrupt_payload": interrupt_payload,
         "auto_approved": interrupted and request.auto_approve_review,
+        "checkpoint_release": {
+            "released": interrupted and request.auto_approve_review,
+            "actor_type": (
+                "test_harness"
+                if interrupted and request.auto_approve_review
+                else None
+            ),
+            "status": (
+                "review_checkpoint_released_for_test"
+                if interrupted and request.auto_approve_review
+                else "not_released"
+            ),
+            "human_approval": False,
+        },
+        "operating_profile": "development",
+        "authority_boundary": "findings_and_proposals_only",
+        "external_effects": [],
+        "persistence_class": (
+            "temporary_local_run" if request.persist_run else "response_only"
+        ),
         "trace": final.get("trace", []),
         "final_state": {
             key: value
