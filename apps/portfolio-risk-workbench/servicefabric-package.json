@@ -304,6 +304,50 @@
     {
       "path": "templates/monitoring_runs.html",
       "sha256": "172daa44843530f2aaa58d26b7d69b1b04880d9f6ee7bbac26faf0efdc752ee2"
+    },
+    {
+      "path": "labs/README.md",
+      "sha256": "c8201032426988c256fd447890f4e9a7a7a52e4c118ff7a2d43357aa581056ed"
+    },
+    {
+      "path": "labs/agent_studio.py",
+      "sha256": "bbd928e2b3ce94a8e2dfe59662a0c7b2d7aadc9ea202f65b5503897cc551c943"
+    },
+    {
+      "path": "labs/app.js",
+      "sha256": "a1c90b2af2c460af3cdfc04ca4afa8b046321decb378c163c97d7637fd93f56e"
+    },
+    {
+      "path": "labs/duckdb_server.py",
+      "sha256": "4055cf8009f8783826a3f37328eda7a6486006980d3bc7449c9edcaab4e1e933"
+    },
+    {
+      "path": "labs/index.html",
+      "sha256": "08dd05e530f1f9a34d936ebb99fc2cbe89c58425eca9391404af8ae9656be19a"
+    },
+    {
+      "path": "labs/labs.js",
+      "sha256": "1b9fe3428fecf6fbe69a3f18ed58a44e496152fccff2b0f1b79ee523669cc03c"
+    },
+    {
+      "path": "labs/start_live_data.sh",
+      "sha256": "05188380ef79e3262115bbeffc5bdb99060a6833226d3476332b3bb61d12de20"
+    },
+    {
+      "path": "labs/styles.css",
+      "sha256": "6988ef25673876f73c6c1a092289e32143df139a749122935398b13fdfdee812"
+    },
+    {
+      "path": "labs/workflow_cycle_runtime.py",
+      "sha256": "0a7e2d7388145059eb3f40693ae24339e9a68c08bfb5670a46eedc0300c489b7"
+    },
+    {
+      "path": "labs/DEVELOPMENT_ROADMAP.md",
+      "sha256": "8fc20ead8cc1b5211803a043e28faa8a11b1b5b7832429c5fd004ffd75c32841"
+    },
+    {
+      "path": "labs/EXTERNAL_ADAPTERS_DISCUSSION_BRIEF.md",
+      "sha256": "8b2328361d9db0da1fb207fc88c5481530271d2ab2b41d2f331c11d6f6e08dc1"
     }
   ],
   "declared_resources": {

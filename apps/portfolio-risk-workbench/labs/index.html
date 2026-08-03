@@ -1,0 +1,1309 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive workbench for constructing and replaying portfolio-risk experiments.">
+  <title>Portfolio Replay Lab</title>
+  <script>
+    if (window.location.protocol === "file:") {
+      const liveAgentLab = "http://127.0.0.1:8766/?workspace=agent";
+      window.location.replace(liveAgentLab);
+      window.addEventListener("DOMContentLoaded", () => {
+        if (window.location.protocol !== "file:") return;
+        document.body.innerHTML = `<main style="font:16px/1.5 system-ui;max-width:680px;margin:12vh auto;padding:32px">
+          <h1>This application needs its local service</h1>
+          <p>The disk copy cannot query DuckDB, compile LangGraph, or call the Agent Design Advisor.</p>
+          <p><a href="${liveAgentLab}" style="display:inline-block;background:#123f48;color:white;padding:12px 18px;border-radius:8px;text-decoration:none">Open the live Agent Lab</a></p>
+          <small>If the link does not open, start the local service first.</small>
+        </main>`;
+      });
+    }
+  </script>
+  <link rel="stylesheet" href="./styles.css?v=11">
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="#experiment" aria-label="Portfolio Replay Lab home">
+      <span class="brand-mark">PR</span>
+      <span><strong>Portfolio Replay Lab</strong><small>Build the context. Then test the agents.</small></span>
+    </a>
+    <nav class="workspace-switcher" aria-label="Independent laboratories">
+      <button class="workspace-tab active" type="button" data-workspace="dataset">Database</button>
+      <button class="workspace-tab" type="button" data-workspace="portfolio">Portfolio</button>
+      <button class="workspace-tab" type="button" data-workspace="agent">Agent</button>
+      <button class="workspace-tab" type="button" data-workspace="graph">Agent graph</button>
+      <button class="workspace-tab" type="button" data-workspace="cycle">Live cycle</button>
+      <button class="workspace-tab" type="button" data-workspace="full">Full experiment</button>
+    </nav>
+    <div class="header-actions">
+      <span class="mode-badge">Local research workbench</span>
+      <button class="button ghost" id="open-system-map" type="button">View complete system map</button>
+    </div>
+  </header>
+
+  <main class="lab-workspace" id="lab-workspace">
+    <section class="lab-page active" id="lab-dataset" aria-labelledby="lab-dataset-title">
+      <div class="lab-heading data-lab-heading">
+        <div><span class="eyebrow">Database</span><h1 id="lab-dataset-title">Ask the data</h1><p>Describe the table you need.</p></div>
+        <span class="stage-status" id="dataset-query-status">Checking</span>
+      </div>
+
+      <section class="data-query-studio" aria-label="Natural-language database query">
+        <form class="data-query-form" id="data-query-form">
+          <label for="data-query-question" class="sr-only">Describe the data to retrieve</label>
+          <input id="data-query-question" type="text" maxlength="1000" autocomplete="off" placeholder="Show the 25 largest companies by assets in 2023" required>
+          <button class="data-query-run" id="data-query-run" type="submit">Run</button>
+        </form>
+        <div class="data-query-meta">
+          <span id="data-query-agent">Luna · low</span>
+          <span>Read-only</span>
+          <span>10,000 rows · 200 columns max</span>
+        </div>
+        <div class="data-query-message" id="data-query-message">Ready</div>
+        <section class="data-query-result hidden" id="data-query-result" aria-live="polite">
+          <header>
+            <div><strong id="data-query-title">Results</strong><span id="data-query-result-meta"></span></div>
+            <button class="button ghost" id="data-query-export" type="button">Export CSV</button>
+          </header>
+          <div class="data-grid-wrap">
+            <table class="data-grid" id="data-query-table"><thead></thead><tbody></tbody></table>
+          </div>
+          <details class="data-query-sql"><summary>SQL</summary><pre id="data-query-sql"></pre></details>
+        </section>
+      </section>
+
+      <details class="position-query-disclosure">
+        <summary>Portfolio query</summary>
+        <div class="position-query-body">
+        <div class="lab-split">
+        <section class="lab-panel">
+          <div class="panel-heading"><div><span class="panel-label">Query definition</span><h2>Position-driven request</h2></div><span class="truth-chip" id="dataset-adapter-truth">Connecting to DuckDB</span></div>
+          <div class="lab-form-grid">
+            <label class="field"><span>Portfolio</span><select id="dataset-portfolio"></select><small>Queries are restricted to the selected portfolio’s positions.</small></label>
+            <label class="field"><span>As-of date</span><input id="dataset-as-of" type="date" value="2024-04-15"></label>
+            <label class="field"><span>Data source</span><select id="dataset-mode"><option value="live">Live CRSP / Compustat via DuckDB</option><option value="synthetic">Explicit synthetic test fixture</option></select></label>
+            <label class="field" id="dataset-scenario-field"><span>Synthetic scenario</span><select id="dataset-scenario"><option value="complete">Complete coverage</option><option value="stale">Stale fundamentals</option><option value="missing">Missing events and one price</option><option value="shock">Market shock day</option></select><small>Used only when the synthetic source is selected.</small></label>
+          </div>
+          <fieldset class="domain-picker">
+            <legend>Datasets to query</legend>
+            <label><input type="checkbox" value="market" data-dataset-domain checked> Market observations</label>
+            <label><input type="checkbox" value="fundamental" data-dataset-domain checked> Fundamentals</label>
+            <label id="live-identity-domain"><input type="checkbox" value="identity" data-dataset-domain checked> Security identity</label>
+            <label id="live-links-domain"><input type="checkbox" value="links" data-dataset-domain> CRSP–Compustat links</label>
+            <label id="synthetic-event-domain"><input type="checkbox" value="event" data-dataset-domain> Synthetic events</label>
+          </fieldset>
+          <div class="action-row"><button class="button primary" id="run-dataset-query" type="button">Query live Parquet data</button><span class="action-hint">Read-only, position-filtered, row-limited local query. No arbitrary browser SQL and no agent execution.</span></div>
+        </section>
+        <aside class="lab-panel trace-panel">
+          <div class="connection-heading"><span class="panel-label">Live connection</span><span class="quality-warning" id="duckdb-connection-status">Checking</span></div>
+          <p class="connection-copy" id="duckdb-connection-copy">Checking the local DuckDB service and Parquet catalog.</p>
+          <div class="catalog-mini" id="duckdb-catalog"></div>
+          <span class="panel-label">Execution trace</span>
+          <ol class="trace-list" id="dataset-trace"><li>Waiting for a query.</li></ol>
+          <details><summary>Capability request</summary><pre id="dataset-request-json">{}</pre></details>
+        </aside>
+      </div>
+      <section class="lab-panel lab-results">
+        <div class="panel-heading"><div><span class="panel-label">Eligible records</span><h2 id="dataset-result-title">Run a query to inspect records</h2></div><div class="result-meta" id="dataset-result-meta"></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Position</th><th>Dataset</th><th>Observed</th><th>Available</th><th>Value / finding</th><th>Quality</th></tr></thead><tbody id="dataset-results-body"><tr><td colspan="6">No query has run.</td></tr></tbody></table></div>
+      </section>
+        </div>
+      </details>
+    </section>
+
+    <section class="lab-page" id="lab-portfolio" aria-labelledby="lab-portfolio-title">
+      <div class="lab-heading">
+        <div><span class="eyebrow">Independent component 02</span><h1 id="lab-portfolio-title">Build a portfolio from the available universe</h1><p>Move from asset class to region, sector, industry and instrument. The builder calculates weights, checks mandate limits, and saves reviewed drafts on this device.</p></div>
+        <span class="stage-status" id="portfolio-builder-status">Unsaved</span>
+      </div>
+      <div class="builder-layout">
+        <section class="lab-panel">
+          <div class="panel-heading"><div><span class="panel-label">Instrument finder</span><h2>Hierarchical selection</h2></div><span class="truth-chip">Approved aliases only</span></div>
+          <div class="builder-fields">
+            <label class="field"><span>1 · Asset class</span><select id="builder-asset"></select></label>
+            <label class="field"><span>2 · Region</span><select id="builder-region"></select></label>
+            <label class="field"><span>3 · Sector</span><select id="builder-sector"></select></label>
+            <label class="field"><span>4 · Industry</span><select id="builder-industry"></select></label>
+            <label class="field"><span>5 · Instrument</span><select id="builder-instrument"></select></label>
+            <label class="field"><span>Quantity</span><input id="builder-quantity" type="number" min="1" step="1" value="100000"></label>
+          </div>
+          <button class="button primary btn-block" id="builder-add-position" type="button">Add selected instrument</button>
+          <div class="selection-detail" id="builder-instrument-detail"></div>
+        </section>
+        <section class="lab-panel builder-portfolio-panel">
+          <div class="panel-heading"><div><span class="panel-label">PortfolioDefinition candidate</span><h2>Positions and cash</h2></div><span id="builder-total-value">—</span></div>
+          <div class="lab-form-grid">
+            <label class="field"><span>Portfolio name</span><input id="builder-name" value="My research portfolio"></label>
+            <label class="field"><span>Opening cash (USD)</span><input id="builder-cash" type="number" min="0" step="1000" value="5000000"></label>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>Instrument</th><th>Quantity</th><th>Price</th><th>Weight</th><th></th></tr></thead><tbody id="builder-holdings-body"></tbody></table></div>
+        </section>
+        <aside class="lab-panel builder-review-panel">
+          <span class="panel-label">Mandate check</span>
+          <div class="compact-controls">
+            <label class="field"><span>Maximum position</span><div class="input-with-unit"><input id="builder-max-position" type="number" min="1" max="100" step=".5" value="25"><b>%</b></div></label>
+            <label class="field"><span>Minimum cash</span><div class="input-with-unit"><input id="builder-min-cash" type="number" min="0" max="100" step=".5" value="5"><b>%</b></div></label>
+          </div>
+          <div id="builder-mandate-result"></div>
+          <div class="builder-actions"><button class="button primary" id="save-portfolio" type="button">Save reviewed draft</button><button class="button ghost" id="use-portfolio-experiment" type="button">Use in full experiment</button></div>
+          <div class="saved-list"><strong>Saved portfolios</strong><div id="saved-portfolios"></div></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="lab-page" id="lab-agent" aria-labelledby="lab-agent-title">
+      <div class="lab-heading agent-lab-heading">
+        <div><span class="eyebrow">Independent component 03 · Structured Agent Lab</span><h1 id="lab-agent-title">Design a specialised agent from description to executable contract.</h1><p>Describe each characteristic in ordinary language, select its bounded technical policy, and let the compiler transform the complete specification into LangGraph. The optional design advisor critiques the blueprint without silently changing it.</p></div>
+        <div class="agent-heading-actions"><span class="stage-status" id="agent-builder-status">Draft</span><button class="button ghost" id="toggle-agent-advisor" type="button" aria-controls="agent-advisor" aria-expanded="false">Open design advisor</button></div>
+      </div>
+
+      <section class="agent-runtime-strip" aria-label="Agent runtime status">
+        <div><span class="runtime-dot checking" id="agent-langgraph-dot"></span><strong>LangGraph compiler</strong><small id="agent-langgraph-status">Checking local runtime</small></div>
+        <div><span class="runtime-dot checking" id="agent-openai-dot"></span><strong>OpenAI blueprint services</strong><small id="agent-openai-status">Checking server credential</small></div>
+        <div><span class="runtime-dot"></span><strong>Design contract</strong><small>Descriptive fields → typed policies → executable agent</small></div>
+        <span class="truth-chip" id="agent-framework-truth">Loading runtime</span>
+      </section>
+
+      <nav class="agent-builder-modebar" aria-label="Agent builder detail level">
+        <div>
+          <span class="panel-label">Agent Builder v2</span>
+          <strong>One agent, three levels of control</strong>
+          <small>Every view edits the same executable blueprint.</small>
+        </div>
+        <div class="mode-switch" role="tablist">
+          <button class="active" type="button" data-agent-builder-mode="basic">Basic</button>
+          <button type="button" data-agent-builder-mode="professional">Professional</button>
+          <button type="button" data-agent-builder-mode="advanced">Advanced manifest</button>
+        </div>
+      </nav>
+
+      <section class="agent-basic-builder" id="agent-basic-builder">
+        <nav class="basic-agent-stepper" aria-label="Agent creation steps">
+          <button class="active" type="button" data-basic-agent-step="outcome"><span>1</span><b>Outcome</b><small>Purpose and recipe</small></button>
+          <button type="button" data-basic-agent-step="scope"><span>2</span><b>Scope</b><small>Trigger and boundary</small></button>
+          <button type="button" data-basic-agent-step="context"><span>3</span><b>Context</b><small>Information and tools</small></button>
+          <button type="button" data-basic-agent-step="output"><span>4</span><b>Output</b><small>Artifact and authority</small></button>
+          <button type="button" data-basic-agent-step="test"><span>5</span><b>Test</b><small>Review and save</small></button>
+        </nav>
+
+        <div class="basic-agent-layout">
+          <div class="basic-agent-main">
+            <section class="basic-agent-panel active" data-basic-agent-panel="outcome">
+              <div class="basic-step-heading"><span>01 · Outcome</span><h2>What should be different when this agent finishes?</h2><p>Start from a governed recipe or describe the job. Both produce the same reviewable blueprint.</p></div>
+              <details class="basic-step-guide"><summary>Understand this step and every option</summary><div><p><strong>Recipe</strong> supplies a coherent starting pattern: prompts, state, routing, capabilities, governance and output design. Selecting one does not publish an agent; it creates an editable draft.</p><p><strong>Agent name</strong> identifies a reusable job, not a single run. <strong>Observable outcome</strong> describes the artifact or change a reviewer can verify after completion. Prefer “create a cited Event Risk Brief” over personality instructions such as “be a brilliant analyst.”</p><p><strong>Draft with AI</strong> compiles the description into the existing strict blueprint. It can suggest registered options but cannot enable portfolio effects or unknown capabilities.</p></div></details>
+              <div class="basic-recipe-grid" id="basic-agent-recipes"></div>
+              <div class="basic-description-box">
+                <label class="field wide"><span>Describe the job</span><textarea id="basic-agent-description" rows="5" placeholder="Monitor eligible events about portfolio holdings and create a cited review brief. Never change the portfolio."></textarea></label>
+                <button class="button primary" id="basic-generate-agent" type="button">Draft with AI</button>
+              </div>
+              <div class="basic-two-fields">
+                <label class="field"><span>Agent name</span><input id="basic-agent-name"></label>
+                <label class="field"><span>Observable outcome</span><textarea id="basic-agent-outcome" rows="3"></textarea></label>
+              </div>
+            </section>
+
+            <section class="basic-agent-panel" data-basic-agent-panel="scope">
+              <div class="basic-step-heading"><span>02 · Trigger and scope</span><h2>When does it run, and what may it work on?</h2><p>The current prototype records these invocation rules for the workflow. Scheduling remains controlled by the workflow runtime.</p></div>
+              <details class="basic-step-guide"><summary>Understand triggers, scope, time and duplicate handling</summary><div><p><strong>Trigger</strong> describes who starts the assignment: a person, workflow cycle, eligible event, or schedule. It does not grant authority. <strong>Scope</strong> limits the portfolio, experiment or dataset the assignment may address.</p><p><strong>As-of rule</strong> is the information boundary. Workflow date suits periodic replay; event availability time prevents an event agent from seeing information before ingestion; assignment time is useful for manually commissioned analysis.</p><p><strong>Duplicate handling</strong> makes repeated delivery safe. It identifies when two requests should resolve to the same logical piece of work instead of creating duplicate reviews.</p></div></details>
+              <div class="basic-step-copilot"><label class="field"><span>Describe the trigger and boundary in words</span><textarea rows="3" data-basic-step-intent="scope" placeholder="Run for each eligible event, use only information available when it was ingested, and create one review per event and portfolio snapshot."></textarea></label><button class="button ghost" type="button" data-generate-basic-step="scope">Prepare scope with AI</button></div>
+              <div class="basic-two-fields">
+                <label class="field"><span>Trigger</span><select id="basic-agent-trigger"><option value="manual">Manual run</option><option value="workflow" selected>Workflow cycle</option><option value="event">Eligible event</option><option value="scheduled">Schedule</option></select></label>
+                <label class="field"><span>Scope</span><select id="basic-agent-scope"><option value="selected_portfolio" selected>Portfolio selected at run time</option><option value="current_experiment">Current experiment portfolio</option><option value="dataset_revision">Selected dataset revision</option></select></label>
+                <label class="field"><span>As-of rule</span><select id="basic-agent-as-of"><option value="workflow_date" selected>Workflow date</option><option value="event_available_at">Event availability time</option><option value="assignment_as_of">Assignment as-of time</option></select></label>
+                <label class="field"><span>Duplicate handling</span><select id="basic-agent-dedup"><option value="assignment_and_snapshot" selected>Assignment + portfolio snapshot</option><option value="event_and_snapshot">Event + portfolio snapshot</option><option value="one_per_workflow_cycle">One result per workflow cycle</option></select></label>
+              </div>
+              <div class="basic-compiled-note"><span>Compiled boundary</span><p id="basic-scope-summary"></p></div>
+            </section>
+
+            <section class="basic-agent-panel" data-basic-agent-panel="context">
+              <div class="basic-step-heading"><span>03 · Context and capabilities</span><h2>Which reviewed information and operations may it use?</h2><p>Packs are named presets over the existing input contract and capability latches.</p></div>
+              <details class="basic-step-guide"><summary>Understand context and capability packs</summary><div><p><strong>Context Pack</strong> controls which reviewed information is supplied and under which point-in-time boundary. It is the agent’s readable evidence envelope—not unrestricted database access.</p><p><strong>Capability Pack</strong> is the allow-list of registered operations the agent may request. Market data reads observations; risk metrics reads deterministic MetricPack values; portfolio exposure calculates concentration; scenario stress applies bounded shocks; event retrieval reads eligible events; the evidence critic checks claims.</p><p>A capability permits an operation but never grants portfolio authority. Advanced mode exposes invocation conditions, output bindings, requirements and failure policies for every latch.</p></div></details>
+              <div class="basic-step-copilot"><label class="field"><span>Describe the information and operations needed</span><textarea rows="3" data-basic-step-intent="context" placeholder="Use the frozen portfolio, mandate, point-in-time market observations and eligible events. Calculate exposure and require an evidence check."></textarea></label><button class="button ghost" type="button" data-generate-basic-step="context">Prepare context with AI</button></div>
+              <div class="basic-two-fields">
+                <label class="field"><span>Context pack</span><select id="basic-agent-context-pack"><option value="morning_risk_context">Morning risk context</option><option value="portfolio_event_review">Portfolio event review</option><option value="portfolio_context">Portfolio context only</option><option value="specialist_output_review">Specialist output review</option></select></label>
+                <label class="field"><span>Capability pack</span><select id="basic-agent-capability-pack"><option value="daily_risk_review">Daily risk review</option><option value="portfolio_event_triage">Portfolio event triage</option><option value="market_risk_summary">Market risk summary</option><option value="concentration_review">Concentration review</option><option value="evidence_validation">Evidence validation</option></select></label>
+              </div>
+              <div class="basic-pack-preview"><span>Granted operations</span><div id="basic-capability-preview"></div></div>
+              <button class="text-button basic-open-advanced" type="button" data-open-agent-section="capabilities">Adjust individual capabilities in Advanced</button>
+            </section>
+
+            <section class="basic-agent-panel" data-basic-agent-panel="output">
+              <div class="basic-step-heading"><span>04 · Output and authority</span><h2>What must it return, and where must it stop?</h2><p>The rendered artifact stays machine-readable underneath. Portfolio effects remain locked off.</p></div>
+              <details class="basic-step-guide"><summary>Understand output contracts and authority</summary><div><p><strong>Risk Review Draft</strong> is a human-facing decision-support review. <strong>Specialist Interpretation</strong> is a bounded analytical contribution. <strong>Evidence Critique</strong> audits claims and temporal eligibility. <strong>Capability Request</strong> records why the current grants are insufficient without inventing a tool.</p><p><strong>A1</strong> drafts from supplied context and uses only evidence validation. <strong>A2</strong> may call the displayed effect-free analytical capabilities. Both stop at human review and both permanently deny trading, hedging, rebalancing, broker contact and portfolio mutation.</p><p>Selecting an Output Contract regenerates a matching strict schema. Advanced mode can then define fields, validations, rendering, charts, tables and multi-pass assembly.</p></div></details>
+              <div class="basic-step-copilot"><label class="field"><span>Describe the finished artifact in words</span><textarea rows="3" data-basic-step-intent="output" placeholder="Return a concise cited brief with affected holdings, relevance, risk channels, uncertainties and review actions."></textarea></label><button class="button ghost" type="button" data-generate-basic-step="output">Prepare output with AI</button></div>
+              <div class="basic-two-fields">
+                <label class="field"><span>Output contract</span><select id="basic-agent-output"><option value="RiskReviewDraft">Risk Review Draft</option><option value="SpecialistInterpretation">Specialist Interpretation</option><option value="EvidenceCritique">Evidence Critique</option><option value="CapabilityRequest">Capability Request</option></select></label>
+                <label class="field"><span>Authority profile</span><select id="basic-agent-authority"><option value="A2" selected>A2 · analytical tools and draft</option><option value="A1">A1 · draft from supplied context</option></select></label>
+              </div>
+              <div class="basic-authority-card">
+                <div><span id="basic-authority-level">A2</span><strong id="basic-authority-title">Effect-free analysis and draft</strong><p id="basic-authority-copy"></p></div>
+                <ul><li>Evidence required</li><li>Portfolio effects denied</li><li id="basic-review-boundary">Human review required</li></ul>
+              </div>
+              <div class="basic-output-preview" id="basic-output-preview"></div>
+              <button class="text-button basic-open-advanced" type="button" data-open-agent-section="structured-output">Design the detailed Structured Output</button>
+            </section>
+
+            <section class="basic-agent-panel" data-basic-agent-panel="test">
+              <div class="basic-step-heading"><span>05 · Test and save</span><h2>Is this version safe and useful on representative cases?</h2><p>A quick gate checks the contract, an ordinary case, a failure boundary, and an adversarial evidence case.</p></div>
+              <details class="basic-step-guide"><summary>Understand validation, testing and saved runs</summary><div><p><strong>Validate</strong> checks schema coherence, capability allow-lists, prompt variables, state, routing, output production and locked effects. It does not judge analytical usefulness.</p><p><strong>Representative test</strong> checks normal work. <strong>Failure boundary</strong> checks missing evidence and abstention or escalation. <strong>Adversarial test</strong> confirms untrusted content cannot alter governance. A quick pass supports iteration; historical replay and reviewer thresholds are still required for research certification.</p><p>The Run Review page distinguishes synthetic fixtures from real DuckDB data, freezes the exact input, records the work log and stores every output in a run-specific local folder.</p></div></details>
+              <div class="basic-step-copilot"><label class="field"><span>Describe the safety and review behavior</span><textarea rows="3" data-basic-step-intent="test" placeholder="Require evidence for every material claim, abstain when issuer mapping is ambiguous, and always stop for human review."></textarea></label><button class="button ghost" type="button" data-generate-basic-step="test">Prepare governance with AI</button></div>
+              <div class="basic-test-cases">
+                <div><i>1</i><span><strong>Representative</strong><small>Concentration breach with complete evidence</small></span><b data-basic-test-state="normal">Ready</b></div>
+                <div><i>2</i><span><strong>Failure boundary</strong><small>Required evidence is missing</small></span><b data-basic-test-state="failure">Ready</b></div>
+                <div><i>3</i><span><strong>Adversarial</strong><small>Untrusted text cannot alter governance</small></span><b data-basic-test-state="adversarial">Policy check</b></div>
+              </div>
+              <div class="basic-test-actions">
+                <button class="button ghost" id="basic-validate-agent" type="button">Validate blueprint</button>
+                <button class="button primary" id="basic-test-agent" type="button">Compile and run test</button>
+                <button class="button ghost" id="basic-save-agent" type="button">Save draft</button>
+              </div>
+              <div class="basic-test-result" id="basic-test-result"><span>Not tested</span><p>The agent remains a local draft until validation and testing succeed.</p></div>
+            </section>
+          </div>
+
+          <aside class="basic-agent-preview">
+            <div class="basic-preview-heading"><span class="panel-label">Live Agent Card</span><b id="basic-preview-version">Draft · recipe defaults</b></div>
+            <h2 id="basic-preview-name">Daily Portfolio Risk Reviewer</h2>
+            <p id="basic-preview-outcome"></p>
+            <dl>
+              <div><dt>Starts</dt><dd id="basic-preview-trigger"></dd></div>
+              <div><dt>Receives</dt><dd id="basic-preview-context"></dd></div>
+              <div><dt>Can use</dt><dd id="basic-preview-capabilities"></dd></div>
+              <div><dt>Returns</dt><dd id="basic-preview-output"></dd></div>
+              <div><dt>Authority</dt><dd id="basic-preview-authority"></dd></div>
+            </dl>
+            <div class="basic-policy-lock"><strong>Locked policy</strong><span>No order, trade, hedge, rebalance, broker contact, or portfolio mutation.</span></div>
+            <div class="basic-provenance"><span>Field provenance</span><div><i class="user"></i>User</div><div><i class="recipe"></i>Recipe</div><div><i class="policy"></i>Policy</div><div><i class="derived"></i>Derived</div></div>
+            <button class="button ghost btn-block" id="basic-inspect-manifest" type="button">Inspect advanced manifest</button>
+          </aside>
+        </div>
+      </section>
+
+      <section class="lab-panel agent-description-launcher">
+        <div><span class="panel-label">Describe the whole agent</span><h2>Start with the desired result</h2><p>OpenAI can recursively populate every section below: routing, memory, governance, state, capability latches, instructions, Prompt Messages, and PromptTemplate.</p></div>
+        <label class="field wide"><span>Agent design brief</span><textarea id="agent-description" rows="6">Create a Daily Portfolio Risk Reviewer. It receives a point-in-time assignment and frozen source data, parameterizes the permitted exposure and risk capabilities, assembles the Overall Default Context from their validated results, drafts a clear narrative explaining portfolio-risk effects, checks every claim against evidence, and pauses for human approval. It must never change the portfolio.</textarea></label>
+        <div class="llm-plan-row">
+          <label class="field"><span>Blueprint planner</span><select id="agent-model"><option value="gpt-5.6-terra">GPT-5.6 Terra · fast structured design</option><option value="gpt-5.6-sol">GPT-5.6 Sol · deepest design</option><option value="gpt-5.6">GPT-5.6 alias</option><option value="gpt-5.4">GPT-5.4 · baseline</option></select></label>
+          <button class="button primary" id="generate-agent-blueprint" type="button">Transform description into complete blueprint</button>
+        </div>
+        <p class="boundary-note"><strong>Safe transformation:</strong> the model returns schema-validated configuration only. It cannot add unregistered capabilities, execute code, expose credentials, or enable portfolio effects.</p>
+      </section>
+
+      <div class="agent-design-layout">
+        <section class="agent-recursive-form">
+          <details class="agent-config-section" open data-agent-section="identity">
+            <summary><span>01</span><div><strong>Identity and contracts</strong><small>Who the agent is, what it receives, and what it must produce.</small></div><b>Required</b></summary>
+            <div class="agent-section-body">
+              <div class="lab-form-grid">
+                <label class="field"><span>Agent name</span><input id="agent-name" value="Daily Portfolio Risk Reviewer"></label>
+                <label class="field"><span>Model</span><select id="agent-config-model"><option value="gpt-5.6-terra">GPT-5.6 Terra</option><option value="gpt-5.6-sol">GPT-5.6 Sol</option><option value="gpt-5.6">GPT-5.6 alias</option><option value="gpt-5.4">GPT-5.4</option></select></label>
+                <label class="field"><span>Interpretation context contract</span><select id="agent-input"><option>PortfolioContext</option><option>RiskContext</option><option selected>OverallDefaultContext</option><option>SpecialistOutputBundle</option></select><small>The runtime may assemble this contract from frozen source data and capability results before the model receives it.</small></label>
+                <label class="field"><span>Output contract</span><select id="agent-output"><option>SpecialistInterpretation</option><option selected>RiskReviewDraft</option><option>EvidenceCritique</option><option>CapabilityRequest</option></select></label>
+              </div>
+              <label class="field wide"><span>Purpose description</span><textarea id="agent-purpose" rows="3">Interpret the deterministic daily portfolio risk context and prepare a clear, evidence-grounded review for a human portfolio manager.</textarea><small>Explain the business responsibility rather than the implementation.</small></label>
+            </div>
+          </details>
+
+          <details class="agent-config-section" open data-agent-section="instructions">
+            <summary><span>02</span><div><strong>Instructions creation</strong><small>Outcome, completion bar, constraints, stopping rules, and narrative behaviour.</small></div><b>Recursive</b></summary>
+            <div class="agent-section-body">
+              <label class="field wide"><span>Primary objective</span><textarea id="agent-objective" rows="3">Produce a review that explains the portfolio's material risk state using only point-in-time deterministic context.</textarea></label>
+              <div class="instruction-grid">
+                <label class="field"><span>Success criteria · one per line</span><textarea id="agent-success-criteria" rows="5">Identify material threshold breaches
+Explain changes using supplied metrics
+Cite the evidence category for every material claim
+Produce a review ready for human decision</textarea></label>
+                <label class="field"><span>Constraints · one per line</span><textarea id="agent-constraints" rows="5">Do not calculate unprovided financial metrics
+Do not infer unavailable causal evidence
+Do not create or apply portfolio effects
+Distinguish observations from interpretation</textarea></label>
+                <label class="field"><span>Stopping conditions · one per line</span><textarea id="agent-stopping-conditions" rows="5">Required evidence has been checked
+The typed output contract is complete
+Any material uncertainty is disclosed
+Human approval is requested when required</textarea></label>
+              </div>
+              <label class="field wide"><span>Narrative style</span><textarea id="agent-narrative-style" rows="3">Write a concise but substantive portfolio-manager review: lead with the risk conclusion, explain the evidence, identify mandate relevance, disclose uncertainty, and finish with the required human decision.</textarea></label>
+              <div class="compiled-instruction-preview"><span>Compiled instruction contract</span><pre id="agent-instructions-preview"></pre></div>
+            </div>
+          </details>
+
+          <details class="agent-config-section" open data-agent-section="prompts">
+            <summary><span>03</span><div><strong>Prompt Messages and PromptTemplate</strong><small>Ordered messages, variable bindings, and required output guidance.</small></div><b id="agent-prompt-count">0 messages</b></summary>
+            <div class="agent-section-body">
+              <div class="section-subheading"><div><strong>Prompt Message stack</strong><small>Messages are rendered in order after the compiled instruction contract.</small></div><button class="text-button" id="add-agent-prompt-message" type="button">+ Add Prompt Message</button></div>
+              <div class="prompt-message-list" id="agent-prompt-messages"></div>
+              <div class="prompt-template-box">
+                <div class="section-subheading"><div><strong>PromptTemplate</strong><small>Use single-brace variables such as {issue}. They must be declared below.</small></div><span class="truth-chip">Strict rendering</span></div>
+                <label class="field wide"><span>Template</span><textarea id="agent-prompt-template" rows="7">Review the portfolio as of {as_of_date}.
+
+Material issue: {issue}
+Daily return: {daily_return}
+Historical VaR: {var_95}
+Largest position: {largest_weight}
+Evidence state: {evidence_state}</textarea></label>
+                <div class="lab-form-grid">
+                  <div class="field wide prompt-variable-field"><span>Available template variables</span><div class="prompt-variable-picker" id="agent-prompt-variable-picker"></div><small>Select or deselect the values that may be inserted into the PromptTemplate. Selected names can be used as {variable_name}.</small></div>
+                  <label class="field"><span>Missing variable policy</span><select id="agent-prompt-missing-policy"><option value="fail">Fail validation</option><option value="preserve_placeholder">Preserve placeholder</option><option value="empty">Replace with empty text</option></select></label>
+                </div>
+                <label class="field wide"><span>Output-format instruction</span><textarea id="agent-output-format-instruction" rows="3">Return the RiskReviewDraft contract with a narrative conclusion, evidence references, uncertainties, human-review requirement, and an empty effects list.</textarea></label>
+                <div class="compiled-instruction-preview"><span>Rendered synthetic preview</span><pre id="agent-prompt-preview"></pre></div>
+              </div>
+            </div>
+          </details>
+
+          <details class="agent-config-section" open data-agent-section="state">
+            <summary><span>04</span><div><strong>State management</strong><small>Named state fields, ownership, requirements, and update reducers.</small></div><b id="agent-state-count">0 fields</b></summary>
+            <div class="agent-section-body">
+              <label class="field wide"><span>State-management description</span><textarea id="agent-state-description" rows="3">Carry frozen point-in-time source data through capability preparation, assemble the immutable Overall Default Context after calculation, append capability evidence, replace the current narrative revision, and retain review status until the workflow cycle ends.</textarea></label>
+              <div class="section-subheading"><div><strong>Typed state fields</strong><small>Each field explains what LangGraph nodes may read or update.</small></div><button class="text-button" id="add-agent-state-field" type="button">+ Add state field</button></div>
+              <div class="state-field-list" id="agent-state-fields"></div>
+            </div>
+          </details>
+
+          <details class="agent-config-section" open data-agent-section="routing">
+            <summary><span>05</span><div><strong>Routing conditions</strong><small>How descriptions become bounded branches, revisions, escalation, and termination.</small></div><b>Compiled policy</b></summary>
+            <div class="agent-section-body">
+              <label class="field wide"><span>Routing description</span><textarea id="agent-routing-description" rows="3">Gather evidence before drafting, critique every material claim, revise once when evidence presentation is incomplete, and pause for a human whenever a mandate breach or material uncertainty exists.</textarea></label>
+              <div class="lab-form-grid">
+                <label class="field"><span>Routing strategy</span><select id="agent-pattern"><option value="human_review">Evidence review → human interrupt</option><option value="reflection">Draft → critique → revise</option><option value="tool_loop">Capabilities → draft → critique</option><option value="direct">Capabilities → direct output</option></select></label>
+                <label class="field"><span>Missing-evidence route</span><select id="agent-missing-evidence-route"><option value="human_review">Pause for human review</option><option value="revise">Revise once</option><option value="abstain">Abstain</option></select></label>
+                <label class="field"><span>Maximum iterations</span><select id="agent-max-iterations"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
+              </div>
+              <div class="routing-condition-grid">
+                <label class="field"><span>Entry condition</span><textarea id="agent-entry-condition" rows="3">A point-in-time assignment and its frozen source data are available; OverallDefaultContext will be assembled after the required capabilities complete.</textarea></label>
+                <label class="field"><span>Revision condition</span><textarea id="agent-revision-condition" rows="3">The evidence critic finds an unsupported or insufficiently qualified material claim.</textarea></label>
+                <label class="field"><span>Escalation condition</span><textarea id="agent-escalation-condition" rows="3">A mandate threshold is breached, evidence is missing, or the output proposes a decision.</textarea></label>
+                <label class="field"><span>Stop condition</span><textarea id="agent-stop-condition" rows="3">The output contract passes validation and any required human review has completed.</textarea></label>
+              </div>
+            </div>
+          </details>
+
+          <details class="agent-config-section" open data-agent-section="memory">
+            <summary><span>06</span><div><strong>Memory rules</strong><small>Checkpoint scope, remembered state, retention, and compaction.</small></div><b>Explicit scope</b></summary>
+            <div class="agent-section-body">
+              <label class="field wide"><span>Memory description</span><textarea id="agent-memory-description" rows="3">Remember evidence, critique, narrative revision and review state only within the current workflow cycle. Do not carry conclusions across historical dates.</textarea></label>
+              <div class="lab-form-grid">
+                <label class="field"><span>Memory scope</span><select id="agent-memory-scope"><option value="workflow_cycle">Current workflow cycle</option><option value="experiment">Experiment</option><option value="session">Authoring session</option><option value="none">None</option></select></label>
+                <label class="field"><span>Checkpoint</span><select id="agent-memory"><option value="in_memory">In-memory LangGraph checkpoint</option><option value="none">No checkpoint</option></select></label>
+                <label class="field"><span>Remember state fields · comma separated</span><input id="agent-remember-fields" value="capability_results, narrative, critique, review"></label>
+              </div>
+              <label class="field wide"><span>Retention rule</span><textarea id="agent-retention-rule" rows="3">Retain checkpoints until the current workflow-cycle review is resolved, then preserve only the immutable run receipt and typed output.</textarea></label>
+              <label class="field wide"><span>Compaction rule</span><textarea id="agent-compaction-rule" rows="3">If iterations exceed the configured limit, keep the latest narrative, critic findings, evidence references, unresolved uncertainties, and review status.</textarea></label>
+            </div>
+          </details>
+
+          <details class="agent-config-section" open data-agent-section="capabilities">
+            <summary><span>07</span><div><strong>Tools and capability latching</strong><small>What can be called, when it may be called, where results bind, and how failure behaves.</small></div><b id="agent-capability-count">0 latched</b></summary>
+            <div class="agent-section-body"><div class="capability-latch-list" id="agent-capabilities"></div></div>
+          </details>
+
+          <details class="agent-config-section" open data-agent-section="governance">
+            <summary><span>08</span><div><strong>Governance and abstention</strong><small>Evidence, approval, prohibited actions, and safe failure behaviour.</small></div><b>No effects</b></summary>
+            <div class="agent-section-body">
+              <label class="field wide"><span>Governance description</span><textarea id="agent-governance-description" rows="3">The agent is an interpretation and drafting component. It must ground material claims, disclose missing evidence, request human approval, and never mutate the portfolio.</textarea></label>
+              <div class="governance-controls">
+                <label><input id="agent-evidence-required" type="checkbox" checked> Evidence required</label>
+                <label><input id="agent-human-review" type="checkbox" checked> Human approval required</label>
+                <label class="locked"><input type="checkbox" disabled> Portfolio effects <b>always prohibited</b></label>
+              </div>
+              <label class="field wide"><span>Abstention rule</span><textarea id="agent-abstention-rule" rows="3">Abstain from causal attribution or a decision recommendation when required evidence is unavailable, stale, contradictory, or outside the point-in-time boundary.</textarea></label>
+              <label class="field wide"><span>Prohibited actions · one per line</span><textarea id="agent-prohibited-actions" rows="4">Execute a trade
+Modify portfolio holdings or cash
+Change a mandate threshold
+Invent a metric or evidence source
+Use information unavailable at the workflow date</textarea></label>
+            </div>
+          </details>
+
+          <details class="agent-config-section" open data-agent-section="structured-output">
+            <summary><span>09</span><div><strong>Structured Output design</strong><small>The exact typed artifact this agent incrementally produces.</small></div><b id="agent-output-field-count">0 fields</b></summary>
+            <div class="agent-section-body">
+              <div class="lab-form-grid">
+                <label class="field"><span>Schema name</span><input id="agent-structured-output-name" value="portfolio_risk_review_artifact"></label>
+                <label class="field"><span>Rendering target</span><select id="agent-output-rendering-target"><option value="mixed_artifact">Mixed narrative + visual artifact</option><option value="html_dashboard">HTML dashboard</option><option value="markdown_document">Markdown document</option><option value="json">JSON only</option></select></label>
+                <label class="field"><span>Versioning</span><select id="agent-output-versioning"><option value="snapshot_and_final">Snapshot every pass + final</option><option value="snapshot_each_pass">Snapshot every pass</option><option value="final_only">Final artifact only</option></select></label>
+                <label class="review-test-toggle locked"><input type="checkbox" checked disabled><span>Strict schema · additional properties prohibited</span></label>
+              </div>
+              <label class="field wide"><span>Output purpose</span><textarea id="agent-structured-output-description" rows="3">A strictly typed, evidence-grounded agent result. It begins with one primary field; add fields only when the output genuinely needs separate narrative, data, visual or decision components.</textarea></label>
+              <div class="output-presentation-designer">
+                <div class="section-subheading"><div><strong>Presentation and rendering</strong><small>Describe the finished result as a reader should experience it; supporting controls refine that intent.</small></div><span class="truth-chip">Advanced</span></div>
+                <label class="field wide intent-field"><span>How should the finished output look and feel?</span><textarea id="agent-presentation-description" rows="5">Create a clear, restrained portfolio-manager report with an executive conclusion first, strong section hierarchy, compact evidence tables, legible charts and a final decision area. It should feel analytical rather than promotional.</textarea></label>
+                <div class="attribute-list core-attributes">
+                  <label class="field important-attribute"><span>Composition</span><select id="agent-output-composition"><option value="sectioned_report">Sectioned report</option><option value="single_narrative">Single narrative</option><option value="dashboard">Dashboard</option><option value="report_and_dashboard" selected>Report + dashboard</option><option value="data_product">Data product</option></select></label>
+                  <label class="field"><span>Information density</span><select id="agent-output-density"><option value="spacious">Spacious</option><option value="balanced" selected>Balanced</option><option value="dense">Dense</option></select></label>
+                  <label class="field important-attribute"><span>Tone</span><input id="agent-output-tone" value="Analytical, calm, precise and decision-oriented"></label>
+                </div>
+                <label class="field wide intent-field"><span>Visual hierarchy</span><textarea id="agent-output-visual-hierarchy" rows="2">Lead with the conclusion and review status, then evidence, visual analysis, methodology, results and recommendations.</textarea></label>
+                <details class="optional-attribute-panel">
+                  <summary>Fine presentation controls <small>Typography, colour, responsive layout, charts, tables, HTML and accessibility</small></summary>
+                  <div class="satellite-attribute-grid">
+                    <label class="field"><span>Typography direction</span><input id="agent-output-typography" value="Readable editorial headings with compact neutral body text"></label>
+                    <label class="field"><span>Colour direction</span><input id="agent-output-color" value="Restrained navy and teal with amber reserved for review warnings"></label>
+                    <label class="field"><span>Responsive behaviour</span><textarea id="agent-output-responsive" rows="2">Collapse columns into a linear reading order while preserving tables through horizontal scrolling.</textarea></label>
+                  </div>
+                  <div class="presentation-policy-grid">
+                    <label class="field"><span>Chart policy</span><textarea id="agent-output-chart-policy" rows="3">Use the smallest chart that answers the question; label units, dates, thresholds and evidence sources directly.</textarea></label>
+                    <label class="field"><span>Table policy</span><textarea id="agent-output-table-policy" rows="3">Keep columns decision-relevant, align numeric precision and show unavailable values explicitly.</textarea></label>
+                    <label class="field"><span>HTML policy</span><textarea id="agent-output-html-policy" rows="3">Generate semantic sandboxable HTML without scripts, external resources or execution controls.</textarea></label>
+                  </div>
+                  <label class="field wide"><span>Accessibility requirements · one per line</span><textarea id="agent-output-accessibility" rows="3">Do not rely on colour alone
+Provide text alternatives for every visual
+Maintain readable contrast and keyboard-safe structure</textarea></label>
+                  <label class="field wide intent-field"><span>Detailed rendering instructions</span><textarea id="agent-output-rendering-instructions" rows="3">Render each accepted field in schema order. Keep evidence references adjacent to the claims or visuals they support and preserve unresolved uncertainty in the final composition.</textarea></label>
+                </details>
+              </div>
+              <label class="field wide"><span>Completion rule</span><textarea id="agent-output-completion-rule" rows="2">Every declared field has passed its producing pass and final validation; missing evidence is represented explicitly rather than omitted.</textarea></label>
+              <label class="field wide"><span>Final quality gate</span><textarea id="agent-output-quality-gate" rows="2">All material claims reference supplied evidence, visual specifications agree with underlying values, and no output implies an executed portfolio effect.</textarea></label>
+              <div class="section-subheading"><div><strong>Typed output fields</strong><small>Begin with one field, or apply the concise risk-report structure and edit its sections.</small></div><div><button class="text-button" id="apply-concise-report" type="button">Use concise risk report</button><button class="text-button" id="add-agent-output-field" type="button">+ Add output field</button></div></div>
+              <div class="output-field-list" id="agent-output-fields"></div>
+            </div>
+          </details>
+
+          <details class="agent-config-section" open data-agent-section="assembly">
+            <summary><span>10</span><div><strong>Multi-pass output assembly</strong><small>Repeated bounded runs of the same agent fill one persistent artifact.</small></div><b id="agent-output-pass-count">0 passes</b></summary>
+            <div class="agent-section-body">
+              <label class="field wide"><span>Assembly description</span><textarea id="agent-assembly-description" rows="3">Build the review cumulatively across specialised passes so each run has a narrow objective and token budget while preserving previously accepted sections.</textarea></label>
+              <div class="lab-form-grid">
+                <label class="field"><span>Strategy</span><select id="agent-assembly-strategy"><option value="sequential_section_build">Sequential section build</option><option value="iterative_refinement">Iterative refinement</option><option value="map_reduce_sections">Parallel sections then synthesis</option></select></label>
+                <label class="field"><span>Total output-token ceiling</span><input id="agent-assembly-token-budget" type="number" min="1000" max="120000" step="1000" value="32000"></label>
+                <label class="review-test-toggle"><input id="agent-assembly-stop-failure" type="checkbox" checked><span>Stop when a pass fails its quality gate</span></label>
+                <label class="review-test-toggle"><input id="agent-assembly-human-between" type="checkbox"><span>Human review between every pass</span></label>
+              </div>
+              <label class="field wide"><span>Carry-forward rule</span><textarea id="agent-assembly-carry-rule" rows="2">Carry accepted fields forward unchanged; send only the current pass, relevant evidence, and selected prior fields to the next run.</textarea></label>
+              <label class="field wide"><span>Finalisation rule</span><textarea id="agent-assembly-final-rule" rows="2">After the last pass, validate the complete schema, cross-check narrative and visual values, surface unresolved quality notes, and request final human approval.</textarea></label>
+              <div class="section-subheading"><div><strong>Repeated run plan</strong><small>Each pass targets named output fields and has its own context policy and token budget.</small></div><button class="text-button" id="add-agent-output-pass" type="button">+ Add pass</button></div>
+              <div class="output-pass-list" id="agent-output-passes"></div>
+            </div>
+          </details>
+
+          <details class="agent-config-section" data-agent-section="reliability">
+            <summary><span>11</span><div><strong>Reliability and runtime</strong><small>Retries, timeout, and isolated execution controls.</small></div><b>Bounded</b></summary>
+            <div class="agent-section-body">
+              <div class="lab-form-grid">
+                <label class="field"><span>Retry attempts</span><select id="agent-retries"><option>0</option><option selected>1</option><option>2</option><option>3</option></select></label>
+                <label class="field"><span>Timeout</span><select id="agent-timeout"><option value="20">20 seconds</option><option value="45" selected>45 seconds</option><option value="90">90 seconds</option><option value="180">180 seconds</option></select></label>
+              </div>
+            </div>
+          </details>
+
+          <div class="agent-author-actions lab-panel">
+            <button class="button ghost" id="validate-agent-blueprint" type="button">Validate complete blueprint</button>
+            <button class="button primary" id="compile-agent" type="button">Compile executable agent</button>
+            <button class="button ghost" id="save-agent" type="button">Save agent definition</button>
+          </div>
+        </section>
+
+        <aside class="lab-panel agent-inspector-panel">
+          <div class="panel-heading"><div><span class="panel-label">Live specification</span><h2>Blueprint completeness</h2></div><span class="readiness" id="agent-blueprint-status">Draft</span></div>
+          <div class="agent-contract-flow" id="agent-contract-flow"></div>
+          <div id="agent-validation-summary" class="validation-summary"><span>Not validated</span><small>Every section updates the same compiler contract.</small></div>
+          <div class="agent-section-readiness" id="agent-section-readiness"></div>
+          <details class="blueprint-json-details"><summary>Inspect structured blueprint</summary><pre class="agent-json" id="agent-blueprint-json"></pre></details>
+          <div class="saved-list"><strong>Agent library</strong><div id="saved-agents"></div></div>
+        </aside>
+      </div>
+
+      <section class="lab-panel agent-build-output">
+        <div class="agent-output-tabs" role="tablist">
+          <button class="active" type="button" data-agent-output-tab="code">Generated LangGraph Python</button>
+          <button type="button" data-agent-output-tab="checks">Compile checks</button>
+          <button type="button" data-agent-output-tab="run">Isolated run</button>
+          <button type="button" data-agent-output-tab="assembly">Artifact assembly</button>
+        </div>
+        <div class="agent-output-view active" id="agent-output-code">
+          <div class="output-toolbar"><p>The deterministic compiler projects the descriptive blueprint into code. OpenAI never returns executable Python.</p><button class="text-button" id="copy-agent-code" type="button">Copy code</button></div>
+          <pre class="agent-code"><code id="agent-generated-code">Validate and compile the blueprint to generate inspectable LangGraph Python.</code></pre>
+        </div>
+        <div class="agent-output-view" id="agent-output-checks"><div id="agent-compile-checks"><div class="empty-state">No compilation report yet.</div></div></div>
+        <div class="agent-output-view" id="agent-output-run">
+          <header class="run-review-heading">
+            <div><span class="panel-label">Agent Run Review</span><h2>Know the data. Watch the work. Keep every output.</h2><p>Each execution freezes its exact input and writes a separate, deletable run folder. The work log shows concise rationale, capability receipts, evidence critique and review boundaries—not private chain-of-thought.</p></div>
+            <div class="run-heading-actions"><span class="run-mode-identity synthetic" id="agent-run-mode-badge">Synthetic fixture</span><button class="button ghost" id="open-cycle-from-agent" type="button">Test through simulated time</button></div>
+          </header>
+
+          <div class="run-context-lifecycle" aria-label="Run context lifecycle">
+            <span>1 · Frozen source data</span><b>→</b><span>2 · Parameterize capabilities</span><b>→</b><span>3 · Calculate</span><b>→</b><strong>4 · Assemble Overall Default Context</strong><b>→</b><span>5 · Interpret and review</span>
+          </div>
+
+          <div class="run-mode-selector" role="group" aria-label="Agent test data source">
+            <button class="active synthetic" type="button" data-agent-data-mode="synthetic_fixture"><strong>Synthetic fixture</strong><small>Deliberately invented values for controlled behavior tests.</small></button>
+            <button type="button" data-agent-data-mode="real_duckdb"><strong>Real point-in-time data</strong><small>Reviewed portfolio positions queried from local CRSP/Compustat Parquet.</small></button>
+          </div>
+
+          <section class="run-execution-selector" aria-label="Agent execution method">
+            <div><span class="panel-label">Execution method</span><strong>Choose how the agent interprets the evidence</strong></div>
+            <button class="active" type="button" data-agent-execution-mode="deterministic"><strong>Deterministic verification</strong><small>Real graph and capabilities, but no LLM call and no model cost.</small></button>
+            <button type="button" data-agent-execution-mode="live_llm"><strong>Live LLM interpretation</strong><small>One bounded OpenAI call with a saved model and token receipt.</small></button>
+            <label class="field live-run-model hidden" id="agent-live-run-model-field"><span>Live model</span><select id="agent-live-run-model"><option value="gpt-5.4" selected>GPT-5.4 · standard</option><option value="gpt-5.6-terra">GPT-5.6 Terra</option><option value="gpt-5.6-sol">GPT-5.6 Sol</option><option value="gpt-5.6">GPT-5.6</option></select><small>One call, 2,200 output-token ceiling, provider storage disabled.</small></label>
+          </section>
+
+          <section class="run-assignment-card">
+            <div class="run-assignment-fields">
+              <div data-agent-run-mode-panel="synthetic_fixture">
+                <label class="field"><span>Named fixture</span><select id="agent-test-scenario"><option value="routine">Routine diversified day</option><option value="concentration" selected>Concentration breach</option><option value="loss">Daily loss breach</option><option value="missing">Missing evidence</option></select></label>
+              </div>
+              <div class="hidden real-run-fields" data-agent-run-mode-panel="real_duckdb">
+                <label class="field"><span>Reviewed portfolio</span><select id="agent-real-portfolio"></select></label>
+                <label class="field"><span>As-of date</span><input id="agent-real-as-of" type="date" value="2008-09-15"></label>
+              </div>
+              <label class="field run-label-field"><span>Assignment</span><input id="agent-run-label" value="Review the supplied portfolio-risk context and prepare the declared output."></label>
+              <label class="review-test-toggle"><input id="agent-auto-review" type="checkbox" checked><span>Auto-approve the human interrupt for this isolated test</span></label>
+            </div>
+            <div class="run-assignment-actions">
+              <button class="button ghost" id="preview-agent-input" type="button">Preview exact input</button>
+              <button class="button primary" id="test-agent" type="button">Run and save</button>
+              <span class="readiness" id="agent-run-status">Not run</span>
+            </div>
+            <details class="run-input-preview" id="agent-input-preview-details" open>
+              <summary><span>Frozen source input · before calculations</span><b id="agent-input-preview-status">Preview not loaded</b></summary>
+              <div class="run-input-provenance" id="agent-input-provenance"><p>Select a data source and preview it before running.</p></div>
+              <pre class="agent-json" id="agent-input-json">{}</pre>
+            </details>
+          </section>
+
+          <div class="run-review-layout">
+            <aside class="run-repository-panel">
+              <div class="run-pane-heading"><div><span class="panel-label">Run repository</span><strong>Saved test folders</strong></div><button class="text-button" id="refresh-agent-runs" type="button">Refresh</button></div>
+              <div class="run-repository-list" id="agent-run-repository"><div class="empty-state">No saved runs loaded.</div></div>
+            </aside>
+
+            <section class="run-conversation-panel">
+              <div class="run-pane-heading"><div><span class="panel-label">Live work record</span><strong>Agent conversation</strong></div><span class="truth-chip" id="agent-live-state">Idle</span></div>
+              <div class="agent-run-chat" id="agent-run-chat">
+                <div class="run-chat-empty"><strong>No run selected</strong><p>Preview the input, run the agent, or choose a saved run to review its complete work record.</p></div>
+              </div>
+            </section>
+
+            <aside class="run-files-panel">
+              <div class="run-pane-heading"><div><span class="panel-label">Run folder</span><strong>Created files</strong></div><button class="text-button danger hidden" id="delete-agent-run" type="button">Delete run</button></div>
+              <div class="run-folder-path" id="agent-run-folder">No run folder selected.</div>
+              <div class="run-file-list" id="agent-run-files"></div>
+              <details class="run-file-viewer" open><summary>File preview</summary><pre id="agent-run-file-content">Select a file to inspect it.</pre></details>
+            </aside>
+          </div>
+          <ol class="trace-list hidden" id="agent-trace"></ol>
+          <div class="agent-test-output hidden" id="agent-test-output"></div>
+        </div>
+        <div class="agent-output-view" id="agent-output-assembly">
+          <div class="assembly-run-controls">
+            <label class="field"><span>Input scenario</span><select id="agent-assembly-scenario"><option value="routine">Routine diversified day</option><option value="concentration" selected>Concentration breach</option><option value="loss">Daily loss breach</option><option value="missing">Missing evidence</option></select></label>
+            <label class="field"><span>Execution mode</span><select id="agent-assembly-mode"><option value="preview">Deterministic preview · no API cost</option><option value="openai">OpenAI structured pass · paid</option></select></label>
+            <label class="field"><span>Pass model</span><select id="agent-assembly-model"><option value="gpt-5.6-terra">GPT-5.6 Terra</option><option value="gpt-5.6-sol">GPT-5.6 Sol</option><option value="gpt-5.6">GPT-5.6 alias</option><option value="gpt-5.4">GPT-5.4</option></select></label>
+            <button class="button ghost" id="reset-agent-assembly" type="button">Start new artifact</button>
+            <button class="button primary" id="run-agent-output-pass" type="button">Run next pass</button>
+            <span class="readiness" id="agent-assembly-status">Not started</span>
+          </div>
+          <p class="boundary-note"><strong>Cost boundary:</strong> one click runs one pass. The interface never launches all paid passes automatically.</p>
+          <div class="assembly-runtime-layout">
+            <section><span class="panel-label">Pass progress</span><div class="assembly-progress-list" id="agent-assembly-progress"></div></section>
+            <section><span class="panel-label">Cumulative Structured Output</span><pre class="agent-json assembly-artifact-json" id="agent-assembly-artifact">{}</pre></section>
+            <section><span class="panel-label">Safe dashboard preview</span><div class="assembly-dashboard-preview" id="agent-assembly-preview"><p>Run passes to populate the artifact preview.</p></div></section>
+          </div>
+          <div class="assembly-run-log" id="agent-assembly-log"><div class="empty-state">No output pass has run.</div></div>
+        </div>
+      </section>
+
+      <aside class="agent-advisor-drawer collapsed" id="agent-advisor" aria-label="Agent Design Advisor">
+        <div class="agent-advisor-header">
+          <div><span>OpenAI</span><strong>Agent Design Advisor</strong><small>Critique · recommendations · reviewable proposal</small></div>
+          <button class="icon-button" id="collapse-agent-advisor" type="button" aria-label="Open design advisor">+</button>
+        </div>
+        <div class="agent-advisor-body">
+          <div class="advisor-focus-row">
+            <label class="field"><span>Review focus</span><select id="agent-advisor-focus"><option value="whole_agent">Whole agent</option><option value="routing">Routing</option><option value="memory">Memory</option><option value="governance">Governance</option><option value="state">State</option><option value="capabilities">Capabilities</option><option value="prompts">Prompts</option><option value="structured_output">Structured Output</option><option value="assembly">Multi-pass assembly</option></select></label>
+            <label class="field"><span>Advisor model</span><select id="agent-advisor-model"><option value="gpt-5.6-terra">GPT-5.6 Terra</option><option value="gpt-5.6-sol">GPT-5.6 Sol</option><option value="gpt-5.6">GPT-5.6 alias</option></select></label>
+          </div>
+          <div class="advisor-messages" id="agent-advisor-messages">
+            <div class="advisor-message assistant"><strong>Design Advisor</strong><p>I can review the current blueprint, explain weaknesses, suggest agent techniques, and prepare a complete proposal. Nothing is applied until you approve it.</p></div>
+          </div>
+          <div class="advisor-proposal hidden" id="agent-advisor-proposal"></div>
+          <div class="advisor-composer">
+            <textarea id="agent-advisor-input" rows="3" placeholder="Ask: Is the memory scope correct? How should the prompt handle missing evidence?"></textarea>
+            <button class="button primary" id="send-agent-advisor" type="button">Review blueprint</button>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="lab-page" id="lab-graph" aria-labelledby="lab-graph-title">
+      <div class="lab-heading">
+        <div><span class="eyebrow">Independent component 04 · foundation</span><h1 id="lab-graph-title">Compose an agent graph</h1><p>Assemble saved agents into a LangGraph-style directed graph. This first version validates entry, terminal, contract compatibility and human-review boundaries, then produces a compile plan.</p></div>
+        <span class="stage-status" id="graph-status">Not compiled</span>
+      </div>
+      <div class="graph-toolbar lab-panel">
+        <label class="field"><span>Graph pattern</span><select id="graph-pattern"><option value="pipeline">Sequential review pipeline</option><option value="parallel">Parallel specialists → synthesis</option><option value="supervisor">Supervisor routing</option></select></label>
+        <label class="field"><span>Add saved agent</span><select id="graph-agent-select"></select></label>
+        <button class="button ghost" id="graph-add-agent" type="button">Add node</button>
+        <button class="button primary" id="compile-graph" type="button">Validate and compile</button>
+      </div>
+      <div class="graph-layout">
+        <section class="lab-panel graph-canvas-panel">
+          <div class="panel-heading"><div><span class="panel-label">Graph canvas</span><h2>Canonical context → agents → reviewed output</h2></div><span class="truth-chip">Visual abstraction</span></div>
+          <div class="agent-graph-canvas" id="agent-graph-canvas"></div>
+        </section>
+        <aside class="lab-panel">
+          <span class="panel-label">Compile report</span>
+          <div id="graph-validation"><div class="empty-state">Add agents or select a pattern, then compile.</div></div>
+          <details><summary>LangGraph adapter plan</summary><pre id="graph-compile-plan">No plan compiled.</pre></details>
+        </aside>
+      </div>
+    </section>
+
+    <section class="lab-page" id="lab-cycle" aria-labelledby="lab-cycle-title">
+      <div class="lab-heading cycle-lab-heading">
+        <div><span class="eyebrow">Workflow Cycle Console</span><h1 id="lab-cycle-title">Watch agents work through simulated market time</h1><p>Real CRSP daily closes anchor a seeded synthetic intraday stream. Every position updates once per simulated second and is aggregated into one-minute candles.</p></div>
+        <span class="stage-status" id="cycle-runtime-status">Not configured</span>
+      </div>
+
+      <section class="cycle-setup-panel" id="cycle-setup-panel">
+        <div class="cycle-setup-fields">
+          <label class="field"><span>Reviewed portfolio</span><select id="cycle-portfolio"></select></label>
+          <label class="field"><span>First simulated date</span><input id="cycle-start-date" type="date" value="2018-09-13"></label>
+          <label class="field"><span>Last simulated date</span><input id="cycle-end-date" type="date" value="2018-09-18"></label>
+          <label class="field"><span>Deterministic seed</span><input id="cycle-seed" type="number" min="0" max="2147483647" value="20260802"></label>
+          <label class="field"><span>Initial clock speed</span><select id="cycle-initial-speed"><option value="1">1× · real time</option><option value="15">15×</option><option value="60" selected>60× · one minute/second</option><option value="300">300×</option><option value="900">900× · fifteen minutes/second</option><option value="3600">3,600×</option></select></label>
+          <label class="field"><span>Intraday loss review</span><select id="cycle-loss-limit"><option value="0.01">1.0%</option><option value="0.02" selected>2.0%</option><option value="0.03">3.0%</option><option value="0.05">5.0%</option></select></label>
+        </div>
+        <div class="cycle-truth-card"><b>Synthetic intraday · real daily anchors</b><p>The next real close is sealed inside the runtime. Agents and dashboards see only observations released by the simulated clock. Intraday paths are workflow fixtures, not historical evidence.</p></div>
+        <button class="button primary" id="create-cycle-session" type="button">Create workflow-cycle session</button>
+      </section>
+
+      <section class="cycle-console hidden" id="cycle-console">
+        <header class="cycle-console-bar">
+          <div class="cycle-clock-readout"><span>Simulated market time</span><strong id="cycle-clock-time">—</strong><small id="cycle-clock-progress">Waiting</small></div>
+          <div class="cycle-control-buttons">
+            <button class="button primary" id="cycle-start" type="button">Start clock</button>
+            <button class="button" id="cycle-pause" type="button">Pause</button>
+            <label class="cycle-speed-control"><span>Speed</span><select id="cycle-speed"><option value="1">1×</option><option value="15">15×</option><option value="60">60×</option><option value="300">300×</option><option value="900">900×</option><option value="3600">3,600×</option></select></label>
+            <button class="button ghost" id="cycle-new-session" type="button">New session</button>
+          </div>
+          <div class="cycle-live-state"><i id="cycle-live-dot"></i><span id="cycle-live-label">Paused</span><b id="cycle-update-count">0 released updates</b></div>
+        </header>
+
+        <div class="cycle-console-layout">
+          <aside class="cycle-timeline-panel">
+            <div class="cycle-panel-heading"><span>Workflow timeline</span><b id="cycle-day-label">Day 0 / 0</b></div>
+            <div class="cycle-day-progress"><i id="cycle-day-progress-bar"></i></div>
+            <div class="cycle-event-stream" id="cycle-event-stream"><div class="empty-state">Start the clock to release observations.</div></div>
+          </aside>
+
+          <main class="cycle-dashboard-panel">
+            <header class="cycle-dashboard-heading">
+              <div><span>Living dashboard</span><strong id="cycle-dashboard-title">Portfolio overview</strong><small id="cycle-dashboard-version">Version 1</small></div>
+              <nav id="cycle-dashboard-pages" aria-label="Dashboard pages"></nav>
+            </header>
+            <div id="cycle-dashboard-view"></div>
+          </main>
+
+          <aside class="cycle-agents-panel">
+            <div class="cycle-panel-heading"><span>Latched agents</span><b>Effect-free</b></div>
+            <div id="cycle-agent-latches"></div>
+            <div class="cycle-agent-attach">
+              <label class="field"><span>Dashboard page</span><select id="cycle-agent-page"></select></label>
+              <label class="field"><span>Specialist</span><select id="cycle-agent-select"><option value="daily-portfolio-risk-reviewer">Daily Portfolio Risk Reviewer</option><option value="market-liquidity-risk-analyst">Market and Liquidity Risk Analyst</option><option value="concentration-mandate-monitor">Concentration and Mandate Monitor</option><option value="scenario-stress-analyst">Scenario Stress Analyst</option><option value="fundamental-event-deterioration-watcher">Event Deterioration Watcher</option></select></label>
+              <button class="button ghost" id="cycle-attach-agent" type="button">Attach reviewed specialist</button>
+            </div>
+            <div class="cycle-meta-list"><span>Active meta-capabilities</span><div id="cycle-meta-capabilities"></div></div>
+          </aside>
+        </div>
+
+        <section class="cycle-report-panel">
+          <header><div><span>Agent report</span><strong id="cycle-report-title">Live portfolio risk review</strong></div><b id="cycle-report-status">Waiting</b></header>
+          <div class="cycle-report-sections" id="cycle-report-sections"></div>
+        </section>
+
+        <section class="cycle-decision-panel hidden" id="cycle-decision-panel">
+          <div><span>Human decision</span><strong id="cycle-decision-finding"></strong><small>The clock is paused. No portfolio effect has been created.</small></div>
+          <div><button class="button primary" data-cycle-decision="accepted" type="button">Accept and resume</button><button class="button" data-cycle-decision="investigate" type="button">Open investigation</button><button class="button ghost" data-cycle-decision="rejected" type="button">Reject finding</button></div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <div class="app-layout hidden" id="full-experiment-workspace">
+    <aside class="workflow-rail" aria-label="Experiment workflow">
+      <div class="rail-intro">
+        <span class="eyebrow">One guided workflow</span>
+        <h1>From idea to replay</h1>
+        <p>Each stage produces the input required by the next. Nothing is sent to an agent until you approve the deterministic context.</p>
+      </div>
+      <nav id="step-nav">
+        <button class="step-link active" type="button" data-step="experiment">
+          <span>1</span><div><strong>Experiment</strong><small>Period & objective</small></div>
+        </button>
+        <button class="step-link" type="button" data-step="holdings">
+          <span>2</span><div><strong>Holdings</strong><small>Opening portfolio</small></div>
+        </button>
+        <button class="step-link" type="button" data-step="metrics">
+          <span>3</span><div><strong>Metric pack</strong><small>Choose & calculate</small></div>
+        </button>
+        <button class="step-link" type="button" data-step="context">
+          <span>4</span><div><strong>Default context</strong><small>Inspect before agents</small></div>
+        </button>
+        <button class="step-link" type="button" data-step="workflow">
+          <span>5</span><div><strong>Workflow cycles</strong><small>Results & agent frameworks</small></div>
+        </button>
+        <button class="step-link" type="button" data-step="replay">
+          <span>6</span><div><strong>Replay Clock</strong><small>Dates, cycles & reviews</small></div>
+        </button>
+        <button class="step-link" type="button" data-step="results">
+          <span>7</span><div><strong>Results & events</strong><small>Review & simulate</small></div>
+        </button>
+      </nav>
+      <div class="safety-note">
+        <strong>Effects boundary</strong>
+        <span>PortfolioEvents mutate this sandbox only. No order, trade, or broker connection exists.</span>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <section class="stage active" id="experiment" aria-labelledby="experiment-title">
+        <div class="stage-heading">
+          <div>
+            <span class="eyebrow">Stage 1 of 7</span>
+            <h2 id="experiment-title">Create a governed experiment</h2>
+            <p>Describe the portfolio and its mandate, then review the period, holdings and risk controls as one proposal. The system reuses the existing canonical policy, portfolio, replay and decision objects.</p>
+          </div>
+          <span class="stage-status" id="experiment-status">Draft</span>
+        </div>
+
+        <div class="two-column">
+          <div class="primary-column">
+            <label class="field wide">
+              <span>Portfolio objective and investable universe</span>
+              <textarea id="portfolio-description" rows="4">A diversified U.S. equity portfolio combining technology, industrial, consumer, and defensive companies.</textarea>
+              <small>The planner may propose only securities covered by the connected point-in-time database.</small>
+            </label>
+            <label class="field wide">
+              <span>Investment Policy Statement (IPS) / mandate</span>
+              <textarea id="mandate-description" rows="5">Preserve diversification across sectors, maintain at least 5% cash, avoid any single position above 22%, and require human review when the portfolio loses more than 2% in one day, historical VaR exceeds 2.5%, or a scenario loss exceeds 6%.</textarea>
+              <small>Write the investment purpose, constraints, tolerances and review expectations in ordinary language. These instructions populate an existing MonitoringPolicy and MonitoringPolicyVersion.</small>
+            </label>
+            <div class="field-grid">
+              <label class="field">
+                <span>Start date</span>
+                <input id="start-date" type="date" value="2024-04-01">
+              </label>
+              <label class="field">
+                <span>End date</span>
+                <input id="end-date" type="date" value="2024-05-17">
+              </label>
+              <label class="field">
+                <span>Replay cadence</span>
+                <select id="cadence">
+                  <option value="daily">Every business day</option>
+                  <option value="weekly">Every Friday</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Policy owner</span>
+                <input id="policy-owner" value="Portfolio Risk Committee">
+              </label>
+              <label class="field">
+                <span>Benchmark</span>
+                <select id="benchmark-id">
+                  <option value="research-us-equity-benchmark">U.S. equity research benchmark</option>
+                  <option value="unavailable">No benchmark available</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Planning path</span>
+                <select id="planning-path">
+                  <option value="deterministic">Canonical deterministic preview</option>
+                  <option value="openai">OpenAI structured planner</option>
+                </select>
+              </label>
+            </div>
+            <details class="policy-controls">
+              <summary>Review the risk controls extracted from the mandate</summary>
+              <div class="policy-grid">
+                <label class="field"><span>Daily loss review</span><div class="input-with-unit"><input id="daily-loss-limit" type="number" min="0" step=".1" value="2"><b>%</b></div></label>
+                <label class="field"><span>Single-position limit</span><div class="input-with-unit"><input id="concentration-limit" type="number" min="0" step=".1" value="22"><b>%</b></div></label>
+                <label class="field"><span>Historical VaR limit</span><div class="input-with-unit"><input id="var-limit" type="number" min="0" step=".1" value="2.5"><b>%</b></div></label>
+                <label class="field"><span>Scenario loss limit</span><div class="input-with-unit"><input id="scenario-loss-limit" type="number" min="0" step=".1" value="6"><b>%</b></div></label>
+                <label class="field"><span>Minimum cash</span><div class="input-with-unit"><input id="minimum-cash" type="number" min="0" step=".1" value="5"><b>%</b></div></label>
+                <label class="field"><span>Maximum data age</span><div class="input-with-unit"><input id="stale-data-hours" type="number" min="1" step="1" value="24"><b>hours</b></div></label>
+              </div>
+            </details>
+            <div class="action-row">
+              <button class="button primary" id="generate-experiment" type="button">Draft canonical experiment</button>
+              <span class="action-hint" id="planning-path-hint">Runs locally now. It exercises the same validated output boundary intended for the server-side LLM planner.</span>
+            </div>
+          </div>
+
+          <aside class="explain-panel">
+            <span class="panel-label">What will actually be created</span>
+            <h3>Four existing objects</h3>
+            <dl class="plain-list">
+              <div><dt>MonitoringPolicy + version</dt><dd>The IPS narrative, owner, cadence, limits and requirement for human review.</dd></div>
+              <div><dt>Reviewed selection manifest</dt><dd>The candidate holdings, reviewer, warnings and explicit human acceptance. A model cannot set reviewed=true.</dd></div>
+              <div><dt>PortfolioDefinition</dt><dd>The accepted positions, cash, base currency, benchmark and portfolio risk thresholds.</dd></div>
+              <div><dt>ReplaySpecification</dt><dd>Start, end, cadence, point-in-time data revisions and the policy revision used.</dd></div>
+            </dl>
+            <div class="implementation-boundary">
+              <strong>Implementation truth</strong>
+              <span>OpenAI client available</span>
+              <span>API credential not exposed to this process</span>
+              <span>LangGraph dependency not installed</span>
+              <small>The browser never receives an API key. A model call belongs behind a server-side route.</small>
+            </div>
+          </aside>
+        </div>
+
+        <div class="planner-result hidden" id="planner-result" aria-live="polite"></div>
+        <div class="stage-footer">
+          <span>Produces: <strong>MonitoringPolicyVersion · RealPortfolioSelectionManifest · PortfolioDefinition · ReplaySpecification</strong></span>
+          <button class="button next-button" id="experiment-next" type="button" data-next="holdings" disabled>Approve the draft to continue</button>
+        </div>
+      </section>
+
+      <section class="stage" id="holdings" aria-labelledby="holdings-title">
+        <div class="stage-heading">
+          <div>
+            <span class="eyebrow">Stage 2 of 7</span>
+            <h2 id="holdings-title">Review the opening portfolio</h2>
+            <p>These quantities form the state at the start of the replay. You can edit them before the first point-in-time snapshot is created.</p>
+          </div>
+          <span class="stage-status" id="holdings-status">8 holdings</span>
+        </div>
+
+        <div class="holdings-toolbar">
+          <div>
+            <strong id="portfolio-title">Diversified research portfolio</strong>
+            <span id="portfolio-subtitle">Private-neutral aliases from the approved research universe</span>
+          </div>
+          <label class="compact-field">
+            <span>Opening cash (USD)</span>
+            <input id="cash-balance" type="number" min="0" step="1000" value="4000000">
+          </label>
+          <button class="button ghost" id="add-holding" type="button">+ Add holding</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Research instrument</th><th>Quantity</th><th>Opening price</th><th>Opening value</th><th>Weight</th><th></th></tr></thead>
+            <tbody id="holdings-body"></tbody>
+            <tfoot><tr><th colspan="3">Opening portfolio value</th><th id="opening-value">—</th><th id="cash-weight">—</th><th></th></tr></tfoot>
+          </table>
+        </div>
+        <p class="context-note">Instrument aliases are readable application identities. Cryptographic digests exist only in the audit layer and are never the primary way a person identifies an object.</p>
+
+        <div class="stage-footer">
+          <span>Produces: <strong>Opening PortfolioSnapshot</strong></span>
+          <button class="button next-button" id="freeze-holdings" type="button" data-next="metrics">Freeze opening state →</button>
+        </div>
+      </section>
+
+      <section class="stage" id="metrics" aria-labelledby="metrics-title">
+        <div class="stage-heading">
+          <div>
+            <span class="eyebrow">Stage 3 of 7</span>
+            <h2 id="metrics-title">Choose a metric pack</h2>
+            <p>A MetricPack is simply a named collection of calculations. Select only metrics that the workflow will actually use; each one states its formula, input, interpretation, and limitation.</p>
+          </div>
+          <span class="stage-status" id="metric-status">5 selected</span>
+        </div>
+
+        <div class="metric-layout">
+          <div class="metric-catalog" id="metric-catalog"></div>
+          <aside class="metric-explainer" id="metric-explainer">
+            <span class="panel-label">Select a metric</span>
+            <h3>Every calculation should be understandable</h3>
+            <p>Choose a row to see exactly what it measures and how it will be used by the deterministic layer and the agents.</p>
+          </aside>
+        </div>
+
+        <div class="calculation-strip">
+          <div>
+            <strong>Ready to calculate from the opening snapshot</strong>
+            <span id="calculation-inputs">47 business dates · 8 holdings · synthetic price replay</span>
+          </div>
+          <button class="button primary" id="calculate-metrics" type="button">Calculate selected metrics</button>
+        </div>
+        <div class="calculation-result hidden" id="calculation-result" aria-live="polite"></div>
+
+        <div class="stage-footer">
+          <span>Produces: <strong>MetricPack + MetricObservations</strong></span>
+          <button class="button next-button" type="button" data-next="context">Inspect default context →</button>
+        </div>
+      </section>
+
+      <section class="stage" id="context" aria-labelledby="context-title">
+        <div class="stage-heading">
+          <div>
+            <span class="eyebrow">Stage 4 of 7</span>
+            <h2 id="context-title">Inspect the Overall Default Context</h2>
+            <p>This is the deterministic information boundary. Review it as a human-readable briefing before any model sees it.</p>
+          </div>
+          <span class="stage-status warning" id="context-status">Not built</span>
+        </div>
+
+        <div class="context-builder">
+          <div class="context-pipeline" aria-label="Default context assembly">
+            <span>Portfolio snapshot</span><b>+</b><span>Approved mandate</span><b>+</b><span>Risk metrics</span><b>+</b><span>Eligible events</span><b>=</b><strong>Overall Default Context</strong>
+          </div>
+          <button class="button primary" id="build-context" type="button">Build context for start date</button>
+        </div>
+
+        <div class="context-preview hidden" id="context-preview">
+          <div class="brief-header">
+            <div><span class="panel-label">Point-in-time brief</span><h3 id="brief-title">—</h3></div>
+            <span class="readiness" id="brief-readiness">Ready</span>
+          </div>
+          <div class="brief-summary" id="brief-summary"></div>
+          <div class="brief-section">
+            <div class="section-label"><strong>Portfolio state</strong><span>What is owned at this timestamp</span></div>
+            <div id="context-holdings"></div>
+          </div>
+          <div class="brief-section">
+            <div class="section-label"><strong>Approved mandate</strong><span>Which controls govern interpretation and human attention</span></div>
+            <div id="context-mandate"></div>
+          </div>
+          <div class="brief-section">
+            <div class="section-label"><strong>Risk context</strong><span>Calculated features—not interpretation</span></div>
+            <div class="metric-sentence-list" id="context-metrics"></div>
+          </div>
+          <div class="brief-section">
+            <div class="section-label"><strong>Event & news context</strong><span>Only information available by this timestamp</span></div>
+            <div class="capability-gap">
+              <strong>Not connected in this experiment</strong>
+              <p>The current dataset supplies prices and fundamentals, but no governed event/news source. The context says “unavailable”; it never converts missing events into “nothing happened.”</p>
+              <button class="text-button" type="button" data-next="workflow">Design this capability in the workflow →</button>
+            </div>
+          </div>
+          <details class="audit-drawer">
+            <summary>Audit integrity and object identities</summary>
+            <div id="audit-identities"></div>
+          </details>
+        </div>
+
+        <div class="stage-footer">
+          <span>Produces: <strong>ArchitectureInputBundle</strong></span>
+          <button class="button next-button" type="button" data-next="workflow">Design agent workflow →</button>
+        </div>
+      </section>
+
+      <section class="stage" id="workflow" aria-labelledby="workflow-title">
+        <div class="stage-heading">
+          <div>
+            <span class="eyebrow">Stage 5 of 7</span>
+            <h2 id="workflow-title">Design a purposeful workflow</h2>
+            <p>Start with the question the portfolio manager needs answered. The default workflow is a deep Daily Portfolio Risk Review; additional workflows remain optional until they have equally clear evidence and output contracts.</p>
+          </div>
+          <span class="stage-status">Effect-free</span>
+        </div>
+
+        <div class="implementation-truth">
+          <div>
+            <span class="panel-label">Current thesis implementation</span>
+            <strong>Custom Python runner + typed contracts + OpenAI Responses adapter</strong>
+          </div>
+          <div class="truth-flags">
+            <span>LangGraph: <b>canonical state and interrupt mapped; dependency not installed</b></span>
+            <span>OpenAI Agents SDK: <b>not used</b></span>
+            <span>Tools: <b>disabled in current provider call</b></span>
+          </div>
+          <button class="button ghost" id="toggle-code" type="button">See how workflows execute</button>
+        </div>
+        <pre class="code-view hidden" id="code-view"><code>REPLAY CLOCK (owns historical time)
+for replay_date in experiment.business_dates:
+    context = build_overall_default_context(
+        point_in_time_data(replay_date),
+        portfolio_after_approved_events,
+        metric_pack.calculate()
+    )
+
+    # WORKFLOW CYCLES share the same frozen context and date
+    for workflow in enabled_workflows:
+        adapter  = runtime_adapters[workflow.runtime]
+        topology = topology_factory[workflow.topology]
+        output   = adapter.run(topology, context, workflow.capabilities)
+        decision = deterministic_critic.validate(output, context)
+        audit_log.append(decision)
+
+        if decision.requires_attention:
+            pause_replay_at(decision)       # human accepts or rejects
+        else:
+            decision.review = "AUTO_CLEARED"
+
+RUNTIME ADAPTER CONTRACT
+run(topology, OverallDefaultContext, capabilities) -> typed WorkflowOutput
+
+CURRENT EXECUTABLE WORKFLOW ADAPTER
+Custom typed Python → B0 rules | B1 single agent | A1 specialist team
+
+LANGGRAPH EXPERIMENT-PLANNING ADAPTER (MAPPED, NOT INSTALLED)
+parse_request
+    → propose canonical fields with OpenAI Structured Outputs
+    → resolve governed security candidates through a read-only capability
+    → validate MonitoringPolicy + MonitoringPolicyVersion
+    → validate ReviewedPortfolioSelection candidate
+    → interrupt for human portfolio-and-policy review
+    → materialize RealPortfolioSelectionManifest(reviewed=true)
+    → validate PortfolioDefinition + ReplaySpecification
+    → freeze canonical revisions and checkpoint
+
+LangGraph carries these existing objects through orchestration state. It does not
+introduce a second IPS, portfolio or experiment domain object. Until its dependency,
+checkpoint store and server route are connected, selecting it returns BLOCKED.</code></pre>
+
+        <div class="workflow-set-heading">
+          <div>
+            <span class="panel-label">Purpose, evidence and execution</span>
+            <h3>Workflow definitions</h3>
+          </div>
+          <button class="button ghost" id="add-workflow-cycle" type="button">+ Add workflow cycle</button>
+        </div>
+        <div class="workflow-intent" id="workflow-intent"></div>
+        <div class="workflow-cycle-list" id="workflow-cycle-list"></div>
+
+        <div class="workflow-designer">
+          <div>
+            <div class="workflow-canvas" id="workflow-canvas" aria-label="Agent workflow diagram"></div>
+            <button class="button ghost" id="add-capability" type="button">+ Add modular capability</button>
+          </div>
+          <aside class="node-inspector" id="node-inspector">
+            <span class="panel-label">Select a workflow node</span>
+            <h3>Inspect its contract</h3>
+            <p>The inspector shows the exact input boundary, output type, and capabilities granted to the selected role.</p>
+          </aside>
+        </div>
+
+        <div class="stage-footer">
+          <span>Produces: <strong>WorkflowCycleSet + per-cycle WorkflowDefinitions</strong></span>
+          <button class="button next-button" type="button" data-next="replay">Open Replay Clock →</button>
+        </div>
+      </section>
+
+      <section class="stage" id="replay" aria-labelledby="replay-title">
+        <div class="stage-heading">
+          <div>
+            <span class="eyebrow">Stage 6 of 7</span>
+            <h2 id="replay-title">Run the Replay Clock</h2>
+            <p>The clock owns historical dates. Inside each date, it runs every enabled Workflow Cycle. Routine outputs are recorded and cleared automatically; only decisions requiring attention pause for you.</p>
+          </div>
+          <span class="stage-status" id="replay-status">Ready</span>
+        </div>
+
+        <div class="replay-controls">
+          <button class="button primary" id="start-replay" type="button">Run clock alone</button>
+          <button class="button" id="step-replay" type="button">Run next Workflow Cycle</button>
+          <button class="button ghost" id="reset-replay" type="button">Reset</button>
+          <span class="run-policy"><b>Autonomous policy</b> Auto-clear routine outputs · pause on review, urgent review, or blocked execution</span>
+          <div class="replay-progress"><span id="progress-label">0 / 0 dates</span><div><i id="progress-bar"></i></div></div>
+        </div>
+
+        <div class="clock">
+          <div class="clock-heading">
+            <div><span class="panel-label">Replay Clock · outer loop</span><strong id="clock-date">Not started</strong><small id="clock-position">No date loaded</small></div>
+            <p>The date advances when every cycle has either been auto-cleared or reviewed. Attention items stop the clock.</p>
+          </div>
+          <div class="date-pipeline" id="date-pipeline">
+            <span>Load eligible data</span><span>Apply approved events</span><span>Revalue portfolio</span><span>Build deterministic context</span>
+          </div>
+        </div>
+
+        <div class="cycle-board">
+          <div class="cycle-board-heading">
+            <div><span class="panel-label">Workflow Cycle · inner loop</span><strong id="cycle-name">Waiting to start</strong></div>
+            <span id="cycle-position">0 / 0 cycles</span>
+          </div>
+          <div class="cycle-track" id="cycle-track"></div>
+          <div class="cycle-rule">Context stays on the same replay date while the enabled workflows run. Runtime and topology may differ by workflow.</div>
+        </div>
+
+        <div class="live-output">
+          <div class="live-narrative" id="live-narrative">
+            <span class="panel-label">What is happening</span>
+            <h3>Waiting for the first Workflow Cycle</h3>
+            <p>Run the clock alone. Routine outputs will be logged automatically; the clock will stop at the first item that needs your attention.</p>
+          </div>
+          <div class="live-values" id="live-values"></div>
+        </div>
+
+        <article class="deep-review hidden" id="deep-review" aria-live="polite"></article>
+
+        <div class="decision-gate waiting" id="decision-gate" aria-live="polite">
+          <div>
+            <span class="panel-label">Human attention gate</span>
+            <h3>No decision requires attention</h3>
+            <p>Routine outputs can pass this gate automatically and remain available in the audit trail.</p>
+          </div>
+        </div>
+
+        <div class="date-decision-stream">
+          <div class="section-bar"><div><strong>Decisions created on the current date</strong><span>They appear here as each Workflow Cycle completes</span></div></div>
+          <div id="date-decision-list"><div class="empty-state">No Workflow Cycle has completed for this date.</div></div>
+        </div>
+
+        <div class="stage-footer">
+          <span>Produces: <strong>ReplayDateSteps + WorkflowCycleRuns + reviewed DecisionPoints</strong></span>
+          <button class="button next-button" type="button" data-next="results">Review results & events →</button>
+        </div>
+      </section>
+
+      <section class="stage" id="results" aria-labelledby="results-title">
+        <div class="stage-heading">
+          <div>
+            <span class="eyebrow">Stage 7 of 7</span>
+            <h2 id="results-title">Review decisions and simulated PortfolioEvents</h2>
+            <p>Agent output becomes a review item—not an effect. You decide whether a proposed event is rejected or applied to the sandbox branch.</p>
+          </div>
+          <span class="stage-status" id="result-status">0 decisions</span>
+        </div>
+
+        <div class="result-summary" id="result-summary"></div>
+        <div class="results-layout">
+          <div>
+            <div class="section-bar"><div><strong>Workflow decisions</strong><span>Several review decisions may share one replay date</span></div></div>
+            <div class="decision-list" id="decision-list">
+              <div class="empty-state">Run the replay to populate decisions.</div>
+            </div>
+          </div>
+          <aside>
+            <div class="section-bar"><div><strong>PortfolioEvent queue</strong><span>Human-controlled sandbox effects</span></div></div>
+            <div class="event-queue" id="event-queue">
+              <div class="empty-state">No event has been proposed.</div>
+            </div>
+            <div class="event-ledger">
+              <strong>Approved event ledger</strong>
+              <div id="event-ledger"><span>No events approved.</span></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="system-map-dialog">
+    <div class="dialog-heading">
+      <div><span class="eyebrow">End-to-end system</span><h2>What runs, in what order, and why</h2></div>
+      <button class="icon-button" id="close-system-map" type="button" aria-label="Close system map">×</button>
+    </div>
+    <pre class="ascii-map" aria-label="Detailed ASCII system flow">┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│  1. GOVERNED EXPERIMENT DRAFT                                                            │
+│                                                                                          │
+│  Objective ──► universe suitability ──► PortfolioDefinition candidate                    │
+│  IPS text  ──► validated risk controls ──► MonitoringPolicy + policy version              │
+│  Dates     ──► point-in-time schedule ──► ReplaySpecification                            │
+│                        all three ──► human review ──► reviewed selection manifest          │
+│                                                                                          │
+│  No new “Experiment” or “IPS” domain object: the existing objects compose the experiment │
+└────────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                             │
+                                             ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│  2. REPLAY CLOCK — OUTER LOOP                     repeated for each eligible date t       │
+│                                                                                          │
+│  ReplayClock(t)                                                                           │
+│       ├──► Load records where available_at ≤ t              [prevents look-ahead]         │
+│       ├──► Apply approved PortfolioEvents effective at t     [sandbox branch only]        │
+│       ├──► Revalue positions and cash                        [PortfolioSnapshot(t)]        │
+│       ├──► Calculate the selected MetricPack                                              │
+│       └──► Build OverallDefaultContext(t)                                                 │
+│                 = PortfolioContext + RiskContext + EventContext + evidence                │
+│                                                                                          │
+│  Routine outputs are audited and auto-cleared. Attention items pause the Replay Clock.   │
+└────────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                             │
+                                             ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│  3. DAILY PORTFOLIO RISK REVIEW — PRIMARY WORKFLOW                                      │
+│                                                                                          │
+│  OverallDefaultContext(t)                                                                 │
+│       │                                                                                  │
+│       ├──► threshold gate + metric change analysis                                      │
+│       ├──► position attribution + concentration                                          │
+│       ├──► event/fundamental evidence readiness                                          │
+│       ├──► deterministic scenario stresses                                               │
+│       ├──► narrative synthesis + contradictory evidence                                  │
+│       └──► evidence critic ──► Daily Portfolio Risk Review                               │
+│                                      │                                                   │
+│                         routine ─────┴───── attention required                            │
+│                            │                        │                                     │
+│                     audit + continue       human accepts / investigates / rejects         │
+│                                                                                          │
+│  Optional Morning Review and Research Brief workflows stay disabled until they have      │
+│  equally explicit purpose, evidence, narrative, and attention contracts.                 │
+└────────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                             │
+                                             ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│  4. HUMAN DECISION & SANDBOX EVENT                                                        │
+│                                                                                          │
+│  Agent recommendation ──► ReviewItem ──► human approves / rejects / edits                 │
+│                                              │                                           │
+│                                    approve   ▼                                           │
+│                                   append PortfolioEvent                                  │
+│                                              │                                           │
+│                             applied only at next replay tick                              │
+│                                              │                                           │
+│                          recalculate holdings, valuation, metrics, context                 │
+│                                                                                          │
+│  PRODUCTION BOUNDARY: no broker, no live order, no automatic rebalance                    │
+└──────────────────────────────────────────────────────────────────────────────────────────┘</pre>
+  </dialog>
+
+  <dialog id="review-dialog">
+    <div class="dialog-heading">
+      <div><span class="eyebrow">Narrative review</span><h2>Daily Portfolio Risk Review</h2></div>
+      <button class="icon-button" id="close-review-dialog" type="button" aria-label="Close review">×</button>
+    </div>
+    <div id="review-dialog-body"></div>
+  </dialog>
+
+  <dialog id="capability-dialog">
+    <div class="dialog-heading">
+      <div><span class="eyebrow">Capability library</span><h2>Add one bounded capability</h2></div>
+      <button class="icon-button" id="close-capability" type="button" aria-label="Close capability dialog">×</button>
+    </div>
+    <div class="capability-options">
+      <button type="button" data-capability="event_retrieval"><strong>Event retrieval</strong><span>Query governed events available as of the replay timestamp.</span></button>
+      <button type="button" data-capability="fundamental_change"><strong>Fundamental change</strong><span>Compare point-in-time company fundamentals without look-ahead.</span></button>
+      <button type="button" data-capability="scenario_stress"><strong>Scenario stress</strong><span>Calculate a bounded deterministic stress scenario.</span></button>
+    </div>
+  </dialog>
+
+  <dialog id="workflow-dialog">
+    <div class="dialog-heading">
+      <div><span class="eyebrow">Workflow Cycle Set</span><h2>Add a workflow cycle</h2></div>
+      <button class="icon-button" id="close-workflow-dialog" type="button" aria-label="Close workflow dialog">×</button>
+    </div>
+    <div class="field-grid">
+      <label class="field"><span>Workflow name</span><input id="new-workflow-name" value="Scenario review"></label>
+      <label class="field"><span>Result sought</span>
+        <select id="new-workflow-result">
+          <option value="risk_review">Risk Review</option>
+          <option value="morning_review">Morning Review</option>
+          <option value="portfolio_brief">Portfolio Brief</option>
+        </select>
+      </label>
+      <label class="field"><span>Agent topology</span>
+        <select id="new-workflow-topology">
+          <option value="specialist_team">Specialist team</option>
+          <option value="single_agent">Single structured agent</option>
+          <option value="rules">Deterministic rules</option>
+        </select>
+      </label>
+    </div>
+    <button class="button primary" id="confirm-workflow" type="button">Add to every replay date</button>
+  </dialog>
+
+  <dialog id="holding-dialog">
+    <div class="dialog-heading">
+      <div><span class="eyebrow">Opening portfolio</span><h2>Add a research holding</h2></div>
+      <button class="icon-button" id="close-holding" type="button" aria-label="Close holding dialog">×</button>
+    </div>
+    <div class="field-grid">
+      <label class="field"><span>Instrument alias</span><input id="new-holding-name" value="custom-research-instrument"></label>
+      <label class="field"><span>Quantity</span><input id="new-holding-quantity" type="number" min="1" value="10000"></label>
+      <label class="field"><span>Opening price</span><input id="new-holding-price" type="number" min="0.01" step="0.01" value="50"></label>
+    </div>
+    <button class="button primary" id="confirm-holding" type="button">Add to opening portfolio</button>
+  </dialog>
+
+  <script src="./app.js"></script>
+  <script src="./labs.js?v=12"></script>
+</body>
+</html>
