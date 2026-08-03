@@ -23,6 +23,11 @@ def _canonical_digest(value: dict[str, object]) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
+def _file_id(path: str, digest: str) -> str:
+    identity = hashlib.sha256(f"{path}\0{digest}".encode("utf-8")).hexdigest()
+    return f"file-{identity[:16]}"
+
+
 def _aware(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("timestamp must be timezone-aware")
@@ -113,9 +118,9 @@ class ArtifactFile(FrozenModel):
 
     @model_validator(mode="after")
     def identity_matches_digest(self) -> "ArtifactFile":
-        expected = f"file-{self.content_digest[7:23]}"
+        expected = _file_id(self.path, self.content_digest)
         if self.file_id != expected:
-            raise ValueError("file_id must derive from the content digest")
+            raise ValueError("file_id must derive from the logical path and content digest")
         if self.sensitive and self.preview_mode != PreviewMode.NONE:
             raise ValueError("sensitive files cannot be previewed")
         return self
@@ -292,7 +297,7 @@ def file_manifest(*, path: str, content: bytes, media_type: str, role: str,
                   download_allowed: bool = False, sensitive: bool = False) -> ArtifactFile:
     digest = "sha256:" + hashlib.sha256(content).hexdigest()
     return ArtifactFile(
-        file_id=f"file-{digest[7:23]}",
+        file_id=_file_id(path, digest),
         path=path,
         content_digest=digest,
         media_type=media_type,

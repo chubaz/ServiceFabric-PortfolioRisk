@@ -225,6 +225,54 @@ def test_shared_blob_survives_while_another_owner_is_recoverably_tombstoned(tmp_
     assert repository.verify(second.artifact_id).valid
 
 
+def test_post_commit_finalization_cleanup_is_exactly_retryable(tmp_path, monkeypatch):
+    repository = LocalArtifactRepository(tmp_path / "artifacts")
+    manifest, files = artifact(artifact_id="artifact-finalize-retry-001")
+    repository.admit(manifest, files, actor="test.reviewer", occurred_at=NOW)
+    preview = repository.deletion_preview(manifest.artifact_id, now=NOW)
+    tombstoned = repository.tombstone(
+        manifest.artifact_id,
+        confirmation_token=preview.confirmation_token,
+        expected_revision=preview.expected_revision,
+        actor="test.reviewer",
+        rationale="Prepare the cleanup retry fixture.",
+        occurred_at=NOW,
+    )
+    final = repository.deletion_preview(
+        manifest.artifact_id, finalize=True, now=NOW + timedelta(days=8)
+    )
+    original = repository._cleanup_unshared_blobs  # noqa: SLF001
+    calls = 0
+
+    def fail_once(record):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise OSError("injected cleanup interruption")
+        return original(record)
+
+    monkeypatch.setattr(repository, "_cleanup_unshared_blobs", fail_once)
+    with pytest.raises(OSError, match="injected cleanup"):
+        repository.finalize_delete(
+            manifest.artifact_id,
+            confirmation_token=final.confirmation_token,
+            expected_revision=tombstoned.revision,
+            actor="test.reviewer",
+            rationale="Finalize and exercise resumable cleanup.",
+            occurred_at=NOW + timedelta(days=8),
+        )
+    assert repository.get(manifest.artifact_id).state == ArtifactLifecycleState.DELETED
+    retried = repository.finalize_delete(
+        manifest.artifact_id,
+        confirmation_token=final.confirmation_token,
+        expected_revision=tombstoned.revision,
+        actor="test.reviewer",
+        rationale="Finalize and exercise resumable cleanup.",
+        occurred_at=NOW + timedelta(days=8),
+    )
+    assert retried.state == ArtifactLifecycleState.DELETED
+
+
 def test_symlink_repository_root_and_tampered_blob_fail_closed(tmp_path):
     real = tmp_path / "real"
     real.mkdir()

@@ -90,6 +90,7 @@ def test_compile_and_admit_rechecks_exact_source(tmp_path):
     assert record.manifest.run_id == RUN_ID
     assert record.manifest.data_truth == DataTruthClass.SYNTHETIC_SAMPLE
     assert repository.verify(record.manifest.artifact_id).valid
+    assert len({item.file_id for item in record.manifest.files}) == len(record.manifest.files)
     (root / RUN_ID / "output.json").write_text("{}\n")
     with pytest.raises(LegacyRunInvalid, match="source_changed_since_preview"):
         compile_legacy_run(

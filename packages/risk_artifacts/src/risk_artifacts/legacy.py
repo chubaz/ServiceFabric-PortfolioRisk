@@ -112,6 +112,27 @@ def _digest(content: bytes) -> str:
     return "sha256:" + hashlib.sha256(content).hexdigest()
 
 
+def _observation_identity(
+    run_id: str, manifest: dict[str, Any], contents: dict[str, bytes]
+) -> tuple[str, str, DataTruthClass, RightsState, str, str]:
+    source_digest = _digest(contents["manifest.json"])
+    inventory_digest = _digest(
+        json.dumps(
+            [(name, len(contents[name]), _digest(contents[name])) for name in EXPECTED_FILES],
+            separators=(",", ":"),
+        ).encode("utf-8")
+    )
+    real = manifest.get("data_mode") == "real_duckdb"
+    truth = DataTruthClass.LICENSED_REAL if real else DataTruthClass.SYNTHETIC_SAMPLE
+    rights = RightsState.LICENSED_RESTRICTED if real else RightsState.INTERNAL
+    policy = "local.licensed.research.v1" if real else "internal.synthetic.research.v1"
+    artifact_id = f"retained-run-{inventory_digest[7:31]}"
+    token = _digest(
+        f"{ADAPTER_ID}|{ADAPTER_REVISION}|{run_id}|{inventory_digest}|{policy}".encode()
+    )
+    return source_digest, artifact_id, truth, rights, policy, token
+
+
 def _safe_directory(root: Path, run_id: str) -> Path:
     if not RUN_ID_PATTERN.fullmatch(run_id):
         raise LegacyRunInvalid("invalid_run_id")
@@ -151,14 +172,34 @@ def _read_regular(path: Path) -> bytes:
 def _observe(root: Path, run_id: str) -> tuple[dict[str, Any], dict[str, bytes], tuple[str, ...]]:
     directory = _safe_directory(root, run_id)
     names = []
+    signatures: dict[str, tuple[int, int, int, int]] = {}
     for child in directory.iterdir():
         observed = child.lstat()
         if not stat.S_ISREG(observed.st_mode) or stat.S_ISLNK(observed.st_mode):
             raise LegacyRunInvalid("source_contains_non_regular_file")
         names.append(child.name)
+        signatures[child.name] = (
+            observed.st_dev,
+            observed.st_ino,
+            observed.st_size,
+            observed.st_mtime_ns,
+        )
     if tuple(sorted(names)) != EXPECTED_FILES:
         raise LegacyRunInvalid("source_inventory_mismatch")
     contents = {name: _read_regular(directory / name) for name in EXPECTED_FILES}
+    final_names = tuple(sorted(child.name for child in directory.iterdir()))
+    if final_names != EXPECTED_FILES:
+        raise LegacyRunInvalid("source_changed_during_observation")
+    for name in EXPECTED_FILES:
+        observed = (directory / name).lstat()
+        final_signature = (
+            observed.st_dev,
+            observed.st_ino,
+            observed.st_size,
+            observed.st_mtime_ns,
+        )
+        if stat.S_ISLNK(observed.st_mode) or final_signature != signatures[name]:
+            raise LegacyRunInvalid("source_changed_during_observation")
     try:
         manifest = json.loads(contents["manifest.json"])
     except (json.JSONDecodeError, UnicodeDecodeError) as error:
@@ -226,20 +267,8 @@ def preview_legacy_run(root: str | Path, run_id: str) -> LegacyRunPreview:
             warnings=(),
             blockers=(str(error),),
         )
-    source_digest = _digest(contents["manifest.json"])
-    inventory_digest = _digest(
-        json.dumps(
-            [(name, len(contents[name]), _digest(contents[name])) for name in EXPECTED_FILES],
-            separators=(",", ":"),
-        ).encode("utf-8")
-    )
-    real = manifest.get("data_mode") == "real_duckdb"
-    truth = DataTruthClass.LICENSED_REAL if real else DataTruthClass.SYNTHETIC_SAMPLE
-    rights = RightsState.LICENSED_RESTRICTED if real else RightsState.INTERNAL
-    policy = "local.licensed.research.v1" if real else "internal.synthetic.research.v1"
-    artifact_id = f"retained-run-{inventory_digest[7:31]}"
-    token = _digest(
-        f"{ADAPTER_ID}|{ADAPTER_REVISION}|{run_id}|{inventory_digest}|{policy}".encode()
+    source_digest, artifact_id, truth, rights, policy, token = _observation_identity(
+        run_id, manifest, contents
     )
     return LegacyRunPreview(
         run_id=run_id,
@@ -269,6 +298,9 @@ def compile_legacy_run(
     if not preview.eligible or preview.confirmation_token != confirmation_token:
         raise LegacyRunInvalid("source_changed_since_preview")
     source, contents, _warnings = _observe(Path(root), run_id)
+    observed = _observation_identity(run_id, source, contents)
+    if observed[5] != confirmation_token or observed[1] != preview.artifact_id:
+        raise LegacyRunInvalid("source_changed_since_preview")
     real = source.get("data_mode") == "real_duckdb"
     files = []
     for name in EXPECTED_FILES:

@@ -675,6 +675,22 @@ class LocalArtifactRepository:
         occurred_at = (occurred_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
         with self._mutation_lock():
             record = self.get(artifact_id)
+            if record.state == ArtifactLifecycleState.DELETED:
+                receipt = record.receipts[-1]
+                prior = ArtifactRecord(manifest=record.manifest, receipts=record.receipts[:-1])
+                if (
+                    receipt.operation != "finalize_delete"
+                    or receipt.actor != actor
+                    or receipt.rationale != rationale
+                    or prior.revision != expected_revision
+                    or self._confirmation_token(
+                        "finalize_delete", prior, self._reverse_references(artifact_id)
+                    )
+                    != confirmation_token
+                ):
+                    raise ArtifactConflict("a completed finalization can only be retried exactly")
+                self._cleanup_unshared_blobs(record)
+                return record
             references = self._reverse_references(artifact_id)
             if record.state != ArtifactLifecycleState.TOMBSTONED:
                 raise ArtifactConflict("only a tombstoned artifact can be finalized")
@@ -688,18 +704,18 @@ class LocalArtifactRepository:
                 blockers.append("published artifacts deny ordinary deletion")
             if record.manifest.retention == RetentionClass.EVIDENCE_LOCKED:
                 blockers.append("evidence-locked artifacts deny ordinary deletion")
+            if not self.verify(artifact_id).valid:
+                blockers.append("integrity verification must pass before finalization")
             token = self._confirmation_token("finalize_delete", record, references)
             if token != confirmation_token or record.revision != expected_revision:
                 blockers.append("finalization preview is stale")
             if blockers:
                 raise ArtifactConflict("; ".join(blockers))
-            other_digests = {
-                item.content_digest
-                for other in self.list(include_deleted=True)
-                if other.manifest.artifact_id != artifact_id
-                and other.state != ArtifactLifecycleState.DELETED
-                for item in other.manifest.files
-            }
+            other_digests = self._other_owned_digests(artifact_id)
+            for item in record.manifest.files:
+                blob = self._blob_path(item.content_digest)
+                if item.content_digest not in other_digests and blob.is_symlink():
+                    raise ArtifactConflict("artifact blob may not be a symbolic link")
             deleted = self._append_receipt(
                 record,
                 operation="finalize_delete",
@@ -712,15 +728,28 @@ class LocalArtifactRepository:
             # The committed terminal receipt makes residual bytes unreachable. A
             # crash during cleanup can therefore be retried safely without ever
             # exposing a catalogue entry whose declared bytes have disappeared.
-            for item in record.manifest.files:
-                if item.content_digest in other_digests:
-                    continue
-                blob = self._blob_path(item.content_digest)
-                if blob.is_symlink():
-                    raise ArtifactConflict("artifact blob may not be a symbolic link")
-                if blob.exists():
-                    blob.unlink()
+            self._cleanup_unshared_blobs(deleted)
             return deleted
+
+    def _other_owned_digests(self, artifact_id: str) -> set[str]:
+        return {
+            item.content_digest
+            for other in self.list(include_deleted=True)
+            if other.manifest.artifact_id != artifact_id
+            and other.state != ArtifactLifecycleState.DELETED
+            for item in other.manifest.files
+        }
+
+    def _cleanup_unshared_blobs(self, record: ArtifactRecord) -> None:
+        other_digests = self._other_owned_digests(record.manifest.artifact_id)
+        for item in record.manifest.files:
+            if item.content_digest in other_digests:
+                continue
+            blob = self._blob_path(item.content_digest)
+            if blob.is_symlink():
+                raise ArtifactConflict("artifact blob may not be a symbolic link")
+            if blob.exists():
+                blob.unlink()
 
     def open_file(self, artifact_id: str, path: str, *, download: bool = False) -> tuple[bytes, str]:
         record = self.get(artifact_id)
