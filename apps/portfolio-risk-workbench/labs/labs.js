@@ -2801,11 +2801,12 @@
       return;
     }
     if (labState.cycleDashboardPage === "risk") {
+      const findings = new Map((snapshot.findings || []).map((item) => [item.finding_id, item]));
       const proposals = snapshot.decision_proposals || [];
       const decisions = new Map((snapshot.decisions || []).map((item) => [item.proposal_id, item]));
       const receipts = new Map((snapshot.consequence_receipts || []).map((item) => [item.proposal_id, item]));
       const history = snapshot.daily_history || [];
-      $("#cycle-dashboard-view").innerHTML = `${cycleMetricCards(snapshot)}<div class="cycle-risk-columns"><section><span>Decision proposals and resolutions</span>${proposals.length ? proposals.map((item) => { const decision = decisions.get(item.proposal_id); const receipt = receipts.get(item.proposal_id); return `<article class="cycle-decision-card"><b>${decision ? `resolved · ${escapeHtml(decision.outcome)}` : "awaiting human resolution"}</b><strong>${escapeHtml(item.finding)}</strong><small>${decision ? `Resolver ${escapeHtml(decision.resolver?.resolver_id || "unknown")} · ${escapeHtml(receipt?.consequence || "No consequence receipt")}` : escapeHtml(cycleTimeLabel(item.as_of))}</small></article>`; }).join("") : '<div class="empty-state">No threshold finding has created a decision proposal.</div>'}</section><section><span>Completed dates</span>${history.length ? history.map((item) => `<article class="cycle-history-row"><strong>${escapeHtml(item.date)}</strong><b class="${Number(item.return) < 0 ? "negative" : "positive"}">${runPercentage(item.return, 2)}</b><small>${escapeHtml(cycleMoney(item.close_nav))}</small></article>`).join("") : '<div class="empty-state">No simulated day has closed.</div>'}</section></div>`;
+      $("#cycle-dashboard-view").innerHTML = `${cycleMetricCards(snapshot)}<div class="cycle-risk-columns"><section><span>Decision proposals and resolutions</span>${proposals.length ? proposals.map((item) => { const finding = findings.get(item.finding_id); const decision = decisions.get(item.proposal_id); const receipt = receipts.get(item.proposal_id); return `<article class="cycle-decision-card"><b>${decision ? `resolved · ${escapeHtml(decision.outcome)}` : "awaiting human resolution"}</b><strong>${escapeHtml(finding?.summary || `Finding ${item.finding_id}`)}</strong><small>${decision ? `Resolver ${escapeHtml(decision.resolver?.resolver_id || "unknown")} · ${escapeHtml(receipt?.consequence || "No consequence receipt")}` : escapeHtml(cycleTimeLabel(item.as_of))}</small></article>`; }).join("") : '<div class="empty-state">No threshold finding has created a decision proposal.</div>'}</section><section><span>Completed dates</span>${history.length ? history.map((item) => `<article class="cycle-history-row"><strong>${escapeHtml(item.date)}</strong><b class="${Number(item.return) < 0 ? "negative" : "positive"}">${runPercentage(item.return, 2)}</b><small>${escapeHtml(cycleMoney(item.close_nav))}</small></article>`).join("") : '<div class="empty-state">No simulated day has closed.</div>'}</section></div>`;
       return;
     }
     if (labState.cycleDashboardPage === "agents") {
@@ -2852,10 +2853,11 @@
     renderCycleAgents(snapshot);
     const resolvedProposalIds = new Set((snapshot.decisions || []).map((item) => item.proposal_id));
     const proposal = (snapshot.decision_proposals || []).find((item) => !resolvedProposalIds.has(item.proposal_id));
+    const finding = (snapshot.findings || []).find((item) => item.finding_id === proposal?.finding_id);
     $("#cycle-decision-panel").classList.toggle("hidden", !proposal);
     if (proposal) {
       $("#cycle-decision-panel").dataset.proposalId = proposal.proposal_id;
-      $("#cycle-decision-finding").textContent = proposal.finding;
+      $("#cycle-decision-finding").textContent = finding?.summary || `Finding ${proposal.finding_id}`;
       $("#cycle-decision-question").textContent = proposal.question;
       $("#cycle-decision-consequences").innerHTML = (proposal.options || []).map((option) => `<li><strong>${escapeHtml(option.label)}</strong> — ${escapeHtml(option.consequence)}</li>`).join("");
     }
@@ -2924,13 +2926,17 @@
   async function resolveCycleDecision(outcome) {
     const proposalId = $("#cycle-decision-panel").dataset.proposalId;
     if (!labState.cycleSessionId || !proposalId) return;
-    let snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}/decision-proposals/${encodeURIComponent(proposalId)}/resolve`, {
-      method: "POST",
-      body: JSON.stringify({ outcome, resolver_id: "local-human-reviewer", resolver_type: "human" }),
-    });
-    if (outcome === "accepted") {
-      snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}/control`, { method: "POST", body: JSON.stringify({ action: "start" }) });
+    const resolverId = $("#cycle-decision-resolver").value.trim();
+    if (resolverId.length < 3) {
+      showToast("Enter a resolver ID before recording the decision.", "error");
+      $("#cycle-decision-resolver").focus();
+      return;
     }
+    const snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}/decision-proposals/${encodeURIComponent(proposalId)}/resolve`, {
+      method: "POST",
+      body: JSON.stringify({ outcome, resolver_id: resolverId, resolver_type: "human" }),
+    });
+    $("#cycle-decision-resolver").value = "";
     renderCycleSnapshot(snapshot);
   }
 

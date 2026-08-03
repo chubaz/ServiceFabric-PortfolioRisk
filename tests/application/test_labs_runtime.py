@@ -219,9 +219,15 @@ def test_cycle_keeps_finding_proposal_decision_and_consequence_distinct() -> Non
     proposed = session.snapshot()
     assert proposed["decisions"] == []
     assert proposed["consequence_receipts"] == []
+    assert len(proposed["findings"]) == 1
     assert len(proposed["decision_proposals"]) == 1
+    finding = proposed["findings"][0]
+    frozen_finding = deepcopy(finding)
     proposal = proposed["decision_proposals"][0]
     frozen_proposal = deepcopy(proposal)
+    assert finding["artifact_type"] == "finding"
+    assert finding["finding_id"] == proposal["finding_id"]
+    assert finding["effects"] == []
     assert proposal["artifact_type"] == "decision_proposal"
     assert proposal["status"] == "awaiting_human_resolution"
     assert "decision_id" not in proposal
@@ -235,6 +241,7 @@ def test_cycle_keeps_finding_proposal_decision_and_consequence_distinct() -> Non
         resolver_type="human",
     )
     resolved = session.snapshot()
+    assert resolved["findings"][0] == frozen_finding
     assert resolved["decision_proposals"][0] == frozen_proposal
     assert len(resolved["decisions"]) == 1
     decision = resolved["decisions"][0]
@@ -251,6 +258,7 @@ def test_cycle_keeps_finding_proposal_decision_and_consequence_distinct() -> Non
     assert receipt["workflow_effect"] == "workflow_remains_paused"
     assert receipt["portfolio_effects"] == []
     assert receipt["external_effects"] == []
+    assert session.status == "paused"
     assert "no investigation workspace is opened automatically" in receipt[
         "consequence"
     ]
@@ -261,3 +269,18 @@ def test_cycle_keeps_finding_proposal_decision_and_consequence_distinct() -> Non
             resolver_id="qa-human-reviewer",
             resolver_type="human",
         )
+
+
+def test_cycle_ui_requires_resolver_identity_and_separate_manual_resume() -> None:
+    html = (LABS_ROOT / "index.html").read_text(encoding="utf-8")
+    javascript = (LABS_ROOT / "labs.js").read_text(encoding="utf-8")
+    server = (LABS_ROOT / "duckdb_server.py").read_text(encoding="utf-8")
+    assert 'id="cycle-decision-resolver"' in html
+    assert "Enter your reviewer ID" in html
+    assert "Accept proposal and resume" not in html
+    assert "local-human-reviewer" not in javascript
+    assert 'resolver_id: str = Field(min_length=3' in server
+    resolve_body = javascript.split("async function resolveCycleDecision", 1)[1].split(
+        "function", 1
+    )[0]
+    assert "/control" not in resolve_body

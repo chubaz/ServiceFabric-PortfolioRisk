@@ -57,6 +57,7 @@ class SyntheticWorkflowSession:
         }
         self.candles["portfolio"] = deque(maxlen=MAX_CANDLES)
         self.events: deque[dict[str, Any]] = deque(maxlen=300)
+        self.findings: list[dict[str, Any]] = []
         self.decision_proposals: list[dict[str, Any]] = []
         self.decisions: list[dict[str, Any]] = []
         self.consequence_receipts: list[dict[str, Any]] = []
@@ -289,18 +290,31 @@ class SyntheticWorkflowSession:
         if intraday_return > -threshold or day in self._proposal_days:
             return
         self._proposal_days.add(day)
-        proposal = {
-            "proposal_id": f"proposal-{day}-{len(self.decision_proposals) + 1}",
-            "artifact_type": "decision_proposal",
+        observed_at = _iso_at(self.current_day, self.second)
+        finding = {
             "finding_id": f"finding-intraday-loss-{day}",
-            "as_of": _iso_at(self.current_day, self.second),
-            "status": "awaiting_human_resolution",
-            "kind": "intraday_loss_review",
-            "finding": (
+            "artifact_type": "finding",
+            "observed_at": observed_at,
+            "kind": "intraday_loss_threshold",
+            "summary": (
                 f"The synthetic portfolio has fallen {_pct(abs(intraday_return))} "
                 f"from the session open, beyond the {_pct(threshold)} review threshold."
             ),
-            "question": "Should the simulated workflow resume, remain paused for investigation, or reject this proposal?",
+            "evidence": {
+                "intraday_return": round(intraday_return, 8),
+                "review_threshold": -threshold,
+                "data_origin": "simulated_seeded_intraday",
+            },
+            "effects": [],
+        }
+        proposal = {
+            "proposal_id": f"proposal-{day}-{len(self.decision_proposals) + 1}",
+            "artifact_type": "decision_proposal",
+            "finding_id": finding["finding_id"],
+            "as_of": observed_at,
+            "status": "awaiting_human_resolution",
+            "kind": "intraday_loss_review",
+            "question": "Should this proposal be accepted, marked for investigation, or rejected?",
             "options": [
                 {
                     "outcome": "accepted",
@@ -321,13 +335,14 @@ class SyntheticWorkflowSession:
             "human_review_required": True,
             "effects": [],
         }
+        self.findings.append(finding)
         self.decision_proposals.append(proposal)
         self.running = False
         self.status = "paused_for_review"
         self._record_event(
             "decision_proposal",
             "Decision proposal requires human resolution",
-            proposal["finding"],
+            finding["summary"],
         )
         self._patch_dashboard(
             "update",
@@ -634,6 +649,7 @@ class SyntheticWorkflowSession:
                 },
                 "report": self.report,
                 "events": list(self.events)[:80],
+                "findings": list(reversed(self.findings[-20:])),
                 "decision_proposals": list(reversed(self.decision_proposals[-20:])),
                 "decisions": list(reversed(self.decisions[-20:])),
                 "consequence_receipts": list(

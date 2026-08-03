@@ -56,7 +56,7 @@
       ]
     },
     "independent-qa": {
-      "branch": "review/platform-p0-qa-r2",
+      "branch": "review/platform-p0-qa-r3",
       "allowed_directories": [],
       "allowed_files": [
         "docs/handoffs/platform-development/phase0-independent-qa.md"

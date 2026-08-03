@@ -1167,7 +1167,9 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
 .cycle-decision-panel p { color: #665b48; font-size: 8px; margin: 2px 0 0; }
 .cycle-decision-panel ul { color: #776d59; display: grid; font-size: 7px; gap: 2px; margin: 4px 0 0; padding-left: 14px; }
 .cycle-decision-panel li strong { font-size: inherit; }
-.cycle-decision-panel > div:last-child { display: flex; gap: 6px; }
+.cycle-decision-panel > div:last-child { align-items: flex-end; display: flex; flex-wrap: wrap; gap: 6px; }
+.cycle-resolver-field { display: grid; gap: 2px; min-width: 170px; }
+.cycle-resolver-field input { font-size: 8px; min-height: 30px; }
 @media (max-width: 1180px) {
   .cycle-setup-panel { grid-template-columns: 1fr; }
   .cycle-console-bar { grid-template-columns: 1fr; }

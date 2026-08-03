@@ -722,7 +722,7 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
 
         <section class="cycle-decision-panel hidden" id="cycle-decision-panel">
           <div><span>Decision proposal · human resolution required</span><strong id="cycle-decision-finding"></strong><p id="cycle-decision-question"></p><small>The clock is paused. The finding is not a decision and no portfolio effect has been created.</small><ul id="cycle-decision-consequences"></ul></div>
-          <div><button class="button primary" data-cycle-decision="accepted" type="button">Accept proposal and resume</button><button class="button" data-cycle-decision="investigate" type="button">Mark for later investigation</button><button class="button ghost" data-cycle-decision="rejected" type="button">Reject proposal</button></div>
+          <div><label class="cycle-resolver-field" for="cycle-decision-resolver"><span>Resolver ID</span><input id="cycle-decision-resolver" type="text" autocomplete="off" placeholder="Enter your reviewer ID" /></label><button class="button primary" data-cycle-decision="accepted" type="button">Accept proposal</button><button class="button" data-cycle-decision="investigate" type="button">Mark for later investigation</button><button class="button ghost" data-cycle-decision="rejected" type="button">Reject proposal</button></div>
         </section>
       </section>
     </section>

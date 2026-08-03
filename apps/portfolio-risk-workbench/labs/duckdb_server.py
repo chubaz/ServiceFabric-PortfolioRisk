@@ -357,7 +357,7 @@ class WorkflowCycleControlRequest(BaseModel):
 
 class WorkflowCycleDecisionRequest(BaseModel):
     outcome: Literal["accepted", "investigate", "rejected"]
-    resolver_id: str = Field(default="local-human-reviewer", min_length=3, max_length=120)
+    resolver_id: str = Field(min_length=3, max_length=120)
     resolver_type: Literal["human"] = "human"
 
 

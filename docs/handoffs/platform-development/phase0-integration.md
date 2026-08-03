@@ -70,13 +70,25 @@ have been corrected for a fresh review:
   application-test paths already assigned by P0-04, and an architecture test
   validates the actual visible-synthesis commit against that grant.
 
+The second independent review (`96ec906`, preserved in integration as
+`cfe4bc3`) closed the synthetic-provenance and lane-grant findings but returned
+**FAIL** on three remaining decision-lifecycle inconsistencies. The subsequent
+bounded correction now:
+
+- retains the threshold finding as a standalone immutable artifact referenced
+  by the proposal;
+- requires the local human to supply a resolver identifier instead of assigning
+  a generic identity in the API or browser;
+- records proposal acceptance while leaving the clock paused, so a separate
+  manual Start action matches the `manual_resume_permitted` receipt.
+
 ## Verification evidence
 
 - Python compilation for the changed runtime modules: PASS.
 - `node --check apps/portfolio-risk-workbench/labs/labs.js`: PASS.
-- focused application and architecture tests: 14 passed.
+- focused application and architecture tests: 15 passed.
 - `make verify-platform-phase0`: PASS, 25 tests.
-- `make test-application`: PASS, 95 tests.
+- `make test-application`: PASS, 96 tests.
 - `make test-architecture`: PASS, 100 tests.
 - `make verify-thesis-current`: PASS after GitHub Actions exposed and the
   candidate corrected a squash-merge-era Day 1 lane-ancestry assertion. The
@@ -93,6 +105,13 @@ have been corrected for a fresh review:
 - amended Agent/cycle inspection: corrected truth values, simulated report
   title, proposal label, consequence-aware resolution actions, and default-off
   checkpoint verified.
+- effect-free local cycle probe: a threshold crossing exposed separate immutable
+  finding and proposal records; resolving without an identifier returned HTTP
+  422; resolving as `lorenzo-local-review` created a separate decision and
+  consequence receipt while the workflow remained paused.
+- amended in-app browser inspection: the review panel requires a Resolver ID,
+  labels acceptance as `Accept proposal`, and does not claim that acceptance
+  resumes the clock.
 
 ## Unresolved decisions and latest safe point
 
@@ -131,7 +150,6 @@ saved local run is mutated by the increment.
 
 ## Next action
 
-Commit and push the bounded correction, fast-forward the independent QA
-worktree, and run a fresh P0-05 review. Move the active wave to acceptance only
-after a new PASS handoff is validated; do not mark the draft pull request ready
-before that gate.
+Commit and push this third candidate, then run P0-05 from a fresh independent
+QA worktree. Move the active wave to acceptance only after a new PASS handoff is
+validated; do not mark the draft pull request ready before that gate.
