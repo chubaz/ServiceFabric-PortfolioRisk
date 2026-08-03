@@ -280,3 +280,191 @@ QA-01, QA-02 and QA-03, with focused runtime and lane-range tests. Re-run `make
 verify-platform-phase0`, application and architecture tests, verify all GitHub
 workflows are green, then dispatch a fresh independent QA review. Do not mark
 Phase 0 complete or make PR #20 ready while this FAIL handoff remains current.
+
+---
+
+## Re-review — 2026-08-03 — candidate `7bcf9a7d99969586e55a2d186a0b603b755cd1ca`
+
+- Lane: P0-05 independent QA, second review
+- Branch: `review/platform-p0-qa-r2`
+- Candidate: `7bcf9a7d99969586e55a2d186a0b603b755cd1ca`
+- Prior FAIL above: preserved verbatim
+- Verdict: **FAIL**
+- Scope: independent review only; no candidate defect was repaired and nothing
+  was merged
+
+### Re-review verdict
+
+The bounded correction closes QA-02 and QA-03 and materially improves QA-01.
+It now keeps the decision proposal immutable during resolution, creates a
+separate decision and consequence receipt, previews all outcomes, describes
+investigation honestly, and preserves empty portfolio and external effects.
+The candidate nevertheless cannot become the Phase 1 baseline because the
+corrected decision path still does not implement the lifecycle it claims in
+three related places:
+
+1. the finding is not a separately retained immutable artifact;
+2. the UI records a generic hard-coded role as an identified human resolver;
+3. acceptance auto-starts the workflow although the immutable receipt records
+   only that manual resume is permitted.
+
+These are not requests for the unresolved Decision v1 design. They are
+truthfulness defects in the current in-memory Phase 0 demonstration and can be
+fixed within the existing bounded runtime.
+
+### QA-01-R2 — finding, resolver, and consequence remain internally inconsistent
+
+**Separate finding artifact**
+
+`workflow_cycle_runtime.py:292-324` creates only a `decision_proposal`. The
+threshold observation is embedded in that object as `finding` with a
+`finding_id`; the session has no `findings` collection and the snapshot exposes
+only `decision_proposals`, `decisions`, and `consequence_receipts`. The focused
+runtime probe confirmed those are the only lifecycle collections. Therefore
+the visible chain starts with a proposal containing prose rather than the
+declared `evidence -> finding -> decision proposal` sequence. The new test is
+named as if all four artifacts are distinct, but it asserts no standalone
+finding artifact.
+
+**Resolver identity**
+
+`duckdb_server.py:358-361` defaults every resolution to
+`local-human-reviewer`, and `labs.js:2924-2930` sends that same constant while
+declaring `resolver_type: human`. There is no authenticated identity, explicit
+reviewer field, or per-session actor identity behind that value. A button click
+does demonstrate interactive resolution, but the retained decision cannot
+truthfully identify which human resolved it. The risk dashboard then renders
+the constant as `Resolver local-human-reviewer` (`labs.js:2803-2808`), making a
+generic role look like an identified person.
+
+**Recorded versus actual consequence**
+
+The accepted option says “The workflow may be resumed manually”
+(`workflow_cycle_runtime.py:304-309`) and its consequence receipt records
+`manual_resume_permitted` (`:550-564`). The UI instead labels the action
+“Accept proposal and resume” (`index.html:723-725`) and immediately posts a
+second `start` command after recording the decision (`labs.js:2931-2933`). The
+focused runtime probe reproduced the resulting transition from `paused` to
+`running`. The receipt therefore does not record the actual workflow
+consequence of the interaction shown to the user.
+
+The financial authority boundary itself remains intact: the proposal and
+decision contain `effects: []`, while the receipt contains
+`portfolio_effects: []` and `external_effects: []`. No broker, order, trade,
+hedge, rebalance, or portfolio-mutation action was introduced.
+
+**Required bounded return task**
+
+1. Retain a separate immutable finding record and have the proposal reference
+   it by ID; expose and test the finding independently of the proposal.
+2. Require a truthful resolver identity supplied by an explicit local-review
+   interaction or authenticated/session actor. Do not default an API caller to
+   a generic identifier while asserting that it is a human identity.
+3. Make the accepted consequence and behavior identical: either leave the
+   cycle paused and require a separate manual Resume action, or record the
+   automatic resume as the actual consequence and receipt. The former matches
+   the present preview and keeps resolution separate from execution.
+4. Add runtime/API assertions for all three boundaries, including that the
+   browser path cannot create a human-labelled decision without an identified
+   resolver and that the receipt matches the resulting workflow state.
+
+### QA-02-R2 — closed
+
+Code-generated Agent scenarios are consistently classified as
+`synthetic_behavior_sample`. Their provenance includes the selected scenario,
+`reviewed_fixture: false`, a `synthetic://agent-studio/<scenario>` reference,
+and an explicit warning that the values are neither a reviewed fixture nor a
+historical observation. The same data mode and label are persisted in the run
+manifest, while `input-provenance.json` retains `reviewed_fixture: false`.
+
+The new application test exercises the generated input and an actual temporary
+saved-run package, rather than checking only source strings. No licensed-data
+or empirical claim is made for this path.
+
+### QA-03-R2 — closed
+
+The integration lane now grants both `apps/portfolio-risk-workbench` and
+`tests/application`. The committed architecture test validates the visible
+synthesis range
+`e3acab1252269066fa6818b24a84047d4ac38847..a0a4fb920291cf1f4fe52e651632bf75d0968a9b`
+against that grant. An independent invocation returned ten changed-path
+records and zero violations, including the Labs application, package manifest,
+application test, architecture test, status, and integration handoff.
+
+This is a reconciliation of the integration responsibility already assigned
+by P0-04; no specialist lane was broadened.
+
+### Other Phase 0 truth checks
+
+- The four-part Development/data/authority/persistence strip remains
+  server-defined and visible for every workspace.
+- Agent isolated-run checkpoint release defaults off. An intentional test-
+  harness release remains labelled `test_harness`, `human_approval: false`,
+  findings/proposals-only, effect-free, and temporary.
+- Agent code-generated samples and licensed DuckDB inputs remain distinct in
+  request types, provenance, UI labels, and persistence.
+- Workflow Cycle continues to disclose licensed daily anchors plus simulated
+  seeded intraday observations, sealed future anchors, in-memory persistence,
+  and no financial effects.
+- The prior ambiguous “Live” Agent and simulated-cycle labels covered by the
+  focused application test are absent. `OverallDefaultContext` remains visibly
+  provisional/assembled-after-calculation; its final canonical placement is
+  still an explicit downstream decision.
+- All seven unresolved downstream decisions listed in the integration handoff
+  remain visible and were not silently resolved by this correction.
+
+### Reproduced verification
+
+- `PIP_NO_INDEX=1 make BOOTSTRAP_VENV=.venv-bootstrap-qa
+  DAY0_VENV=.venv-day0-qa verify-platform-phase0`: **PASS**, 25 tests.
+- `PIP_NO_INDEX=1 make DAY0_VENV=.venv-day0-qa test-application
+  test-architecture`: **PASS**, 95 application tests and 100 architecture
+  tests.
+- ServiceFabric application-package manifest hash check: **PASS**.
+- `node --check apps/portfolio-risk-workbench/labs/labs.js`: **PASS**.
+- Python compilation of `agent_studio.py`, `duckdb_server.py`, and
+  `workflow_cycle_runtime.py`: **PASS**.
+- `git diff --check`: **PASS**.
+- Independent synthesis-range lane validation: **PASS**, ten records and zero
+  violations.
+- Focused decision-runtime probe: **PASS as evidence of the blocker**; it
+  showed no separate `findings` collection, a decision resolved by the literal
+  `local-human-reviewer`, a receipt of `manual_resume_permitted`, and the
+  follow-up UI-equivalent start transition to `running`.
+
+The QA virtual environments were copied from the integration worktree's pinned
+local environments and executed with `PIP_NO_INDEX=1`. No dependency network,
+licensed query, paid model call, private run folder, or external-effect system
+was used. GitHub status was not independently refreshed because GitHub CLI
+authentication is unavailable in this QA environment; this does not change the
+local semantic FAIL.
+
+### Scope integrity and residual risk
+
+- The complete programme-baseline-to-candidate range contains no change under
+  `private-data`, `.agent-runs`, `state`, or committed fixture/data paths.
+- `vendor/servicefabric` remains pinned at
+  `7632b61d94a966346f95eb6c5bb2a5ea27f3bc14`.
+- No browser automation or visual screenshot was used in this re-review. The
+  decision mismatch is established by the actual UI handler, rendered copy,
+  runtime objects, focused application tests, and a direct runtime probe.
+- Passing tests do not override QA-01-R2 because the new lifecycle test does
+  not assert a separate finding, a non-default truthful resolver, or agreement
+  between the receipt and browser-driven workflow state.
+
+### Changed path and rollback
+
+This re-review changes only
+`docs/handoffs/platform-development/phase0-independent-qa.md`. Revert the
+documentation-only QA commit to roll it back. No implementation, vendor source,
+private data, generated artifact, workbook, runtime service, or external system
+was modified.
+
+### Re-review recommendation
+
+Return only QA-01-R2 to integration as one bounded correction. QA-02 and QA-03
+are closed and should not be reopened. After the corrected finding/resolver/
+consequence path has focused runtime and UI-handler coverage, dispatch a third
+independent review. Do not mark Phase 0 complete, move the active wave to an
+accepted baseline, or make PR #20 ready while this second **FAIL** remains the
+latest QA verdict.
