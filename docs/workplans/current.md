@@ -2,13 +2,14 @@
 
 - ID: PLATFORM-P6
 - Title: Decision due-diligence workspace
-- Status: in progress
+- Status: accepted
 - Namespace: platform-development
 - Integration branch: integration/platform-decision-due-diligence
 - Workplan: docs/workplans/platform-development/phase-6-decision-due-diligence.md
 - Baseline commit: b07c7f8a0abac713d5d50158d6bd3ce24421eca3
 - Phase 1 accepted candidate: a68ef6fce9d39f5341fa8675c093db2eba95aed6
 - Verification: make verify-platform-phase6
+- Accepted candidate: 5669055bbc6aea205cf3e0eb4867a949daaa5154
 
 Phase 6 adds a dedicated human due-diligence workspace over the accepted Phase 5
 decision lifecycle. It exposes the proposal's evidence, artifacts, capability
@@ -84,3 +85,12 @@ Phase 6 starts from the exact Phase 5 closure
 only. Authority remains human-only D1; temporary workflows cannot be published,
 cannot fetch new empirical data and cannot create financial or external effects.
 The next exhaustive cross-phase checkpoint remains scheduled after Phase 8.
+
+Phase 6 is accepted at exact implementation candidate
+`5669055bbc6aea205cf3e0eb4867a949daaa5154`. The focused gate passed 39 tests.
+Browser qualification opened the dedicated workspace from a live synthetic
+decision pause, exposed all five reference categories, retained two temporary
+investigations, nine supplemental evidence items and contiguous Proposal
+Revisions 2–3, kept the base proposal awaiting human review, survived a process
+restart, produced no console warnings or errors, and showed no horizontal
+overflow at a 705px qualification width.

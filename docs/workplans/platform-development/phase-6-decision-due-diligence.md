@@ -1,6 +1,7 @@
 # PLATFORM-P6 — Decision due-diligence workspace
 
-- Status: in progress
+- Status: accepted
+- Accepted candidate: `5669055bbc6aea205cf3e0eb4867a949daaa5154`
 - Integration branch: `integration/platform-decision-due-diligence`
 - Baseline: `b07c7f8a0abac713d5d50158d6bd3ce24421eca3`
 - Roadmap: `apps/portfolio-risk-workbench/labs/DEVELOPMENT_ROADMAP.md`
@@ -108,4 +109,23 @@ high-risk boundary changes.
 
 ## Acceptance evidence
 
-Pending implementation and qualification.
+- Focused gate: 39 tests passed across inherited Phase 5 boundaries, Phase 6
+  architecture, decision contracts, persistence, idempotency, API and Workflow
+  Cycle compatibility.
+- Browser: a technology-concentrated portfolio with real daily anchors and a
+  seeded synthetic intraday path paused at a 1.02% loss against a 1.00% review
+  threshold on 2018-10-09 at 14:18 simulated time.
+- Navigation: the Decision Card opened the dedicated due-diligence page with
+  direct evidence, two artifact references, one capability receipt, one policy
+  and all five alternatives visibly separated.
+- Execution: one five-module and one four-module temporary workflow retained two
+  run traces, nine supplemental evidence items and contiguous candidate Proposal
+  Revisions 2 and 3. The immutable proposal remained version 1 and awaiting
+  human review; no resolution or effect was created.
+- Persistence: both runs and Proposal Revision 3 survived a complete application
+  process restart from the same external Decision Repository.
+- UI: no console warnings or errors after the notification defect was corrected;
+  the 705px viewport used one main column with no horizontal overflow.
+- Verification cadence: the next exhaustive cross-phase checkpoint remains due
+  after Phase 8; Phase 6 changed no external-effect, data-rights or non-human
+  authority boundary that would trigger it early.
