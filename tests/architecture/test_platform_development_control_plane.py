@@ -17,7 +17,7 @@ def test_phase0_status_and_current_workplan_are_explicit() -> None:
     assert read_json("config/agent/platform-development/status.json") == {
         "current": "PLATFORM-P0",
         "phase_0": "in_progress",
-        "active_wave": "activation",
+        "active_wave": "parallel-audit",
         "baseline_commit": "81660bd3d4be9c8fb6725e5836e7821f9947eb17",
         "prior_thesis_state": "deferred",
         "development_profile_only": True,
