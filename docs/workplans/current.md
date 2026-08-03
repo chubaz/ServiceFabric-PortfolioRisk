@@ -1,11 +1,12 @@
 # Current Workplan
 
-- ID: THESIS-D4
-- Title: Experiment execution and results
-- Status: in progress
+- ID: THESIS-DEFERRED
+- Title: Thesis experiment closeout without full real panel
+- Status: deferred
 - Namespace: thesis-sprint
-- Workplan: docs/workplans/thesis-sprint/day-4-experiment-results.md
+- Workplan: docs/workplans/thesis-sprint/deferred.md
 - Completed experiment day: THESIS-D3
+- Verified public fixture: THESIS-D4
 - Completed baseline: docs/workplans/day-2-3/complete.md
 - Baseline verification: make verify-d23-current
 
@@ -21,13 +22,16 @@ and empty effects.
 Day 3 closed after the network-free fixture gate and the explicitly authorized
 local provider gate both passed. B0 made zero model calls, B1 made one, and A1
 made four; invalid or unsupported claims remained deterministic abstentions.
-Day 4 experiment execution and descriptive evaluation are in progress. Human
-soft QA remains queued. No architecture ranking, statistical-significance
-claim, predictive claim, investment-performance claim, or QA completion is
-made by this transition.
+The complete Day 4 public synthetic fixture and evaluation pipeline passed, but
+the optional 270-call real historical panel was deliberately not run. Human
+scientific QA was therefore not performed and no real-panel result is accepted.
 
 The public gate remains synthetic. Licensed daily-primary evidence and the
-authorized provider acceptance run remain local and external to Git.
+authorized Day 3 provider acceptance run remain local and external to Git.
 Point-in-time filtering, deterministic critics, human review, and empty effects
 remain mandatory. No broker, order, trade, rebalance, optimization, or
 portfolio mutation effect is enabled.
+
+This closeout preserves all infrastructure and evidence required to resume the
+real Day 4 experiment under a future explicit workplan. It does not label the
+deferred experiment complete and does not claim QA, ranking, or release.

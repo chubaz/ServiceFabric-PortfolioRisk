@@ -16,16 +16,17 @@ def _make_recipe(makefile: str, target: str) -> str:
     return match.group("recipe")
 
 
-def test_day4_activation_state_and_specialist_lane_are_explicit() -> None:
+def test_day4_deferred_state_and_specialist_lane_are_explicit() -> None:
     status = json.loads(
         (ROOT / "config/agent/thesis-sprint/status.json").read_text(
             encoding="utf-8"
         )
     )
-    assert status["current"] == "THESIS-D4"
+    assert status["current"] == "THESIS-DEFERRED"
     assert status["day_3"] == "complete"
-    assert status["day_4"] == "in_progress"
-    assert status["soft_qa"] == "queued"
+    assert status["day_4"] == "deferred"
+    assert status["soft_qa"] == "not_run"
+    assert status["closeout"] == "public_fixture_verified_real_panel_not_run"
 
     lanes = json.loads(
         (ROOT / "config/agent/thesis-sprint/lanes.json").read_text(
@@ -86,7 +87,7 @@ def test_make_exposes_integrated_day4_gates_without_release_claim() -> None:
 
     assert "verify-thesis-current: verify-thesis-day4" in makefile
     current_recipe = _make_recipe(makefile, "verify-thesis-current")
-    assert "Day 4 in progress; human QA queued" in current_recipe
+    assert "Day 4 public fixture verified; real panel and human QA deferred" in current_recipe
     assert "release approved" not in current_recipe.casefold()
 
 

@@ -529,7 +529,7 @@ serve-thesis-day4-dashboard:
 
 .PHONY: verify-thesis-current
 verify-thesis-current: verify-thesis-day4
-	@echo "Thesis Sprint current verification: PASS (Day 3 complete; Day 4 in progress; human QA queued)"
+	@echo "Thesis Sprint current verification: PASS (Day 3 complete; Day 4 public fixture verified; real panel and human QA deferred)"
 
 # Day 2 real-data targets execute the accepted local bridge. All licensed
 # inputs and outputs remain external and are supplied explicitly by the user.

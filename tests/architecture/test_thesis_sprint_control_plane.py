@@ -21,29 +21,30 @@ def read_json(relative: str) -> dict:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
 
 
-def test_thesis_day3_is_complete_and_day4_is_in_progress() -> None:
+def test_thesis_day3_is_complete_and_day4_is_honestly_deferred() -> None:
     assert read_json("config/agent/thesis-sprint/status.json") == {
-        "current": "THESIS-D4",
+        "current": "THESIS-DEFERRED",
         "day_1": "complete",
         "day_2": "complete",
         "day_2_stage": "complete",
         "day_3": "complete",
-        "day_4": "in_progress",
-        "soft_qa": "queued",
+        "day_4": "deferred",
+        "soft_qa": "not_run",
+        "closeout": "public_fixture_verified_real_panel_not_run",
         "base_tag": "day23-complete",
         "experiment_id": "portfolio-risk-architecture-comparison-v1",
     }
     assert read_json("config/agent/day23/status.json")["current"] == "D23-COMPLETE"
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
-    assert "ID: THESIS-D4" in current
-    assert "Status: in progress" in current
-    assert "day-4-experiment-results.md" in current
+    assert "ID: THESIS-DEFERRED" in current
+    assert "Status: deferred" in current
+    assert "thesis-sprint/deferred.md" in current
     assert "prior D23 baseline remains complete" in current
     assert "Thesis Sprint Day 1, Day 2, and Day 3 are complete" in current
     assert "Morning MetricPacks" in current
     assert "Day 3 closed" in current
-    assert "Day 4 experiment execution and descriptive evaluation are in progress" in current
-    assert "Human\nsoft QA remains queued" in current
+    assert "Day 4 public synthetic fixture and evaluation pipeline passed" in current
+    assert "Human\nscientific QA was therefore not performed" in current
 
 
 def test_lane_manifest_has_frozen_explicit_ownership() -> None:
@@ -260,7 +261,10 @@ def test_make_targets_preserve_baselines_and_stage_eventual_day1_gate() -> None:
         ".PHONY: verify-thesis-current", maxsplit=1
     )[1].split(".PHONY: demo-thesis-day1", maxsplit=1)[0]
     assert "verify-thesis-day2" in current_gate
-    assert "Day 4 in progress; human QA queued" in current_gate
+    assert (
+        "Day 4 public fixture verified; real panel and human QA deferred"
+        in current_gate
+    )
 
 
 def test_specialist_workflow_uses_control_plane_base_and_exact_candidate_head() -> None:

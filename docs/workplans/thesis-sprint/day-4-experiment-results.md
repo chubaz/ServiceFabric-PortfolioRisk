@@ -1,6 +1,6 @@
 # THESIS-D4 — Experiment execution and results
 
-- Status: in progress
+- Status: deferred after public fixture verification; real panel and human QA not run
 - Depends on: `THESIS-D3` complete and accepted
 - Experiment: `portfolio-risk-architecture-comparison-v1`
 
@@ -10,6 +10,19 @@ Execute a reviewed, manifest-driven historical comparison of B0, B1, and A1,
 produce reproducible descriptive evidence and one offline static dashboard,
 and prepare an explicit human QA decision without overstating the preliminary
 experiment.
+
+## Lifecycle closeout
+
+The public synthetic 45-context fixture, 153 architecture observations, 45
+labels, 270 deterministic call receipts, descriptive evaluation, report, and
+offline dashboard passed their automated gates. The user elected not to run
+the full paid real-data experiment at this stage. Consequently:
+
+- the real 270-call panel is not claimed as executed;
+- human scientific QA is not claimed as passed;
+- no architecture ranking, predictive result, or release decision exists;
+- the implementation and immutable fixture evidence are retained for later
+  resumption under an explicit workplan.
 
 ## Accepted entry evidence
 

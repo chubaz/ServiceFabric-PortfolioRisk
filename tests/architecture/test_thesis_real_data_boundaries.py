@@ -9,7 +9,7 @@ ROOT = Path(__file__).parents[2]
 def test_day2_is_complete_and_lane_ownership_remains_frozen() -> None:
     status = json.loads((ROOT / "config/agent/thesis-sprint/status.json").read_text())
     lanes = json.loads((ROOT / "config/agent/thesis-sprint/lanes.json").read_text())
-    assert status["current"] == "THESIS-D4"
+    assert status["current"] == "THESIS-DEFERRED"
     assert status["day_2"] == "complete"
     assert status["day_2_stage"] == "complete"
     assert lanes["integration_order"] == [

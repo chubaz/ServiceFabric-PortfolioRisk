@@ -1,11 +1,12 @@
 {
-  "current": "THESIS-D4",
+  "current": "THESIS-DEFERRED",
   "day_1": "complete",
   "day_2": "complete",
   "day_2_stage": "complete",
   "day_3": "complete",
-  "day_4": "in_progress",
-  "soft_qa": "queued",
+  "day_4": "deferred",
+  "soft_qa": "not_run",
+  "closeout": "public_fixture_verified_real_panel_not_run",
   "base_tag": "day23-complete",
   "experiment_id": "portfolio-risk-architecture-comparison-v1"
 }
