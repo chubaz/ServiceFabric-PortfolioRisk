@@ -1,8 +1,10 @@
 {
   "current": "PLATFORM-P0",
-  "phase_0": "in_progress",
-  "active_wave": "synthesis",
+  "phase_0": "accepted",
+  "active_wave": "acceptance",
   "baseline_commit": "81660bd3d4be9c8fb6725e5836e7821f9947eb17",
+  "accepted_candidate_commit": "76651ea8a580832698e99e594581db9c12969dd4",
+  "phase_1": "queued",
   "prior_thesis_state": "deferred",
   "development_profile_only": true,
   "external_effects": "disabled"

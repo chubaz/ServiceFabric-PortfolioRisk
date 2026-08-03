@@ -20,9 +20,11 @@ def read_json(relative: str) -> dict:
 def test_phase0_status_and_current_workplan_are_explicit() -> None:
     assert read_json("config/agent/platform-development/status.json") == {
         "current": "PLATFORM-P0",
-        "phase_0": "in_progress",
-        "active_wave": "synthesis",
+        "phase_0": "accepted",
+        "active_wave": "acceptance",
         "baseline_commit": "81660bd3d4be9c8fb6725e5836e7821f9947eb17",
+        "accepted_candidate_commit": "76651ea8a580832698e99e594581db9c12969dd4",
+        "phase_1": "queued",
         "prior_thesis_state": "deferred",
         "development_profile_only": True,
         "external_effects": "disabled",
@@ -33,6 +35,8 @@ def test_phase0_status_and_current_workplan_are_explicit() -> None:
     assert "integration/platform-development" in current
     assert "make verify-platform-phase0" in current
     assert "does not reopen or reinterpret" in current
+    assert "Status: accepted" in current
+    assert "Independent QA: PASS" in current
 
 
 def test_phase0_lane_manifest_freezes_non_overlapping_ownership() -> None:

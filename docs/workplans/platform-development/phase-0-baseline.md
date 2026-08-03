@@ -1,8 +1,10 @@
 # PLATFORM-P0 — programme activation, baseline, and terminology
 
-- Status: in progress
+- Status: accepted
 - Integration branch: `integration/platform-development`
 - Baseline: `81660bd3d4be9c8fb6725e5836e7821f9947eb17`
+- Accepted candidate: `76651ea8a580832698e99e594581db9c12969dd4`
+- Independent QA: PASS (`9052dc46b3a0c528a39c8917c65bc1fd6441f513`)
 - Roadmap: `apps/portfolio-risk-workbench/labs/DEVELOPMENT_ROADMAP.md`
 - Lane manifest: `config/agent/platform-development/lanes.json`
 

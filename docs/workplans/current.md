@@ -2,11 +2,13 @@
 
 - ID: PLATFORM-P0
 - Title: Platform development activation, baseline, and terminology
-- Status: in progress
+- Status: accepted
 - Namespace: platform-development
 - Integration branch: integration/platform-development
 - Workplan: docs/workplans/platform-development/phase-0-baseline.md
 - Baseline commit: 81660bd3d4be9c8fb6725e5836e7821f9947eb17
+- Accepted candidate: 76651ea8a580832698e99e594581db9c12969dd4
+- Independent QA: PASS
 - Verification: make verify-platform-phase0
 
 Phase 0 activates the broader ServiceFabric PortfolioRisk development
@@ -29,3 +31,9 @@ All work remains research/development-only. Synthetic information must be
 labelled, licensed data remains outside Git, consequential external effects are
 disabled, and no live order, broker, trade, hedge, rebalance, optimization, or
 portfolio mutation authority is introduced.
+
+Phase 0 is accepted after three independent reviews. The first two FAIL
+verdicts remain preserved; their bounded findings were corrected before the R3
+PASS. All five required GitHub workflows passed on the reviewed candidate.
+Phase 1 remains queued until its workplan and lanes are activated from this
+accepted control-plane state.

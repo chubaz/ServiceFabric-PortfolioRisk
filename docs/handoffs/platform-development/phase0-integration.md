@@ -150,6 +150,9 @@ saved local run is mutated by the increment.
 
 ## Next action
 
-Commit and push this third candidate, then run P0-05 from a fresh independent
-QA worktree. Move the active wave to acceptance only after a new PASS handoff is
-validated; do not mark the draft pull request ready before that gate.
+Phase 0 is accepted on candidate `76651ea8a580832698e99e594581db9c12969dd4`.
+Independent R3 QA passed, both earlier FAIL verdicts remain preserved, and all
+five required GitHub workflows completed successfully on that candidate. Push
+the acceptance bookkeeping commit and require its CI rerun to pass before
+making PR #20 ready. Phase 1 may then activate its Registry Kernel workplan and
+bounded lanes from this immutable accepted state.
