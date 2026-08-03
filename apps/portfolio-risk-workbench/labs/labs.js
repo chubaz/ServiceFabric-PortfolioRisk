@@ -202,6 +202,8 @@
     livePortfolios: [],
     liveCatalog: [],
     liveConnected: false,
+    runtimeBoundary: null,
+    activeWorkspace: "dataset",
     dataQueryResult: null,
     agentRuntime: null,
     riskAgentTemplates: null,
@@ -279,19 +281,40 @@
     ];
   }
 
+  function truthViewKey(name) {
+    if (name === "dataset") return `dataset.${$("#dataset-mode")?.value === "synthetic" ? "synthetic" : "live"}`;
+    if (name === "agent") return `agent.${labState.agentRunDataMode}`;
+    return name;
+  }
+
+  function renderRuntimeTruth(name = labState.activeWorkspace) {
+    const boundary = labState.runtimeBoundary;
+    if (!boundary) {
+      $("#truth-profile").textContent = "Local service unavailable";
+      $("#truth-data").textContent = "Origin not verified";
+      $("#truth-authority").textContent = "External effects prohibited";
+      $("#truth-persistence").textContent = "Persistence not established";
+      return;
+    }
+    const view = boundary.views?.[truthViewKey(name)] || {};
+    $("#truth-profile").textContent = boundary.profile?.label || "Unknown profile";
+    $("#truth-data").textContent = view.data || "Data origin unavailable";
+    $("#truth-authority").textContent = view.authority || `External effects ${boundary.external_effects || "unknown"}`;
+    $("#truth-persistence").textContent = view.persistence || "Persistence not declared";
+  }
+
   function switchWorkspace(name) {
+    labState.activeWorkspace = name;
     const full = name === "full";
     $("#lab-workspace").classList.toggle("hidden", full);
     $("#full-experiment-workspace").classList.toggle("hidden", !full);
     $$(".lab-page").forEach((page) => page.classList.toggle("active", page.id === `lab-${name}`));
-    $$(".workspace-tab").forEach((button) => button.classList.toggle("active", button.dataset.workspace === name));
-    $(".mode-badge").textContent = name === "dataset" && labState.liveConnected
-      ? "Local data · read-only"
-      : name === "agent"
-        ? "Agent laboratory · local"
-        : name === "cycle"
-          ? "Synthetic intraday · real close anchors"
-        : "Local research workbench";
+    $$(".workspace-tab").forEach((button) => {
+      const active = button.dataset.workspace === name;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-current", active ? "page" : "false");
+    });
+    renderRuntimeTruth(name);
     if (name === "dataset") populateDatasetPortfolios();
     if (name === "graph") refreshGraphAgents();
     if (name === "cycle") populateCyclePortfolios();
@@ -516,7 +539,7 @@
     const domains = $$("[data-dataset-domain]:checked")
       .map((input) => input.value)
       .filter((value) => ["market", "fundamental", "identity", "links"].includes(value));
-    if (!domains.length) throw new Error("Select at least one live dataset.");
+    if (!domains.length) throw new Error("Select at least one licensed dataset.");
     const request = {
       portfolio_id: portfolio.id,
       as_of: asOf,
@@ -531,7 +554,7 @@
       body: JSON.stringify(request),
     });
     const payload = await response.json();
-    if (!response.ok) throw new Error(payload.detail || `Live query failed with HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(payload.detail || `Licensed-data query failed with HTTP ${response.status}.`);
     const rows = payload.records.map((record) => ({
       identity: record.instrument_alias,
       domain: record.dataset,
@@ -545,9 +568,9 @@
     const eligible = payload.quality_counts.eligible || 0;
     const warnings = payload.quality_counts.fallback_date || 0;
     const missing = payload.quality_counts.missing || 0;
-    $("#dataset-result-title").textContent = `${payload.record_count} live records for ${portfolio.title}`;
+    $("#dataset-result-title").textContent = `${payload.record_count} licensed historical records for ${portfolio.title}`;
     $("#dataset-result-meta").innerHTML = `<span>${eligible} eligible</span><span>${warnings} availability fallbacks</span><span>${missing} missing</span><span>${payload.elapsed_ms} ms</span>`;
-    $("#dataset-query-status").textContent = missing ? "Live · gaps found" : warnings ? "Live · qualified" : "Live · complete";
+    $("#dataset-query-status").textContent = missing ? "Licensed · gaps found" : warnings ? "Licensed · qualified" : "Licensed · complete";
     $("#dataset-query-status").classList.toggle("warning", warnings + missing > 0);
     $("#dataset-trace").innerHTML = [
       `Resolved ${payload.position_count} approved aliases through the private CRSP mapping.`,
@@ -599,11 +622,11 @@
     } catch (error) {
       $("#dataset-query-status").textContent = "Connection required";
       $("#dataset-query-status").classList.add("warning");
-      $("#dataset-results-body").innerHTML = `<tr><td colspan="6"><strong>Live query unavailable.</strong><br>${escapeHtml(error.message)}</td></tr>`;
+      $("#dataset-results-body").innerHTML = `<tr><td colspan="6"><strong>Licensed-data query unavailable.</strong><br>${escapeHtml(error.message)}</td></tr>`;
       $("#dataset-trace").innerHTML = `<li>${escapeHtml(error.message)}</li><li>No synthetic fallback was used.</li>`;
     } finally {
       button.disabled = false;
-      button.textContent = $("#dataset-mode").value === "live" ? "Query live Parquet data" : "Run synthetic fixture";
+      button.textContent = $("#dataset-mode").value === "live" ? "Query licensed Parquet data" : "Run synthetic fixture";
     }
   }
 
@@ -618,10 +641,11 @@
     if (eventInput) eventInput.checked = !live;
     if (identityInput) identityInput.checked = live;
     $("#dataset-adapter-truth").textContent = live
-      ? (labState.liveConnected ? "Live DuckDB · read-only" : "DuckDB service required")
-      : "Explicit synthetic fixture";
-    $("#run-dataset-query").textContent = live ? "Query live Parquet data" : "Run synthetic fixture";
+      ? (labState.liveConnected ? "Licensed local data · read-only" : "DuckDB service required")
+      : "Synthetic behavior fixture";
+    $("#run-dataset-query").textContent = live ? "Query licensed Parquet data" : "Run synthetic fixture";
     populateDatasetPortfolios();
+    renderRuntimeTruth();
   }
 
   async function initializeLiveConnection() {
@@ -638,9 +662,7 @@
       const catalog = await catalogResponse.json();
       const portfolios = await portfoliosResponse.json();
       labState.liveConnected = health.status === "ok";
-      if ($("#lab-dataset").classList.contains("active")) {
-        $(".mode-badge").textContent = "Local data · read-only";
-      }
+      labState.runtimeBoundary = health.runtime_boundary || null;
       labState.liveCatalog = catalog.datasets;
       labState.livePortfolios = portfolios.portfolios.map((portfolio) => ({
         id: portfolio.portfolio_id,
@@ -664,8 +686,10 @@
       $("#duckdb-catalog").innerHTML = labState.liveCatalog.filter((item) => named.includes(item.dataset)).map((item) =>
         `<div><strong>${escapeHtml(item.dataset)}</strong><span>${Number(item.row_count).toLocaleString("en-US")} rows</span><small>${escapeHtml(item.minimum_date)} → ${escapeHtml(item.maximum_date)}</small></div>`).join("");
       configureDatasetMode();
+      renderRuntimeTruth();
     } catch (error) {
       labState.liveConnected = false;
+      labState.runtimeBoundary = null;
       $("#duckdb-connection-status").textContent = "Not connected";
       $("#duckdb-connection-status").className = "quality-missing";
       $("#duckdb-connection-copy").textContent = "Open this application through the local DuckDB service URL; file:// pages cannot call the API.";
@@ -677,6 +701,7 @@
       $("#dataset-query-status").classList.add("warning");
       populateAgentRunPortfolios();
       configureDatasetMode();
+      renderRuntimeTruth();
     }
   }
 
@@ -1900,11 +1925,12 @@
     $$("[data-agent-data-mode]").forEach((button) => button.classList.toggle("active", button.dataset.agentDataMode === mode));
     $$("[data-agent-run-mode-panel]").forEach((panel) => panel.classList.toggle("hidden", panel.dataset.agentRunModePanel !== mode));
     const real = mode === "real_duckdb";
-    $("#agent-run-mode-badge").textContent = real ? "New run · Real point-in-time data" : "New run · Synthetic fixture";
+    $("#agent-run-mode-badge").textContent = real ? "New run · Licensed point-in-time data" : "New run · Synthetic behavior fixture";
     $("#agent-run-mode-badge").className = `run-mode-identity ${real ? "real" : "synthetic"}`;
     $("#agent-input-preview-status").textContent = "Preview not loaded";
     $("#agent-input-json").textContent = "{}";
     $("#agent-input-provenance").innerHTML = `<p>${real ? "Select a reviewed portfolio and as-of date, then load the exact DuckDB input." : "Select a named fixture, then load its deliberately synthetic values."}</p>`;
+    renderRuntimeTruth();
   }
 
   function setAgentRunExecutionMode(mode) {
@@ -1912,15 +1938,15 @@
     const live = mode === "live_llm";
     $$('[data-agent-execution-mode]').forEach((button) => button.classList.toggle("active", button.dataset.agentExecutionMode === mode));
     $("#agent-live-run-model-field").classList.toggle("hidden", !live);
-    $("#agent-run-status").textContent = live ? "Live call not run" : "Deterministic check not run";
-    $("#test-agent").textContent = live ? "Run live LLM and save" : "Run and save";
+    $("#agent-run-status").textContent = live ? "Model call not run" : "Deterministic check not run";
+    $("#test-agent").textContent = live ? "Run model and save" : "Run and save";
   }
 
   function renderAgentInputPreview(preview) {
     labState.agentInputPreview = preview;
     const provenance = preview.provenance || {};
     const real = provenance.data_mode === "real_duckdb";
-    $("#agent-input-preview-status").textContent = provenance.label || (real ? "Real input" : "Synthetic fixture");
+    $("#agent-input-preview-status").textContent = provenance.label || (real ? "Licensed historical input" : "Synthetic behavior fixture");
     $("#agent-input-json").textContent = JSON.stringify(preview.context, null, 2);
     const chips = [
       `<span class="run-provenance-chip ${real ? "real" : "warning"}">${escapeHtml(provenance.label || provenance.data_mode)}</span>`,
@@ -2103,7 +2129,7 @@
   function runPremiseMarkup(presentation, meta = {}) {
     return `<article class="run-premise-card">
       <header><div><span>Outcome sought</span><strong>${escapeHtml(presentation.outcome_sought)}</strong></div><b>${escapeHtml(meta.data_label || presentation.data_basis)}</b></header>
-      <dl><div><dt>Portfolio</dt><dd>${escapeHtml(presentation.portfolio)}</dd></div><div><dt>As of</dt><dd>${escapeHtml(presentation.as_of)}</dd></div><div><dt>Output</dt><dd>${escapeHtml(meta.output_contract || "Review artifact")}</dd></div><div><dt>Execution</dt><dd>${escapeHtml(presentation.execution_basis || (meta.execution_mode === "live_llm" ? `Live LLM · ${meta.execution_model || "configured model"}` : "Deterministic · no LLM"))}</dd></div></dl>
+      <dl><div><dt>Portfolio</dt><dd>${escapeHtml(presentation.portfolio)}</dd></div><div><dt>As of</dt><dd>${escapeHtml(presentation.as_of)}</dd></div><div><dt>Output</dt><dd>${escapeHtml(meta.output_contract || "Review artifact")}</dd></div><div><dt>Execution</dt><dd>${escapeHtml(presentation.execution_basis || (meta.execution_mode === "live_llm" ? `Model call · ${meta.execution_model || "configured model"}` : "Deterministic · no LLM"))}</dd></div></dl>
       <p>The exact frozen input remains available above and in <strong>input.json</strong>; the conversation stays focused on the work and outcome.</p>
     </article>`;
   }
@@ -2154,7 +2180,7 @@
     const output = contents["output.json"] || {};
     const activity = contents["activity.json"] || [];
     const real = manifest.data_mode === "real_duckdb" || provenance.data_mode === "real_duckdb";
-    $("#agent-run-mode-badge").textContent = real ? "Viewing saved run · Real point-in-time data" : "Viewing saved run · Synthetic fixture";
+    $("#agent-run-mode-badge").textContent = real ? "Saved run · Licensed historical data" : "Saved run · Synthetic behavior fixture";
     $("#agent-run-mode-badge").className = `run-mode-identity ${real ? "real" : "synthetic"}`;
     const presentation = output.presentation || buildRunPresentation(input, output, { ...manifest, purpose: blueprint.purpose }, provenance);
     $("#agent-run-chat").innerHTML = `
@@ -2180,9 +2206,9 @@
   function renderAgentRunRepository() {
     $("#agent-run-repository").innerHTML = labState.agentRuns.length ? labState.agentRuns.map((run) => `
       <button class="run-repository-item ${labState.selectedAgentRunId === run.run_id ? "active" : ""}" type="button" data-agent-run-id="${escapeHtml(run.run_id)}">
-        <b class="${run.data_mode === "real_duckdb" ? "real" : "synthetic"}">${run.data_mode === "real_duckdb" ? "Real data" : "Synthetic fixture"}</b>
+        <b class="${run.data_mode === "real_duckdb" ? "real" : "synthetic"}">${run.data_mode === "real_duckdb" ? "Licensed historical" : "Synthetic fixture"}</b>
         <strong>${escapeHtml(run.agent_name)}</strong>
-        <span>${escapeHtml(run.created_at)} · ${escapeHtml(run.status)}${run.execution_mode === "live_llm" ? ` · live LLM` : " · deterministic"}</span>
+        <span>${escapeHtml(run.created_at)} · ${escapeHtml(run.status)}${run.execution_mode === "live_llm" ? ` · model call` : " · deterministic"}</span>
       </button>`).join("") : '<div class="empty-state">No saved agent runs.</div>';
   }
 

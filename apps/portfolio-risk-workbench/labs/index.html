@@ -33,14 +33,21 @@
       <button class="workspace-tab" type="button" data-workspace="portfolio">Portfolio</button>
       <button class="workspace-tab" type="button" data-workspace="agent">Agent</button>
       <button class="workspace-tab" type="button" data-workspace="graph">Agent graph</button>
-      <button class="workspace-tab" type="button" data-workspace="cycle">Live cycle</button>
+      <button class="workspace-tab" type="button" data-workspace="cycle">Simulated cycle</button>
       <button class="workspace-tab" type="button" data-workspace="full">Full experiment</button>
     </nav>
     <div class="header-actions">
-      <span class="mode-badge">Local research workbench</span>
+      <span class="mode-badge">Development workbench</span>
       <button class="button ghost" id="open-system-map" type="button">View complete system map</button>
     </div>
   </header>
+
+  <section class="runtime-truth-strip" id="runtime-truth-strip" aria-label="Current operating and data boundary" aria-live="polite">
+    <div><span>Profile</span><strong id="truth-profile">Checking local service</strong></div>
+    <div><span>Data</span><strong id="truth-data">Origin not yet verified</strong></div>
+    <div><span>Authority</span><strong id="truth-authority">External effects prohibited</strong></div>
+    <div><span>Persistence</span><strong id="truth-persistence">Not yet established</strong></div>
+  </section>
 
   <main class="lab-workspace" id="lab-workspace">
     <section class="lab-page active" id="lab-dataset" aria-labelledby="lab-dataset-title">
@@ -82,7 +89,7 @@
           <div class="lab-form-grid">
             <label class="field"><span>Portfolio</span><select id="dataset-portfolio"></select><small>Queries are restricted to the selected portfolio’s positions.</small></label>
             <label class="field"><span>As-of date</span><input id="dataset-as-of" type="date" value="2024-04-15"></label>
-            <label class="field"><span>Data source</span><select id="dataset-mode"><option value="live">Live CRSP / Compustat via DuckDB</option><option value="synthetic">Explicit synthetic test fixture</option></select></label>
+            <label class="field"><span>Data source</span><select id="dataset-mode"><option value="live">Licensed historical CRSP / Compustat via DuckDB</option><option value="synthetic">Explicit synthetic test fixture</option></select></label>
             <label class="field" id="dataset-scenario-field"><span>Synthetic scenario</span><select id="dataset-scenario"><option value="complete">Complete coverage</option><option value="stale">Stale fundamentals</option><option value="missing">Missing events and one price</option><option value="shock">Market shock day</option></select><small>Used only when the synthetic source is selected.</small></label>
           </div>
           <fieldset class="domain-picker">
@@ -93,10 +100,10 @@
             <label id="live-links-domain"><input type="checkbox" value="links" data-dataset-domain> CRSP–Compustat links</label>
             <label id="synthetic-event-domain"><input type="checkbox" value="event" data-dataset-domain> Synthetic events</label>
           </fieldset>
-          <div class="action-row"><button class="button primary" id="run-dataset-query" type="button">Query live Parquet data</button><span class="action-hint">Read-only, position-filtered, row-limited local query. No arbitrary browser SQL and no agent execution.</span></div>
+          <div class="action-row"><button class="button primary" id="run-dataset-query" type="button">Query licensed Parquet data</button><span class="action-hint">Read-only, position-filtered, row-limited local query. No arbitrary browser SQL and no agent execution.</span></div>
         </section>
         <aside class="lab-panel trace-panel">
-          <div class="connection-heading"><span class="panel-label">Live connection</span><span class="quality-warning" id="duckdb-connection-status">Checking</span></div>
+          <div class="connection-heading"><span class="panel-label">Local data connection</span><span class="quality-warning" id="duckdb-connection-status">Checking</span></div>
           <p class="connection-copy" id="duckdb-connection-copy">Checking the local DuckDB service and Parquet catalog.</p>
           <div class="catalog-mini" id="duckdb-catalog"></div>
           <span class="panel-label">Execution trace</span>
@@ -263,7 +270,7 @@
           </div>
 
           <aside class="basic-agent-preview">
-            <div class="basic-preview-heading"><span class="panel-label">Live Agent Card</span><b id="basic-preview-version">Draft · recipe defaults</b></div>
+            <div class="basic-preview-heading"><span class="panel-label">Agent Card preview</span><b id="basic-preview-version">Draft · recipe defaults</b></div>
             <h2 id="basic-preview-name">Daily Portfolio Risk Reviewer</h2>
             <p id="basic-preview-outcome"></p>
             <dl>
@@ -519,7 +526,7 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
         <div class="agent-output-view" id="agent-output-run">
           <header class="run-review-heading">
             <div><span class="panel-label">Agent Run Review</span><h2>Know the data. Watch the work. Keep every output.</h2><p>Each execution freezes its exact input and writes a separate, deletable run folder. The work log shows concise rationale, capability receipts, evidence critique and review boundaries—not private chain-of-thought.</p></div>
-            <div class="run-heading-actions"><span class="run-mode-identity synthetic" id="agent-run-mode-badge">Synthetic fixture</span><button class="button ghost" id="open-cycle-from-agent" type="button">Test through simulated time</button></div>
+            <div class="run-heading-actions"><span class="run-mode-identity synthetic" id="agent-run-mode-badge">Synthetic behavior fixture</span><button class="button ghost" id="open-cycle-from-agent" type="button">Test through simulated time</button></div>
           </header>
 
           <div class="run-context-lifecycle" aria-label="Run context lifecycle">
@@ -527,15 +534,15 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
           </div>
 
           <div class="run-mode-selector" role="group" aria-label="Agent test data source">
-            <button class="active synthetic" type="button" data-agent-data-mode="synthetic_fixture"><strong>Synthetic fixture</strong><small>Deliberately invented values for controlled behavior tests.</small></button>
-            <button type="button" data-agent-data-mode="real_duckdb"><strong>Real point-in-time data</strong><small>Reviewed portfolio positions queried from local CRSP/Compustat Parquet.</small></button>
+            <button class="active synthetic" type="button" data-agent-data-mode="synthetic_fixture"><strong>Synthetic behavior fixture</strong><small>Deliberately invented values for controlled behavior tests; never empirical evidence.</small></button>
+            <button type="button" data-agent-data-mode="real_duckdb"><strong>Licensed historical data</strong><small>Real CRSP/Compustat records queried from local Parquet under point-in-time rules.</small></button>
           </div>
 
           <section class="run-execution-selector" aria-label="Agent execution method">
             <div><span class="panel-label">Execution method</span><strong>Choose how the agent interprets the evidence</strong></div>
             <button class="active" type="button" data-agent-execution-mode="deterministic"><strong>Deterministic verification</strong><small>Real graph and capabilities, but no LLM call and no model cost.</small></button>
-            <button type="button" data-agent-execution-mode="live_llm"><strong>Live LLM interpretation</strong><small>One bounded OpenAI call with a saved model and token receipt.</small></button>
-            <label class="field live-run-model hidden" id="agent-live-run-model-field"><span>Live model</span><select id="agent-live-run-model"><option value="gpt-5.4" selected>GPT-5.4 · standard</option><option value="gpt-5.6-terra">GPT-5.6 Terra</option><option value="gpt-5.6-sol">GPT-5.6 Sol</option><option value="gpt-5.6">GPT-5.6</option></select><small>One call, 2,200 output-token ceiling, provider storage disabled.</small></label>
+            <button type="button" data-agent-execution-mode="live_llm"><strong>Model-backed interpretation</strong><small>One bounded OpenAI call with a saved model and token receipt.</small></button>
+            <label class="field live-run-model hidden" id="agent-live-run-model-field"><span>Model</span><select id="agent-live-run-model"><option value="gpt-5.4" selected>GPT-5.4 · standard</option><option value="gpt-5.6-terra">GPT-5.6 Terra</option><option value="gpt-5.6-sol">GPT-5.6 Sol</option><option value="gpt-5.6">GPT-5.6</option></select><small>One call, 2,200 output-token ceiling, provider storage disabled.</small></label>
           </section>
 
           <section class="run-assignment-card">
@@ -548,7 +555,7 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
                 <label class="field"><span>As-of date</span><input id="agent-real-as-of" type="date" value="2008-09-15"></label>
               </div>
               <label class="field run-label-field"><span>Assignment</span><input id="agent-run-label" value="Review the supplied portfolio-risk context and prepare the declared output."></label>
-              <label class="review-test-toggle"><input id="agent-auto-review" type="checkbox" checked><span>Auto-approve the human interrupt for this isolated test</span></label>
+              <label class="review-test-toggle"><input id="agent-auto-review" type="checkbox"><span>Release the review checkpoint in the effect-free test harness</span></label>
             </div>
             <div class="run-assignment-actions">
               <button class="button ghost" id="preview-agent-input" type="button">Preview exact input</button>
@@ -564,12 +571,12 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
 
           <div class="run-review-layout">
             <aside class="run-repository-panel">
-              <div class="run-pane-heading"><div><span class="panel-label">Run repository</span><strong>Saved test folders</strong></div><button class="text-button" id="refresh-agent-runs" type="button">Refresh</button></div>
+              <div class="run-pane-heading"><div><span class="panel-label">Run repository</span><strong>Temporary local test folders</strong><small>Deletable run evidence; not a published registry asset.</small></div><button class="text-button" id="refresh-agent-runs" type="button">Refresh</button></div>
               <div class="run-repository-list" id="agent-run-repository"><div class="empty-state">No saved runs loaded.</div></div>
             </aside>
 
             <section class="run-conversation-panel">
-              <div class="run-pane-heading"><div><span class="panel-label">Live work record</span><strong>Agent conversation</strong></div><span class="truth-chip" id="agent-live-state">Idle</span></div>
+              <div class="run-pane-heading"><div><span class="panel-label">Current work record</span><strong>Agent conversation</strong></div><span class="truth-chip" id="agent-live-state">Idle</span></div>
               <div class="agent-run-chat" id="agent-run-chat">
                 <div class="run-chat-empty"><strong>No run selected</strong><p>Preview the input, run the agent, or choose a saved run to review its complete work record.</p></div>
               </div>
@@ -1025,7 +1032,7 @@ for replay_date in experiment.business_dates:
         if decision.requires_attention:
             pause_replay_at(decision)       # human accepts or rejects
         else:
-            decision.review = "AUTO_CLEARED"
+            decision.review = "NO_REVIEW_CHECKPOINT_TRIGGERED"
 
 RUNTIME ADAPTER CONTRACT
 run(topology, OverallDefaultContext, capabilities) -> typed WorkflowOutput

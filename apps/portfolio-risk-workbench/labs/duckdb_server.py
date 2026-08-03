@@ -54,6 +54,57 @@ MAX_QUERY_ROWS = 10_000
 MAX_QUERY_COLUMNS = 200
 QUERY_TIMEOUT_SECONDS = 20
 
+LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
+    "profile": {
+        "id": "development",
+        "label": "Development",
+        "development_controls": True,
+    },
+    "external_effects": "disabled",
+    "views": {
+        "dataset.live": {
+            "data": "Licensed local historical data · query-specific point-in-time checks",
+            "authority": "Read-only · no synthetic fallback · external effects prohibited",
+            "persistence": "Unsaved browser result · CSV export is not published",
+        },
+        "dataset.synthetic": {
+            "data": "Synthetic behavior fixture · not empirical evidence",
+            "authority": "Read-only test path · external effects prohibited",
+            "persistence": "Unsaved browser result · not a registry asset",
+        },
+        "portfolio": {
+            "data": "Instrument origin shown in the builder · verify before use",
+            "authority": "Prototype constraints only · no mandate authority",
+            "persistence": "Browser-local draft · not published",
+        },
+        "agent.synthetic_fixture": {
+            "data": "Synthetic behavior fixture · exact input preview required",
+            "authority": "Findings and proposals only · effects none",
+            "persistence": "Temporary local run · deletable · not published",
+        },
+        "agent.real_duckdb": {
+            "data": "Licensed local historical data · point-in-time qualified per run",
+            "authority": "Model interpretation is effect-free · review required",
+            "persistence": "Temporary local run · deletable · rights restricted",
+        },
+        "graph": {
+            "data": "Browser-local agent drafts and registered catalogue previews",
+            "authority": "Compiled plan preview · not registered or executable",
+            "persistence": "Browser-local draft · not published",
+        },
+        "cycle": {
+            "data": "Mixed · licensed daily anchors + simulated seeded intraday",
+            "authority": "Findings and decision proposals only · effects none",
+            "persistence": "In-memory session · lost when the service restarts",
+        },
+        "full": {
+            "data": "Synthetic browser experiment · selected inputs must be inspected",
+            "authority": "Simulated PortfolioEvents only · external effects prohibited",
+            "persistence": "Unsaved browser state · not persistent",
+        },
+    },
+}
+
 # Luna receives a deliberately small, question-specific projection of the physical
 # catalog.  The Parquet files remain fully queryable by DuckDB, while routine model
 # calls avoid sending the 1,500+ mostly cryptic Compustat field names on every turn.
@@ -1489,6 +1540,7 @@ def health() -> dict[str, Any]:
         "raw_root": str(RAW_ROOT),
         "datasets": len(data_plane.catalog),
         "reviewed_portfolios": len(data_plane.portfolios),
+        "runtime_boundary": LAB_RUNTIME_BOUNDARY,
         "sql_agent": {
             "model": SQL_AGENT_MODEL,
             "reasoning_effort": SQL_AGENT_REASONING_EFFORT,

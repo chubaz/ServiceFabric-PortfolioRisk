@@ -794,7 +794,7 @@ class RunRequest(BaseModel):
     datasets: list[str] = Field(default_factory=list, max_length=8)
     run_label: str | None = Field(default=None, max_length=120)
     persist_run: bool = True
-    auto_approve_review: bool = True
+    auto_approve_review: bool = False
 
 
 class OutputPassRunRequest(BaseModel):
@@ -4127,6 +4127,7 @@ def _persist_run(result: dict[str, Any]) -> dict[str, Any]:
                 "human_review": output["review"],
                 "interrupted": result["interrupted"],
                 "auto_approved": result["auto_approved"],
+                "checkpoint_release": result["checkpoint_release"],
             }
         ),
         "review-brief.md": _review_brief(result),
@@ -4157,6 +4158,10 @@ def _persist_run(result: dict[str, Any]) -> dict[str, Any]:
         "as_of": result.get("as_of"),
         "created_at": result["created_at"],
         "elapsed_ms": result["elapsed_ms"],
+        "operating_profile": result["operating_profile"],
+        "authority_boundary": result["authority_boundary"],
+        "external_effects": result["external_effects"],
+        "persistence_class": result["persistence_class"],
         "folder": str(directory),
         "files": files,
     }
@@ -4261,8 +4266,11 @@ def run_blueprint(request: RunRequest) -> dict[str, Any]:
                 Command(
                     resume={
                         "approved": True,
-                        "reviewer": "Agent Studio isolated test",
-                        "note": "Automatically approved for isolated execution only.",
+                        "reviewer": "test_harness",
+                        "note": (
+                            "Review checkpoint released by the effect-free isolated "
+                            "test harness; this is not human approval."
+                        ),
                     }
                 ),
                 config,
@@ -4307,6 +4315,26 @@ def run_blueprint(request: RunRequest) -> dict[str, Any]:
         "interrupted": interrupted,
         "interrupt_payload": interrupt_payload,
         "auto_approved": interrupted and request.auto_approve_review,
+        "checkpoint_release": {
+            "released": interrupted and request.auto_approve_review,
+            "actor_type": (
+                "test_harness"
+                if interrupted and request.auto_approve_review
+                else None
+            ),
+            "status": (
+                "review_checkpoint_released_for_test"
+                if interrupted and request.auto_approve_review
+                else "not_released"
+            ),
+            "human_approval": False,
+        },
+        "operating_profile": "development",
+        "authority_boundary": "findings_and_proposals_only",
+        "external_effects": [],
+        "persistence_class": (
+            "temporary_local_run" if request.persist_run else "response_only"
+        ),
         "trace": final.get("trace", []),
         "final_state": {
             key: value

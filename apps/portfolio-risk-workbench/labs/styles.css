@@ -70,6 +70,38 @@ button { color: inherit; }
 }
 .stage-status.warning { background: var(--amber-pale); color: var(--amber); }
 
+.runtime-truth-strip {
+  background: #102f35;
+  border-bottom: 1px solid #284b51;
+  color: white;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  position: sticky;
+  top: 72px;
+  z-index: 29;
+}
+.runtime-truth-strip > div {
+  border-left: 1px solid #284b51;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 16px;
+}
+.runtime-truth-strip > div:first-child { border-left: 0; }
+.runtime-truth-strip span {
+  color: #8fb9b7;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.runtime-truth-strip strong {
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .app-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: calc(100vh - 72px); }
 .workflow-rail {
   background: var(--navy);
@@ -1541,6 +1573,10 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
 
 @media (max-width: 760px) {
   .app-header { flex-wrap: wrap; height: auto; min-height: 72px; padding-bottom: 8px; padding-top: 8px; }
+  .runtime-truth-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); position: static; }
+  .runtime-truth-strip > div { border-bottom: 1px solid #284b51; padding: 7px 10px; }
+  .runtime-truth-strip > div:nth-child(odd) { border-left: 0; }
+  .runtime-truth-strip > div:nth-child(n+3) { border-bottom: 0; }
   .workspace-switcher { max-width: 100%; order: 3; width: 100%; }
   .workspace-tab { flex: 1 0 auto; }
   .lab-workspace { padding: 30px 16px 60px; }
