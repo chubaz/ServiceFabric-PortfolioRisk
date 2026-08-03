@@ -1498,6 +1498,56 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
 .advisor-composer textarea { border: 1px solid var(--line); border-radius: 9px; min-height: 58px; padding: 9px; resize: vertical; }
 .advisor-composer .button { align-self: end; }
 
+/* Definition Registry: compact master-detail catalogue over canonical sources. */
+.registry-heading-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.registry-boundary { background: var(--teal-pale); border: 1px solid #c8e3de; border-radius: 11px; color: var(--teal-dark); font-size: 9px; line-height: 1.5; margin-bottom: 12px; padding: 10px 13px; }
+.registry-summary { display: grid; gap: 8px; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 10px; }
+.registry-summary > div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; }
+.registry-summary strong { color: var(--navy); font-size: 16px; }
+.registry-summary span { color: var(--muted); font-size: 8px; }
+.registry-toolbar { align-items: end; display: grid; gap: 8px; grid-template-columns: minmax(180px, 1.6fr) repeat(3, minmax(120px, .75fr)) auto; margin-bottom: 10px; padding: 12px; }
+.registry-layout { display: grid; gap: 10px; grid-template-columns: minmax(300px, .85fr) minmax(430px, 1.15fr); }
+.registry-catalogue, .registry-detail { min-width: 0; }
+.registry-list { display: flex; flex-direction: column; gap: 5px; max-height: 70vh; overflow-y: auto; padding-right: 3px; }
+.registry-result { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; color: var(--ink); cursor: pointer; display: flex; flex-direction: column; gap: 4px; padding: 10px 11px; text-align: left; width: 100%; }
+.registry-result:hover, .registry-result.selected { border-color: #82b9b1; box-shadow: 0 0 0 2px rgba(40, 138, 127, .08); }
+.registry-result.selected { background: var(--teal-pale); }
+.registry-result-top { align-items: center; display: flex; gap: 5px; }
+.registry-result-top > b { color: var(--teal-dark); font-size: 7px; letter-spacing: .06em; margin-right: auto; text-transform: uppercase; }
+.registry-result > strong { font-size: 10px; }
+.registry-result code, .registry-detail-header code { color: var(--muted); font-size: 7px; overflow-wrap: anywhere; }
+.registry-result > small { color: var(--muted); display: -webkit-box; font-size: 8px; line-height: 1.4; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.registry-badge { background: var(--surface-2); border-radius: 999px; color: var(--muted); font-size: 7px; font-weight: 800; padding: 4px 7px; text-transform: capitalize; }
+.registry-badge.indexed, .registry-badge.lifecycle { background: #dcefeb; color: var(--teal-dark); }
+.registry-badge.discovered { background: #f1eee6; color: #756945; }
+.registry-detail { max-height: 78vh; overflow-y: auto; position: sticky; top: 112px; }
+.registry-detail-header { border-bottom: 1px solid var(--line); margin-bottom: 9px; padding-bottom: 10px; }
+.registry-detail-header h2 { font-size: 17px; margin: 4px 0; }
+.registry-detail-header p, .registry-helper { color: var(--muted); font-size: 8px; line-height: 1.5; }
+.registry-detail-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+.registry-detail details { border-top: 1px solid var(--line); padding: 9px 0; }
+.registry-detail details > summary { color: var(--navy); cursor: pointer; font-size: 9px; font-weight: 800; }
+.registry-facts { display: grid; gap: 0; margin: 7px 0 0; }
+.registry-facts > div { display: grid; gap: 8px; grid-template-columns: 120px minmax(0, 1fr); padding: 5px 0; }
+.registry-facts dt { color: var(--muted); font-size: 7px; text-transform: capitalize; }
+.registry-facts dd { font-size: 8px; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.registry-facts code { font-size: 7px; overflow-wrap: anywhere; }
+.registry-receipts { display: grid; gap: 6px; margin-top: 7px; }
+.registry-receipts article { background: var(--surface-2); border-radius: 8px; padding: 8px; }
+.registry-receipts b { display: block; font-size: 8px; }
+.registry-receipts span { color: var(--muted); font-size: 7px; }
+.registry-receipts p { font-size: 8px; line-height: 1.45; margin: 4px 0 0; }
+.registry-actions { border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; padding-top: 10px; }
+.registry-actions .field.wide { flex: 1 0 100%; }
+.registry-blocked { color: #8a4e32; flex: 1 0 100%; font-size: 8px; line-height: 1.4; margin: 0; }
+.registry-no-version { color: var(--muted); flex: 1 0 100%; font-size: 7px; }
+.registry-comparison { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+.registry-comparison > strong { font-size: 9px; }
+.registry-comparison article { background: var(--surface-2); border-radius: 8px; margin-top: 6px; padding: 8px; }
+.registry-comparison article > b { display: block; font-size: 8px; margin-bottom: 5px; }
+.registry-comparison article > div { display: grid; gap: 6px; grid-template-columns: 55px 1fr; }
+.registry-comparison span, .registry-comparison code { font-size: 7px; overflow-wrap: anywhere; }
+
 /* Agent Lab uses one deliberate, compact typography and spacing system. */
 #lab-agent {
   --agent-type-display: clamp(30px, 3.2vw, 40px);
@@ -1574,6 +1624,8 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
   .run-assignment-fields { grid-template-columns: 1fr 1fr; }
   .run-assignment-fields > [data-agent-run-mode-panel], .review-test-toggle { grid-column: 1 / -1; }
   .run-label-field { grid-column: 1 / -1; }
+  .registry-layout { grid-template-columns: minmax(260px, .75fr) minmax(360px, 1.25fr); }
+  .registry-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 760px) {
@@ -1660,4 +1712,9 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
   .run-premise-card dl, .run-outcome-metrics, .run-outcome-columns { grid-template-columns: 1fr; }
   .run-request-summary, .run-capability-summary, .run-receipt-summary, .run-llm-summary, .run-llm-receipt { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .run-stage-list li { grid-template-columns: 1fr; }
+  .registry-heading-actions { justify-content: flex-start; }
+  .registry-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .registry-toolbar, .registry-layout { grid-template-columns: 1fr; }
+  .registry-detail { max-height: none; position: static; }
+  .registry-facts > div { grid-template-columns: 1fr; gap: 2px; }
 }

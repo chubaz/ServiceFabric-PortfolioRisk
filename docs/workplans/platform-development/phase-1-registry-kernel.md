@@ -1,6 +1,6 @@
 # PLATFORM-P1 — unified registry kernel and catalogue
 
-- Status: in progress
+- Status: integration candidate
 - Integration branch: `integration/platform-registry-kernel`
 - Baseline: `21339db19357277ca9a9a1ca50107f1a884d7aeb`
 - Roadmap: `apps/portfolio-risk-workbench/labs/DEVELOPMENT_ROADMAP.md`

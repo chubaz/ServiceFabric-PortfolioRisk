@@ -47,6 +47,19 @@ from agent_studio import (
     synthetic_behavior_provenance,
 )
 from workflow_cycle_runtime import workflow_cycle_manager
+from registry_sources import (
+    discover_registry_projections,
+    discovered_payload,
+    document_payload,
+    registry_store,
+)
+from risk_registry import (
+    AssetKind,
+    LifecycleState,
+    RegistryConflict,
+    RegistryIdentity,
+    RegistryNotFound,
+)
 
 
 SQL_AGENT_MODEL = "gpt-5.6-luna"
@@ -92,6 +105,11 @@ LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
             "data": "Browser-local agent drafts and registered catalogue previews",
             "authority": "Compiled plan preview · not registered or executable",
             "persistence": "Browser-local draft · not published",
+        },
+        "registry": {
+            "data": "Existing definitions · indexed metadata points to canonical sources",
+            "authority": "Local lifecycle review only · no financial effects",
+            "persistence": "Persistent local development registry · not production publication",
         },
         "cycle": {
             "data": "Mixed · licensed daily anchors + simulated seeded intraday",
@@ -364,6 +382,30 @@ class WorkflowCycleDecisionRequest(BaseModel):
 class WorkflowCycleAgentAttachRequest(BaseModel):
     page_id: str = Field(min_length=1, max_length=80)
     agent_id: str = Field(min_length=1, max_length=120)
+
+
+class RegistryBootstrapRequest(BaseModel):
+    actor: str = Field(default="local.developer", min_length=3, max_length=128)
+
+
+class RegistryIndexRequest(BaseModel):
+    identity: RegistryIdentity
+    actor: str = Field(default="local.developer", min_length=3, max_length=128)
+
+
+class RegistryTransitionRequest(BaseModel):
+    kind: AssetKind
+    asset_id: str = Field(min_length=1, max_length=256)
+    version: str = Field(min_length=1, max_length=128)
+    to_state: LifecycleState
+    actor: str = Field(min_length=3, max_length=128)
+    rationale: str = Field(min_length=3, max_length=1200)
+    replacement_reference: str | None = Field(default=None, max_length=512)
+
+
+class RegistryCompareRequest(BaseModel):
+    left: RegistryIdentity
+    right: RegistryIdentity
 
 
 def json_safe(value: Any) -> Any:
@@ -1599,6 +1641,146 @@ def ask_database(request: NaturalLanguageQueryRequest) -> dict[str, Any]:
             status_code=502,
             detail=f"Luna SQL generation failed: {safe_type}",
         ) from error
+
+
+@app.get("/api/registry/catalogue")
+def registry_catalogue(
+    kind: AssetKind | None = None,
+    state: LifecycleState | None = None,
+    q: str | None = None,
+    include_discovered: bool = True,
+) -> dict[str, Any]:
+    store = registry_store()
+    indexed = store.list(kind=kind, state=state, query=q)
+    indexed_by_reference = {
+        document.projection.identity.reference: document for document in indexed
+    }
+    records = [document_payload(document) for document in indexed]
+    if include_discovered and state is None:
+        needle = (q or "").strip().casefold()
+        for projection in discover_registry_projections():
+            if kind is not None and projection.identity.kind is not kind:
+                continue
+            if projection.identity.reference in indexed_by_reference:
+                continue
+            if needle and not any(
+                needle in value.casefold()
+                for value in (
+                    projection.identity.asset_id,
+                    projection.display_name,
+                    projection.summary,
+                    *projection.tags,
+                )
+            ):
+                continue
+            records.append(discovered_payload(projection, indexed=False))
+    records.sort(
+        key=lambda item: (
+            item["projection"]["identity"]["kind"],
+            item["projection"]["display_name"].casefold(),
+            item["projection"]["identity"]["version"],
+        )
+    )
+    counts: dict[str, int] = {}
+    states: dict[str, int] = {}
+    for record in records:
+        asset_kind = record["projection"]["identity"]["kind"]
+        counts[asset_kind] = counts.get(asset_kind, 0) + 1
+        states[record["state"]] = states.get(record["state"], 0) + 1
+    return {
+        "profile": "development",
+        "production_publication": False,
+        "canonical_definitions_embedded": False,
+        "registry_root": str(store.root),
+        "records": records,
+        "counts": counts,
+        "states": states,
+    }
+
+
+@app.post("/api/registry/bootstrap")
+def bootstrap_registry(request: RegistryBootstrapRequest) -> dict[str, Any]:
+    store = registry_store()
+    projections = discover_registry_projections()
+    documents, conflicts = store.index_many(projections, actor=request.actor)
+    return {
+        "discovered": len(projections),
+        "indexed": len(documents),
+        "conflicts": conflicts,
+        "records": [document_payload(document) for document in documents],
+        "registry_root": str(store.root),
+        "production_publication": False,
+    }
+
+
+@app.post("/api/registry/index")
+def index_registry_item(request: RegistryIndexRequest) -> dict[str, Any]:
+    projection = next(
+        (
+            item
+            for item in discover_registry_projections()
+            if item.identity == request.identity
+        ),
+        None,
+    )
+    if projection is None:
+        raise HTTPException(status_code=404, detail="source definition not found")
+    try:
+        return document_payload(registry_store().index(projection, actor=request.actor))
+    except RegistryConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/api/registry/items/{kind}/{asset_id}/{version}")
+def registry_item(kind: AssetKind, asset_id: str, version: str) -> dict[str, Any]:
+    identity = RegistryIdentity(kind=kind, asset_id=asset_id, version=version)
+    try:
+        document = registry_store().get(identity)
+    except RegistryNotFound as error:
+        raise HTTPException(status_code=404, detail="registry item not found") from error
+    payload = document_payload(document)
+    current = {
+        item.identity.reference: item for item in discover_registry_projections()
+    }.get(identity.reference)
+    payload["source_drift"] = bool(
+        current and current.source.source_digest != document.projection.source.source_digest
+    )
+    payload["current_source_digest"] = current.source.source_digest if current else None
+    return payload
+
+
+@app.post("/api/registry/transition")
+def transition_registry_item(request: RegistryTransitionRequest) -> dict[str, Any]:
+    identity = RegistryIdentity(
+        kind=request.kind, asset_id=request.asset_id, version=request.version
+    )
+    try:
+        document = registry_store().transition(
+            identity,
+            request.to_state,
+            actor=request.actor,
+            rationale=request.rationale,
+            replacement_reference=request.replacement_reference,
+        )
+        return document_payload(document)
+    except RegistryNotFound as error:
+        raise HTTPException(status_code=404, detail="registry item not found") from error
+    except (RegistryConflict, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/registry/compare")
+def compare_registry_items(request: RegistryCompareRequest) -> dict[str, Any]:
+    try:
+        comparison = registry_store().compare(request.left, request.right)
+    except RegistryNotFound as error:
+        raise HTTPException(status_code=404, detail="registry item not found") from error
+    return {
+        "left": document_payload(comparison["left"]),
+        "right": document_payload(comparison["right"]),
+        "same_asset": comparison["same_asset"],
+        "differences": comparison["differences"],
+    }
 
 
 @app.get("/api/agents/runtime")

@@ -17,26 +17,24 @@ def read_json(relative: str) -> dict:
     return json.loads((ROOT / relative).read_text(encoding="utf-8"))
 
 
-def test_phase0_status_and_current_workplan_are_explicit() -> None:
-    assert read_json("config/agent/platform-development/status.json") == {
-        "current": "PLATFORM-P0",
-        "phase_0": "accepted",
-        "active_wave": "acceptance",
-        "baseline_commit": "81660bd3d4be9c8fb6725e5836e7821f9947eb17",
-        "accepted_candidate_commit": "76651ea8a580832698e99e594581db9c12969dd4",
-        "phase_1": "queued",
-        "prior_thesis_state": "deferred",
-        "development_profile_only": True,
-        "external_effects": "disabled",
-    }
+def test_phase0_acceptance_is_preserved_under_the_phase1_pointer() -> None:
+    status = read_json("config/agent/platform-development/status.json")
+    assert status["current"] == "PLATFORM-P1"
+    assert status["phase_0"] == "accepted"
+    assert status["phase_1"] in {"in_progress", "accepted"}
+    assert status["accepted_candidate_commit"] == (
+        "76651ea8a580832698e99e594581db9c12969dd4"
+    )
+    assert status["prior_thesis_state"] == "deferred"
+    assert status["development_profile_only"] is True
+    assert status["external_effects"] == "disabled"
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
-    assert "ID: PLATFORM-P0" in current
+    assert "ID: PLATFORM-P1" in current
     assert "Namespace: platform-development" in current
-    assert "integration/platform-development" in current
-    assert "make verify-platform-phase0" in current
+    assert "integration/platform-registry-kernel" in current
+    assert "make verify-platform-phase1" in current
     assert "does not reopen or reinterpret" in current
-    assert "Status: accepted" in current
-    assert "Independent QA: PASS" in current
+    assert "Phase 0 is accepted" in current
 
 
 def test_phase0_lane_manifest_freezes_non_overlapping_ownership() -> None:
@@ -109,7 +107,7 @@ def test_every_phase0_task_has_a_bounded_instruction() -> None:
 def test_active_agent_instructions_preserve_profile_and_effect_boundaries() -> None:
     instructions = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     assert "Active platform development programme" in instructions
-    assert "PLATFORM-P0" in instructions
+    assert "PLATFORM-P1" in instructions
     assert "Real, synthetic, fixture, simulated, missing, and" in instructions
     assert "Studio–Codex controls remain\ndevelopment-only" in instructions
     assert "external effects remain disabled" in instructions

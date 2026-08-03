@@ -1,7 +1,7 @@
 {
   "current": "PLATFORM-P1",
   "phase_0": "accepted",
-  "active_wave": "activation",
+  "active_wave": "integration_candidate",
   "baseline_commit": "21339db19357277ca9a9a1ca50107f1a884d7aeb",
   "accepted_candidate_commit": "76651ea8a580832698e99e594581db9c12969dd4",
   "phase_1": "in_progress",
