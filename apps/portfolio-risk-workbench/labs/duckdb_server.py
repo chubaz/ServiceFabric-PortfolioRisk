@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -54,6 +55,12 @@ from registry_sources import (
     registry_store,
 )
 from artifact_repository import artifact_store, catalogue_payload, record_payload
+from experiment_workspace import (
+    catalogue_payload as experiment_catalogue_payload,
+    experiment_store,
+    record_payload as experiment_record_payload,
+    set_payload as experiment_set_payload,
+)
 from risk_artifacts import (
     ArtifactConflict,
     ArtifactLifecycleState,
@@ -68,6 +75,19 @@ from risk_registry import (
     RegistryConflict,
     RegistryIdentity,
     RegistryNotFound,
+)
+from risk_experiments import (
+    DataTruth,
+    ExperimentBudget,
+    ExperimentConflict,
+    ExperimentDefinition,
+    ExperimentNotFound,
+    ExperimentSet,
+    ExperimentState,
+    PresentationMode,
+    SourceBinding,
+    TemporalWindow,
+    canonical_digest,
 )
 
 
@@ -124,6 +144,11 @@ LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
             "data": "Retained generated outputs · data truth disclosed per record",
             "authority": "Browse and govern local artifacts only · execution and external effects prohibited",
             "persistence": "Content-addressed local repository · outside Git · not production publication",
+        },
+        "experiments": {
+            "data": "Immutable source revisions and explicit real/synthetic/simulated declarations",
+            "authority": "Local research orchestration only · external effects prohibited",
+            "persistence": "Restart-safe experiment metadata outside Git · outputs remain separate artifacts",
         },
         "cycle": {
             "data": "Mixed · licensed daily anchors + simulated seeded intraday",
@@ -428,6 +453,54 @@ class ArtifactAdmissionRequest(BaseModel):
     run_id: str = Field(min_length=3, max_length=160)
     confirmation_token: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
     actor: str = Field(default="local.developer", min_length=3, max_length=128)
+
+
+class ExperimentCreateRequest(BaseModel):
+    definition: ExperimentDefinition
+    actor: str = Field(default="local.researcher", min_length=3, max_length=128)
+    idempotency_key: str = Field(min_length=3, max_length=160, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]+$")
+
+
+class ExperimentDraftRequest(BaseModel):
+    experiment_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$")
+    name: str = Field(min_length=1, max_length=200)
+    purpose: str = Field(min_length=3, max_length=1200)
+    hypothesis: str = Field(min_length=3, max_length=1200)
+    start_date: date
+    end_date: date
+    presentation_mode: PresentationMode
+    data_truth: DataTruth
+    portfolio_reference: str = Field(min_length=1, max_length=768)
+    snapshot_policy_reference: str = Field(min_length=1, max_length=768)
+    mandate_reference: str = Field(min_length=1, max_length=768)
+    data_revision_reference: str = Field(min_length=1, max_length=768)
+    system_asset: RegistryIdentity
+    max_model_calls: int = Field(default=12, ge=0, le=10_000)
+    max_cost_usd: Decimal = Field(default=Decimal("2.00"), ge=0, le=100_000)
+    actor: str = Field(default="local.researcher", min_length=3, max_length=128)
+
+
+class ExperimentTransitionRequest(BaseModel):
+    to_state: ExperimentState
+    actor: str = Field(default="local.researcher", min_length=3, max_length=128)
+    rationale: str = Field(min_length=3, max_length=1000)
+    idempotency_key: str = Field(min_length=3, max_length=160, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]+$")
+    expected_revision: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class ExperimentEnqueueRequest(BaseModel):
+    actor: str = Field(default="local.researcher", min_length=3, max_length=128)
+    idempotency_key: str = Field(min_length=3, max_length=160, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]+$")
+    expected_revision: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class ExperimentQueueControlRequest(BaseModel):
+    action: Literal["start", "pause", "resume", "cancel", "complete", "fail"]
+    resume_token: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class ExperimentSetCreateRequest(BaseModel):
+    definition: ExperimentSet
 
 
 def json_safe(value: Any) -> Any:
@@ -2065,6 +2138,271 @@ def admit_artifact_run(request: ArtifactAdmissionRequest) -> dict[str, Any]:
         return record_payload(record)
     except (ArtifactConflict, ArtifactNotFound, LegacyRunInvalid, ValueError) as error:
         raise _artifact_error(error) from error
+
+
+def _experiment_error(error: Exception) -> HTTPException:
+    if isinstance(error, ExperimentNotFound):
+        return HTTPException(status_code=404, detail="experiment, set, or queue entry not found")
+    return HTTPException(status_code=409, detail=str(error))
+
+
+@app.get("/api/experiments/catalogue")
+def experiment_catalogue() -> dict[str, Any]:
+    try:
+        return experiment_catalogue_payload()
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.get("/api/experiments/options")
+def experiment_options() -> dict[str, Any]:
+    return _experiment_options_payload()
+
+
+def _experiment_options_payload() -> dict[str, Any]:
+    assets = [
+        {
+            "identity": item.identity.model_dump(mode="json"),
+            "reference": item.identity.reference,
+            "display_name": item.display_name,
+            "summary": item.summary,
+        }
+        for item in discover_registry_projections()
+        if item.identity.kind in {AssetKind.WORKFLOW, AssetKind.EVALUATION}
+    ]
+    selection_id = data_plane.selection["selection_id"]
+    snapshot_id = data_plane.selection["source_snapshot_id"]
+    selection_digest = data_plane.selection["candidate_artifact"]["sha256"]
+    real_portfolios = [
+        {
+            "portfolio_id": item["portfolio_id"],
+            "title": item["title"],
+            "reference": f"portfolio-selection:{selection_id}:{item['portfolio_id']}@{selection_digest}",
+            "data_truth": "licensed_real",
+            "data_revision_reference": f"dataset-snapshot:{snapshot_id}",
+        }
+        for item in data_plane.public_portfolios()
+    ]
+    simulated_portfolios = [
+        {
+            **item,
+            "data_truth": "simulated_intraday",
+            "data_revision_reference": f"simulation:seeded-intraday@v1+anchor:{snapshot_id}",
+        }
+        for item in real_portfolios
+    ]
+    synthetic_portfolios = []
+    fixture_root = PROTOTYPE_ROOT.parents[2] / "examples" / "portfolio-risk-thesis" / "portfolios"
+    for path in sorted(fixture_root.glob("*.yaml")):
+        document = yaml.safe_load(path.read_text(encoding="utf-8"))
+        digest = "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+        synthetic_portfolios.append(
+            {
+                "portfolio_id": document["portfolio_id"],
+                "title": document["title"],
+                "reference": f"portfolio-fixture:{document['portfolio_id']}@{digest}",
+                "data_truth": "reviewed_synthetic",
+                "data_revision_reference": "fixture:portfolio-risk-thesis@2026-07-28.2",
+            }
+        )
+    return {
+        "system_assets": assets,
+        "defaults": {
+            "snapshot_policy_reference": "snapshot-policy:point-in-time-available-at@v1",
+            "mandate_reference": "mandate:research-default@v1",
+            "data_truth": "licensed_real",
+        },
+        "portfolios": [*real_portfolios, *synthetic_portfolios, *simulated_portfolios],
+    }
+
+
+@app.post("/api/experiments/draft")
+def draft_experiment(request: ExperimentDraftRequest) -> dict[str, Any]:
+    try:
+        expected_kind = (
+            AssetKind.EVALUATION
+            if request.presentation_mode == PresentationMode.EVALUATION_ONLY
+            else AssetKind.WORKFLOW
+        )
+        if request.system_asset.kind != expected_kind:
+            raise ExperimentConflict(
+                f"{request.presentation_mode.value} requires a {expected_kind.value} definition"
+            )
+        known = {item.identity.reference for item in discover_registry_projections()}
+        if request.system_asset.reference not in known:
+            raise ExperimentConflict("system asset must resolve to a discovered canonical definition")
+        options = _experiment_options_payload()
+        portfolio_option = next(
+            (
+                item
+                for item in options["portfolios"]
+                if item["reference"] == request.portfolio_reference
+                and item["data_truth"] == request.data_truth.value
+            ),
+            None,
+        )
+        if portfolio_option is None:
+            raise ExperimentConflict(
+                "portfolio reference is not reviewed for the selected data-truth class"
+            )
+        if portfolio_option["data_revision_reference"] != request.data_revision_reference:
+            raise ExperimentConflict(
+                "data revision does not match the reviewed portfolio/data-truth option"
+            )
+        raw_bindings = {
+            "portfolio": request.portfolio_reference,
+            "snapshot_policy": request.snapshot_policy_reference,
+            "mandate": request.mandate_reference,
+            "data_revision": request.data_revision_reference,
+        }
+        bindings = tuple(
+            SourceBinding(
+                role=role,
+                reference=reference,
+                revision="declared-v1",
+                digest=canonical_digest(
+                    {"kind": "experiment-source-binding/v1", "role": role, "reference": reference}
+                ),
+            )
+            for role, reference in sorted(raw_bindings.items())
+        )
+        definition = ExperimentDefinition(
+            experiment_id=request.experiment_id,
+            version="0.1.0",
+            name=request.name,
+            purpose=request.purpose,
+            hypothesis=request.hypothesis,
+            owner=request.actor,
+            created_at=datetime.now(timezone.utc),
+            temporal=TemporalWindow(start_date=request.start_date, end_date=request.end_date),
+            presentation_mode=request.presentation_mode,
+            data_truth=request.data_truth,
+            source_bindings=bindings,
+            system_assets=(request.system_asset,),
+            budget=ExperimentBudget(
+                max_model_calls=request.max_model_calls,
+                max_cost_usd=request.max_cost_usd,
+            ),
+        )
+        record = experiment_store().create(
+            definition,
+            actor=request.actor,
+            idempotency_key=f"create-{request.experiment_id}",
+        )
+        return experiment_record_payload(record)
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.post("/api/experiments")
+def create_experiment(request: ExperimentCreateRequest) -> dict[str, Any]:
+    try:
+        record = experiment_store().create(
+            request.definition,
+            actor=request.actor,
+            idempotency_key=request.idempotency_key,
+        )
+        return experiment_record_payload(record)
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.get("/api/experiments/{experiment_id}")
+def experiment_detail(experiment_id: str) -> dict[str, Any]:
+    try:
+        return experiment_record_payload(experiment_store().get(experiment_id))
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.post("/api/experiments/{experiment_id}/transition")
+def transition_experiment(
+    experiment_id: str, request: ExperimentTransitionRequest
+) -> dict[str, Any]:
+    try:
+        if request.to_state == ExperimentState.VALIDATED:
+            current = experiment_store().get(experiment_id)
+            known = {item.identity.reference for item in discover_registry_projections()}
+            unresolved = [
+                item.reference for item in current.definition.system_assets if item.reference not in known
+            ]
+            if unresolved:
+                raise ExperimentConflict(
+                    "validation cannot resolve canonical system assets: " + ", ".join(unresolved)
+                )
+        record = experiment_store().transition(
+            experiment_id,
+            request.to_state,
+            actor=request.actor,
+            rationale=request.rationale,
+            idempotency_key=request.idempotency_key,
+            expected_revision=request.expected_revision,
+        )
+        return experiment_record_payload(record)
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.post("/api/experiments/{experiment_id}/enqueue")
+def enqueue_experiment(
+    experiment_id: str, request: ExperimentEnqueueRequest
+) -> dict[str, Any]:
+    try:
+        record, queue = experiment_store().enqueue(
+            experiment_id,
+            actor=request.actor,
+            idempotency_key=request.idempotency_key,
+            expected_revision=request.expected_revision,
+        )
+        return {
+            "experiment": experiment_record_payload(record),
+            "queue": queue.model_dump(mode="json"),
+        }
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.get("/api/experiment-queue")
+def experiment_queue_entries() -> dict[str, Any]:
+    try:
+        return {"entries": [item.model_dump(mode="json") for item in experiment_store().queue_entries()]}
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.post("/api/experiment-queue/{queue_id}/control")
+def control_experiment_queue(
+    queue_id: str, request: ExperimentQueueControlRequest
+) -> dict[str, Any]:
+    try:
+        record, queue = experiment_store().update_queue(
+            queue_id, action=request.action, resume_token=request.resume_token
+        )
+        return {
+            "experiment": experiment_record_payload(record),
+            "queue": queue.model_dump(mode="json"),
+        }
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.get("/api/experiment-sets")
+def experiment_sets() -> dict[str, Any]:
+    try:
+        store = experiment_store()
+        return {"sets": [experiment_set_payload(item, store) for item in store.list_sets()]}
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.post("/api/experiment-sets")
+def create_experiment_set(request: ExperimentSetCreateRequest) -> dict[str, Any]:
+    try:
+        store = experiment_store()
+        definition = store.create_set(request.definition)
+        return experiment_set_payload(definition, store)
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
 
 
 @app.get("/api/agents/runtime")

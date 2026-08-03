@@ -315,28 +315,22 @@ explicit human QA.
 
 ## Active platform development programme
 
-The current programme is `PLATFORM-P2` on
-`integration/platform-artifact-repository`. Its authoritative workplan is
-`docs/workplans/platform-development/phase-2-artifact-repository.md`, lifecycle state is
-in `config/agent/platform-development/status.json`, and exact lane ownership is
-in `config/agent/platform-development/phase2-lanes.json`.
+The current programme is `PLATFORM-P3` on
+`integration/platform-experiment-workspace`. Its authoritative workplan is
+`docs/workplans/platform-development/phase-3-experiment-workspace.md` and
+lifecycle state is in `config/agent/platform-development/status.json`.
 
-Phase 2 has one integration authority and three parallel read-only specialist
-audits: artifact contracts/persistence, retained-run migration, and repository
-UI/policy.
-Specialists may write only their exact handoff file and stop without merging.
-Independent QA begins only after integration synthesis and likewise writes only
-its exact handoff. Shared contracts, application changes, tests, CI, status,
-and acceptance remain integration-owned.
+Phase 3 adds a first-class experiment control plane over existing canonical
+definitions. Immutable experiment meaning, mutable lifecycle/queue receipts,
+run outputs, and published assets remain separate. Source and system assets are
+referenced by exact version and digest; experiment-local overlays are explicit.
+Mutable experiment state remains outside Git.
 
-This programme must reuse canonical artifact references and immutable storage
-semantics before adding repository projections, preserve
-the working vertical slice, and keep development, experimental, and persistent
-research semantics distinct. Real, synthetic, fixture, simulated, missing, and
-unavailable data states must never be conflated. Studio–Codex controls remain
-development-only; external effects remain disabled. Generated artifact bytes
-remain outside Git. Published and evidence-locked artifacts cannot use ordinary
-deletion. Phase 3 experiment work is prohibited in this programme.
+The local queue is a bounded, restart-safe metadata controller, not a scheduler
+daemon or production worker. Queue admission never starts an agent, workflow,
+model call, SQL query, or portfolio effect. Evaluation-only mode cannot request
+workflow execution. External effects remain disabled and Phase 4 report or
+decision-lifecycle work is prohibited in this workstream.
 
 ## Completion report
 

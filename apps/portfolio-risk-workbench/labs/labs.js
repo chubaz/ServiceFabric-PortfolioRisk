@@ -266,6 +266,12 @@
     selectedArtifactId: null,
     selectedArtifactDetail: null,
     artifactLoading: false,
+    experimentRecords: [],
+    experimentQueue: [],
+    experimentSets: [],
+    experimentOptions: null,
+    selectedExperimentId: null,
+    experimentLoading: false,
   };
 
   function canonicalCurrentPortfolio() {
@@ -328,6 +334,7 @@
     if (name === "graph") refreshGraphAgents();
     if (name === "registry") loadRegistryCatalogue();
     if (name === "artifacts") loadArtifactCatalogue();
+    if (name === "experiments") loadExperimentWorkspace();
     if (name === "cycle") populateCyclePortfolios();
     if (updateHistory) {
       const url = new URL(window.location.href);
@@ -3341,11 +3348,192 @@
     await loadArtifactCatalogue();
   }
 
+  const experimentLabels = {
+    interactive_foreground: "Interactive foreground",
+    background_headless: "Background / headless",
+    evaluation_only: "Evaluation only",
+    paused_for_decision: "Paused for decision",
+    licensed_real: "Licensed real",
+    public_real: "Public real",
+    reviewed_synthetic: "Reviewed synthetic",
+    simulated_intraday: "Simulated intraday",
+  };
+
+  function experimentLabel(value) {
+    return experimentLabels[value] || String(value || "").replaceAll("_", " ");
+  }
+
+  function renderExperimentOptions() {
+    const options = labState.experimentOptions || { system_assets: [], portfolios: [], defaults: {} };
+    const mode = $("#experiment-mode").value;
+    const kind = mode === "evaluation_only" ? "evaluation" : "workflow";
+    const assets = options.system_assets.filter((item) => item.identity.kind === kind);
+    $("#experiment-system-asset").innerHTML = assets.length
+      ? assets.map((item) => `<option value="${escapeHtml(item.reference)}">${escapeHtml(item.display_name)} · ${escapeHtml(item.identity.version)}</option>`).join("")
+      : `<option value="">No discovered ${escapeHtml(kind)} definition</option>`;
+    const truth = $("#experiment-truth").value;
+    const portfolios = (options.portfolios || []).filter((item) => item.data_truth === truth);
+    $("#experiment-portfolio").innerHTML = portfolios.length
+      ? portfolios.map((item) => `<option value="${escapeHtml(item.reference)}" data-revision="${escapeHtml(item.data_revision_reference)}">${escapeHtml(item.title || item.portfolio_id)}</option>`).join("")
+      : '<option value="">No reviewed source is available for this truth class</option>';
+    $("#experiment-data-revision").value = portfolios[0]?.data_revision_reference || "Unavailable until a reviewed source is configured";
+    const defaults = options.defaults || {};
+    if (defaults.snapshot_policy_reference) $("#experiment-snapshot-policy").value = defaults.snapshot_policy_reference;
+    if (defaults.mandate_reference) $("#experiment-mandate").value = defaults.mandate_reference;
+    $("#experiment-create-form button[type=submit]").disabled = !assets.length || !portfolios.length;
+  }
+
+  function renderExperimentWorkspace(result) {
+    const summary = result.summary || {};
+    $("#experiment-summary").innerHTML = [
+      [summary.experiments || 0, "experiments"],
+      [summary.ready_or_active || 0, "ready or active"],
+      [summary.queued_jobs || 0, "active queue entries"],
+      [summary.experiment_sets || 0, "comparison sets"],
+    ].map(([value, label]) => `<div><strong>${value}</strong><span>${escapeHtml(label)}</span></div>`).join("");
+    $("#experiment-result-count").textContent = `${labState.experimentRecords.length} records`;
+    if (!labState.experimentRecords.some((item) => item.definition.experiment_id === labState.selectedExperimentId)) {
+      labState.selectedExperimentId = labState.experimentRecords[0]?.definition.experiment_id || null;
+    }
+    $("#experiment-list").innerHTML = labState.experimentRecords.length ? labState.experimentRecords.map((record) => {
+      const value = record.definition;
+      const selected = value.experiment_id === labState.selectedExperimentId;
+      return `<button class="registry-result ${selected ? "selected" : ""}" type="button" data-experiment-id="${escapeHtml(value.experiment_id)}" aria-pressed="${selected}">
+        <span class="registry-result-top"><b>${escapeHtml(experimentLabel(value.presentation_mode))}</b><span class="registry-badge lifecycle">${escapeHtml(experimentLabel(record.state))}</span></span>
+        <strong>${escapeHtml(value.name)}</strong><code>${escapeHtml(value.experiment_id)} · ${escapeHtml(value.version)}</code>
+        <small>${escapeHtml(value.hypothesis)}</small></button>`;
+    }).join("") : '<div class="empty-state">Create a draft to establish an isolated, persistent experiment boundary.</div>';
+    renderExperimentDetail();
+    $("#experiment-queue").innerHTML = labState.experimentQueue.length ? labState.experimentQueue.map((entry) => {
+      const actions = entry.status === "queued" ? ["start", "cancel"] : entry.status === "running" ? ["pause", "complete", "fail", "cancel"] : entry.status === "paused" ? ["resume", "cancel"] : [];
+      return `<article class="experiment-queue-entry"><div><b>${escapeHtml(experimentLabel(entry.status))}</b><strong>${escapeHtml(entry.experiment_id)}</strong><span>${escapeHtml(experimentLabel(entry.job_kind))}</span><small>${escapeHtml(entry.message)}</small></div><div>${actions.map((action) => `<button class="text-button" type="button" data-queue-id="${escapeHtml(entry.queue_id)}" data-queue-action="${action}">${escapeHtml(experimentLabel(action))}</button>`).join("")}</div></article>`;
+    }).join("") : '<div class="empty-state">No queued work. Queue admission never starts a worker automatically.</div>';
+    $("#experiment-sets").innerHTML = labState.experimentSets.length ? labState.experimentSets.map((item) => `<article class="experiment-set-card"><b>${escapeHtml(item.definition.name)}</b><span>${item.members.length} experiments · ${item.planned_runs} planned runs</span><small>${item.comparison_ready ? "All results are ready to compare" : "Waiting for completed and reviewed members"}</small></article>`).join("") : '<div class="empty-state">Group experiments only when they answer a shared research question.</div>';
+    $("#experiment-create-set").disabled = !labState.experimentRecords.length;
+  }
+
+  function renderExperimentDetail() {
+    const record = labState.experimentRecords.find((item) => item.definition.experiment_id === labState.selectedExperimentId);
+    if (!record) {
+      $("#experiment-detail").innerHTML = '<div class="empty-state">Select an experiment to inspect its exact definition.</div>';
+      return;
+    }
+    const value = record.definition;
+    const next = record.state === "draft" ? "validated" : record.state === "validated" ? "ready" : record.state === "completed" || record.state === "failed" || record.state === "cancelled" ? "reviewed" : record.state === "reviewed" ? "archived" : null;
+    const canEnqueue = record.state === "ready";
+    const sourceRows = value.source_bindings.map((item) => `<div><dt>${escapeHtml(experimentLabel(item.role))}</dt><dd><code>${escapeHtml(item.reference)}</code><small>${escapeHtml(item.revision)} · ${escapeHtml(item.digest)}</small></dd></div>`).join("");
+    const assets = value.system_assets.map((item) => `<article><b>${escapeHtml(experimentLabel(item.kind))}</b><code>${escapeHtml(item.kind)}:${escapeHtml(item.namespace)}:${escapeHtml(item.asset_id)}@${escapeHtml(item.version)}</code></article>`).join("");
+    $("#experiment-detail").innerHTML = `<header class="registry-detail-header"><span class="panel-label">${escapeHtml(experimentLabel(value.presentation_mode))} · ${escapeHtml(experimentLabel(record.state))}</span><h2>${escapeHtml(value.name)}</h2><code>${escapeHtml(value.experiment_id)}</code><p>${escapeHtml(value.purpose)}</p></header>
+      <div class="registry-detail-badges"><span class="registry-badge indexed">${escapeHtml(experimentLabel(value.data_truth))}</span><span class="registry-badge">Effects ${escapeHtml(value.external_effects)}</span><span class="registry-badge">${value.budget.max_model_calls} model calls max</span><span class="registry-badge">$${Number(value.budget.max_cost_usd).toFixed(2)} max</span></div>
+      <details open><summary>Question and temporal boundary</summary><p class="registry-helper"><strong>Hypothesis:</strong> ${escapeHtml(value.hypothesis)}</p><dl class="registry-facts"><div><dt>Period</dt><dd>${escapeHtml(value.temporal.start_date)} → ${escapeHtml(value.temporal.end_date)}</dd></div><div><dt>Eligibility</dt><dd>${escapeHtml(experimentLabel(value.temporal.as_of_policy))}</dd></div><div><dt>Replay</dt><dd>${escapeHtml(experimentLabel(value.temporal.replay_schedule))}</dd></div><div><dt>Definition digest</dt><dd><code>${escapeHtml(value.definition_digest)}</code></dd></div></dl></details>
+      <details open><summary>Immutable source bindings</summary><dl class="registry-facts">${sourceRows}</dl></details>
+      <details open><summary>Versioned system assets</summary><div class="registry-receipts">${assets}</div></details>
+      <details><summary>Lifecycle receipts</summary><div class="registry-receipts">${record.receipts.map((receipt) => `<article><b>${escapeHtml(experimentLabel(receipt.to_state))}</b><span>${escapeHtml(receipt.actor)} · ${escapeHtml(new Date(receipt.occurred_at).toLocaleString())}</span><p>${escapeHtml(receipt.rationale)}</p></article>`).join("")}</div></details>
+      <div class="registry-actions">${next ? `<button class="button primary" type="button" data-experiment-transition="${next}">Move to ${escapeHtml(experimentLabel(next))}</button>` : ""}${canEnqueue ? '<button class="button primary" type="button" data-experiment-enqueue>Admit to queue</button>' : ""}<p class="registry-helper">Queue admission is explicit and restart-safe. It does not imply that an agent, worker, or model call has started.</p></div>`;
+  }
+
+  async function loadExperimentWorkspace() {
+    if (labState.experimentLoading) return;
+    labState.experimentLoading = true;
+    $("#experiment-status").textContent = "Loading";
+    try {
+      const [catalogue, options] = await Promise.all([
+        agentApi("/api/experiments/catalogue"),
+        labState.experimentOptions ? Promise.resolve(labState.experimentOptions) : agentApi("/api/experiments/options"),
+      ]);
+      labState.experimentOptions = options;
+      labState.experimentRecords = catalogue.records || [];
+      labState.experimentQueue = catalogue.queue || [];
+      labState.experimentSets = catalogue.sets || [];
+      renderExperimentOptions();
+      renderExperimentWorkspace(catalogue);
+      $("#experiment-status").textContent = "Ready";
+    } catch (error) {
+      $("#experiment-status").textContent = "Unavailable";
+      $("#experiment-list").innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+    } finally {
+      labState.experimentLoading = false;
+    }
+  }
+
+  async function createExperimentDraft(event) {
+    event.preventDefault();
+    const reference = $("#experiment-system-asset").value;
+    const asset = (labState.experimentOptions?.system_assets || []).find((item) => item.reference === reference);
+    if (!asset) throw new Error("Select a discovered workflow or evaluation definition.");
+    const slug = $("#experiment-name").value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70) || "experiment";
+    const id = `${slug}-${Date.now().toString(36)}`;
+    await agentApi("/api/experiments/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+      experiment_id: id,
+      name: $("#experiment-name").value,
+      purpose: $("#experiment-purpose").value,
+      hypothesis: $("#experiment-hypothesis").value,
+      start_date: $("#experiment-start").value,
+      end_date: $("#experiment-end").value,
+      presentation_mode: $("#experiment-mode").value,
+      data_truth: $("#experiment-truth").value,
+      portfolio_reference: $("#experiment-portfolio").value,
+      snapshot_policy_reference: $("#experiment-snapshot-policy").value,
+      mandate_reference: $("#experiment-mandate").value,
+      data_revision_reference: $("#experiment-data-revision").value,
+      system_asset: asset.identity,
+      max_model_calls: Number($("#experiment-model-budget").value),
+      max_cost_usd: $("#experiment-cost-budget").value,
+      actor: "local.researcher",
+    }) });
+    labState.selectedExperimentId = id;
+    await loadExperimentWorkspace();
+  }
+
+  async function transitionExperiment(toState) {
+    const record = labState.experimentRecords.find((item) => item.definition.experiment_id === labState.selectedExperimentId);
+    if (!record) return;
+    await agentApi(`/api/experiments/${encodeURIComponent(record.definition.experiment_id)}/transition`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+      to_state: toState,
+      actor: "local.researcher",
+      rationale: toState === "validated" ? "Reviewed required bindings and canonical system asset resolution." : `Reviewed transition to ${toState}.`,
+      idempotency_key: `${toState}-${record.definition.experiment_id}`,
+      expected_revision: record.revision,
+    }) });
+    await loadExperimentWorkspace();
+  }
+
+  async function enqueueExperiment() {
+    const record = labState.experimentRecords.find((item) => item.definition.experiment_id === labState.selectedExperimentId);
+    if (!record) return;
+    await agentApi(`/api/experiments/${encodeURIComponent(record.definition.experiment_id)}/enqueue`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor: "local.researcher", idempotency_key: `enqueue-${record.definition.experiment_id}`, expected_revision: record.revision }) });
+    await loadExperimentWorkspace();
+  }
+
+  async function controlExperimentQueue(queueId, action) {
+    const entry = labState.experimentQueue.find((item) => item.queue_id === queueId);
+    if (!entry) return;
+    await agentApi(`/api/experiment-queue/${encodeURIComponent(queueId)}/control`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, resume_token: entry.resume_token }) });
+    await loadExperimentWorkspace();
+  }
+
+  async function createExperimentSet() {
+    if (!labState.experimentRecords.length) return;
+    const now = new Date().toISOString();
+    const id = `experiment-set-${Date.now().toString(36)}`;
+    await agentApi("/api/experiment-sets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ definition: {
+      experiment_set_id: id,
+      name: "Workspace comparison",
+      research_question: "How do the current governed experiment configurations compare on their reviewed outputs?",
+      owner: "local.researcher",
+      experiment_ids: labState.experimentRecords.map((item) => item.definition.experiment_id).sort(),
+      controlled_factors: [], variable_factors: [], seeds: [1], repeat_count: 1,
+      max_concurrency: 2, max_total_cost_usd: "25.00", aggregation_rule: "per_experiment_then_set_summary",
+      created_at: now,
+    } }) });
+    await loadExperimentWorkspace();
+  }
+
   function bind() {
     $$(".workspace-tab").forEach((button) => button.addEventListener("click", () => switchWorkspace(button.dataset.workspace)));
     window.addEventListener("popstate", () => {
       const workspace = new URLSearchParams(window.location.search).get("workspace") || "dataset";
-      if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "cycle", "full"].includes(workspace)) switchWorkspace(workspace, false);
+      if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "cycle", "full"].includes(workspace)) switchWorkspace(workspace, false);
     });
     $("#registry-refresh").addEventListener("click", loadRegistryCatalogue);
     $("#registry-index-all").addEventListener("click", () => indexAllRegistryDefinitions().catch((error) => { $("#registry-status").textContent = error.message; }));
@@ -3418,6 +3606,34 @@
       const downloadButton = event.target.closest("[data-download-file]");
       if (downloadButton) window.location.assign(`/api/artifacts/${encodeURIComponent(record.manifest.artifact_id)}/files/${encodeURIComponent(downloadButton.dataset.downloadFile)}/download`);
     });
+    $("#experiment-refresh").addEventListener("click", loadExperimentWorkspace);
+    $("#experiment-mode").addEventListener("change", renderExperimentOptions);
+    $("#experiment-truth").addEventListener("change", renderExperimentOptions);
+    $("#experiment-portfolio").addEventListener("change", () => {
+      $("#experiment-data-revision").value = $("#experiment-portfolio").selectedOptions[0]?.dataset.revision || "";
+    });
+    $("#experiment-create-form").addEventListener("submit", (event) => createExperimentDraft(event).catch((error) => { $("#experiment-status").textContent = error.message; }));
+    $("#experiment-list").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-experiment-id]");
+      if (!button) return;
+      labState.selectedExperimentId = button.dataset.experimentId;
+      renderExperimentWorkspace({ summary: {
+        experiments: labState.experimentRecords.length,
+        ready_or_active: labState.experimentRecords.filter((item) => ["ready", "queued", "running", "paused_for_decision"].includes(item.state)).length,
+        queued_jobs: labState.experimentQueue.filter((item) => ["queued", "running", "paused"].includes(item.status)).length,
+        experiment_sets: labState.experimentSets.length,
+      } });
+    });
+    $("#experiment-detail").addEventListener("click", (event) => {
+      const transition = event.target.closest("[data-experiment-transition]");
+      if (transition) transitionExperiment(transition.dataset.experimentTransition).catch((error) => { $("#experiment-status").textContent = error.message; });
+      if (event.target.closest("[data-experiment-enqueue]")) enqueueExperiment().catch((error) => { $("#experiment-status").textContent = error.message; });
+    });
+    $("#experiment-queue").addEventListener("click", (event) => {
+      const action = event.target.closest("[data-queue-action]");
+      if (action) controlExperimentQueue(action.dataset.queueId, action.dataset.queueAction).catch((error) => { $("#experiment-status").textContent = error.message; });
+    });
+    $("#experiment-create-set").addEventListener("click", () => createExperimentSet().catch((error) => { $("#experiment-status").textContent = error.message; }));
     $("#create-cycle-session").addEventListener("click", createCycleSession);
     $("#cycle-start").addEventListener("click", () => controlCycle("start").catch((error) => { $("#cycle-runtime-status").textContent = error.message; }));
     $("#cycle-pause").addEventListener("click", () => controlCycle("pause").catch((error) => { $("#cycle-runtime-status").textContent = error.message; }));
@@ -3929,7 +4145,7 @@
     initializeLiveConnection();
     initializeAgentRuntime();
     const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
-    if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "cycle", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace, false);
+    if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "cycle", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace, false);
   }
 
   initialize();

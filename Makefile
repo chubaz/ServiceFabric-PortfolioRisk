@@ -8,7 +8,7 @@ SERVICEFABRIC_DOCTOR := $(BOOTSTRAP_VENV)/bin/servicefabric
 
 DAY0_VENV ?= $(CURDIR)/.venv-day0
 DAY0_PYTHON := $(DAY0_VENV)/bin/python
-DAY0_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src:$(CURDIR)/packages/risk_analytics/src:$(CURDIR)/packages/risk_registry/src:$(CURDIR)/packages/risk_artifacts/src
+DAY0_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src:$(CURDIR)/packages/risk_analytics/src:$(CURDIR)/packages/risk_registry/src:$(CURDIR)/packages/risk_artifacts/src:$(CURDIR)/packages/risk_experiments/src
 DAY0_PYTEST := PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS)" $(DAY0_PYTHON) -m pytest
 HISTORICAL_JOURNEY_TESTS := $(filter-out tests/journeys/test_thesis%.py,$(wildcard tests/journeys/*.py))
 DAY1_VENV ?= $(CURDIR)/.venv-day1
@@ -670,3 +670,9 @@ verify-platform-phase2: preflight day0-env
 	$(DAY0_PYTEST) tests/architecture/test_platform_phase2_control_plane.py tests/artifacts tests/application/test_artifact_api.py -q
 	git diff --check
 	@echo "Platform development Phase 2 artifact repository: PASS"
+
+.PHONY: verify-platform-phase3
+verify-platform-phase3: day0-env
+	$(DAY0_PYTEST) tests/architecture/test_platform_phase3_control_plane.py tests/experiments tests/application/test_experiment_api.py -q
+	git diff --check
+	@echo "Platform development Phase 3 experiment workspace: PASS"
