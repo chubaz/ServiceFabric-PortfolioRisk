@@ -63,6 +63,12 @@ class. UI copy no longer describes this as human approval or auto-clearance.
 - focused application and architecture tests: 10 passed.
 - `make verify-platform-phase0`: PASS, 23 tests.
 - `make test-application`: PASS, 93 tests.
+- `make test-architecture`: PASS, 99 tests after lifecycle-neutral regression
+  coverage was added.
+- `make verify-thesis-current`: PASS after GitHub Actions exposed and the
+  candidate corrected a squash-merge-era Day 1 lane-ancestry assertion. The
+  historical regression suite still runs; obsolete specialist-range validation
+  runs only while the Thesis programme owns the active pointer.
 - package manifest hashes refreshed and checked: PASS.
 - `git diff --check`: PASS.
 - fresh local service on port 8878: health, catalogue, portfolios, agent runs,

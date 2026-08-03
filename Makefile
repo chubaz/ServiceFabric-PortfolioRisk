@@ -414,9 +414,13 @@ verify-thesis-day1: \
   test-thesis-integration \
   test-thesis-journeys \
   check-thesis-day1-fixture-digests
-	test -n "$(THESIS_DAY1_LANE_BASE)" || { echo "ERROR: unable to resolve the Thesis Sprint control-plane commit" >&2; exit 1; }
-	git merge-base --is-ancestor "$(THESIS_DAY1_LANE_BASE)" "$(THESIS_DAY1_LANE_HEAD)" || { echo "ERROR: specialist candidate must descend from the Thesis Sprint control-plane commit" >&2; exit 1; }
-	$(THESIS_PYTHON) scripts/thesis/check_lane_paths.py --lane day1 --base "$(THESIS_DAY1_LANE_BASE)" --head "$(THESIS_DAY1_LANE_HEAD)" --manifest config/agent/thesis-sprint/lanes.json
+	@if grep -q "^- ID: THESIS-" docs/workplans/current.md; then \
+	  test -n "$(THESIS_DAY1_LANE_BASE)" || { echo "ERROR: unable to resolve the Thesis Sprint control-plane commit" >&2; exit 1; }; \
+	  git merge-base --is-ancestor "$(THESIS_DAY1_LANE_BASE)" "$(THESIS_DAY1_LANE_HEAD)" || { echo "ERROR: specialist candidate must descend from the Thesis Sprint control-plane commit" >&2; exit 1; }; \
+	  $(THESIS_PYTHON) scripts/thesis/check_lane_paths.py --lane day1 --base "$(THESIS_DAY1_LANE_BASE)" --head "$(THESIS_DAY1_LANE_HEAD)" --manifest config/agent/thesis-sprint/lanes.json; \
+	else \
+	  echo "Thesis Day 1 lane ownership is historical; a later programme owns the active pointer"; \
+	fi
 	git diff --check
 	@echo "Thesis Sprint Day 1 verification: PASS"
 

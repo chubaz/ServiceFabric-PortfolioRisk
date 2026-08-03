@@ -119,3 +119,15 @@ def test_historical_day1_gate_is_lifecycle_neutral() -> None:
     assert "a later programme owns the active pointer" in day1_gate
     assert "a later programme owns the active pointer" in workflow
     assert "THESIS-" not in day1_gate
+
+
+def test_historical_thesis_lane_gate_is_lifecycle_neutral() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    thesis_day1_gate = makefile.split(
+        ".PHONY: verify-thesis-day1", maxsplit=1
+    )[1].split(".PHONY: test-thesis-day3", maxsplit=1)[0]
+    assert 'grep -q "^- ID: THESIS-"' in thesis_day1_gate
+    assert "Thesis Day 1 lane ownership is historical" in thesis_day1_gate
+    assert "a later programme owns the active pointer" in thesis_day1_gate
+    assert "git merge-base --is-ancestor" in thesis_day1_gate
+    assert "scripts/thesis/check_lane_paths.py" in thesis_day1_gate
