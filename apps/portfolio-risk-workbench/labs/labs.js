@@ -3080,12 +3080,12 @@
     const compatible = projection.compatibility.status;
     const versions = labState.registryRecords.filter((item) => {
       const other = registryIdentity(item);
-      return item.indexed && other.kind === identity.kind && other.asset_id === identity.asset_id && item.reference !== record.reference;
+      return item.indexed && other.kind === identity.kind && other.namespace === identity.namespace && other.asset_id === identity.asset_id && item.reference !== record.reference;
     });
-    const next = { candidate: "validated", validated: "published", published: "deprecated", deprecated: "retired", retired: "archived" }[record.state];
+    const next = (record.allowed_transitions || [])[0];
     const publishBlocked = next === "published" && (!source.canonical || compatible !== "compatible");
     const receipts = record.receipts || [];
-    const attributes = Object.entries(projection.attributes || {}).map(([key, value]) => `<div><dt>${escapeHtml(key.replaceAll("_", " "))}</dt><dd>${escapeHtml(registryValue(value))}</dd></div>`).join("");
+    const relationships = (projection.relationships || []).map((relationship) => `<article><b>${escapeHtml(relationship.relationship.replaceAll("_", " "))}</b><span>${escapeHtml(relationship.target_native_id)} · ${escapeHtml(relationship.resolution)}</span>${relationship.target_reference ? `<code>${escapeHtml(relationship.target_reference)}</code>` : ""}</article>`).join("");
     $("#registry-detail").innerHTML = `
       <header class="registry-detail-header"><span class="panel-label">${escapeHtml(identity.kind)} · ${escapeHtml(identity.version)}</span><h2>${escapeHtml(projection.display_name)}</h2><code>${escapeHtml(identity.asset_id)}</code><p>${escapeHtml(projection.summary)}</p></header>
       <div class="registry-detail-badges"><span class="registry-badge ${record.indexed ? "indexed" : "discovered"}">${record.indexed ? "Indexed" : "Discovered only"}</span>${record.indexed ? `<span class="registry-badge lifecycle">${escapeHtml(registryStateLabels[record.state])}</span>` : ""}<span class="registry-badge">${escapeHtml(compatible)}</span></div>
@@ -3095,11 +3095,14 @@
         <div><dt>Source authority</dt><dd>${source.canonical ? "Reusable canonical source" : "Accepted or application-local candidate source"}</dd></div>
         <div><dt>Source SHA-256</dt><dd><code>${escapeHtml(source.source_digest)}</code></dd></div>
         <div><dt>Definition SHA-256</dt><dd><code>${escapeHtml(source.definition_digest)}</code></dd></div>
-        <div><dt>Adapter</dt><dd>${escapeHtml(projection.provenance.discovered_by)}</dd></div>
+        <div><dt>Namespace</dt><dd>${escapeHtml(identity.namespace)}</dd></div>
+        <div><dt>Source contract</dt><dd>${escapeHtml(projection.source_contract)}</dd></div>
+        <div><dt>Repository commit</dt><dd><code>${escapeHtml(projection.provenance.repository_commit)}</code></dd></div>
+        <div><dt>Adapter</dt><dd>${escapeHtml(source.adapter_id)}</dd></div>
+        <div><dt>Adapter SHA-256</dt><dd><code>${escapeHtml(source.adapter_digest)}</code></dd></div>
         <div><dt>Observed</dt><dd>${escapeHtml(new Date(projection.provenance.discovered_at).toLocaleString())}</dd></div>
       </dl></details>
-      <details open><summary>Contract projection</summary><dl class="registry-facts">${attributes || '<div><dt>Metadata</dt><dd>No additional display fields.</dd></div>'}</dl></details>
-      <details><summary>Compatibility and lineage</summary><dl class="registry-facts"><div><dt>Status</dt><dd>${escapeHtml(compatible)}</dd></div><div><dt>Requires</dt><dd>${escapeHtml(registryValue(projection.compatibility.requires))}</dd></div><div><dt>Lineage</dt><dd>${escapeHtml(registryValue(projection.lineage))}</dd></div></dl></details>
+      <details open><summary>Compatibility and exact relationships</summary><dl class="registry-facts"><div><dt>Status</dt><dd>${escapeHtml(compatible)}</dd></div><div><dt>Evaluated source</dt><dd><code>${escapeHtml(registryValue(projection.compatibility.evaluated_source_digest))}</code></dd></div><div><dt>Evaluator revision</dt><dd><code>${escapeHtml(projection.compatibility.evaluator_revision)}</code></dd></div><div><dt>Exact lineage</dt><dd>${escapeHtml(registryValue(projection.lineage))}</dd></div></dl><div class="registry-receipts">${relationships || '<div class="empty-state">No cross-definition relationship is declared.</div>'}</div></details>
       <details ${record.indexed ? "open" : ""}><summary>Lifecycle receipts</summary><div class="registry-receipts">${receipts.length ? receipts.map((receipt) => `<article><b>${escapeHtml(registryStateLabels[receipt.to_state] || receipt.to_state)}</b><span>${escapeHtml(receipt.actor)} · ${escapeHtml(new Date(receipt.occurred_at).toLocaleString())}</span><p>${escapeHtml(receipt.rationale)}</p></article>`).join("") : '<div class="empty-state">Lifecycle begins only after explicit indexing.</div>'}</div></details>
       <div class="registry-actions">
         ${record.indexed ? "" : '<button class="button primary" id="registry-index-one" type="button">Index this definition</button>'}
@@ -3130,14 +3133,30 @@
   }
 
   async function indexRegistry(record) {
+    const identity = registryIdentity(record);
+    if (!window.confirm(`Index ${record.projection.display_name} as a local candidate?\n\nThis stores metadata, digests, and one lifecycle receipt. It does not copy, run, deploy, or publish the definition.`)) return;
     $("#registry-status").textContent = "Indexing";
-    await agentApi("/api/registry/index", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identity: registryIdentity(record), actor: "local.developer" }) });
+    await agentApi("/api/registry/index", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identity, actor: "local.developer" }) });
     await loadRegistryCatalogue();
   }
 
   async function indexAllRegistryDefinitions() {
-    $("#registry-status").textContent = "Indexing";
-    await agentApi("/api/registry/bootstrap", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor: "local.developer" }) });
+    const request = { actor: "local.developer" };
+    $("#registry-status").textContent = "Preparing preview";
+    const preview = await agentApi("/api/registry/bootstrap/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) });
+    if ((preview.conflicts || []).length) {
+      $("#registry-status").textContent = `Blocked · ${preview.conflicts.length} conflict${preview.conflicts.length === 1 ? "" : "s"}`;
+      window.alert(`Nothing was indexed. Resolve these conflicts first:\n\n${preview.conflicts.join("\n")}`);
+      return;
+    }
+    if (!preview.would_index) {
+      $("#registry-status").textContent = "All definitions already indexed";
+      return;
+    }
+    if (!window.confirm(`Index ${preview.would_index} discovered definition${preview.would_index === 1 ? "" : "s"}?\n\n${preview.consequence}\n\n${preview.already_indexed} existing projection${preview.already_indexed === 1 ? " is" : "s are"} unchanged.`)) return;
+    $("#registry-status").textContent = "Indexing prevalidated batch";
+    const result = await agentApi("/api/registry/bootstrap", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) });
+    if ((result.conflicts || []).length) throw new Error(`Bootstrap blocked: ${result.conflicts.join("; ")}`);
     await loadRegistryCatalogue();
   }
 
@@ -3150,7 +3169,8 @@
     const identity = registryIdentity(record);
     const replacement = nextState === "deprecated" ? window.prompt("Exact replacement reference (required for deprecation)", "") : null;
     if (nextState === "deprecated" && !replacement) return;
-    await agentApi("/api/registry/transition", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...identity, to_state: nextState, actor: "local.developer", rationale, replacement_reference: replacement }) });
+    if (!window.confirm(`Move ${record.projection.display_name} from ${registryStateLabels[record.state]} to ${registryStateLabels[nextState]}?\n\nThis appends one local, tamper-evident lifecycle receipt. It does not run, deploy, or externally publish the definition.`)) return;
+    await agentApi("/api/registry/transition", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...identity, to_state: nextState, actor: "local.developer", rationale, replacement_reference: replacement, expected_revision: record.revision }) });
     await loadRegistryCatalogue();
   }
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
@@ -11,6 +13,24 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 SHA256_PATTERN = r"^[a-f0-9]{64}$"
 VERSION_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+
+
+def _digest(value: dict[str, Any]) -> str:
+    payload = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=lambda item: item.isoformat() if isinstance(item, datetime) else str(item),
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _receipt_digests(intent: dict[str, Any]) -> tuple[str, str]:
+    receipt_id = _digest({"kind": "registry-lifecycle-intent/v1", **intent})
+    receipt_digest = _digest(
+        {"kind": "registry-lifecycle-receipt/v1", **intent, "receipt_id": receipt_id}
+    )
+    return receipt_id, receipt_digest
 
 
 class RegistryModel(BaseModel):
@@ -48,6 +68,7 @@ LIFECYCLE_TRANSITIONS: dict[LifecycleState, tuple[LifecycleState, ...]] = {
 
 class RegistryIdentity(RegistryModel):
     kind: AssetKind
+    namespace: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$")
     asset_id: str = Field(min_length=1, max_length=256)
     version: str = Field(pattern=VERSION_PATTERN)
 
@@ -55,13 +76,19 @@ class RegistryIdentity(RegistryModel):
     @classmethod
     def asset_id_has_no_control_characters(cls, value: str) -> str:
         clean = value.strip()
-        if not clean or any(ord(character) < 32 for character in clean):
-            raise ValueError("asset_id must be non-empty and contain no control characters")
+        if (
+            not clean
+            or any(ord(character) < 32 for character in clean)
+            or any(character in clean for character in ":@")
+        ):
+            raise ValueError(
+                "asset_id must be non-empty and contain no control or reference-delimiter characters"
+            )
         return clean
 
     @property
     def reference(self) -> str:
-        return f"{self.kind.value}:{self.asset_id}@{self.version}"
+        return f"{self.kind.value}:{self.namespace}:{self.asset_id}@{self.version}"
 
 
 class SourceReference(RegistryModel):
@@ -71,6 +98,8 @@ class SourceReference(RegistryModel):
     definition_digest: str = Field(pattern=SHA256_PATTERN)
     native_version: str | None = Field(default=None, max_length=128)
     canonical: bool = True
+    adapter_id: str = Field(min_length=1, max_length=160)
+    adapter_digest: str = Field(pattern=SHA256_PATTERN)
 
 
 class Provenance(RegistryModel):
@@ -93,8 +122,22 @@ class Compatibility(RegistryModel):
         pattern=r"^(declared|compatible|incompatible|unknown|unavailable)$",
     )
     api_versions: tuple[str, ...] = ()
-    requires: tuple[str, ...] = ()
+    evaluated_source_digest: str | None = Field(default=None, pattern=SHA256_PATTERN)
+    evaluator_revision: str = Field(default="unassessed", min_length=1, max_length=160)
     notes: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def compatible_observations_bind_the_source(self) -> "Compatibility":
+        if self.status == "compatible" and self.evaluated_source_digest is None:
+            raise ValueError("compatible status requires an evaluated source digest")
+        return self
+
+
+class RegistryRelationship(RegistryModel):
+    relationship: str = Field(min_length=1, max_length=80)
+    target_native_id: str = Field(min_length=1, max_length=256)
+    target_reference: str | None = Field(default=None, max_length=768)
+    resolution: str = Field(pattern=r"^(resolved|unresolved|unavailable)$")
 
 
 class RegistryProjection(RegistryModel):
@@ -105,8 +148,9 @@ class RegistryProjection(RegistryModel):
     provenance: Provenance
     compatibility: Compatibility = Compatibility()
     lineage: tuple[str, ...] = ()
+    source_contract: str = Field(min_length=1, max_length=256)
+    relationships: tuple[RegistryRelationship, ...] = ()
     tags: tuple[str, ...] = ()
-    attributes: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("lineage", "tags")
     @classmethod
@@ -120,13 +164,11 @@ class RegistryProjection(RegistryModel):
         encoded = self.model_dump_json()
         if len(encoded.encode("utf-8")) > 64_000:
             raise ValueError("registry projection exceeds the 64 KB metadata boundary")
-        forbidden = {"definition", "manifest", "content", "payload", "artifact"}
-        if forbidden.intersection(self.attributes):
-            raise ValueError("attributes may not embed canonical definitions or artifacts")
         return self
 
 
 class LifecycleReceipt(RegistryModel):
+    registry_reference: str = Field(min_length=1, max_length=768)
     sequence: int = Field(ge=1)
     from_state: LifecycleState | None
     to_state: LifecycleState
@@ -134,6 +176,9 @@ class LifecycleReceipt(RegistryModel):
     rationale: str = Field(min_length=3, max_length=1200)
     occurred_at: datetime
     replacement_reference: str | None = Field(default=None, max_length=512)
+    prior_receipt_digest: str | None = Field(default=None, pattern=SHA256_PATTERN)
+    receipt_id: str = Field(pattern=SHA256_PATTERN)
+    receipt_digest: str = Field(pattern=SHA256_PATTERN)
 
     @field_validator("occurred_at")
     @classmethod
@@ -141,6 +186,57 @@ class LifecycleReceipt(RegistryModel):
         if value.tzinfo is None:
             raise ValueError("occurred_at must be timezone-aware")
         return value.astimezone(timezone.utc)
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        registry_reference: str,
+        sequence: int,
+        from_state: LifecycleState | None,
+        to_state: LifecycleState,
+        actor: str,
+        rationale: str,
+        occurred_at: datetime,
+        prior_receipt_digest: str | None,
+        replacement_reference: str | None = None,
+    ) -> "LifecycleReceipt":
+        observed_at = occurred_at.astimezone(timezone.utc)
+        intent = {
+            "registry_reference": registry_reference,
+            "sequence": sequence,
+            "from_state": from_state.value if from_state else None,
+            "to_state": to_state.value,
+            "actor": actor,
+            "rationale": rationale,
+            "occurred_at": observed_at,
+            "replacement_reference": replacement_reference,
+            "prior_receipt_digest": prior_receipt_digest,
+        }
+        receipt_id, receipt_digest = _receipt_digests(intent)
+        return cls(
+            **intent,
+            receipt_id=receipt_id,
+            receipt_digest=receipt_digest,
+        )
+
+    @model_validator(mode="after")
+    def digest_is_valid(self) -> "LifecycleReceipt":
+        intent = {
+            "registry_reference": self.registry_reference,
+            "sequence": self.sequence,
+            "from_state": self.from_state.value if self.from_state else None,
+            "to_state": self.to_state.value,
+            "actor": self.actor,
+            "rationale": self.rationale,
+            "occurred_at": self.occurred_at,
+            "replacement_reference": self.replacement_reference,
+            "prior_receipt_digest": self.prior_receipt_digest,
+        }
+        receipt_id, receipt_digest = _receipt_digests(intent)
+        if receipt_id != self.receipt_id or receipt_digest != self.receipt_digest:
+            raise ValueError("lifecycle receipt digest verification failed")
+        return self
 
 
 class RegistryDocument(RegistryModel):
@@ -153,9 +249,14 @@ class RegistryDocument(RegistryModel):
         if not self.receipts:
             raise ValueError("registry document requires an initial lifecycle receipt")
         state: LifecycleState | None = None
+        prior_digest: str | None = None
         for index, receipt in enumerate(self.receipts, start=1):
             if receipt.sequence != index or receipt.from_state != state:
                 raise ValueError("lifecycle receipts must form an ordered append-only chain")
+            if receipt.registry_reference != self.projection.identity.reference:
+                raise ValueError("lifecycle receipt identity does not match the projection")
+            if receipt.prior_receipt_digest != prior_digest:
+                raise ValueError("lifecycle receipt digest chain is broken")
             if state is None:
                 if receipt.to_state is not LifecycleState.CANDIDATE:
                     raise ValueError("registry documents begin as candidates")
@@ -164,6 +265,7 @@ class RegistryDocument(RegistryModel):
             if receipt.to_state is LifecycleState.DEPRECATED and not receipt.replacement_reference:
                 raise ValueError("deprecation requires a replacement reference")
             state = receipt.to_state
+            prior_digest = receipt.receipt_digest
         return self
 
     @property

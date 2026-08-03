@@ -385,12 +385,14 @@ class RegistryIndexRequest(BaseModel):
 
 class RegistryTransitionRequest(BaseModel):
     kind: AssetKind
+    namespace: str = Field(min_length=1, max_length=160)
     asset_id: str = Field(min_length=1, max_length=256)
     version: str = Field(min_length=1, max_length=128)
     to_state: LifecycleState
     actor: str = Field(min_length=3, max_length=128)
     rationale: str = Field(min_length=3, max_length=1200)
     replacement_reference: str | None = Field(default=None, max_length=512)
+    expected_revision: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
 class RegistryCompareRequest(BaseModel):
@@ -1711,7 +1713,7 @@ def registry_catalogue(
         "profile": "development",
         "production_publication": False,
         "canonical_definitions_embedded": False,
-        "registry_root": str(store.root),
+        "storage": "local development registry",
         "records": records,
         "counts": counts,
         "states": states,
@@ -1722,13 +1724,31 @@ def registry_catalogue(
 def bootstrap_registry(request: RegistryBootstrapRequest) -> dict[str, Any]:
     store = registry_store()
     projections = discover_registry_projections()
+    preview = store.preview_many(projections)
     documents, conflicts = store.index_many(projections, actor=request.actor)
     return {
         "discovered": len(projections),
-        "indexed": len(documents),
+        "indexed_total": len(documents),
+        "newly_indexed": preview["would_index"] if not conflicts else 0,
+        "already_indexed": preview["already_indexed"],
         "conflicts": conflicts,
         "records": [document_payload(document) for document in documents],
-        "registry_root": str(store.root),
+        "storage": "local development registry",
+        "production_publication": False,
+    }
+
+
+@app.post("/api/registry/bootstrap/preview")
+def preview_registry_bootstrap(request: RegistryBootstrapRequest) -> dict[str, Any]:
+    projections = discover_registry_projections()
+    preview = registry_store().preview_many(projections)
+    return {
+        **preview,
+        "actor": request.actor,
+        "consequence": (
+            "Create local metadata projections and initial candidate receipts only; "
+            "do not copy, run, deploy, or externally publish definitions."
+        ),
         "production_publication": False,
     }
 
@@ -1752,8 +1772,12 @@ def index_registry_item(request: RegistryIndexRequest) -> dict[str, Any]:
 
 
 @app.get("/api/registry/items/{kind}/{asset_id}/{version}")
-def registry_item(kind: AssetKind, asset_id: str, version: str) -> dict[str, Any]:
-    identity = RegistryIdentity(kind=kind, asset_id=asset_id, version=version)
+def registry_item(
+    kind: AssetKind, asset_id: str, version: str, namespace: str
+) -> dict[str, Any]:
+    identity = RegistryIdentity(
+        kind=kind, namespace=namespace, asset_id=asset_id, version=version
+    )
     try:
         document = registry_store().get(identity)
     except RegistryNotFound as error:
@@ -1772,15 +1796,41 @@ def registry_item(kind: AssetKind, asset_id: str, version: str) -> dict[str, Any
 @app.post("/api/registry/transition")
 def transition_registry_item(request: RegistryTransitionRequest) -> dict[str, Any]:
     identity = RegistryIdentity(
-        kind=request.kind, asset_id=request.asset_id, version=request.version
+        kind=request.kind,
+        namespace=request.namespace,
+        asset_id=request.asset_id,
+        version=request.version,
     )
     try:
+        indexed = registry_store().get(identity)
+        current = next(
+            (
+                item
+                for item in discover_registry_projections()
+                if item.identity == identity
+            ),
+            None,
+        )
+        if (
+            request.to_state is LifecycleState.PUBLISHED
+            and (
+                current is None
+                or current.source.definition_digest
+                != indexed.projection.source.definition_digest
+                or current.source.adapter_digest
+                != indexed.projection.source.adapter_digest
+            )
+        ):
+            raise RegistryConflict(
+                "publication requires a current source and source-adapter observation"
+            )
         document = registry_store().transition(
             identity,
             request.to_state,
             actor=request.actor,
             rationale=request.rationale,
             replacement_reference=request.replacement_reference,
+            expected_revision=request.expected_revision,
         )
         return document_payload(document)
     except RegistryNotFound as error:
@@ -1795,6 +1845,8 @@ def compare_registry_items(request: RegistryCompareRequest) -> dict[str, Any]:
         comparison = registry_store().compare(request.left, request.right)
     except RegistryNotFound as error:
         raise HTTPException(status_code=404, detail="registry item not found") from error
+    except RegistryConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
     return {
         "left": document_payload(comparison["left"]),
         "right": document_payload(comparison["right"]),

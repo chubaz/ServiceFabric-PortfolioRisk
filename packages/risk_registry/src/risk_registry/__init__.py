@@ -10,6 +10,7 @@ from .models import (
     RegistryDocument,
     RegistryIdentity,
     RegistryProjection,
+    RegistryRelationship,
     SourceReference,
 )
 from .store import LocalRegistryStore, RegistryConflict, RegistryNotFound
@@ -27,5 +28,6 @@ __all__ = [
     "RegistryIdentity",
     "RegistryNotFound",
     "RegistryProjection",
+    "RegistryRelationship",
     "SourceReference",
 ]

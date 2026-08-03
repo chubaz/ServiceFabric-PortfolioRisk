@@ -24,7 +24,7 @@ def test_catalogue_preview_is_truthful_and_covers_each_kind(
     assert result["profile"] == "development"
     assert result["production_publication"] is False
     assert result["canonical_definitions_embedded"] is False
-    assert result["registry_root"] == str(root)
+    assert result["storage"] == "local development registry"
     assert set(result["counts"]) == {
         "agent",
         "capability",
@@ -45,12 +45,29 @@ def test_bootstrap_is_explicit_idempotent_and_persistent(
     request = duckdb_server.RegistryBootstrapRequest(actor="test.reviewer")
     first = duckdb_server.bootstrap_registry(request)
     second = duckdb_server.bootstrap_registry(request)
-    assert first["discovered"] == first["indexed"]
-    assert second["discovered"] == second["indexed"]
+    assert first["discovered"] == first["indexed_total"]
+    assert first["newly_indexed"] == first["indexed_total"]
+    assert second["discovered"] == second["indexed_total"]
+    assert second["newly_indexed"] == 0
+    assert second["already_indexed"] == second["indexed_total"]
     assert first["conflicts"] == second["conflicts"] == []
     catalogue = duckdb_server.registry_catalogue(include_discovered=False)
-    assert len(catalogue["records"]) == first["indexed"]
-    assert catalogue["states"] == {"candidate": first["indexed"]}
+    assert len(catalogue["records"]) == first["indexed_total"]
+    assert catalogue["states"] == {"candidate": first["indexed_total"]}
+
+
+def test_bootstrap_preview_declares_count_and_consequence_without_writing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PORTFOLIO_RISK_REGISTRY_ROOT", str(tmp_path / "registry"))
+    preview = duckdb_server.preview_registry_bootstrap(
+        duckdb_server.RegistryBootstrapRequest(actor="test.reviewer")
+    )
+    assert preview["would_index"] == preview["discovered"] == 44
+    assert preview["already_indexed"] == 0
+    assert preview["conflicts"] == []
+    assert "do not copy, run, deploy" in preview["consequence"]
+    assert duckdb_server.registry_store().list() == []
 
 
 def test_item_lifecycle_detail_and_source_drift_receipt(
@@ -72,11 +89,15 @@ def test_item_lifecycle_detail_and_source_drift_receipt(
             to_state=LifecycleState.VALIDATED,
             actor="test.reviewer",
             rationale="The source and projection passed focused validation.",
+            expected_revision=record["revision"],
         )
     )
     assert validated["state"] == "validated"
     detail = duckdb_server.registry_item(
-        AssetKind(identity["kind"]), identity["asset_id"], identity["version"]
+        AssetKind(identity["kind"]),
+        identity["asset_id"],
+        identity["version"],
+        identity["namespace"],
     )
     assert detail["source_drift"] is False
     assert len(detail["receipts"]) == 2
@@ -93,6 +114,7 @@ def test_compare_endpoint_returns_version_differences(
         update={
             "identity": RegistryIdentity(
                 kind=source.identity.kind,
+                namespace=source.identity.namespace,
                 asset_id=source.identity.asset_id,
                 version="99.0.0",
             ),
@@ -129,6 +151,10 @@ def test_candidate_source_cannot_be_published(
             to_state="validated",
             actor="test.reviewer",
             rationale="The candidate source is structurally valid.",
+            expected_revision=duckdb_server.registry_store()
+            .get(candidate.identity)
+            .receipts[-1]
+            .receipt_digest,
         )
     )
     with pytest.raises(HTTPException) as caught:
@@ -138,10 +164,46 @@ def test_candidate_source_cannot_be_published(
                 to_state="published",
                 actor="test.reviewer",
                 rationale="Attempted candidate publication.",
+                expected_revision=duckdb_server.registry_store()
+                .get(candidate.identity)
+                .receipts[-1]
+                .receipt_digest,
             )
         )
     assert caught.value.status_code == 409
     assert "canonical definition contract" in str(caught.value.detail)
+
+
+def test_lifecycle_transition_rejects_stale_review_revision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PORTFOLIO_RISK_REGISTRY_ROOT", str(tmp_path / "registry"))
+    source = duckdb_server.discover_registry_projections()[0]
+    record = duckdb_server.index_registry_item(
+        duckdb_server.RegistryIndexRequest(identity=source.identity, actor="reviewer")
+    )
+    identity = source.identity.model_dump(mode="json")
+    duckdb_server.transition_registry_item(
+        duckdb_server.RegistryTransitionRequest(
+            **identity,
+            to_state="validated",
+            actor="reviewer",
+            rationale="First reviewer accepted the source observation.",
+            expected_revision=record["revision"],
+        )
+    )
+    with pytest.raises(HTTPException) as caught:
+        duckdb_server.transition_registry_item(
+            duckdb_server.RegistryTransitionRequest(
+                **identity,
+                to_state="published",
+                actor="stale-reviewer",
+                rationale="Stale browser attempted publication.",
+                expected_revision=record["revision"],
+            )
+        )
+    assert caught.value.status_code == 409
+    assert "changed after it was reviewed" in str(caught.value.detail)
 
 
 def test_registry_workspace_exposes_source_truth_and_governed_controls() -> None:
@@ -166,6 +228,9 @@ def test_registry_workspace_exposes_source_truth_and_governed_controls() -> None
     assert "function loadRegistryCatalogue" in javascript
     assert 'agentApi("/api/registry/index"' in javascript
     assert 'agentApi("/api/registry/transition"' in javascript
+    assert 'agentApi("/api/registry/bootstrap/preview"' in javascript
+    assert "window.confirm" in javascript
+    assert "expected_revision: record.revision" in javascript
     assert "Publication is blocked" in javascript
     assert ".registry-layout" in css
     assert '"registry": {' in server

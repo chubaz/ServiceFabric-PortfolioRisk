@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import tempfile
 import threading
@@ -57,6 +56,11 @@ class LocalRegistryStore:
         return self.events_root / self._key(identity)
 
     def _ensure_safe_root(self) -> None:
+        current = Path(self.root.anchor)
+        for part in self.root.parts[1:]:
+            current /= part
+            if os.path.lexists(current) and current.is_symlink():
+                raise ValueError("registry path components may not be symbolic links")
         self.root.mkdir(parents=True, exist_ok=True)
         if self.root.is_symlink():
             raise ValueError("registry root may not be a symbolic link")
@@ -64,6 +68,8 @@ class LocalRegistryStore:
             directory.mkdir(mode=0o700, parents=True, exist_ok=True)
             if directory.is_symlink():
                 raise ValueError("registry data directories may not be symbolic links")
+            if not directory.resolve().is_relative_to(self.root.resolve()):
+                raise ValueError("registry data path escapes the configured registry root")
 
     @contextmanager
     def _mutation_lock(self):  # type: ignore[no-untyped-def]
@@ -116,6 +122,7 @@ class LocalRegistryStore:
                 handle.write("\n")
                 handle.flush()
                 os.fsync(handle.fileno())
+            os.chmod(path, 0o400)
             directory_descriptor = os.open(path.parent, os.O_RDONLY)
             try:
                 os.fsync(directory_descriptor)
@@ -192,6 +199,11 @@ class LocalRegistryStore:
         # source observation and therefore must not defeat idempotent bootstrap.
         left["provenance"].pop("discovered_at", None)
         right["provenance"].pop("discovered_at", None)
+        # The indexed observation retains the exact commit where it was first
+        # reviewed. A later scan at another commit is idempotent when both the
+        # canonical definition and adapter bytes are unchanged.
+        left["provenance"].pop("repository_commit", None)
+        right["provenance"].pop("repository_commit", None)
         # A comment or unrelated sibling definition may change the raw source
         # file digest without changing this exact semantic definition. The
         # indexed observation stays immutable and the API reports source drift.
@@ -207,48 +219,73 @@ class LocalRegistryStore:
         rationale: str = "Indexed an existing canonical definition.",
         occurred_at: datetime | None = None,
     ) -> RegistryDocument:
-        path = self._path(projection.identity)
         with self._lock, self._mutation_lock():
-            reconstructed = self._reconstruct(projection.identity)
-            if reconstructed is not None:
-                if self._same_source_observation(reconstructed.projection, projection):
-                    if not path.exists():
-                        self._write(path, reconstructed)
-                    return reconstructed
-                raise RegistryConflict(
-                    f"{projection.identity.reference} already exists with a different source observation"
-                )
-            if path.exists():
-                current = self._read_path(path)
-                if self._same_source_observation(current.projection, projection):
-                    self._materialize_event_stream(current)
-                    return current
-                raise RegistryConflict(
-                    f"{projection.identity.reference} already exists with a different source observation"
-                )
-            receipt = LifecycleReceipt(
-                sequence=1,
-                from_state=None,
-                to_state=LifecycleState.CANDIDATE,
+            return self._index_locked(
+                projection,
                 actor=actor,
                 rationale=rationale,
-                occurred_at=occurred_at or datetime.now(timezone.utc),
+                occurred_at=occurred_at,
             )
-            document = RegistryDocument(projection=projection, receipts=(receipt,))
-            projection_path = self._projection_path(projection.identity)
-            if projection_path.exists():
-                observed = self._read_projection(projection_path)
-                if not self._same_source_observation(observed, projection):
-                    raise RegistryConflict(
-                        f"{projection.identity.reference} has a conflicting partial source projection"
-                    )
-            else:
-                self._write_immutable(projection_path, projection)
-            self._write_immutable(
-                self._events_path(projection.identity) / "000001.json", receipt
+
+    def _index_locked(
+        self,
+        projection: RegistryProjection,
+        *,
+        actor: str,
+        rationale: str,
+        occurred_at: datetime | None,
+    ) -> RegistryDocument:
+        path = self._path(projection.identity)
+        reconstructed = self._reconstruct(projection.identity)
+        if reconstructed is not None:
+            if path.exists() and self._read_path(path) != reconstructed:
+                raise RegistryConflict("registry snapshot does not match its lifecycle event stream")
+            if self._same_source_observation(reconstructed.projection, projection):
+                if not path.exists():
+                    self._write(path, reconstructed)
+                return reconstructed
+            raise RegistryConflict(
+                f"{projection.identity.reference} already exists with a different source observation"
             )
-            self._write(path, document)
-            return document
+        if path.exists():
+            current = self._read_path(path)
+            if self._same_source_observation(current.projection, projection):
+                self._materialize_event_stream(current)
+                return current
+            raise RegistryConflict(
+                f"{projection.identity.reference} already exists with a different source observation"
+            )
+        receipt = LifecycleReceipt.create(
+            registry_reference=projection.identity.reference,
+            sequence=1,
+            from_state=None,
+            to_state=LifecycleState.CANDIDATE,
+            actor=actor,
+            rationale=rationale,
+            occurred_at=occurred_at or datetime.now(timezone.utc),
+            prior_receipt_digest=None,
+        )
+        document = RegistryDocument(projection=projection, receipts=(receipt,))
+        events_path = self._events_path(projection.identity)
+        events_path.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if events_path.is_symlink() or not events_path.resolve().is_relative_to(
+            self.root.resolve()
+        ):
+            raise ValueError("registry events directory is not a safe contained path")
+        projection_path = self._projection_path(projection.identity)
+        if projection_path.exists():
+            observed = self._read_projection(projection_path)
+            if not self._same_source_observation(observed, projection):
+                raise RegistryConflict(
+                    f"{projection.identity.reference} has a conflicting partial source projection"
+                )
+        else:
+            self._write_immutable(projection_path, projection)
+        self._write_immutable(
+            events_path / "000001.json", receipt
+        )
+        self._write(path, document)
+        return document
 
     def get(self, identity: RegistryIdentity) -> RegistryDocument:
         path = self._path(identity)
@@ -257,6 +294,10 @@ class LocalRegistryStore:
                 raise ValueError("registry record may not be a symbolic link")
             reconstructed = self._reconstruct(identity)
             if reconstructed is not None:
+                if path.exists() and self._read_path(path) != reconstructed:
+                    raise RegistryConflict(
+                        "registry snapshot does not match its lifecycle event stream"
+                    )
                 return reconstructed
             if not path.exists():
                 raise RegistryNotFound(identity.reference)
@@ -322,11 +363,14 @@ class LocalRegistryStore:
         actor: str,
         rationale: str,
         replacement_reference: str | None = None,
+        expected_revision: str | None = None,
         occurred_at: datetime | None = None,
     ) -> RegistryDocument:
         with self._lock, self._mutation_lock():
             current = self.get(identity)
             self._materialize_event_stream(current)
+            if expected_revision is not None and expected_revision != current.receipts[-1].receipt_digest:
+                raise RegistryConflict("registry item changed after it was reviewed")
             if to_state not in LIFECYCLE_TRANSITIONS[current.state]:
                 raise RegistryConflict(
                     f"invalid lifecycle transition: {current.state.value} -> {to_state.value}"
@@ -340,7 +384,8 @@ class LocalRegistryStore:
                     raise RegistryConflict(
                         "publication requires a compatible source observation"
                     )
-            receipt = LifecycleReceipt(
+            receipt = LifecycleReceipt.create(
+                registry_reference=identity.reference,
                 sequence=len(current.receipts) + 1,
                 from_state=current.state,
                 to_state=to_state,
@@ -348,6 +393,7 @@ class LocalRegistryStore:
                 rationale=rationale,
                 replacement_reference=replacement_reference,
                 occurred_at=occurred_at or datetime.now(timezone.utc),
+                prior_receipt_digest=current.receipts[-1].receipt_digest,
             )
             updated = RegistryDocument(
                 projection=current.projection,
@@ -362,16 +408,75 @@ class LocalRegistryStore:
     def index_many(
         self, projections: Iterable[RegistryProjection], *, actor: str
     ) -> tuple[list[RegistryDocument], list[str]]:
-        indexed: list[RegistryDocument] = []
+        requested = tuple(projections)
+        if len({item.identity.reference for item in requested}) != len(requested):
+            return [], ["bootstrap request contains duplicate identities"]
+        with self._lock, self._mutation_lock():
+            conflicts: list[str] = []
+            for projection in requested:
+                projection_path = self._projection_path(projection.identity)
+                if projection_path.exists():
+                    observed = self._read_projection(projection_path)
+                    if not self._same_source_observation(observed, projection):
+                        conflicts.append(
+                            f"{projection.identity.reference} has a conflicting partial source projection"
+                        )
+                        continue
+                try:
+                    current = self.get(projection.identity)
+                except RegistryNotFound:
+                    continue
+                if not self._same_source_observation(current.projection, projection):
+                    conflicts.append(
+                        f"{projection.identity.reference} already exists with a different source observation"
+                    )
+            if conflicts:
+                return [], conflicts
+            indexed = [
+                self._index_locked(
+                    projection,
+                    actor=actor,
+                    rationale="Indexed as part of one prevalidated source bootstrap.",
+                    occurred_at=None,
+                )
+                for projection in requested
+            ]
+            return indexed, []
+
+    def preview_many(
+        self, projections: Iterable[RegistryProjection]
+    ) -> dict[str, object]:
+        requested = tuple(projections)
         conflicts: list[str] = []
-        for projection in projections:
-            try:
-                indexed.append(self.index(projection, actor=actor))
-            except RegistryConflict as error:
-                conflicts.append(str(error))
-        return indexed, conflicts
+        existing = 0
+        would_index = 0
+        with self._lock:
+            for projection in requested:
+                try:
+                    current = self.get(projection.identity)
+                except RegistryNotFound:
+                    would_index += 1
+                    continue
+                if self._same_source_observation(current.projection, projection):
+                    existing += 1
+                else:
+                    conflicts.append(
+                        f"{projection.identity.reference} already exists with a different source observation"
+                    )
+        return {
+            "discovered": len(requested),
+            "would_index": would_index,
+            "already_indexed": existing,
+            "conflicts": conflicts,
+        }
 
     def compare(self, left: RegistryIdentity, right: RegistryIdentity) -> dict[str, object]:
+        if (
+            left.kind is not right.kind
+            or left.namespace != right.namespace
+            or left.asset_id != right.asset_id
+        ):
+            raise RegistryConflict("version comparison requires the same stable registry identity")
         left_document = self.get(left)
         right_document = self.get(right)
         left_value = left_document.projection.model_dump(mode="json")

@@ -61,6 +61,33 @@ a clean worktree.
   DuckDB plane opens lazily only for data endpoints. The exact CI command passes
   with the private-data root deliberately unavailable.
 
+## Independent-review history and repair
+
+Independent QA correctly blocked candidate `e8fde6b28aa3e3851e1975d64175da2b7b75dcce`.
+That verdict remains preserved in the first P1-05 handoff and was not
+overridden. The subsequent integration repair addresses every reported blocker:
+
+1. registry roots reject symlinked parent components and every internal path
+   must resolve beneath the validated configured root; lock, record, projection,
+   and event symlinks fail closed;
+2. lifecycle receipts now carry stable intent IDs, payload digests and a strict
+   prior-receipt digest chain; event files become read-only after durable write,
+   byte tampering and snapshot/replay mismatch fail closed;
+3. arbitrary attributes were removed from the closed projection contract, so
+   grants, schemas, effects, shocks, policy and workflow topology stay at source;
+4. identity includes the typed source namespace, provenance includes the exact
+   repository commit, sources include adapter identity/digest, compatibility is
+   bound to the exact definition and evaluator revision, and relationships point
+   to exact registry revisions or declare an unavailable target;
+5. version comparison rejects different kinds, namespaces or stable asset IDs;
+6. bootstrap validates every identity before writing any, exposes a no-write
+   consequence preview, reports conflicts and truthful counts, and the browser
+   requires confirmation; lifecycle changes use server-provided transitions,
+   explicit consequence confirmation and an expected-revision guard.
+
+The API no longer returns an absolute host registry path. The next P1-05 review
+must assess a new exact commit; the earlier BLOCKED candidate cannot be accepted.
+
 ## Deviations, blockers, and limitations
 
 - Local publication is registry lifecycle state only. It does not deploy, run,

@@ -45,12 +45,28 @@ def test_every_projection_points_to_a_real_source_without_embedding_it() -> None
         assert item.source.source_reference
         assert len(item.source.source_digest) == 64
         assert len(item.source.definition_digest) == 64
+        assert len(item.source.adapter_digest) == 64
+        assert item.provenance.repository_commit
+        assert item.identity.namespace
+        assert item.source_contract
         source_path = item.source.source_reference.split("#", 1)[0]
         assert (ROOT / source_path).is_file()
-        assert not {"definition", "manifest", "content", "payload", "artifact"}.intersection(
-            item.attributes
-        )
+        assert not hasattr(item, "attributes")
         assert "Indexed metadata only" in item.provenance.notes[0]
+
+
+def test_relationships_resolve_to_exact_registry_revisions() -> None:
+    items = discover_registry_projections()
+    references = {item.identity.reference for item in items}
+    relationships = [edge for item in items for edge in item.relationships]
+    assert relationships
+    assert all(edge.resolution in {"resolved", "unavailable"} for edge in relationships)
+    assert all(
+        edge.target_reference in references
+        for edge in relationships
+        if edge.resolution == "resolved"
+    )
+    assert all(reference in references for item in items for reference in item.lineage)
 
 
 def test_only_reviewed_role_and_capability_contracts_are_canonical() -> None:

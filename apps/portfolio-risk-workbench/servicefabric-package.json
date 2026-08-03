@@ -319,7 +319,7 @@
     },
     {
       "path": "labs/duckdb_server.py",
-      "sha256": "dd19b5a7dbb7720325147915a115b192fd2f7eb2c530b072e7626bb1ffb323af"
+      "sha256": "63b43c1c74b4b339b91f5016858f720dab7902cb7251ed22cc9995d763e3b71a"
     },
     {
       "path": "labs/index.html",
@@ -327,11 +327,11 @@
     },
     {
       "path": "labs/labs.js",
-      "sha256": "fdc53442034ade45e59d446598830576ee90689c6c7923748880e57f78155de0"
+      "sha256": "84ea0f6d2ad0c233aa481c0a43a98e6bbef7cc91b5524717d2022a63da8e600c"
     },
     {
       "path": "labs/registry_sources.py",
-      "sha256": "ee4f054ccdac5f6c48543cca1bf66e449a474279d51bd1afa345680bd9f070e9"
+      "sha256": "c2c292cba27a960a123e846efd06375b3d940c987fbcd6f4748d1b0e80b218de"
     },
     {
       "path": "labs/start_live_data.sh",
