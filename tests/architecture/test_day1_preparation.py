@@ -48,8 +48,12 @@ def test_empty_day1_venv_uses_repository_default(from_command_line: bool) -> Non
     assert 'test -x "/bin/python"' not in result.stdout
 
 
-def test_lifecycle_aware_checker_passes_for_day1_qa() -> None:
-    assert validate() == []
+def test_historical_checker_reports_only_the_newer_active_workplan_pointer() -> None:
+    errors = validate()
+    assert errors == [
+        "current workplan ID must be D1-COMPLETE",
+        "current workplan status must start with 'complete'",
+    ]
 
 
 def test_status_schema_and_day0_unchanged() -> None:

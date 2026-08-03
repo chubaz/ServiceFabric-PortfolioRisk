@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "portfolio-risk-thesis"
+version = "0.1.0"
+description = "Deterministic synthetic portfolio-risk thesis replay"
+requires-python = ">=3.11,<3.12"
+dependencies = ["pydantic>=2.13,<3", "pyarrow>=25,<26", "pyyaml>=6,<7"]
+
+[project.scripts]
+portfolio-risk-thesis = "portfolio_risk_thesis.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

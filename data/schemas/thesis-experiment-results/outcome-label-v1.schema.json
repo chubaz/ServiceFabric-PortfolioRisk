@@ -1,0 +1,135 @@
+{
+  "$defs": {
+    "PortfolioDayKey": {
+      "additionalProperties": false,
+      "properties": {
+        "as_of": {
+          "format": "date-time",
+          "title": "As Of",
+          "type": "string"
+        },
+        "key_digest": {
+          "default": "",
+          "title": "Key Digest",
+          "type": "string"
+        },
+        "portfolio_id": {
+          "minLength": 1,
+          "title": "Portfolio Id",
+          "type": "string"
+        },
+        "window_id": {
+          "enum": [
+            "stress_a",
+            "stress_b",
+            "control"
+          ],
+          "title": "Window Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "portfolio_id",
+        "window_id",
+        "as_of"
+      ],
+      "title": "PortfolioDayKey",
+      "type": "object"
+    }
+  },
+  "$id": "https://servicefabric.local/schemas/thesis-experiment-results/outcome-label-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "evidence_refs": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "key": {
+      "$ref": "#/$defs/PortfolioDayKey"
+    },
+    "material_event": {
+      "default": false,
+      "title": "Material Event",
+      "type": "boolean"
+    },
+    "portfolio_drawdown": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Portfolio Drawdown"
+    },
+    "positive": {
+      "title": "Positive",
+      "type": "boolean"
+    },
+    "rationale": {
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "realized_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Realized At"
+    },
+    "realized_volatility": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Realized Volatility"
+    },
+    "worst_position_loss": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Worst Position Loss"
+    }
+  },
+  "required": [
+    "key",
+    "positive",
+    "rationale"
+  ],
+  "title": "OutcomeLabel",
+  "type": "object"
+}

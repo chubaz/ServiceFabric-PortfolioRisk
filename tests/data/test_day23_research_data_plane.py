@@ -366,9 +366,35 @@ def test_phase1_cli_preview_confirm_list_query_and_quality(tmp_path: Path) -> No
 
 def test_repo_fixtures_are_text_only_explicitly_synthetic_and_fictional() -> None:
     files = [path for path in FIXTURES.rglob("*") if path.is_file()]
-    allowed_parquet = FIXTURES / "accern-like-events.parquet"
+    allowed_parquet = {
+        FIXTURES / "accern-like-events.parquet",
+        REPOSITORY_ROOT
+        / "data"
+        / "fixtures"
+        / "synthetic"
+        / "thesis-day1"
+        / "events.parquet",
+        REPOSITORY_ROOT
+        / "data"
+        / "fixtures"
+        / "synthetic"
+        / "thesis-day1"
+        / "market.parquet",
+        REPOSITORY_ROOT
+        / "data"
+        / "fixtures"
+        / "synthetic"
+        / "thesis-day3"
+        / "events.parquet",
+        REPOSITORY_ROOT
+        / "data"
+        / "fixtures"
+        / "synthetic"
+        / "thesis-day4"
+        / "labels.parquet",
+    }
     assert files and all(
-        path.suffix in {".csv", ".json"} or path == allowed_parquet for path in files
+        path.suffix in {".csv", ".json"} or path in allowed_parquet for path in files
     )
     combined = "\n".join(
         path.read_text(encoding="utf-8")
@@ -381,4 +407,4 @@ def test_repo_fixtures_are_text_only_explicitly_synthetic_and_fictional() -> Non
         for path in (REPOSITORY_ROOT / "data").rglob("*")
         if path.suffix in {".parquet", ".duckdb", ".db", ".sqlite"}
     }
-    assert binary_files == {allowed_parquet}
+    assert binary_files == allowed_parquet

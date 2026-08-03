@@ -1,0 +1,85 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "allow_network": {
+      "const": false,
+      "default": false,
+      "title": "Allow Network",
+      "type": "boolean"
+    },
+    "allow_repository_writes": {
+      "const": false,
+      "default": false,
+      "title": "Allow Repository Writes",
+      "type": "boolean"
+    },
+    "annual_partitions": {
+      "const": true,
+      "default": true,
+      "title": "Annual Partitions",
+      "type": "boolean"
+    },
+    "code_revision": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Code Revision",
+      "type": "string"
+    },
+    "compression": {
+      "const": "ZSTD",
+      "default": "ZSTD",
+      "title": "Compression",
+      "type": "string"
+    },
+    "data_root": {
+      "format": "path",
+      "title": "Data Root",
+      "type": "string"
+    },
+    "manifest_path": {
+      "format": "path",
+      "title": "Manifest Path",
+      "type": "string"
+    },
+    "memory_limit": {
+      "default": "2GB",
+      "pattern": "^[1-9][0-9]*(?:MB|GB)$",
+      "title": "Memory Limit",
+      "type": "string"
+    },
+    "mode": {
+      "default": "daily_primary",
+      "enum": [
+        "daily_primary",
+        "monthly_smoke"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "overwrite_sources": {
+      "const": false,
+      "default": false,
+      "title": "Overwrite Sources",
+      "type": "boolean"
+    },
+    "temp_directory": {
+      "format": "path",
+      "title": "Temp Directory",
+      "type": "string"
+    },
+    "threads": {
+      "default": 2,
+      "maximum": 64,
+      "minimum": 1,
+      "title": "Threads",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "manifest_path",
+    "data_root",
+    "temp_directory",
+    "code_revision"
+  ],
+  "title": "DatasetBuildSpecification",
+  "type": "object"
+}

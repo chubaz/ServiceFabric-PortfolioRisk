@@ -10,6 +10,85 @@ Day 0 is complete and its evidence remains unchanged. Day 1 is complete at
 `D1-COMPLETE`; deterministic verification and explicit identified human soft QA
 have passed.
 
+## Thesis Experiment
+
+The Thesis Experiment provides common reproducible inputs for a later
+portfolio-risk architecture comparison. Day 1 and Day 2 are complete. Day 1
+uses reviewed synthetic fixtures, three fixed-quantity portfolios, a
+deterministic five-day point-in-time replay, canonical portfolio and exposure
+snapshots, and an effect-free external evidence bundle. Day 2 adds the governed
+licensed-data bridge, explicitly human-reviewed real portfolio definitions,
+Morning MetricPacks, data-readiness states, deterministic findings, review
+items, and effect-free kernel decision points.
+
+```bash
+make verify-thesis-day1
+make verify-thesis-day2
+make demo-thesis-day1
+make verify-thesis-current
+```
+
+Generated data defaults to the external Thesis Sprint state root. Override it
+with `make demo-thesis-day1 THESIS_DATA_ROOT=/absolute/external/path`; the path
+must remain outside Git. All committed Day 1 fixtures are fictional and
+explicitly synthetic.
+
+The licensed Day 2 gate is deliberately local and is never run by CI. Licensed
+files, source manifests, reviewed selections, private identifier maps, DuckDB
+catalogues, generated portfolios, and result artifacts remain outside Git.
+`dsf.parquet` is the accepted daily-primary source. DuckDB performs bounded
+local scans and joins; point-in-time eligibility remains
+`available_at <= as_of`. CI runs only schema-compatible synthetic fixtures and
+the public synthetic vertical slice.
+
+Day 3 is complete and accepted. B0 is deterministic with zero model calls; B1 is one
+structured synthesizer call; A1 is four fixed, role-sliced calls. Public
+verification uses only deterministic fixture responses. Explicit local OpenAI
+Responses runs are effect-free, tool-free, strict-schema requests with a
+frozen snapshot and no fallback. Every output is reviewed by a deterministic
+critic, requires human review, and has empty effects. No unauthorized model
+provider call, broker connection, order, trade, rebalance, optimization, or
+portfolio mutation effect is implemented.
+
+The formal local provider gate passed with the frozen 0/1/4 call counts and
+zero effects. Invalid or unsupported B1 and A1 claims remained deterministic
+abstentions. Day 4 evaluation and soft QA are queued; Day 3 makes no
+architecture-ranking, performance, statistical, timeliness, or cost claim.
+
+The same authoritative context, prompt manifest, model snapshot, output schema,
+and deterministic critic are used across the comparison. B1 receives the
+complete governed context. A1 runs the existing Market Data, Portfolio
+Exposure, News and Sentiment, and Alert and Recommendation roles in that fixed
+order; each specialist sees only its registered slice. Curated event text is
+untrusted quoted data, and only events available by the historical `as_of`
+enter the context.
+
+Run the network-free public controls and fixture demo with:
+
+```bash
+THESIS_VENV=/absolute/path/to/thesis-sprint make verify-thesis-day3
+THESIS_VENV=/absolute/path/to/thesis-sprint \
+THESIS_DATA_ROOT=/absolute/external/path \
+make demo-thesis-day3-fixture
+```
+
+The local real-data/model handoff is resumable and interactive:
+
+```bash
+THESIS_VENV=/absolute/path/to/thesis-sprint \
+make complete-thesis-day3-interactive
+```
+
+It discovers complete external Day 2 evidence, asks which reviewed portfolio
+to use, initializes or resumes external event and exposure files, requires an
+explicit dated model snapshot, stores the API key only in macOS Keychain after
+typed authorization, runs B0/B1/A1 without provider fallback, prints the
+compact comparison, and runs the formal local gate. Private paths, licensed
+rows, identifiers, credentials, raw requests, and generated evidence remain
+outside Git. The fixture provider is deterministic CI evidence, not evidence
+of actual LLM acceptance. Day 3 does not calculate precision, recall,
+timeliness, or outcome performance; those evaluations remain Day 4 work.
+
 ## Readable Workbench
 
 The Workbench is a loopback-only FastAPI application whose primary interface is

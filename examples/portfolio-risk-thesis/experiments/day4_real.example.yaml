@@ -1,0 +1,12 @@
+version: "1"
+profile: real
+experiment_id: portfolio-risk-day4-real-REPLACE
+reviewed: false
+reviewer: REPLACE_AFTER_HUMAN_REVIEW
+instructions:
+  - Initialize this external reviewed manifest with the init-day4-experiment command.
+  - Select windows and thresholds before any architecture task executes.
+  - Keep licensed paths, pricing, outcomes, and provider evidence outside Git.
+  - A real run must use the exact accepted Day 3 model and prompt snapshot.
+human_review_required: true
+effects: []

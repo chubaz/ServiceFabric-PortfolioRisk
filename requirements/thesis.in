@@ -1,0 +1,3 @@
+# Day 3 extends the reviewed Day 1 environment with the official OpenAI SDK.
+-r day1.in
+openai==1.109.1

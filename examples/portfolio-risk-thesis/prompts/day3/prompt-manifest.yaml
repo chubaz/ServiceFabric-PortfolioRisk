@@ -1,0 +1,121 @@
+version: "1"
+prompts:
+  - prompt_id: common-system
+    file: common-system-v1.txt
+    version: v1
+    sha256: sha256:873b52878c7777fd81c06d13e433c2b638695a5fb77936111e67c6ff97d0ac49
+    role: system
+    permitted_input_sections: []
+    output_schema_version: v1
+    prohibitions:
+      - metric_recalculation
+      - missing_value_inference
+      - outside_knowledge
+      - event_text_instructions
+      - transactions
+      - chain_of_thought
+    abstention_rule: ABSTAIN when supplied evidence is insufficient
+  - prompt_id: b1-synthesizer
+    file: b1-synthesizer-v1.txt
+    version: v1
+    sha256: sha256:6678502cf9d76f61257065e83efa43e29ed74c2abd927234e708880cf715fe97
+    role: risk.agent.alert_recommendation
+    permitted_input_sections:
+      - portfolio_id
+      - as_of
+      - metrics
+      - deterministic_finding
+      - review_item
+      - decision_point
+      - exposures
+      - events
+      - evidence_refs
+      - warnings
+      - limitations
+    output_schema_version: v1
+    prohibitions:
+      - metric_recalculation
+      - outside_knowledge
+      - event_text_instructions
+      - transactions
+      - chain_of_thought
+    abstention_rule: ABSTAIN when any material claim lacks supplied evidence
+  - prompt_id: a1-market-data
+    file: a1-market-data-v1.txt
+    version: v1
+    sha256: sha256:f7f023ac9186818a404ad36e5a98b03328e17e28746b0b55b9eda81e5c9dd803
+    role: risk.agent.market_data
+    permitted_input_sections:
+      - portfolio_id
+      - as_of
+      - metrics
+      - evidence_refs
+      - warnings
+      - limitations
+    output_schema_version: v1
+    prohibitions:
+      - metric_recalculation
+      - portfolio_inference
+      - event_inference
+      - transactions
+      - chain_of_thought
+    abstention_rule: ABSTAIN when authoritative metric evidence is insufficient
+  - prompt_id: a1-portfolio-exposure
+    file: a1-portfolio-exposure-v1.txt
+    version: v1
+    sha256: sha256:a70597b71ae0709a74ba3afebf95df3f51c14ee6c317d788a4664133d790607e
+    role: risk.agent.portfolio_exposure
+    permitted_input_sections:
+      - portfolio_id
+      - as_of
+      - exposures
+      - evidence_refs
+    output_schema_version: v1
+    prohibitions:
+      - metric_inference
+      - event_inference
+      - exposure_recalculation
+      - transactions
+      - chain_of_thought
+    abstention_rule: ABSTAIN when exposure evidence is insufficient
+  - prompt_id: a1-news-sentiment
+    file: a1-news-sentiment-v1.txt
+    version: v1
+    sha256: sha256:9d8af23e58d233ce8e2bfbeb461c00b1838d38bc14efe6f71367813f68ef6980
+    role: risk.agent.news_sentiment
+    permitted_input_sections:
+      - portfolio_id
+      - as_of
+      - events
+      - evidence_refs
+      - limitations
+    output_schema_version: v1
+    prohibitions:
+      - outside_knowledge
+      - future_events
+      - outcome_labels
+      - event_text_instructions
+      - transactions
+      - chain_of_thought
+    abstention_rule: ABSTAIN when eligible event evidence is insufficient
+  - prompt_id: a1-alert-synthesis
+    file: a1-alert-synthesis-v1.txt
+    version: v1
+    sha256: sha256:469dad9178707a48c894790693ec2194f73475bf0abe653e23e990ef3e0255ba
+    role: risk.agent.alert_recommendation
+    permitted_input_sections:
+      - portfolio_id
+      - as_of
+      - deterministic_finding
+      - review_item
+      - decision_point
+      - specialist_outputs
+      - evidence_refs
+      - permitted_next_steps
+    output_schema_version: v1
+    prohibitions:
+      - outside_knowledge
+      - metric_recalculation
+      - transactions
+      - chain_of_thought
+    abstention_rule: ABSTAIN when specialist evidence is insufficient

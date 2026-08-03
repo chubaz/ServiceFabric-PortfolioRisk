@@ -1,0 +1,106 @@
+{
+  "$defs": {
+    "PortfolioDayKey": {
+      "additionalProperties": false,
+      "properties": {
+        "as_of": {
+          "format": "date-time",
+          "title": "As Of",
+          "type": "string"
+        },
+        "key_digest": {
+          "default": "",
+          "title": "Key Digest",
+          "type": "string"
+        },
+        "portfolio_id": {
+          "minLength": 1,
+          "title": "Portfolio Id",
+          "type": "string"
+        },
+        "window_id": {
+          "enum": [
+            "stress_a",
+            "stress_b",
+            "control"
+          ],
+          "title": "Window Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "portfolio_id",
+        "window_id",
+        "as_of"
+      ],
+      "title": "PortfolioDayKey",
+      "type": "object"
+    }
+  },
+  "$id": "https://servicefabric.local/schemas/thesis-experiment-results/day4-task-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "architecture_id": {
+      "enum": [
+        "B0",
+        "B1",
+        "A1"
+      ],
+      "title": "Architecture Id",
+      "type": "string"
+    },
+    "context_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Context Digest",
+      "type": "string"
+    },
+    "expected_model_calls": {
+      "maximum": 4,
+      "minimum": 0,
+      "title": "Expected Model Calls",
+      "type": "integer"
+    },
+    "experiment_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Experiment Digest",
+      "type": "string"
+    },
+    "key": {
+      "$ref": "#/$defs/PortfolioDayKey"
+    },
+    "model_snapshot": {
+      "minLength": 1,
+      "title": "Model Snapshot",
+      "type": "string"
+    },
+    "prompt_manifest_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Prompt Manifest Digest",
+      "type": "string"
+    },
+    "repetition": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Repetition",
+      "type": "integer"
+    },
+    "task_id": {
+      "default": "",
+      "title": "Task Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "experiment_digest",
+    "key",
+    "architecture_id",
+    "repetition",
+    "context_digest",
+    "model_snapshot",
+    "prompt_manifest_digest",
+    "expected_model_calls"
+  ],
+  "title": "Day4Task",
+  "type": "object"
+}

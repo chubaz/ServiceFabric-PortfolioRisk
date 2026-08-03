@@ -1,0 +1,22 @@
+{
+  "model_id": "fixture-structured-v1",
+  "outputs": {
+    "A1": {
+      "architecture_id": "A1",
+      "effects": [],
+      "human_review_required": true,
+      "severity": 1,
+      "status": "REVIEW",
+      "summary": "Synthetic fixture review output."
+    },
+    "B1": {
+      "architecture_id": "B1",
+      "effects": [],
+      "human_review_required": true,
+      "severity": 1,
+      "status": "REVIEW",
+      "summary": "Synthetic fixture review output."
+    }
+  },
+  "synthetic": true
+}

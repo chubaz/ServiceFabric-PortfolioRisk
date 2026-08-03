@@ -1,0 +1,66 @@
+synthetic: true
+instruments:
+  - instrument_id: instrument-aurora-tech
+    label: AURX
+    issuer: Aurora Lattice Works
+    sector: technology
+    country: Fictionland
+    asset_class: equity
+    currency: USD
+    entity_id: entity-aurora-tech
+  - instrument_id: instrument-cobalt-tech
+    label: COBQ
+    issuer: Cobalt Circuit Forge
+    sector: technology
+    country: Fictionland
+    asset_class: equity
+    currency: USD
+    entity_id: entity-cobalt-tech
+  - instrument_id: instrument-lantern-fin
+    label: LNTF
+    issuer: Lantern Ledger House
+    sector: financials
+    country: Fictionland
+    asset_class: equity
+    currency: USD
+    entity_id: entity-lantern-fin
+  - instrument_id: instrument-marrow-health
+    label: MRWH
+    issuer: Marrow Vale Health
+    sector: health-care
+    country: Fictionland
+    asset_class: equity
+    currency: USD
+    entity_id: entity-marrow-health
+  - instrument_id: instrument-pantry-staples
+    label: PNTR
+    issuer: Pantry Grove Goods
+    sector: consumer-staples
+    country: Fictionland
+    asset_class: equity
+    currency: USD
+    entity_id: entity-pantry-staples
+  - instrument_id: instrument-civic-bond
+    label: CVBG
+    issuer: Civic Arc Treasury Basket
+    sector: government
+    country: Fictionland
+    asset_class: government-bond-fund
+    currency: USD
+    entity_id: entity-civic-bond
+  - instrument_id: instrument-harbor-credit
+    label: HCRD
+    issuer: Harbor Mosaic Credit Basket
+    sector: corporate-credit
+    country: Fictionland
+    asset_class: corporate-bond-fund
+    currency: USD
+    entity_id: entity-harbor-credit
+  - instrument_id: instrument-sunstone-gold
+    label: SNGD
+    issuer: Sunstone Commodity Basket
+    sector: commodities
+    country: Fictionland
+    asset_class: gold-commodity-fund
+    currency: USD
+    entity_id: entity-sunstone-gold

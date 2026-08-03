@@ -1,0 +1,6514 @@
+manifest_id: crsp_compustat_licensed_local
+manifest_version: '1'
+profile: licensed_local
+publication_state: private_local_only
+rights: licensed_restricted
+reviewed: true
+sources:
+- source_name: crsp_daily
+  filename: dsf.parquet
+  source_path: /absolute/private/crsp-compustat/dsf.parquet
+  source_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  source_kind: crsp_daily
+  schema_fingerprint:
+    digest: sha256:018eef77d30155228bcf9b1b26f70d1d5364e055aa23062c15e3f9bd40c37795
+    algorithm: external_arrow_v1
+    columns:
+    - name: cusip
+      logical_type: VARCHAR
+      nullable: true
+    - name: permno
+      logical_type: INTEGER
+      nullable: true
+    - name: permco
+      logical_type: INTEGER
+      nullable: true
+    - name: issuno
+      logical_type: INTEGER
+      nullable: true
+    - name: hexcd
+      logical_type: SMALLINT
+      nullable: true
+    - name: hsiccd
+      logical_type: INTEGER
+      nullable: true
+    - name: date
+      logical_type: DATE
+      nullable: true
+    - name: bidlo
+      logical_type: DECIMAL(11,5)
+      nullable: true
+    - name: askhi
+      logical_type: DECIMAL(11,5)
+      nullable: true
+    - name: prc
+      logical_type: DECIMAL(11,5)
+      nullable: true
+    - name: vol
+      logical_type: DECIMAL(10,0)
+      nullable: true
+    - name: ret
+      logical_type: DECIMAL(10,6)
+      nullable: true
+    - name: bid
+      logical_type: DECIMAL(11,5)
+      nullable: true
+    - name: ask
+      logical_type: DECIMAL(11,5)
+      nullable: true
+    - name: shrout
+      logical_type: DOUBLE
+      nullable: true
+    - name: cfacpr
+      logical_type: DOUBLE
+      nullable: true
+    - name: cfacshr
+      logical_type: DOUBLE
+      nullable: true
+    - name: openprc
+      logical_type: DECIMAL(11,5)
+      nullable: true
+    - name: numtrd
+      logical_type: INTEGER
+      nullable: true
+    - name: retx
+      logical_type: DECIMAL(10,6)
+      nullable: true
+  revision: replace-with-reviewed-revision
+  retrieved_at: '2026-07-29T10:00:00Z'
+  frequency: daily
+  mappings:
+  - canonical_name: permno
+    source_columns:
+    - permno
+    canonical_type: BIGINT
+    required: true
+    unit: null
+    transformation_ids: []
+  - canonical_name: permco
+    source_columns:
+    - permco
+    canonical_type: BIGINT
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: observed_at
+    source_columns:
+    - date
+    canonical_type: TIMESTAMPTZ
+    required: true
+    unit: null
+    transformation_ids:
+    - observed_date
+    - observed_timestamp
+  - canonical_name: available_at
+    source_columns:
+    - date
+    canonical_type: TIMESTAMPTZ
+    required: false
+    unit: null
+    transformation_ids:
+    - next_session
+  - canonical_name: raw_price
+    source_columns:
+    - prc
+    canonical_type: DECIMAL
+    required: false
+    unit: USD
+    transformation_ids: []
+  - canonical_name: valuation_price
+    source_columns:
+    - prc
+    canonical_type: DECIMAL
+    required: false
+    unit: USD
+    transformation_ids:
+    - valuation_abs
+  - canonical_name: split_adjusted_price
+    source_columns:
+    - prc
+    canonical_type: DECIMAL
+    required: false
+    unit: USD
+    transformation_ids:
+    - adjusted_abs
+    - price_factor_divide
+  - canonical_name: total_return
+    source_columns:
+    - ret
+    canonical_type: DECIMAL
+    required: false
+    unit: ratio
+    transformation_ids: []
+  - canonical_name: return_ex_distributions
+    source_columns:
+    - retx
+    canonical_type: DECIMAL
+    required: false
+    unit: ratio
+    transformation_ids: []
+  - canonical_name: volume
+    source_columns:
+    - vol
+    canonical_type: DECIMAL
+    required: false
+    unit: shares
+    transformation_ids: []
+  - canonical_name: raw_shares_outstanding
+    source_columns:
+    - shrout
+    canonical_type: DECIMAL
+    required: false
+    unit: thousand_shares
+    transformation_ids: []
+  - canonical_name: adjusted_shares_outstanding
+    source_columns:
+    - shrout
+    canonical_type: DECIMAL
+    required: false
+    unit: thousand_shares
+    transformation_ids:
+    - share_factor_multiply
+  - canonical_name: price_adjustment_factor
+    source_columns:
+    - cfacpr
+    canonical_type: DECIMAL
+    required: false
+    unit: factor
+    transformation_ids: []
+  - canonical_name: share_adjustment_factor
+    source_columns:
+    - cfacshr
+    canonical_type: DECIMAL
+    required: false
+    unit: factor
+    transformation_ids: []
+  - canonical_name: currency
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - currency_usd
+  - canonical_name: source_revision
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - revision_literal
+  - canonical_name: source_digest
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - digest_literal
+  - canonical_name: quality_flags
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - quality_literal
+  declared_units:
+    raw_price: USD
+    valuation_price: USD
+    split_adjusted_price: USD
+    total_return: ratio
+    return_ex_distributions: ratio
+    volume: shares
+    raw_shares_outstanding: thousand_shares
+    adjusted_shares_outstanding: thousand_shares
+  transformations:
+  - transformation_id: observed_date
+    operation: date_conversion
+    version: '1'
+    source_columns:
+    - date
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: iso8601
+    literal: null
+    disclosure: Convert the reviewed CRSP market date to a canonical date.
+  - transformation_id: observed_timestamp
+    operation: timestamp_at_utc
+    version: '1'
+    source_columns:
+    - date
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: null
+    disclosure: Represent the source market date at 00:00 UTC.
+  - transformation_id: next_session
+    operation: next_observed_session_availability
+    version: '1'
+    source_columns:
+    - date
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: null
+    disclosure: Use the next distinct observed market session at the reviewed UTC time.
+  - transformation_id: valuation_abs
+    operation: absolute_value
+    version: '1'
+    source_columns:
+    - prc
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: null
+    disclosure: CRSP negative price signs are preserved in raw_price and removed only for valuation_price.
+  - transformation_id: adjusted_abs
+    operation: absolute_value
+    version: '1'
+    source_columns:
+    - prc
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: null
+    disclosure: Start split-adjusted price from the absolute CRSP price.
+  - transformation_id: price_factor_divide
+    operation: scale
+    version: '1'
+    source_columns:
+    - prc
+    target_type: null
+    scale_factor: null
+    scale_column: cfacpr
+    scale_direction: divide
+    null_values: []
+    date_format: null
+    literal: null
+    disclosure: Divide valuation price by the reviewed CRSP cumulative price factor.
+  - transformation_id: share_factor_multiply
+    operation: scale
+    version: '1'
+    source_columns:
+    - shrout
+    target_type: null
+    scale_factor: null
+    scale_column: cfacshr
+    scale_direction: multiply
+    null_values: []
+    date_format: null
+    literal: null
+    disclosure: Multiply raw shares by the reviewed CRSP cumulative share factor.
+  - transformation_id: currency_usd
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: USD
+    disclosure: The reviewed export is declared in USD.
+  - transformation_id: revision_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: replace-with-reviewed-revision
+    disclosure: Attach the reviewed immutable source revision.
+  - transformation_id: digest_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    disclosure: Attach the verified immutable source digest.
+  - transformation_id: quality_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: ''
+    disclosure: Initialize row quality flags; missing derived values are added by the fixed bridge.
+  availability_policy:
+    policy_id: crsp_next_observed_session
+    version: '1'
+    mode: next_distinct_market_observation
+    observed_at_field: date
+    available_at_field: null
+    review_time: 09:00:00Z
+    missing_available_at: retain_with_warning
+    terminal_rule: unavailable
+    research_timing_model: true
+    disclosure: 'Research timing model: a market close becomes available at the configured review time
+      on the next distinct observed market date; the final date is unavailable.'
+- source_name: crsp_monthly
+  filename: msf.parquet
+  source_path: /absolute/private/crsp-compustat/msf.parquet
+  source_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  source_kind: crsp_monthly
+  schema_fingerprint:
+    digest: sha256:794d1fd98cba69c27b0e0ff50b9f80a7b19a8807c8af54da2e2d5824978d6e00
+    algorithm: external_arrow_v1
+    columns:
+    - name: cusip
+      logical_type: VARCHAR
+      nullable: true
+    - name: permno
+      logical_type: INTEGER
+      nullable: true
+    - name: permco
+      logical_type: INTEGER
+      nullable: true
+    - name: issuno
+      logical_type: INTEGER
+      nullable: true
+    - name: hexcd
+      logical_type: SMALLINT
+      nullable: true
+    - name: hsiccd
+      logical_type: INTEGER
+      nullable: true
+    - name: date
+      logical_type: DATE
+      nullable: true
+    - name: bidlo
+      logical_type: DECIMAL(11,5)
+      nullable: true
+    - name: askhi
+      logical_type: DECIMAL(11,5)
+      nullable: true
+    - name: prc
+      logical_type: DECIMAL(11,5)
+      nullable: true
+    - name: vol
+      logical_type: DECIMAL(10,0)
+      nullable: true
+    - name: ret
+      logical_type: DECIMAL(10,6)
+      nullable: true
+    - name: bid
+      logical_type: DECIMAL(11,5)
+      nullable: true
+    - name: ask
+      logical_type: DECIMAL(11,5)
+      nullable: true
+    - name: shrout
+      logical_type: DOUBLE
+      nullable: true
+    - name: cfacpr
+      logical_type: DOUBLE
+      nullable: true
+    - name: cfacshr
+      logical_type: DOUBLE
+      nullable: true
+    - name: altprc
+      logical_type: DECIMAL(11,5)
+      nullable: true
+    - name: spread
+      logical_type: DECIMAL(10,5)
+      nullable: true
+    - name: altprcdt
+      logical_type: DATE
+      nullable: true
+    - name: retx
+      logical_type: DECIMAL(10,6)
+      nullable: true
+  revision: replace-with-reviewed-revision
+  retrieved_at: '2026-07-29T10:00:00Z'
+  frequency: monthly
+  mappings:
+  - canonical_name: permno
+    source_columns:
+    - permno
+    canonical_type: BIGINT
+    required: true
+    unit: null
+    transformation_ids: []
+  - canonical_name: permco
+    source_columns:
+    - permco
+    canonical_type: BIGINT
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: observed_at
+    source_columns:
+    - date
+    canonical_type: TIMESTAMPTZ
+    required: true
+    unit: null
+    transformation_ids:
+    - observed_date
+    - observed_timestamp
+  - canonical_name: available_at
+    source_columns:
+    - date
+    canonical_type: TIMESTAMPTZ
+    required: false
+    unit: null
+    transformation_ids:
+    - next_session
+  - canonical_name: raw_price
+    source_columns:
+    - prc
+    canonical_type: DECIMAL
+    required: false
+    unit: USD
+    transformation_ids: []
+  - canonical_name: valuation_price
+    source_columns:
+    - prc
+    canonical_type: DECIMAL
+    required: false
+    unit: USD
+    transformation_ids:
+    - valuation_abs
+  - canonical_name: split_adjusted_price
+    source_columns:
+    - prc
+    canonical_type: DECIMAL
+    required: false
+    unit: USD
+    transformation_ids:
+    - adjusted_abs
+    - price_factor_divide
+  - canonical_name: total_return
+    source_columns:
+    - ret
+    canonical_type: DECIMAL
+    required: false
+    unit: ratio
+    transformation_ids: []
+  - canonical_name: return_ex_distributions
+    source_columns:
+    - retx
+    canonical_type: DECIMAL
+    required: false
+    unit: ratio
+    transformation_ids: []
+  - canonical_name: volume
+    source_columns:
+    - vol
+    canonical_type: DECIMAL
+    required: false
+    unit: shares
+    transformation_ids: []
+  - canonical_name: raw_shares_outstanding
+    source_columns:
+    - shrout
+    canonical_type: DECIMAL
+    required: false
+    unit: thousand_shares
+    transformation_ids: []
+  - canonical_name: adjusted_shares_outstanding
+    source_columns:
+    - shrout
+    canonical_type: DECIMAL
+    required: false
+    unit: thousand_shares
+    transformation_ids:
+    - share_factor_multiply
+  - canonical_name: price_adjustment_factor
+    source_columns:
+    - cfacpr
+    canonical_type: DECIMAL
+    required: false
+    unit: factor
+    transformation_ids: []
+  - canonical_name: share_adjustment_factor
+    source_columns:
+    - cfacshr
+    canonical_type: DECIMAL
+    required: false
+    unit: factor
+    transformation_ids: []
+  - canonical_name: currency
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - currency_usd
+  - canonical_name: source_revision
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - revision_literal
+  - canonical_name: source_digest
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - digest_literal
+  - canonical_name: quality_flags
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - quality_literal
+  declared_units:
+    raw_price: USD
+    valuation_price: USD
+    split_adjusted_price: USD
+    total_return: ratio
+    return_ex_distributions: ratio
+    volume: shares
+    raw_shares_outstanding: thousand_shares
+    adjusted_shares_outstanding: thousand_shares
+  transformations:
+  - transformation_id: observed_date
+    operation: date_conversion
+    version: '1'
+    source_columns:
+    - date
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: iso8601
+    literal: null
+    disclosure: Convert the reviewed CRSP market date to a canonical date.
+  - transformation_id: observed_timestamp
+    operation: timestamp_at_utc
+    version: '1'
+    source_columns:
+    - date
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: null
+    disclosure: Represent the source market date at 00:00 UTC.
+  - transformation_id: next_session
+    operation: next_observed_session_availability
+    version: '1'
+    source_columns:
+    - date
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: null
+    disclosure: Use the next distinct observed market session at the reviewed UTC time.
+  - transformation_id: valuation_abs
+    operation: absolute_value
+    version: '1'
+    source_columns:
+    - prc
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: null
+    disclosure: CRSP negative price signs are preserved in raw_price and removed only for valuation_price.
+  - transformation_id: adjusted_abs
+    operation: absolute_value
+    version: '1'
+    source_columns:
+    - prc
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: null
+    disclosure: Start split-adjusted price from the absolute CRSP price.
+  - transformation_id: price_factor_divide
+    operation: scale
+    version: '1'
+    source_columns:
+    - prc
+    target_type: null
+    scale_factor: null
+    scale_column: cfacpr
+    scale_direction: divide
+    null_values: []
+    date_format: null
+    literal: null
+    disclosure: Divide valuation price by the reviewed CRSP cumulative price factor.
+  - transformation_id: share_factor_multiply
+    operation: scale
+    version: '1'
+    source_columns:
+    - shrout
+    target_type: null
+    scale_factor: null
+    scale_column: cfacshr
+    scale_direction: multiply
+    null_values: []
+    date_format: null
+    literal: null
+    disclosure: Multiply raw shares by the reviewed CRSP cumulative share factor.
+  - transformation_id: currency_usd
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: USD
+    disclosure: The reviewed export is declared in USD.
+  - transformation_id: revision_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: replace-with-reviewed-revision
+    disclosure: Attach the reviewed immutable source revision.
+  - transformation_id: digest_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    disclosure: Attach the verified immutable source digest.
+  - transformation_id: quality_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: ''
+    disclosure: Initialize row quality flags; missing derived values are added by the fixed bridge.
+  availability_policy:
+    policy_id: crsp_next_observed_session
+    version: '1'
+    mode: next_distinct_market_observation
+    observed_at_field: date
+    available_at_field: null
+    review_time: 09:00:00Z
+    missing_available_at: retain_with_warning
+    terminal_rule: unavailable
+    research_timing_model: true
+    disclosure: 'Research timing model: a market close becomes available at the configured review time
+      on the next distinct observed market date; the final date is unavailable.'
+- source_name: ccm_links
+  filename: ccm_lookup.parquet
+  source_path: /absolute/private/crsp-compustat/ccm_lookup.parquet
+  source_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  source_kind: ccm_links
+  schema_fingerprint:
+    digest: sha256:02d5f3a9426481ca29120101b8c338337f2fcaa7669476930077d0e12ba6928a
+    algorithm: external_arrow_v1
+    columns:
+    - name: gvkey
+      logical_type: VARCHAR
+      nullable: true
+    - name: lpermno
+      logical_type: DOUBLE
+      nullable: true
+    - name: lpermco
+      logical_type: DOUBLE
+      nullable: true
+    - name: linkdt
+      logical_type: DATE
+      nullable: true
+    - name: linkenddt
+      logical_type: DATE
+      nullable: true
+    - name: conm
+      logical_type: VARCHAR
+      nullable: true
+    - name: tic
+      logical_type: VARCHAR
+      nullable: true
+    - name: cusip
+      logical_type: VARCHAR
+      nullable: true
+    - name: cik
+      logical_type: VARCHAR
+      nullable: true
+    - name: sic
+      logical_type: VARCHAR
+      nullable: true
+    - name: naics
+      logical_type: VARCHAR
+      nullable: true
+    - name: gsubind
+      logical_type: VARCHAR
+      nullable: true
+    - name: gind
+      logical_type: VARCHAR
+      nullable: true
+    - name: year1
+      logical_type: DOUBLE
+      nullable: true
+    - name: year2
+      logical_type: DOUBLE
+      nullable: true
+  revision: replace-with-reviewed-revision
+  retrieved_at: '2026-07-29T10:00:00Z'
+  frequency: date_effective
+  mappings:
+  - canonical_name: gvkey
+    source_columns:
+    - gvkey
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids: []
+  - canonical_name: permno
+    source_columns:
+    - lpermno
+    canonical_type: BIGINT
+    required: true
+    unit: null
+    transformation_ids: []
+  - canonical_name: permco
+    source_columns:
+    - lpermco
+    canonical_type: BIGINT
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: link_start
+    source_columns:
+    - linkdt
+    canonical_type: DATE
+    required: true
+    unit: null
+    transformation_ids: []
+  - canonical_name: link_end
+    source_columns:
+    - linkenddt
+    canonical_type: DATE
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: link_type
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - link_type_literal
+  - canonical_name: link_primary
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - link_primary_literal
+  - canonical_name: source_revision
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - revision_literal
+  - canonical_name: source_digest
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - digest_literal
+  declared_units: {}
+  transformations:
+  - transformation_id: revision_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: replace-with-reviewed-revision
+    disclosure: Attach the reviewed immutable source revision.
+  - transformation_id: digest_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    disclosure: Attach the verified immutable source digest.
+  - transformation_id: link_type_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: UNSPECIFIED
+    disclosure: The reviewed source profile has no link-type column; mark it explicitly.
+  - transformation_id: link_primary_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: UNSPECIFIED
+    disclosure: The reviewed source profile has no primary-link column; mark it explicitly.
+  availability_policy:
+    policy_id: ccm_date_effective
+    version: '1'
+    mode: not_applicable
+    observed_at_field: null
+    available_at_field: null
+    review_time: null
+    missing_available_at: exclude
+    terminal_rule: unavailable
+    research_timing_model: true
+    disclosure: CCM links are selected by explicit GVKEY/PERMNO and date-effective intervals only.
+- source_name: compustat_annual
+  filename: funda.parquet
+  source_path: /absolute/private/crsp-compustat/funda.parquet
+  source_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  source_kind: compustat_annual
+  schema_fingerprint:
+    digest: sha256:0b9b375dec542b97bd6915d71d715016a35d591bdfd9285d349941a7ef344e0c
+    algorithm: external_arrow_v1
+    columns:
+    - name: gvkey
+      logical_type: VARCHAR
+      nullable: true
+    - name: datadate
+      logical_type: DATE
+      nullable: true
+    - name: fyear
+      logical_type: INTEGER
+      nullable: true
+    - name: indfmt
+      logical_type: VARCHAR
+      nullable: true
+    - name: consol
+      logical_type: VARCHAR
+      nullable: true
+    - name: popsrc
+      logical_type: VARCHAR
+      nullable: true
+    - name: datafmt
+      logical_type: VARCHAR
+      nullable: true
+    - name: tic
+      logical_type: VARCHAR
+      nullable: true
+    - name: cusip
+      logical_type: VARCHAR
+      nullable: true
+    - name: conm
+      logical_type: VARCHAR
+      nullable: true
+    - name: acctchg
+      logical_type: VARCHAR
+      nullable: true
+    - name: acctstd
+      logical_type: VARCHAR
+      nullable: true
+    - name: acqmeth
+      logical_type: VARCHAR
+      nullable: true
+    - name: adrr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ajex
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: ajp
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: bspr
+      logical_type: VARCHAR
+      nullable: true
+    - name: compst
+      logical_type: VARCHAR
+      nullable: true
+    - name: curcd
+      logical_type: VARCHAR
+      nullable: true
+    - name: curncd
+      logical_type: VARCHAR
+      nullable: true
+    - name: currtr
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: curuscn
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: final
+      logical_type: VARCHAR
+      nullable: true
+    - name: fyr
+      logical_type: SMALLINT
+      nullable: true
+    - name: ismod
+      logical_type: INTEGER
+      nullable: true
+    - name: ltcm
+      logical_type: VARCHAR
+      nullable: true
+    - name: ogm
+      logical_type: VARCHAR
+      nullable: true
+    - name: pddur
+      logical_type: SMALLINT
+      nullable: true
+    - name: scf
+      logical_type: INTEGER
+      nullable: true
+    - name: src
+      logical_type: INTEGER
+      nullable: true
+    - name: stalt
+      logical_type: VARCHAR
+      nullable: true
+    - name: udpl
+      logical_type: VARCHAR
+      nullable: true
+    - name: upd
+      logical_type: INTEGER
+      nullable: true
+    - name: apdedate
+      logical_type: DATE
+      nullable: true
+    - name: fdate
+      logical_type: DATE
+      nullable: true
+    - name: pdate
+      logical_type: DATE
+      nullable: true
+    - name: acchg
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acco
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: accrt
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: acdo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aco
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acodo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acominc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acox
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acoxar
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acqao
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acqcshi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acqgdwl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acqic
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acqintan
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acqinvt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acqlntal
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acqniintc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acqppe
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acqsc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: act
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: adpac
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aedi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: afudcc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: afudci
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aldo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: am
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: amc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: amdc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: amgw
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ano
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ao
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aocidergl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aociother
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aocipen
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aocisecgl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aodo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aol2
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aoloch
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aox
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ap
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: apalch
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: apb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: apc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: apofs
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqa
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqeps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqpl1
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqs
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: arb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: arc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: arce
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: arced
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: arceeps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: artfs
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: at
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aul3
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: autxr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: balr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: banlr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: bast
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: bastr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: batr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: bcef
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: bclr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: bcltbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: bcnlr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: bcrbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: bct
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: bctbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: bctr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: billexce
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: bkvlps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: bltbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ca
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: capr1
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: capr2
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: capr3
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: caps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: capsft
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: capx
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: capxv
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cbi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cdpac
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cdvc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ceiexbill
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: ceq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ceql
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ceqt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cfbd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cfere
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cfo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cfpdo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cga
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cgri
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cgti
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cgui
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ch
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: che
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: chech
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: chs
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ci
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cibegni
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cicurr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cidergl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cimii
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ciother
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cipen
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cisecgl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: citotal
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cld2
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cld3
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cld4
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cld5
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: clfc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: clfx
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: clg
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: clis
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cll
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cllc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: clo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: clrll
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: clt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cmp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cnltbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cogs
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cpcbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cpdoi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cpnli
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cppbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cprei
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: crv
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: crvnli
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshfd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: csho
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshpri
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshrc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshrp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshrso
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshrt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshrw
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cstk
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cstkcv
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cstke
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dbi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dclo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dcom
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dcpstk
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dcs
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dcvsr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dcvsub
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dcvt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dd1
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dd2
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dd3
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dd4
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dd5
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: depc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: derac
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: deralt
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: derhedgl
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: derlc
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: derllt
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: dfpac
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dfs
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dfxa
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: diladj
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dilavx
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dlc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dlcch
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dltis
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dlto
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dltp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dltr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dltsub
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dltt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dm
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dn
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: do
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: donr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpacb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpacc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpacli
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpacls
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpacme
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpacnr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpaco
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpacre
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpact
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpdc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpltb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpret
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpsc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpstb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dptb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dptc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dptic
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpvieb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpvio
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpvir
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: drc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: drci
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: drlt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ds
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dt
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: dtea
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dted
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dteeps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dtep
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dudd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dv
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvdnp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvintf
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: dvp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvpa
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvpd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvpdp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvpibb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvrpiv
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvrre
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvsco
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dxd2
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dxd3
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dxd4
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dxd5
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ea
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ebit
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ebitda
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: eiea
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: emol
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: emp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: epsfi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: epsfx
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: epspi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: epspx
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: esopct
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: esopdlt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: esopnr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: esopr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: esopt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: esub
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: esubc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: excadj
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: exre
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fatb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fatc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fatd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fate
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fatl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fatn
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fato
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fatp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fca
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fdfr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fea
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fel
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ffo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ffs
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fiao
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: finaco
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finao
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: fincf
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: finch
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: findlc
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: findlt
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finivst
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finlco
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finlto
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finnp
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finrecc
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finreclt
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finrev
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finxint
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finxopr
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: fopo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fopox
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fopt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fsrco
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fsrct
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fuseo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fuset
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gbbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwlam
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwlia
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwlid
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwlieps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwlip
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: geqrv
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gla
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glcea
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glced
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glceeps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glcep
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gld
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gleps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gliv
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: glp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: govgr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: govtown
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gphbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gplbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gpobl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gprbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gptbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gwo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: hedgegl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iaeq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iaeqci
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iaeqmi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iafici
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iafxi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iafxmi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iali
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ialoi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ialti
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iamli
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iaoi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iapli
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iarei
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iasci
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iasmi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iassi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iasti
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iatci
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iati
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iatmi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iaui
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ib
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibadj
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibcom
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibki
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibmii
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: icapt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: idiis
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: idilb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: idilc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: idis
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: idist
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: idit
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: idits
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iire
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: initb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: intan
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: intano
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: intc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: intpn
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invch
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invfg
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invofs
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invreh
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invrei
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invres
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invrm
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invwip
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iobd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ioi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iore
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ip
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ipabl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ipc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iphbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iplbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ipobl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iptbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ipti
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ipv
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: irei
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: irent
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: irii
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: irli
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: irnli
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: irsi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iseq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iseqc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iseqm
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: isfi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: isfxc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: isfxm
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: isgr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: isgt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: isgu
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: islg
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: islgc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: islgm
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: islt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: isng
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: isngc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: isngm
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: isotc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: isoth
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: isotm
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: issc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: issm
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: issu
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ist
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: istc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: istm
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: isut
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: itcb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: itcc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: itci
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivaco
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivaeq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivao
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivch
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivgod
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivncf
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivpt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivst
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivstch
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcabg
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcacl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcacr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcag
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcal
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcalt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcam
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcao
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcast
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcat
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lco
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcox
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcoxar
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcoxdr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lct
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcuacu
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: li
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lif
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lifr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lifrp
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: lloml
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lloo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: llot
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: llrci
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: llrcr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: llwoci
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: llwocr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lno
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lol2
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: loxdr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lqpl1
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lrv
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ls
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lse
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lst
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lul3
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mib
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mibn
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mibt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mii
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mrc1
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mrc2
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mrc3
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mrc4
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mrc5
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mrct
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mrcta
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: msa
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: msvrv
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mtl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nat
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nco
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nfsr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ni
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: niadj
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nieci
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: niint
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: niintpfc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: niintpfp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: niit
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nim
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nio
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nipfc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nipfp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nit
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nits
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nopi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nopio
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: np
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: npanl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: npaore
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nparl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: npat
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nrtxt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nrtxtd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nrtxteps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: oancf
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ob
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: oiadp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: oibdp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: opeps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: opili
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: opincar
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: opini
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: opioi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: opiri
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: opiti
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: oprepsx
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optca
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optdr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optex
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optexd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optfvgr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optgr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optlife
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optosby
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optosey
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optprcby
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optprcca
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optprcex
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optprcey
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optprcgr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optprcwa
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optrfr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optvol
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: palr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: panlr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: patr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pcl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pclr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pcnlr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pctr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pdvc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pidom
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pifo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pll
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pltbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnca
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncad
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncaeps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncia
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncid
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncieps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncip
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwia
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwid
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwieps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwip
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnlbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnli
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnrsho
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pobl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppcbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppegt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppenb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppenc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppenli
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppenls
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppenme
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppennr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppeno
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppent
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppevbb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppeveb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppevo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppevr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pppabl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppphbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pppobl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppptbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prca
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcad
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcaeps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prebl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pri
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prodv
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prsho
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prstkc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prstkcc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prstkpc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prvt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pstk
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pstkc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pstkl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pstkn
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pstkr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pstkrv
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ptbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ptran
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pvcl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pvo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pvon
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pvpl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pvt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pwoi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: radp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ragr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rari
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rati
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rca
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rcd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rceps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rcl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rcp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rdip
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rdipa
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rdipd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rdipeps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rdp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: re
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rea
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: reajo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: recch
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: recco
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: recd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rect
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: recta
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rectr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: recub
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ret
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: reuna
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: reunr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: revt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ris
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rll
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rlo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rlp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rlri
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rlt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rmum
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rpag
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rra
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rrd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rreps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rrp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rstche
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: rstchelt
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: rvbci
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rvbpi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rvbti
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rvdo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rvdt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rveqt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rvlrv
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rvno
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rvnt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rvri
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rvsi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rvti
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rvtxr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rvupi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rvutx
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: saa
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: sal
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: sale
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: salepfc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: salepfp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: sbdc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: sc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: sco
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: scstkc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: secu
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: seq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: seqo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: seta
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: setd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: seteps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: setp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: siv
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spce
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spced
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spceeps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spid
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spieps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spioa
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spiop
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: sppe
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: sppiv
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spstkc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: sret
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: srt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ssnp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: sstk
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: stbo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: stio
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: stkco
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: stkcpa
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tdc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tdscd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tdsce
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tdsg
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tdslg
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tdsmm
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tdsng
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tdso
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tdss
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tdst
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: teq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tf
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tfva
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tfvce
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tfvl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tie
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tii
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tlcf
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: transa
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tsa
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tsafc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tso
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tstk
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tstkc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tstkme
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tstkn
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tstkp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txach
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txbco
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txbcof
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdba
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdbca
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdbcl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdfed
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdfo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txditc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txds
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txeqa
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txeqii
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txfed
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txfo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txndb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txndba
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txndbl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txndbr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txpd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txs
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtubadjust
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtubbegin
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtubend
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtubmax
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtubmin
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtubposdec
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtubposinc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtubpospdec
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtubpospinc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtubsettle
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtubsoflimit
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtubtxtr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtubxintbs
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtubxintis
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txva
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txw
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uaoloch
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uaox
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uapt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ucaps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uccons
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uceq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ucustad
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: udcopres
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: udd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: udfcc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: udmb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: udolt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: udpco
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: udpfa
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: udvp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ufretsd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ugi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ui
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uinvt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ulcm
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ulco
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uniami
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: unl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: unnp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: unnpl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: unopinc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: unwcc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uois
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uopi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uopres
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: updvp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: upmcstk
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: upmpf
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: upmpfs
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: upmsubp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: upstk
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: upstkc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: upstksf
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: urect
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: urectr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: urevub
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uspi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ustdnc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: usubdvp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: usubpstk
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: utfdoc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: utfosc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: utme
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: utxfed
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uwkcapc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uxinst
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uxintd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: vpac
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: vpo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wcap
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wcapc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wcapch
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wda
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wdd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wdeps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wdp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xacc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xad
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xago
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xagt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xcom
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xcomi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xdepl
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xdp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xdvre
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xeqo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xido
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xidoc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xindb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xindc
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xins
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xinst
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xint
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xintd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xintopt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xivi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xivre
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xlr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xnbi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xnf
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xnins
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xnitb
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xobd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xopr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoprar
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xopteps
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xore
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xpp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xpr
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xrd
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xrdp
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: xrent
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xs
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xsga
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xstf
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xstfo
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xstfws
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xuw
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xuwli
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xuwnli
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xuwoi
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xuwrei
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xuwti
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iid
+      logical_type: VARCHAR
+      nullable: true
+    - name: exchg
+      logical_type: INTEGER
+      nullable: true
+    - name: cik
+      logical_type: VARCHAR
+      nullable: true
+    - name: costat
+      logical_type: VARCHAR
+      nullable: true
+    - name: fic
+      logical_type: VARCHAR
+      nullable: true
+    - name: naicsh
+      logical_type: INTEGER
+      nullable: true
+    - name: sich
+      logical_type: INTEGER
+      nullable: true
+    - name: cshtr_c
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvpsp_c
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvpsx_c
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcc_c
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: prch_c
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: prcl_c
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: adjex_c
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: cshtr_f
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvpsp_f
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvpsx_f
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mkvalt
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcc_f
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: prch_f
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: prcl_f
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: adjex_f
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: rank
+      logical_type: INTEGER
+      nullable: true
+    - name: au
+      logical_type: VARCHAR
+      nullable: true
+    - name: auop
+      logical_type: VARCHAR
+      nullable: true
+    - name: auopic
+      logical_type: VARCHAR
+      nullable: true
+    - name: ceoso
+      logical_type: VARCHAR
+      nullable: true
+    - name: cfoso
+      logical_type: VARCHAR
+      nullable: true
+  revision: replace-with-reviewed-revision
+  retrieved_at: '2026-07-29T10:00:00Z'
+  frequency: annual
+  mappings:
+  - canonical_name: gvkey
+    source_columns:
+    - gvkey
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids: []
+  - canonical_name: observed_at
+    source_columns:
+    - datadate
+    canonical_type: DATE
+    required: true
+    unit: null
+    transformation_ids: []
+  - canonical_name: available_at
+    source_columns:
+    - pdate
+    canonical_type: TIMESTAMPTZ
+    required: false
+    unit: null
+    transformation_ids:
+    - available_timestamp
+  - canonical_name: frequency
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - frequency_literal
+  - canonical_name: fiscal_year
+    source_columns:
+    - fyear
+    canonical_type: INTEGER
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: fiscal_quarter
+    source_columns: []
+    canonical_type: INTEGER
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: industry_format
+    source_columns:
+    - indfmt
+    canonical_type: VARCHAR
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: consolidation
+    source_columns:
+    - consol
+    canonical_type: VARCHAR
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: population_source
+    source_columns:
+    - popsrc
+    canonical_type: VARCHAR
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: data_format
+    source_columns:
+    - datafmt
+    canonical_type: VARCHAR
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: currency
+    source_columns:
+    - curcd
+    canonical_type: VARCHAR
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: total_assets
+    source_columns:
+    - at
+    canonical_type: DECIMAL
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: total_liabilities
+    source_columns:
+    - lt
+    canonical_type: DECIMAL
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: common_equity
+    source_columns:
+    - ceq
+    canonical_type: DECIMAL
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: revenue
+    source_columns:
+    - sale
+    canonical_type: DECIMAL
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: net_income
+    source_columns:
+    - ni
+    canonical_type: DECIMAL
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: source_revision
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - revision_literal
+  - canonical_name: source_digest
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - digest_literal
+  declared_units:
+    total_assets: millions_currency
+    total_liabilities: millions_currency
+    common_equity: millions_currency
+    revenue: millions_currency
+    net_income: millions_currency
+  transformations:
+  - transformation_id: revision_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: replace-with-reviewed-revision
+    disclosure: Attach the reviewed immutable source revision.
+  - transformation_id: digest_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    disclosure: Attach the verified immutable source digest.
+  - transformation_id: available_timestamp
+    operation: timestamp_at_utc
+    version: '1'
+    source_columns:
+    - pdate
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: null
+    disclosure: Convert only the explicit report/publication date to UTC availability.
+  - transformation_id: frequency_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: annual
+    disclosure: Preserve annual and quarterly observations as separate frequencies.
+  availability_policy:
+    policy_id: compustat_annual_publication
+    version: '1'
+    mode: explicit_publication_field
+    observed_at_field: datadate
+    available_at_field: pdate
+    review_time: 00:00:00Z
+    missing_available_at: exclude
+    terminal_rule: unavailable
+    research_timing_model: true
+    disclosure: datadate is observed_at only. Point-in-time joins use the explicit report/publication
+      field and exclude missing availability.
+- source_name: compustat_quarterly
+  filename: fundq.parquet
+  source_path: /absolute/private/crsp-compustat/fundq.parquet
+  source_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  source_kind: compustat_quarterly
+  schema_fingerprint:
+    digest: sha256:22878d0636b925f2d8d69fdb0d70965af25f14387c0b0d55b92c0b2dc281f008
+    algorithm: external_arrow_v1
+    columns:
+    - name: gvkey
+      logical_type: VARCHAR
+      nullable: true
+    - name: datadate
+      logical_type: DATE
+      nullable: true
+    - name: fyearq
+      logical_type: INTEGER
+      nullable: true
+    - name: fqtr
+      logical_type: SMALLINT
+      nullable: true
+    - name: fyr
+      logical_type: SMALLINT
+      nullable: true
+    - name: indfmt
+      logical_type: VARCHAR
+      nullable: true
+    - name: consol
+      logical_type: VARCHAR
+      nullable: true
+    - name: popsrc
+      logical_type: VARCHAR
+      nullable: true
+    - name: datafmt
+      logical_type: VARCHAR
+      nullable: true
+    - name: tic
+      logical_type: VARCHAR
+      nullable: true
+    - name: cusip
+      logical_type: VARCHAR
+      nullable: true
+    - name: conm
+      logical_type: VARCHAR
+      nullable: true
+    - name: acctchgq
+      logical_type: VARCHAR
+      nullable: true
+    - name: acctstdq
+      logical_type: VARCHAR
+      nullable: true
+    - name: adrrq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ajexq
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: ajpq
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: bsprq
+      logical_type: VARCHAR
+      nullable: true
+    - name: compstq
+      logical_type: VARCHAR
+      nullable: true
+    - name: curcdq
+      logical_type: VARCHAR
+      nullable: true
+    - name: curncdq
+      logical_type: VARCHAR
+      nullable: true
+    - name: currtrq
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: curuscnq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: datacqtr
+      logical_type: VARCHAR
+      nullable: true
+    - name: datafqtr
+      logical_type: VARCHAR
+      nullable: true
+    - name: finalq
+      logical_type: VARCHAR
+      nullable: true
+    - name: ogmq
+      logical_type: VARCHAR
+      nullable: true
+    - name: rp
+      logical_type: VARCHAR
+      nullable: true
+    - name: scfq
+      logical_type: INTEGER
+      nullable: true
+    - name: srcq
+      logical_type: INTEGER
+      nullable: true
+    - name: staltq
+      logical_type: VARCHAR
+      nullable: true
+    - name: updq
+      logical_type: INTEGER
+      nullable: true
+    - name: apdedateq
+      logical_type: DATE
+      nullable: true
+    - name: fdateq
+      logical_type: DATE
+      nullable: true
+    - name: pdateq
+      logical_type: DATE
+      nullable: true
+    - name: rdq
+      logical_type: DATE
+      nullable: true
+    - name: acchgq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acomincq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: actq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: altoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ancq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: anoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aociderglq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aociotherq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aocipenq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aocisecglq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aol2q
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: apq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqdq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqpl1q
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: arcedq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: arceepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: arceq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: atq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aul3q
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: billexceq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: capr1q
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: capr2q
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: capr3q
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: capsftq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: capsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ceiexbillq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: ceqq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cheq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: chq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cibegniq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cicurrq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ciderglq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cimiiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ciotherq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cipenq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ciq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cisecglq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: citotalq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cogsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: csh12q
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshfd12
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: cshfdq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshopq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshprq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cstkcvq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cstkeq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cstkq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dcomq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dd1q
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: deracq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: deraltq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: derhedglq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: derlcq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: derlltq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: diladq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dilavq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dlcq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dlttq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: doq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpacreq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpactq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpretq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: drcq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: drltq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dteaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dtedq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dteepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dtepq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvintfq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: dvpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: epsf12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: epsfi12
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: epsfiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: epsfxq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: epspi12
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: epspiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: epspxq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: epsx12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: esopctq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: esopnrq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: esoprq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: esoptq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: esubq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fcaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ffoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: finacoq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finaoq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finchq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: findlcq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: findltq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finivstq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finlcoq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finltoq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finnpq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finreccq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finrecltq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finrevq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finxintq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finxoprq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: gdwlamq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwlia12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwliaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwlid12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwlidq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwlieps12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwliepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwlipq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwlq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glcea12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glceaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glced12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glcedq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glceeps12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glceepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glcepq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gldq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glivq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: glpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: hedgeglq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibadj12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibadjq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibcomq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibmiiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: icaptq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: intaccq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: intanoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: intanq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invfgq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invrmq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invtq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invwipq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivaeqq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivaoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivltq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivstq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lcoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lctq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lltq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lnoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lol2q
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: loq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: loxdrq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lqpl1q
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lseq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ltmibq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ltq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: lul3q
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mibnq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mibq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mibtq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: miiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: msaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ncoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: niitq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nimq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: niq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nopiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: npatq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: npq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nrtxtdq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nrtxtepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nrtxtq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: obkq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: oepf12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: oeps12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: oepsxq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: oiadpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: oibdpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: opepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optdrq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optfvgrq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optlifeq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optrfrq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optvolq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: piq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pllq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnc12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncd12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncdq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnceps12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnciapq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnciaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncidpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncidq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnciepspq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnciepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncippq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncipq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncpd12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncpdq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncpeps12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncpepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwiapq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwiaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwidpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwidq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwiepq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwiepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwippq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwipq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnrshoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppegtq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ppentq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcd12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcdq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prce12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prceps12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcpd12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcpdq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcpeps12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcpepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcraq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prshoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pstknq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pstkq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pstkrq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rcaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rcdq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rcepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rcpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rdipaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rdipdq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rdipepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rdipq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: recdq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rectaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rectoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rectq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rectrq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: recubq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: req
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: retq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: reunaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: revtq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rllq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rra12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rraq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rrd12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rrdq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rreps12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rrepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rrpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rstcheltq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: rstcheq
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: saleq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: seqoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: seqq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: seta12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: setaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: setd12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: setdq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: seteps12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: setepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: setpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spce12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spced12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spcedpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spcedq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spceeps12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spceepsp12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spceepspq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spceepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spcep12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spcepd12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spcepq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spceq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spidq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spiepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spioaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spiopq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: sretq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: stkcoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: stkcpaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: teqq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tfvaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tfvceq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tfvlq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tieq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tiiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tstknq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tstkq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdbaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdbcaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdbclq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdbq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txditcq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txtq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txwq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uacoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uaoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uaptq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ucapsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ucconsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uceqq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uddq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: udmbq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: udoltq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: udpcoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: udvpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ugiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uinvq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ulcoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uniamiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: unopincq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uopiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: updvpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: upmcstkq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: upmpfq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: upmpfsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: upmsubpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: upstkcq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: upstkq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: urectq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uspiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: usubdvpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: usubpcvq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: utemq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wcapq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wdaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wddq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wdepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wdpq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xaccq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xidoq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xintq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xiq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoprq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xopt12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptd12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptd12p
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptdq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptdqp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xopteps12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptepsp12
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptepsq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptepsqp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptqp
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xrdq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xsgaq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: acchgy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: afudccy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: afudciy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: amcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aolochy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: apalchy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: aqpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: arcedy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: arceepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: arcey
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: capxy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cdvcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: chechy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cibegniy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cicurry
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cidergly
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cimiiy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ciothery
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cipeny
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cisecgly
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: citotaly
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ciy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cogsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshfdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cshpry
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: cstkey
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: depcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: derhedgly
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: dilady
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dilavy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dlcchy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dltisy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dltry
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: doy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dprety
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dteay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dtedy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dteepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dtepy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: epsfiy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: epsfxy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: epspiy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: epspxy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: esubcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: esuby
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: exrey
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fcay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ffoy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fiaoy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fincfy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: finrevy
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finxinty
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: finxopry
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: fopoxy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fopoy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fopty
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fsrcoy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fsrcty
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fuseoy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: fusety
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwlamy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwliay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwlidy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwliepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gdwlipy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glceay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glcedy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glceepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glcepy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: gldy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: glivy
+      logical_type: DECIMAL(19,4)
+      nullable: true
+    - name: glpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: hedgegly
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibadjy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibcomy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ibmiiy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iby
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: intpny
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: invchy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: itccy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivacoy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivchy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivncfy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ivstchy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: miiy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ncoy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: niity
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nimy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: niy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nopiy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nrtxtdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nrtxtepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: nrtxty
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: oancfy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: oepsxy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: oiadpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: oibdpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: opepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optdry
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optfvgry
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optlifey
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optrfry
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: optvoly
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pdvcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: piy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: plly
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnciapy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnciay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncidpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncidy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnciepspy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pnciepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncippy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncipy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncpdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncpepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwiapy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwiay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwidpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwidy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwiepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwiepy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwippy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncwipy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: pncy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcpdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcpepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prcpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prstkccy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prstkcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prstkpcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rcay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rcdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rcepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rcpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rdipay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rdipdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rdipepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rdipy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: recchy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: revty
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rray
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rrdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rrepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: rrpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: saley
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: scstkcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: setay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: setdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: setepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: setpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: sivy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spcedpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spcedy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spceepspy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spceepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spcepy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spcey
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spidy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spiepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spioay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spiopy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spiy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: sppey
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: sppivy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: spstkcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: srety
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: sstky
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: stkcoy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: stkcpay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tdcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tfvcey
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tiey
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tiiy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: tsafcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txachy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txbcofy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txbcoy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txdiy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txpdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txty
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: txwy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uaolochy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: udfccy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: udvpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ufretsdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ugiy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uniamiy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: unopincy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: unwccy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uoisy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: updvpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uptacy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uspiy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: ustdncy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: usubdvpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: utfdocy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: utfoscy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: utmey
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: uwkcapcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wcapchy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wcapcy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wday
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wddy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wdepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: wdpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xidocy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xidoy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xinty
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xiy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xopry
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptdqpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptepsqpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptepsy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xoptqpy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xopty
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xrdy
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: xsgay
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: iid
+      logical_type: VARCHAR
+      nullable: true
+    - name: exchg
+      logical_type: INTEGER
+      nullable: true
+    - name: cik
+      logical_type: VARCHAR
+      nullable: true
+    - name: costat
+      logical_type: VARCHAR
+      nullable: true
+    - name: fic
+      logical_type: VARCHAR
+      nullable: true
+    - name: cshtrq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvpspq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: dvpsxq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: mkvaltq
+      logical_type: DECIMAL(18,4)
+      nullable: true
+    - name: prccq
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: prchq
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: prclq
+      logical_type: DECIMAL(24,12)
+      nullable: true
+    - name: adjex
+      logical_type: DECIMAL(24,12)
+      nullable: true
+  revision: replace-with-reviewed-revision
+  retrieved_at: '2026-07-29T10:00:00Z'
+  frequency: quarterly
+  mappings:
+  - canonical_name: gvkey
+    source_columns:
+    - gvkey
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids: []
+  - canonical_name: observed_at
+    source_columns:
+    - datadate
+    canonical_type: DATE
+    required: true
+    unit: null
+    transformation_ids: []
+  - canonical_name: available_at
+    source_columns:
+    - rdq
+    canonical_type: TIMESTAMPTZ
+    required: false
+    unit: null
+    transformation_ids:
+    - available_timestamp
+  - canonical_name: frequency
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - frequency_literal
+  - canonical_name: fiscal_year
+    source_columns:
+    - fyearq
+    canonical_type: INTEGER
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: fiscal_quarter
+    source_columns:
+    - fqtr
+    canonical_type: INTEGER
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: industry_format
+    source_columns:
+    - indfmt
+    canonical_type: VARCHAR
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: consolidation
+    source_columns:
+    - consol
+    canonical_type: VARCHAR
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: population_source
+    source_columns:
+    - popsrc
+    canonical_type: VARCHAR
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: data_format
+    source_columns:
+    - datafmt
+    canonical_type: VARCHAR
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: currency
+    source_columns:
+    - curcdq
+    canonical_type: VARCHAR
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: total_assets
+    source_columns:
+    - atq
+    canonical_type: DECIMAL
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: total_liabilities
+    source_columns:
+    - ltq
+    canonical_type: DECIMAL
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: common_equity
+    source_columns:
+    - ceqq
+    canonical_type: DECIMAL
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: revenue
+    source_columns:
+    - saleq
+    canonical_type: DECIMAL
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: net_income
+    source_columns:
+    - niq
+    canonical_type: DECIMAL
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: source_revision
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - revision_literal
+  - canonical_name: source_digest
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - digest_literal
+  declared_units:
+    total_assets: millions_currency
+    total_liabilities: millions_currency
+    common_equity: millions_currency
+    revenue: millions_currency
+    net_income: millions_currency
+  transformations:
+  - transformation_id: revision_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: replace-with-reviewed-revision
+    disclosure: Attach the reviewed immutable source revision.
+  - transformation_id: digest_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    disclosure: Attach the verified immutable source digest.
+  - transformation_id: available_timestamp
+    operation: timestamp_at_utc
+    version: '1'
+    source_columns:
+    - rdq
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: null
+    disclosure: Convert only the explicit report/publication date to UTC availability.
+  - transformation_id: frequency_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: quarterly
+    disclosure: Preserve annual and quarterly observations as separate frequencies.
+  availability_policy:
+    policy_id: compustat_quarterly_publication
+    version: '1'
+    mode: explicit_publication_field
+    observed_at_field: datadate
+    available_at_field: rdq
+    review_time: 00:00:00Z
+    missing_available_at: exclude
+    terminal_rule: unavailable
+    research_timing_model: true
+    disclosure: datadate is observed_at only. Point-in-time joins use the explicit report/publication
+      field and exclude missing availability.
+- source_name: crsp_delist
+  filename: dsedelist.parquet
+  source_path: /absolute/private/crsp-compustat/dsedelist.parquet
+  source_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  source_kind: crsp_delist
+  schema_fingerprint:
+    digest: sha256:a11efda2aa61bea71838f8babe3c18284cea74ba66724fffed44a1c9e9c888a0
+    algorithm: external_arrow_v1
+    columns:
+    - name: permno
+      logical_type: INTEGER
+      nullable: true
+    - name: dlstdt
+      logical_type: DATE
+      nullable: true
+    - name: dlstcd
+      logical_type: SMALLINT
+      nullable: true
+    - name: nwperm
+      logical_type: INTEGER
+      nullable: true
+    - name: nwcomp
+      logical_type: INTEGER
+      nullable: true
+    - name: nextdt
+      logical_type: DATE
+      nullable: true
+    - name: dlamt
+      logical_type: DECIMAL(11,5)
+      nullable: true
+    - name: dlretx
+      logical_type: DECIMAL(10,6)
+      nullable: true
+    - name: dlprc
+      logical_type: DECIMAL(11,5)
+      nullable: true
+    - name: dlpdt
+      logical_type: DATE
+      nullable: true
+    - name: dlret
+      logical_type: DECIMAL(10,6)
+      nullable: true
+    - name: permco
+      logical_type: INTEGER
+      nullable: true
+    - name: compno
+      logical_type: INTEGER
+      nullable: true
+    - name: issuno
+      logical_type: INTEGER
+      nullable: true
+    - name: hexcd
+      logical_type: SMALLINT
+      nullable: true
+    - name: hsiccd
+      logical_type: INTEGER
+      nullable: true
+    - name: cusip
+      logical_type: VARCHAR
+      nullable: true
+    - name: acperm
+      logical_type: DOUBLE
+      nullable: true
+    - name: accomp
+      logical_type: DOUBLE
+      nullable: true
+  revision: replace-with-reviewed-revision
+  retrieved_at: '2026-07-29T10:00:00Z'
+  frequency: event
+  mappings:
+  - canonical_name: permno
+    source_columns:
+    - permno
+    canonical_type: BIGINT
+    required: true
+    unit: null
+    transformation_ids: []
+  - canonical_name: permco
+    source_columns:
+    - permco
+    canonical_type: BIGINT
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: delisting_date
+    source_columns:
+    - dlstdt
+    canonical_type: DATE
+    required: true
+    unit: null
+    transformation_ids: []
+  - canonical_name: delisting_code
+    source_columns:
+    - dlstcd
+    canonical_type: SMALLINT
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: delisting_price
+    source_columns:
+    - dlprc
+    canonical_type: DECIMAL
+    required: false
+    unit: USD
+    transformation_ids: []
+  - canonical_name: delisting_return
+    source_columns:
+    - dlret
+    canonical_type: DECIMAL
+    required: false
+    unit: ratio
+    transformation_ids: []
+  - canonical_name: delisting_return_ex_distributions
+    source_columns:
+    - dlretx
+    canonical_type: DECIMAL
+    required: false
+    unit: ratio
+    transformation_ids: []
+  - canonical_name: source_revision
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - revision_literal
+  - canonical_name: source_digest
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - digest_literal
+  declared_units:
+    delisting_price: USD
+    delisting_return: ratio
+    delisting_return_ex_distributions: ratio
+  transformations:
+  - transformation_id: revision_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: replace-with-reviewed-revision
+    disclosure: Attach the reviewed immutable source revision.
+  - transformation_id: digest_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    disclosure: Attach the verified immutable source digest.
+  availability_policy:
+    policy_id: delist_not_applicable
+    version: '1'
+    mode: not_applicable
+    observed_at_field: null
+    available_at_field: null
+    review_time: null
+    missing_available_at: exclude
+    terminal_rule: unavailable
+    research_timing_model: true
+    disclosure: Delisting fields are preserved without imputing missing returns.
+- source_name: crsp_stock_names
+  filename: stocknames.parquet
+  source_path: /absolute/private/crsp-compustat/stocknames.parquet
+  source_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  source_kind: crsp_stock_names
+  schema_fingerprint:
+    digest: sha256:b1f26c957505f39c0c83d4bffd3c2b2a937aae353748ae333d673a5713994e2e
+    algorithm: external_arrow_v1
+    columns:
+    - name: permno
+      logical_type: INTEGER
+      nullable: true
+    - name: namedt
+      logical_type: DATE
+      nullable: true
+    - name: nameenddt
+      logical_type: DATE
+      nullable: true
+    - name: shrcd
+      logical_type: SMALLINT
+      nullable: true
+    - name: exchcd
+      logical_type: SMALLINT
+      nullable: true
+    - name: siccd
+      logical_type: INTEGER
+      nullable: true
+    - name: ncusip
+      logical_type: VARCHAR
+      nullable: true
+    - name: ticker
+      logical_type: VARCHAR
+      nullable: true
+    - name: comnam
+      logical_type: VARCHAR
+      nullable: true
+    - name: shrcls
+      logical_type: VARCHAR
+      nullable: true
+    - name: permco
+      logical_type: INTEGER
+      nullable: true
+    - name: hexcd
+      logical_type: SMALLINT
+      nullable: true
+    - name: cusip
+      logical_type: VARCHAR
+      nullable: true
+    - name: st_date
+      logical_type: DATE
+      nullable: true
+    - name: end_date
+      logical_type: DATE
+      nullable: true
+    - name: namedum
+      logical_type: DOUBLE
+      nullable: true
+  revision: replace-with-reviewed-revision
+  retrieved_at: '2026-07-29T10:00:00Z'
+  frequency: date_effective
+  mappings:
+  - canonical_name: permno
+    source_columns:
+    - permno
+    canonical_type: BIGINT
+    required: true
+    unit: null
+    transformation_ids: []
+  - canonical_name: permco
+    source_columns:
+    - permco
+    canonical_type: BIGINT
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: valid_from
+    source_columns:
+    - namedt
+    canonical_type: DATE
+    required: true
+    unit: null
+    transformation_ids: []
+  - canonical_name: valid_to
+    source_columns:
+    - nameenddt
+    canonical_type: DATE
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: share_code
+    source_columns:
+    - shrcd
+    canonical_type: SMALLINT
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: exchange_code
+    source_columns:
+    - exchcd
+    canonical_type: SMALLINT
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: industry_code
+    source_columns:
+    - siccd
+    canonical_type: INTEGER
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: ncusip
+    source_columns:
+    - ncusip
+    canonical_type: VARCHAR
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: ticker
+    source_columns:
+    - ticker
+    canonical_type: VARCHAR
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: company_name
+    source_columns:
+    - comnam
+    canonical_type: VARCHAR
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: share_class
+    source_columns:
+    - shrcls
+    canonical_type: VARCHAR
+    required: false
+    unit: null
+    transformation_ids: []
+  - canonical_name: source_revision
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - revision_literal
+  - canonical_name: source_digest
+    source_columns: []
+    canonical_type: VARCHAR
+    required: true
+    unit: null
+    transformation_ids:
+    - digest_literal
+  declared_units: {}
+  transformations:
+  - transformation_id: revision_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: replace-with-reviewed-revision
+    disclosure: Attach the reviewed immutable source revision.
+  - transformation_id: digest_literal
+    operation: literal_value
+    version: '1'
+    source_columns: []
+    target_type: null
+    scale_factor: null
+    scale_column: null
+    scale_direction: null
+    null_values: []
+    date_format: null
+    literal: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    disclosure: Attach the verified immutable source digest.
+  availability_policy:
+    policy_id: stock_names_date_effective
+    version: '1'
+    mode: not_applicable
+    observed_at_field: null
+    available_at_field: null
+    review_time: null
+    missing_available_at: exclude
+    terminal_rule: unavailable
+    research_timing_model: true
+    disclosure: Security metadata is selected by its full date-effective interval, never latest row only.
+link_policy:
+  policy_id: ccm_explicit_date_effective
+  version: '1'
+  allowed_link_types:
+  - LC
+  - LU
+  - LS
+  - UNSPECIFIED
+  allowed_primary_values:
+  - P
+  - C
+  - UNSPECIFIED
+  ambiguous_eligible_links: reject
+  join_keys: gvkey_permno
+  date_rule: link_start <= market_date <= coalesce(link_end, infinity)
+  ticker_fallback: false
+  name_fallback: false
+  cusip_fallback: false
+  fuzzy_matching: false
+  nearest_date_fallback: false
+limitations:
+- 'EXAMPLE ONLY: replace every absolute source path, digest, revision and retrieved_at, then complete
+  human review.'
+- Local licensed research data only; no public redistribution.
+- Market availability is a research timing model; final source dates remain unavailable.
+- RET and DLRET remain separate and no missing delisting return is imputed.

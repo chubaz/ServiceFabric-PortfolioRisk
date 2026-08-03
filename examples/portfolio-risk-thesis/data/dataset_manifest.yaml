@@ -1,0 +1,58 @@
+dataset_id: synthetic-thesis-day1
+revision: "2026-07-28.2"
+profile: synthetic_local
+publication_state: synthetic_reviewed
+synthetic: true
+synthetic_disclosure: "All rows are deterministic, reviewed, fictional synthetic research inputs."
+market:
+  file: "../../../data/fixtures/synthetic/thesis-day1/market.parquet"
+  digest: "sha256:90ac4c0e584d819b4174bbcc4e2ee05e146873616d4a55776c3f677b09e56b72"
+  row_count: 1040
+  coverage:
+    start: "2024-01-02T16:00:00Z"
+    end: "2024-07-01T16:00:00Z"
+  required_columns:
+    - instrument_id
+    - timestamp
+    - available_at
+    - close
+    - adjusted_close
+    - volume
+    - currency
+    - source_id
+    - fixture_revision
+    - content_digest
+    - units
+    - quality_state
+    - limitations
+    - synthetic
+    - evidence_ref
+  quality_warnings:
+    - "One adjusted_close is intentionally missing and flagged warning; close remains present and is never replaced with zero."
+events:
+  file: "../../../data/fixtures/synthetic/thesis-day1/events.parquet"
+  digest: "sha256:84a83a2f0371a5d98845656dd20932a51f05abd2f7acf24414f3085a9fb64c22"
+  row_count: 24
+  coverage:
+    start: "2024-01-08T10:00:00Z"
+    end: "2024-06-25T10:00:00Z"
+  required_columns:
+    - event_id
+    - event_time
+    - available_at
+    - entity_id
+    - instrument_ids
+    - headline
+    - short_text
+    - sentiment
+    - relevance
+    - source_id
+    - fixture_revision
+    - content_digest
+    - units
+    - quality_state
+    - limitations
+    - evidence_ref
+    - synthetic
+  quality_warnings:
+    - "Event availability may lag event time; replay visibility is governed only by available_at."

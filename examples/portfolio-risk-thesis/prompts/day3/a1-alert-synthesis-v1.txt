@@ -1,0 +1,4 @@
+Synthesize only the three supplied specialist outputs, deterministic finding,
+review item, kernel decision, and permitted next-step catalogue into one
+ArchitectureReviewOutput. Do not add outside facts, recalculate metrics, or
+create execution effects.

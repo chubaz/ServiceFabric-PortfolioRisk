@@ -200,6 +200,17 @@ Do not use:
 
 No secret directory is granted to Codex.
 
+## Thesis Sprint Day 3 model boundary
+
+Day 3 may use only the thesis-specific, explicitly selected structured model
+provider. Public CI uses the deterministic fixture provider and has no network
+access. An OpenAI Responses provider is permitted only for explicitly
+authorized local runs with `OPENAI_API_KEY` supplied from the environment;
+there is no provider fallback. Requests contain only private-neutral aliases,
+derived metrics, curated summaries, and evidence IDs. They never contain
+licensed rows, PERMNO, GVKEY, local paths, credentials, or chain-of-thought.
+All outputs are effect-free and require human review.
+
 ## Day 2–3 three-part programme
 
 The completed Part 1 workplan is
@@ -236,6 +247,71 @@ expressions, fuzzy or ticker-based entity matching, look-ahead, external
 providers, external LLMs, broker connectivity, orders, trades, and automatic
 rebalancing. Cadence is metadata only; all consequential actions require
 explicit human review.
+
+## Thesis Sprint four-day experiment
+
+The active experiment uses the separate `thesis-sprint` namespace and begins
+from tag `day23-complete`. It does not reopen or modify the completed Day 0,
+Day 1, or Day 2–3 lifecycle records. Lifecycle state is authoritative in
+`config/agent/thesis-sprint/status.json`, and the active workplan is named by
+`docs/workplans/current.md`.
+
+Thesis Sprint has exactly five branches and lanes:
+
+- integration authority: `integration/thesis-experiment`;
+- Day 1 specialist: `feature/thesis-day1`;
+- Day 2 specialist: `feature/thesis-day2`;
+- Day 3 specialist: `feature/thesis-day3`;
+- Day 4 specialist: `feature/thesis-day4`.
+
+Ownership is frozen in `config/agent/thesis-sprint/lanes.json`. Each specialist
+may change only its declared directories and exact handoff file and stops
+without merge. Integration owns the control plane, CI, shared contracts and
+architecture, cross-module thesis tests, lifecycle state, and merge decisions.
+
+The Day 1 specialist branch starts from the reviewed integration control-plane
+commit that first adds `config/agent/thesis-sprint/status.json`, not directly
+from `day23-complete`. The tag remains the experiment baseline. Specialist
+lane validation ends at the exact candidate head recorded in the handoff so
+integration-owned acceptance changes are excluded from the lane range.
+
+Thesis Day 1 uses fixed portfolio quantities and deterministic in-process
+historical replay. Parquet is storage, not replay. Point-in-time filtering
+requires `available_at <= as_of`; all timestamps are timezone-aware UTC, and
+missing availability is never guessed. Generated mutable artifacts remain
+outside Git beneath `THESIS_DATA_ROOT`. Only explicitly synthetic reviewed
+fixtures may be committed.
+
+Day 1 implements no LLM or agent architecture. The B0, B1, and A1 comparison
+is later work. Kafka, Redis, WebSocket, schedulers, network providers, broker
+connectivity, orders, trades, rebalancing, optimization, and portfolio
+mutation effects are prohibited.
+
+Thesis Day 4 reuses the accepted Day 2 deterministic metrics and decision
+kernel and the accepted Day 3 B0, B1, and A1 treatments. It does not define a
+second architecture runner, duplicate calculations or treatments, add a
+dependency or frontend framework, modify `apps/**`, or add another large
+interactive shell script. One reviewed manifest drives a resumable experiment
+runner. Generated private or real results, labels, pricing, receipts, reports,
+charts, and the offline static dashboard remain immutable external artifacts
+beneath the reviewed private root. Reviewed synthetic Day 4 fixtures are the
+only Git exception.
+
+The frozen Day 4 primary panel contains exactly three reviewed portfolios,
+three predeclared non-overlapping windows, five reviewed daily-close dates per
+window, 45 portfolio-day contexts, and 135 B0/B1/A1 primary results. The
+repeatability panel contains nine predeclared anchors and 18 additional B1/A1
+results; B0 is deterministic and is not recalled. The maximum authorized model
+call budget is 270. Labels are unavailable until architecture execution is
+complete and no label path or value may enter an architecture input or model
+payload.
+
+Day 4 evaluation is descriptive. It has no significance test, winner field,
+architecture recommendation, predictive claim, investment-performance claim,
+or automatic release decision. Provider errors are execution failures, not
+abstentions, and an accepted real run requires zero provider errors.
+Consequential actions remain prohibited and Day 4 completes only after
+explicit human QA.
 
 ## Completion report
 

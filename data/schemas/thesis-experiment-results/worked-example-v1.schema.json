@@ -1,0 +1,54 @@
+{
+  "$id": "https://servicefabric.local/schemas/thesis-experiment-results/worked-example-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact": {
+      "minLength": 1,
+      "title": "Artifact",
+      "type": "string"
+    },
+    "evidence_refs": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "example_id": {
+      "title": "Example Id",
+      "type": "string"
+    },
+    "label_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Label Digest",
+      "type": "string"
+    },
+    "rule": {
+      "enum": [
+        "earliest_true_positive_stress_a",
+        "earliest_true_positive_stress_b",
+        "highest_severity_true_positive_different_portfolio",
+        "earliest_false_positive_or_failure",
+        "earliest_abstention"
+      ],
+      "title": "Rule",
+      "type": "string"
+    },
+    "task_id": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Task Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "example_id",
+    "rule",
+    "task_id",
+    "label_digest",
+    "artifact"
+  ],
+  "title": "WorkedExample",
+  "type": "object"
+}

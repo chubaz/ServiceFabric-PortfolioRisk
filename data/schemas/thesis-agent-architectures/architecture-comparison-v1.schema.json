@@ -1,0 +1,456 @@
+{
+  "$defs": {
+    "ArchitectureReviewOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "affected_positions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Positions",
+          "type": "array"
+        },
+        "architecture_id": {
+          "enum": [
+            "B0",
+            "B1",
+            "A1"
+          ],
+          "title": "Architecture Id",
+          "type": "string"
+        },
+        "contradictory_claims": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StructuredClaim"
+          },
+          "title": "Contradictory Claims",
+          "type": "array"
+        },
+        "effects": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Effects",
+          "type": "array"
+        },
+        "event_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Refs",
+          "type": "array"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "human_review_required": {
+          "const": true,
+          "default": true,
+          "title": "Human Review Required",
+          "type": "boolean"
+        },
+        "metric_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Metric Refs",
+          "type": "array"
+        },
+        "output_digest": {
+          "default": "",
+          "title": "Output Digest",
+          "type": "string"
+        },
+        "recommended_next_steps": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Recommended Next Steps",
+          "type": "array"
+        },
+        "severity": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Severity",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "NO_ISSUE",
+            "REVIEW",
+            "URGENT_REVIEW",
+            "ABSTAIN",
+            "ABSTAINED_AGENT_OUTPUT"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "supporting_claims": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StructuredClaim"
+          },
+          "title": "Supporting Claims",
+          "type": "array"
+        },
+        "uncertainties": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Uncertainties",
+          "type": "array"
+        }
+      },
+      "required": [
+        "architecture_id",
+        "status",
+        "severity",
+        "summary"
+      ],
+      "title": "ArchitectureReviewOutput",
+      "type": "object"
+    },
+    "ArchitectureRun": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture_id": {
+          "enum": [
+            "B0",
+            "B1",
+            "A1"
+          ],
+          "title": "Architecture Id",
+          "type": "string"
+        },
+        "context_digest": {
+          "title": "Context Digest",
+          "type": "string"
+        },
+        "critic": {
+          "$ref": "#/$defs/CriticReport"
+        },
+        "output": {
+          "$ref": "#/$defs/ArchitectureReviewOutput"
+        },
+        "receipts": {
+          "items": {
+            "$ref": "#/$defs/ModelCallReceipt"
+          },
+          "title": "Receipts",
+          "type": "array"
+        },
+        "specialist_outputs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SpecialistAgentOutput"
+          },
+          "title": "Specialist Outputs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "architecture_id",
+        "context_digest",
+        "output",
+        "critic",
+        "receipts"
+      ],
+      "title": "ArchitectureRun",
+      "type": "object"
+    },
+    "CriticReport": {
+      "additionalProperties": false,
+      "properties": {
+        "original_output_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Original Output Digest",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "violations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CriticViolation"
+          },
+          "title": "Violations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "passed",
+        "original_output_digest"
+      ],
+      "title": "CriticReport",
+      "type": "object"
+    },
+    "CriticViolation": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "CriticViolation",
+      "type": "object"
+    },
+    "ModelCallReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture_id": {
+          "enum": [
+            "B0",
+            "B1",
+            "A1"
+          ],
+          "title": "Architecture Id",
+          "type": "string"
+        },
+        "elapsed_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "integer"
+        },
+        "input_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "model_id": {
+          "title": "Model Id",
+          "type": "string"
+        },
+        "output_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "parsed_output_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Parsed Output Digest",
+          "type": "string"
+        },
+        "prompt_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Prompt Digest",
+          "type": "string"
+        },
+        "provider_id": {
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "raw_response_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Raw Response Digest",
+          "type": "string"
+        },
+        "request_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Request Digest",
+          "type": "string"
+        },
+        "response_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Id"
+        },
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "provider_id",
+        "model_id",
+        "architecture_id",
+        "role_id",
+        "prompt_digest",
+        "request_digest",
+        "raw_response_digest",
+        "parsed_output_digest"
+      ],
+      "title": "ModelCallReceipt",
+      "type": "object"
+    },
+    "SpecialistAgentOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "output": {
+          "$ref": "#/$defs/ArchitectureReviewOutput"
+        },
+        "role_id": {
+          "title": "Role Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role_id",
+        "output"
+      ],
+      "title": "SpecialistAgentOutput",
+      "type": "object"
+    },
+    "StructuredClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "affected_positions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Positions",
+          "type": "array"
+        },
+        "claim_id": {
+          "minLength": 1,
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "claim_type": {
+          "enum": [
+            "metric",
+            "event",
+            "portfolio",
+            "interpretation"
+          ],
+          "title": "Claim Type",
+          "type": "string"
+        },
+        "event_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Ref"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "metric_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metric Ref"
+        },
+        "reported_metric_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reported Metric Value"
+        },
+        "statement": {
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_id",
+        "statement",
+        "claim_type"
+      ],
+      "title": "StructuredClaim",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "context_digest": {
+      "title": "Context Digest",
+      "type": "string"
+    },
+    "runs": {
+      "items": {
+        "$ref": "#/$defs/ArchitectureRun"
+      },
+      "title": "Runs",
+      "type": "array"
+    }
+  },
+  "required": [
+    "context_digest",
+    "runs"
+  ],
+  "title": "ArchitectureComparison",
+  "type": "object"
+}

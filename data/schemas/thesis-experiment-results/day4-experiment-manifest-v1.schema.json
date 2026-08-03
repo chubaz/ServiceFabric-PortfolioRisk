@@ -1,0 +1,669 @@
+{
+  "$defs": {
+    "Day4InputBindings": {
+      "additionalProperties": false,
+      "properties": {
+        "coverage_profile": {
+          "$ref": "#/$defs/ExternalArtifactBinding"
+        },
+        "day2_experiment_manifest": {
+          "$ref": "#/$defs/ExternalArtifactBinding"
+        },
+        "day3_acceptance_run": {
+          "$ref": "#/$defs/ExternalArtifactBinding"
+        },
+        "day3_event_dataset": {
+          "$ref": "#/$defs/ExternalArtifactBinding"
+        },
+        "day3_event_manifest": {
+          "$ref": "#/$defs/ExternalArtifactBinding"
+        },
+        "day3_model_config": {
+          "$ref": "#/$defs/ExternalArtifactBinding"
+        },
+        "pricing_manifest": {
+          "$ref": "#/$defs/ExternalArtifactBinding"
+        }
+      },
+      "required": [
+        "coverage_profile",
+        "day2_experiment_manifest",
+        "day3_event_manifest",
+        "day3_event_dataset",
+        "day3_model_config",
+        "day3_acceptance_run",
+        "pricing_manifest"
+      ],
+      "title": "Day4InputBindings",
+      "type": "object"
+    },
+    "Day4LabelPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "future_business_sessions": {
+          "const": 5,
+          "default": 5,
+          "title": "Future Business Sessions",
+          "type": "integer"
+        },
+        "future_portfolio_drawdown_threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Future Portfolio Drawdown Threshold"
+        },
+        "future_realized_volatility_threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Future Realized Volatility Threshold"
+        },
+        "matching_lookback_business_days": {
+          "exclusiveMinimum": 0,
+          "title": "Matching Lookback Business Days",
+          "type": "integer"
+        },
+        "material_event_enabled": {
+          "title": "Material Event Enabled",
+          "type": "boolean"
+        },
+        "primary_label_view": {
+          "const": "event_window",
+          "default": "event_window",
+          "title": "Primary Label View",
+          "type": "string"
+        },
+        "sensitivity_label_views": {
+          "default": [
+            "outcome",
+            "composite"
+          ],
+          "items": {
+            "enum": [
+              "outcome",
+              "composite"
+            ],
+            "type": "string"
+          },
+          "title": "Sensitivity Label Views",
+          "type": "array"
+        },
+        "worst_position_loss_threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Worst Position Loss Threshold"
+        }
+      },
+      "required": [
+        "future_portfolio_drawdown_threshold",
+        "future_realized_volatility_threshold",
+        "worst_position_loss_threshold",
+        "material_event_enabled",
+        "matching_lookback_business_days"
+      ],
+      "title": "Day4LabelPolicy",
+      "type": "object"
+    },
+    "Day4RepeatabilityPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "additional_repetitions": {
+          "const": 1,
+          "default": 1,
+          "title": "Additional Repetitions",
+          "type": "integer"
+        },
+        "anchors": {
+          "items": {
+            "$ref": "#/$defs/PortfolioDayKey"
+          },
+          "maxItems": 9,
+          "minItems": 9,
+          "title": "Anchors",
+          "type": "array"
+        },
+        "architectures": {
+          "default": [
+            "B1",
+            "A1"
+          ],
+          "items": {
+            "enum": [
+              "B0",
+              "B1",
+              "A1"
+            ],
+            "type": "string"
+          },
+          "title": "Architectures",
+          "type": "array"
+        },
+        "expected_additional_model_calls": {
+          "const": 45,
+          "default": 45,
+          "title": "Expected Additional Model Calls",
+          "type": "integer"
+        },
+        "expected_additional_observations": {
+          "const": 18,
+          "default": 18,
+          "title": "Expected Additional Observations",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "anchors"
+      ],
+      "title": "Day4RepeatabilityPolicy",
+      "type": "object"
+    },
+    "Day4WindowSet": {
+      "additionalProperties": false,
+      "properties": {
+        "window_set_digest": {
+          "default": "",
+          "title": "Window Set Digest",
+          "type": "string"
+        },
+        "windows": {
+          "items": {
+            "$ref": "#/$defs/HistoricalWindow"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Windows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "windows"
+      ],
+      "title": "Day4WindowSet",
+      "type": "object"
+    },
+    "ExternalArtifactBinding": {
+      "additionalProperties": false,
+      "description": "An immutable local input reference; never part of a provider payload.",
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "kind": {
+          "default": "file",
+          "enum": [
+            "file",
+            "tree"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "scope": {
+          "default": "external",
+          "enum": [
+            "external",
+            "repository_fixture"
+          ],
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "digest"
+      ],
+      "title": "ExternalArtifactBinding",
+      "type": "object"
+    },
+    "HistoricalWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "stress",
+            "control"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "relevant_portfolios": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Relevant Portfolios",
+          "type": "array"
+        },
+        "review_dates": {
+          "items": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 5,
+          "title": "Review Dates",
+          "type": "array"
+        },
+        "trigger_available_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trigger Available At"
+        },
+        "window_id": {
+          "enum": [
+            "stress_a",
+            "stress_b",
+            "control"
+          ],
+          "title": "Window Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "window_id",
+        "kind",
+        "rationale",
+        "review_dates"
+      ],
+      "title": "HistoricalWindow",
+      "type": "object"
+    },
+    "ModelConfiguration": {
+      "additionalProperties": false,
+      "properties": {
+        "maximum_output_tokens": {
+          "exclusiveMinimum": 0,
+          "title": "Maximum Output Tokens",
+          "type": "integer"
+        },
+        "model_id": {
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "model_snapshot": {
+          "minLength": 1,
+          "title": "Model Snapshot",
+          "type": "string"
+        },
+        "prompt_manifest_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Prompt Manifest Digest",
+          "type": "string"
+        },
+        "provider_id": {
+          "enum": [
+            "fixture",
+            "openai_responses"
+          ],
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "response_schema_version": {
+          "const": "v1",
+          "default": "v1",
+          "title": "Response Schema Version",
+          "type": "string"
+        },
+        "retry_count": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Retry Count",
+          "type": "integer"
+        },
+        "store": {
+          "const": false,
+          "default": false,
+          "title": "Store",
+          "type": "boolean"
+        },
+        "temperature": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Temperature"
+        },
+        "temperature_supported": {
+          "default": false,
+          "title": "Temperature Supported",
+          "type": "boolean"
+        },
+        "timeout_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 120,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "tools": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Tools",
+          "type": "array"
+        }
+      },
+      "required": [
+        "provider_id",
+        "model_id",
+        "model_snapshot",
+        "prompt_manifest_digest",
+        "maximum_output_tokens",
+        "timeout_seconds",
+        "retry_count"
+      ],
+      "title": "ModelConfiguration",
+      "type": "object"
+    },
+    "PortfolioDayKey": {
+      "additionalProperties": false,
+      "properties": {
+        "as_of": {
+          "format": "date-time",
+          "title": "As Of",
+          "type": "string"
+        },
+        "key_digest": {
+          "default": "",
+          "title": "Key Digest",
+          "type": "string"
+        },
+        "portfolio_id": {
+          "minLength": 1,
+          "title": "Portfolio Id",
+          "type": "string"
+        },
+        "window_id": {
+          "enum": [
+            "stress_a",
+            "stress_b",
+            "control"
+          ],
+          "title": "Window Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "portfolio_id",
+        "window_id",
+        "as_of"
+      ],
+      "title": "PortfolioDayKey",
+      "type": "object"
+    },
+    "ProviderPricingSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "currency": {
+          "maxLength": 3,
+          "minLength": 3,
+          "title": "Currency",
+          "type": "string"
+        },
+        "effective_at": {
+          "format": "date-time",
+          "title": "Effective At",
+          "type": "string"
+        },
+        "input_price_per_million_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Input Price Per Million Tokens"
+        },
+        "model_snapshot": {
+          "minLength": 1,
+          "title": "Model Snapshot",
+          "type": "string"
+        },
+        "output_price_per_million_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Output Price Per Million Tokens"
+        },
+        "pricing_digest": {
+          "default": "",
+          "title": "Pricing Digest",
+          "type": "string"
+        },
+        "provider_id": {
+          "minLength": 1,
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "reviewed": {
+          "const": true,
+          "default": true,
+          "title": "Reviewed",
+          "type": "boolean"
+        },
+        "reviewer": {
+          "minLength": 1,
+          "title": "Reviewer",
+          "type": "string"
+        },
+        "source_reference": {
+          "minLength": 1,
+          "title": "Source Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider_id",
+        "model_snapshot",
+        "currency",
+        "input_price_per_million_tokens",
+        "output_price_per_million_tokens",
+        "effective_at",
+        "source_reference",
+        "reviewer"
+      ],
+      "title": "ProviderPricingSnapshot",
+      "type": "object"
+    }
+  },
+  "$id": "https://servicefabric.local/schemas/thesis-experiment-results/day4-experiment-manifest-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "architectures": {
+      "default": [
+        "B0",
+        "B1",
+        "A1"
+      ],
+      "items": {
+        "enum": [
+          "B0",
+          "B1",
+          "A1"
+        ],
+        "type": "string"
+      },
+      "title": "Architectures",
+      "type": "array"
+    },
+    "effects": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 0,
+      "title": "Effects",
+      "type": "array"
+    },
+    "experiment_id": {
+      "minLength": 1,
+      "title": "Experiment Id",
+      "type": "string"
+    },
+    "human_review_required": {
+      "const": true,
+      "default": true,
+      "title": "Human Review Required",
+      "type": "boolean"
+    },
+    "inputs": {
+      "$ref": "#/$defs/Day4InputBindings"
+    },
+    "label_policy": {
+      "$ref": "#/$defs/Day4LabelPolicy"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "manifest_digest": {
+      "default": "",
+      "title": "Manifest Digest",
+      "type": "string"
+    },
+    "maximum_authorized_model_calls": {
+      "title": "Maximum Authorized Model Calls",
+      "type": "integer"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelConfiguration"
+    },
+    "portfolios": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "Portfolios",
+      "type": "array"
+    },
+    "pricing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProviderPricingSnapshot"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "profile": {
+      "enum": [
+        "synthetic_fixture",
+        "real"
+      ],
+      "title": "Profile",
+      "type": "string"
+    },
+    "repeatability": {
+      "$ref": "#/$defs/Day4RepeatabilityPolicy"
+    },
+    "reviewed": {
+      "const": true,
+      "default": true,
+      "title": "Reviewed",
+      "type": "boolean"
+    },
+    "reviewer": {
+      "minLength": 1,
+      "title": "Reviewer",
+      "type": "string"
+    },
+    "version": {
+      "const": "1",
+      "default": "1",
+      "title": "Version",
+      "type": "string"
+    },
+    "window_set": {
+      "$ref": "#/$defs/Day4WindowSet"
+    },
+    "worked_example_rules": {
+      "default": [
+        "earliest_true_positive_stress_a",
+        "earliest_true_positive_stress_b",
+        "highest_severity_true_positive_different_portfolio",
+        "earliest_false_positive_or_failure",
+        "earliest_abstention"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "title": "Worked Example Rules",
+      "type": "array"
+    }
+  },
+  "required": [
+    "profile",
+    "experiment_id",
+    "reviewer",
+    "portfolios",
+    "window_set",
+    "inputs",
+    "label_policy",
+    "repeatability",
+    "model",
+    "maximum_authorized_model_calls"
+  ],
+  "title": "Day4ExperimentManifest",
+  "type": "object"
+}

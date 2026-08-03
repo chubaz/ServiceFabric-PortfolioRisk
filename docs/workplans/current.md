@@ -1,23 +1,37 @@
 # Current Workplan
 
-- ID: D23-COMPLETE
-- Title: Final human QA, evidence review, release decision, and merge
-- Status: complete
-- QA result: docs/workplans/day-2-3/part-3-soft-qa-result.md
-- Workplan: docs/workplans/day-2-3/part-3-final-qa-release.md
-- Completion: docs/workplans/day-2-3/complete.md
-- Completed prerequisite verification: make verify-d23-phase1
+- ID: THESIS-DEFERRED
+- Title: Thesis experiment closeout without full real panel
+- Status: deferred
+- Namespace: thesis-sprint
+- Workplan: docs/workplans/thesis-sprint/deferred.md
+- Completed experiment day: THESIS-D3
+- Verified public fixture: THESIS-D4
+- Completed baseline: docs/workplans/day-2-3/complete.md
+- Baseline verification: make verify-d23-current
 
-Day 0 and Day 1 remain the reviewed baseline. Part 1 and Part 2 are complete
-through deterministic integration review. The Workbench now stages the four
-allow-listed canonical fixtures into an ephemeral package, regenerates its
-complete digest manifest, and bootstraps the pinned ServiceFabric host against
-that staged manifest. Day 2–3 is complete following the recorded human QA
-pass and release checks. No new implementation scope is activated.
+The prior D23 baseline remains complete, including its recorded human QA and
+release decision. Its lifecycle records are not reopened by this experiment.
 
-The completed Part 1 boundary remains preserved as a governed local research
-data plane, fixed manifests, point-in-time contracts, rights and access
-boundaries, and deterministic verification. Part 2 remains local-only,
-deterministic, effect-free, and subject to the recorded limitations. No provider network,
-external LLM, broker, order, trade, rebalance, or optimization effect is
-enabled.
+Thesis Sprint Day 1, Day 2, and Day 3 are complete. The accepted private evidence
+contains three explicitly reviewed fixed-quantity portfolios, an immutable
+selection receipt, Morning MetricPacks, data-readiness states, deterministic
+findings, review items, decision points, one validated B0/B1/A1 provider run,
+and empty effects.
+
+Day 3 closed after the network-free fixture gate and the explicitly authorized
+local provider gate both passed. B0 made zero model calls, B1 made one, and A1
+made four; invalid or unsupported claims remained deterministic abstentions.
+The complete Day 4 public synthetic fixture and evaluation pipeline passed, but
+the optional 270-call real historical panel was deliberately not run. Human
+scientific QA was therefore not performed and no real-panel result is accepted.
+
+The public gate remains synthetic. Licensed daily-primary evidence and the
+authorized Day 3 provider acceptance run remain local and external to Git.
+Point-in-time filtering, deterministic critics, human review, and empty effects
+remain mandatory. No broker, order, trade, rebalance, optimization, or
+portfolio mutation effect is enabled.
+
+This closeout preserves all infrastructure and evidence required to resume the
+real Day 4 experiment under a future explicit workplan. It does not label the
+deferred experiment complete and does not claim QA, ranking, or release.

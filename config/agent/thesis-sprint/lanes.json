@@ -1,0 +1,82 @@
+{
+  "namespace": "thesis-sprint",
+  "base_tag": "day23-complete",
+  "integration_order": ["day1", "day2", "day3", "day4", "integration"],
+  "lanes": {
+    "integration": {
+      "branch": "integration/thesis-experiment",
+      "allowed_directories": [
+        ".github",
+        "config/agent/thesis-sprint",
+        "docs/workplans/thesis-sprint",
+        "docs/contracts",
+        "docs/architecture/adr",
+        "docs/handoffs/thesis-sprint",
+        "scripts/thesis",
+        "tests/architecture",
+        "tests/integration",
+        "tests/journeys"
+      ],
+      "allowed_files": [
+        "AGENTS.md",
+        "README.md",
+        "Makefile",
+        "docs/workplans/current.md"
+      ]
+    },
+    "day1": {
+      "branch": "feature/thesis-day1",
+      "allowed_directories": [
+        "examples/portfolio-risk-thesis",
+        "data/fixtures/synthetic/thesis-day1",
+        "tests/thesis"
+      ],
+      "allowed_files": [
+        "docs/handoffs/thesis-sprint/day1.md"
+      ]
+    },
+    "day2": {
+      "branch": "feature/thesis-day2",
+      "allowed_directories": [
+        "packages/risk_data",
+        "data/schemas/thesis-real-data",
+        "examples/portfolio-risk-thesis",
+        "tests/data",
+        "tests/thesis"
+      ],
+      "allowed_files": ["docs/handoffs/thesis-sprint/day2.md"]
+    },
+    "day3": {
+      "branch": "feature/thesis-day3",
+      "allowed_directories": [
+        "examples/portfolio-risk-thesis",
+        "data/fixtures/synthetic/thesis-day3",
+        "data/schemas/thesis-agent-architectures",
+        "tests/thesis"
+      ],
+      "allowed_files": ["docs/handoffs/thesis-sprint/day3.md"]
+    },
+    "day4": {
+      "branch": "feature/thesis-day4",
+      "allowed_directories": [
+        "examples/portfolio-risk-thesis",
+        "data/fixtures/synthetic/thesis-day4",
+        "data/schemas/thesis-experiment-results",
+        "tests/thesis"
+      ],
+      "allowed_files": ["docs/handoffs/thesis-sprint/day4.md"]
+    }
+  },
+  "frozen_directories": [
+    "apps",
+    "packages",
+    "connectors",
+    "schemas",
+    "vendor/servicefabric"
+  ],
+  "rules": {
+    "specialist_may_merge": false,
+    "exact_file_allowances_are_not_directories": true,
+    "generated_mutable_artifacts_are_external_to_git": true
+  }
+}

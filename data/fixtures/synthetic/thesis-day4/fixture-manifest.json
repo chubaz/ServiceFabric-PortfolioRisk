@@ -1,0 +1,20 @@
+{
+  "fixture_revision": "2026-07-30.1",
+  "synthetic": true,
+  "artifacts": {
+    "labels.parquet": "sha256:c9a48989398d62b2afadd0b96fbdda1e342a30aa563c5671d5e650cf4dd7e075",
+    "pricing-manifest.yaml": "sha256:857ff016286afaaf03a4b5887ba98713b1e839670aa19bc1129e9726cb3d318a",
+    "windows.json": "sha256:30c9784b77e3664aa4cdbcfda87301f394675bc605d725b06124a9321f1b8b32"
+  },
+  "counts": {
+    "portfolios": 3,
+    "windows": 3,
+    "portfolio_days": 45,
+    "future_outcomes": 45
+  },
+  "limitations": [
+    "Entirely fictional deterministic evidence for test and demonstration use.",
+    "No actual provider, broker, trade, order, rebalance, or portfolio mutation."
+  ],
+  "effects": []
+}

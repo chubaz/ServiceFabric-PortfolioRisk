@@ -200,11 +200,17 @@ def test_day23_completion_state_is_recorded() -> None:
         "base_tag": "day1-complete",
         "programme_version": "3-part-v1",
     }
-    current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8").lower()
-    assert "id: d23-complete" in current
-    assert "status: complete" in current
-    assert "part-3-soft-qa-result.md" in current
-    assert (ROOT / "docs/workplans/day-2-3/complete.md").exists()
+    completion = (ROOT / "docs/workplans/day-2-3/complete.md").read_text(
+        encoding="utf-8"
+    ).lower()
+    assert "day 2–3 completion record" in completion
+    assert "accepted release state" in completion
+    assert "d23-complete" in completion
+    current = (ROOT / "docs/workplans/current.md").read_text(
+        encoding="utf-8"
+    ).lower()
+    assert "id: thesis-deferred" in current
+    assert "prior d23 baseline remains complete" in current
     readme = (ROOT / "README.md").read_text(encoding="utf-8").lower()
     for stale in ("integration completion remains blocked", "part 3 remains queued", "duplicate synthetic csv fixtures"):
         assert stale not in readme

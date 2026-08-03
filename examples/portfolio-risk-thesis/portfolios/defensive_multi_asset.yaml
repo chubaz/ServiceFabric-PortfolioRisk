@@ -1,0 +1,16 @@
+portfolio_id: defensive_multi_asset
+title: Fictional Defensive Multi-Asset Fixed-Quantity Portfolio
+base_currency: USD
+start_date: 2024-01-02
+positions:
+  - {instrument_id: instrument-civic-bond, quantity: "180"}
+  - {instrument_id: instrument-harbor-credit, quantity: "140"}
+  - {instrument_id: instrument-pantry-staples, quantity: "120"}
+  - {instrument_id: instrument-marrow-health, quantity: "90"}
+  - {instrument_id: instrument-sunstone-gold, quantity: "100"}
+  - {instrument_id: instrument-aurora-tech, quantity: "15"}
+cash:
+  - {currency: USD, amount: "12000"}
+benchmark_id: synthetic-defensive-benchmark
+risk_thresholds:
+  - {threshold_id: defensive_asset_floor, value: "0.65"}

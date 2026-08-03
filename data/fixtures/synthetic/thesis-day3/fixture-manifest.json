@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "event-manifest.json": "sha256:2b59a93811f5aab5782cda0ecccee3767b76c40472355096ab896ee31ee0e2a5",
+    "events.parquet": "sha256:e8899b0149f92cc1f374dc76fbde6737254ee81eac4fc13d8beeaba0d2dc6a98",
+    "fixture-model-responses.json": "sha256:34a7a8f3d77aace70374c5bc20bb9c5e11261e96bbb731b14213432417f192c4"
+  },
+  "event_count": 20,
+  "profile": "synthetic_curated",
+  "publication_state": "reviewed",
+  "synthetic": true,
+  "limitations": [
+    "All events and outputs are fictional deterministic test evidence.",
+    "No network, actual model, licensed data, or outcome label is used."
+  ]
+}

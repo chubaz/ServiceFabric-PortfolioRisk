@@ -36,6 +36,7 @@ secrets/
 .local/
 .agent-runs/
 codex/runs/
+apps/portfolio-risk-workbench/labs/generated_agents/
 
 # ServiceFabric runtime state
 .servicefabric/
@@ -53,8 +54,13 @@ data/*
 !data/README.md
 !data/fixtures/
 data/fixtures/*
+!data/fixtures/public/
+!data/fixtures/public/**
 !data/fixtures/synthetic/
 !data/fixtures/synthetic/**
+!data/schemas/
+!data/schemas/thesis-agent-architectures/
+!data/schemas/thesis-agent-architectures/**
 
 # Common provider file formats
 *.sas7bdat

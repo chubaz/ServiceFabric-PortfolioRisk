@@ -1,0 +1,85 @@
+{
+  "$id": "https://servicefabric.local/schemas/thesis-experiment-results/provider-pricing-snapshot-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "currency": {
+      "maxLength": 3,
+      "minLength": 3,
+      "title": "Currency",
+      "type": "string"
+    },
+    "effective_at": {
+      "format": "date-time",
+      "title": "Effective At",
+      "type": "string"
+    },
+    "input_price_per_million_tokens": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Input Price Per Million Tokens"
+    },
+    "model_snapshot": {
+      "minLength": 1,
+      "title": "Model Snapshot",
+      "type": "string"
+    },
+    "output_price_per_million_tokens": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Output Price Per Million Tokens"
+    },
+    "pricing_digest": {
+      "default": "",
+      "title": "Pricing Digest",
+      "type": "string"
+    },
+    "provider_id": {
+      "minLength": 1,
+      "title": "Provider Id",
+      "type": "string"
+    },
+    "reviewed": {
+      "const": true,
+      "default": true,
+      "title": "Reviewed",
+      "type": "boolean"
+    },
+    "reviewer": {
+      "minLength": 1,
+      "title": "Reviewer",
+      "type": "string"
+    },
+    "source_reference": {
+      "minLength": 1,
+      "title": "Source Reference",
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider_id",
+    "model_snapshot",
+    "currency",
+    "input_price_per_million_tokens",
+    "output_price_per_million_tokens",
+    "effective_at",
+    "source_reference",
+    "reviewer"
+  ],
+  "title": "ProviderPricingSnapshot",
+  "type": "object"
+}

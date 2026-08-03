@@ -1,0 +1,146 @@
+version: "1"
+profile: synthetic_fixture
+experiment_id: portfolio-risk-day4-synthetic-fixture-v1
+reviewed: true
+reviewer: synthetic-fixture-reviewer
+portfolios:
+  - defensive_multi_asset
+  - diversified
+  - technology_concentrated
+window_set:
+  windows:
+    - window_id: stress_a
+      kind: stress
+      rationale: Predeclared fictional stress window A.
+      review_dates:
+        - "2024-04-01T17:00:00Z"
+        - "2024-04-02T17:00:00Z"
+        - "2024-04-03T17:00:00Z"
+        - "2024-04-04T17:00:00Z"
+        - "2024-04-05T17:00:00Z"
+      trigger_available_at: "2024-04-01T16:45:00Z"
+      relevant_portfolios:
+        - defensive_multi_asset
+        - diversified
+        - technology_concentrated
+    - window_id: stress_b
+      kind: stress
+      rationale: Predeclared fictional stress window B.
+      review_dates:
+        - "2024-05-13T17:00:00Z"
+        - "2024-05-14T17:00:00Z"
+        - "2024-05-15T17:00:00Z"
+        - "2024-05-16T17:00:00Z"
+        - "2024-05-17T17:00:00Z"
+      trigger_available_at: "2024-05-13T16:45:00Z"
+      relevant_portfolios:
+        - defensive_multi_asset
+        - diversified
+        - technology_concentrated
+    - window_id: control
+      kind: control
+      rationale: Predeclared fictional quiet control window.
+      review_dates:
+        - "2024-06-10T17:00:00Z"
+        - "2024-06-11T17:00:00Z"
+        - "2024-06-12T17:00:00Z"
+        - "2024-06-13T17:00:00Z"
+        - "2024-06-14T17:00:00Z"
+      trigger_available_at: null
+      relevant_portfolios: []
+architectures: [B0, B1, A1]
+inputs:
+  coverage_profile:
+    path: data/fixtures/synthetic/thesis-day4/windows.json
+    digest: sha256:30c9784b77e3664aa4cdbcfda87301f394675bc605d725b06124a9321f1b8b32
+    kind: file
+    scope: repository_fixture
+  day2_experiment_manifest:
+    path: examples/portfolio-risk-thesis/experiments/day2_real.example.yaml
+    digest: sha256:d785d20a947591e9b10f75a60c0f6ced1e3f498053a2693670716c63e91a3f9c
+    kind: file
+    scope: repository_fixture
+  day3_event_manifest:
+    path: data/fixtures/synthetic/thesis-day3/event-manifest.json
+    digest: sha256:2b59a93811f5aab5782cda0ecccee3767b76c40472355096ab896ee31ee0e2a5
+    kind: file
+    scope: repository_fixture
+  day3_event_dataset:
+    path: data/fixtures/synthetic/thesis-day3/events.parquet
+    digest: sha256:e8899b0149f92cc1f374dc76fbde6737254ee81eac4fc13d8beeaba0d2dc6a98
+    kind: file
+    scope: repository_fixture
+  day3_model_config:
+    path: examples/portfolio-risk-thesis/experiments/day3_fixture.yaml
+    digest: sha256:6e63262847b2e2ee030d9f22124883995e890ea042eacd0b698045faed7c0ec8
+    kind: file
+    scope: repository_fixture
+  day3_acceptance_run:
+    path: data/fixtures/synthetic/thesis-day3
+    digest: sha256:2f2b7a2a839aecc518d9cea516c3a611f75b366f0ec839ad0b5a3acd5e8094ee
+    kind: tree
+    scope: repository_fixture
+  pricing_manifest:
+    path: data/fixtures/synthetic/thesis-day4/pricing-manifest.yaml
+    digest: sha256:857ff016286afaaf03a4b5887ba98713b1e839670aa19bc1129e9726cb3d318a
+    kind: file
+    scope: repository_fixture
+label_policy:
+  future_business_sessions: 5
+  future_portfolio_drawdown_threshold: "0.99"
+  future_realized_volatility_threshold: "9.99"
+  worst_position_loss_threshold: "0.99"
+  material_event_enabled: false
+  matching_lookback_business_days: 10
+  primary_label_view: event_window
+  sensitivity_label_views: [outcome, composite]
+repeatability:
+  anchors:
+    - {portfolio_id: defensive_multi_asset, window_id: stress_a, as_of: "2024-04-01T17:00:00Z"}
+    - {portfolio_id: diversified, window_id: stress_a, as_of: "2024-04-01T17:00:00Z"}
+    - {portfolio_id: technology_concentrated, window_id: stress_a, as_of: "2024-04-01T17:00:00Z"}
+    - {portfolio_id: defensive_multi_asset, window_id: stress_b, as_of: "2024-05-13T17:00:00Z"}
+    - {portfolio_id: diversified, window_id: stress_b, as_of: "2024-05-13T17:00:00Z"}
+    - {portfolio_id: technology_concentrated, window_id: stress_b, as_of: "2024-05-13T17:00:00Z"}
+    - {portfolio_id: defensive_multi_asset, window_id: control, as_of: "2024-06-10T17:00:00Z"}
+    - {portfolio_id: diversified, window_id: control, as_of: "2024-06-10T17:00:00Z"}
+    - {portfolio_id: technology_concentrated, window_id: control, as_of: "2024-06-10T17:00:00Z"}
+  architectures: [B1, A1]
+  additional_repetitions: 1
+  expected_additional_observations: 18
+  expected_additional_model_calls: 45
+model:
+  provider_id: fixture
+  model_id: fixture-structured-v1
+  model_snapshot: fixture-structured-v1
+  prompt_manifest_digest: sha256:230f60aed989878c5cf6eb6a9b8f9833dfa46afb1c50d86b3f81b638a220bc40
+  temperature: null
+  temperature_supported: false
+  maximum_output_tokens: 1600
+  timeout_seconds: 30
+  retry_count: 0
+  store: false
+  tools: []
+  response_schema_version: v1
+pricing:
+  reviewed: true
+  provider_id: fixture
+  model_snapshot: fixture-structured-v1
+  currency: USD
+  input_price_per_million_tokens: "0"
+  output_price_per_million_tokens: "0"
+  effective_at: "2026-07-30T00:00:00Z"
+  source_reference: synthetic-fixture-zero-cost
+  reviewer: synthetic-fixture-reviewer
+maximum_authorized_model_calls: 270
+worked_example_rules:
+  - earliest_true_positive_stress_a
+  - earliest_true_positive_stress_b
+  - highest_severity_true_positive_different_portfolio
+  - earliest_false_positive_or_failure
+  - earliest_abstention
+human_review_required: true
+effects: []
+limitations:
+  - Synthetic fixture only; no actual model provider is called.
+  - Two observations per B1/A1 anchor are a preliminary agreement check only.

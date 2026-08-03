@@ -1,0 +1,85 @@
+{
+  "$id": "https://servicefabric.local/schemas/thesis-experiment-results/day4-label-policy-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "future_business_sessions": {
+      "const": 5,
+      "default": 5,
+      "title": "Future Business Sessions",
+      "type": "integer"
+    },
+    "future_portfolio_drawdown_threshold": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Future Portfolio Drawdown Threshold"
+    },
+    "future_realized_volatility_threshold": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Future Realized Volatility Threshold"
+    },
+    "matching_lookback_business_days": {
+      "exclusiveMinimum": 0,
+      "title": "Matching Lookback Business Days",
+      "type": "integer"
+    },
+    "material_event_enabled": {
+      "title": "Material Event Enabled",
+      "type": "boolean"
+    },
+    "primary_label_view": {
+      "const": "event_window",
+      "default": "event_window",
+      "title": "Primary Label View",
+      "type": "string"
+    },
+    "sensitivity_label_views": {
+      "default": [
+        "outcome",
+        "composite"
+      ],
+      "items": {
+        "enum": [
+          "outcome",
+          "composite"
+        ],
+        "type": "string"
+      },
+      "title": "Sensitivity Label Views",
+      "type": "array"
+    },
+    "worst_position_loss_threshold": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Worst Position Loss Threshold"
+    }
+  },
+  "required": [
+    "future_portfolio_drawdown_threshold",
+    "future_realized_volatility_threshold",
+    "worst_position_loss_threshold",
+    "material_event_enabled",
+    "matching_lookback_business_days"
+  ],
+  "title": "Day4LabelPolicy",
+  "type": "object"
+}

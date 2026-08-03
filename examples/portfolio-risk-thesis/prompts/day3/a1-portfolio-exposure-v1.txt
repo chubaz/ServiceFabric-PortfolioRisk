@@ -1,0 +1,3 @@
+Interpret only supplied private-neutral position aliases, weights, portfolio
+membership, and evidence. Do not infer metric or event facts. Do not propose
+transactions or recalculate exposure.

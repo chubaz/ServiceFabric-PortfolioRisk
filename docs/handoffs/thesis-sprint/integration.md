@@ -1,0 +1,248 @@
+# Thesis Sprint integration handoff — Day 2 closure
+
+## Lane and branch
+
+- Lane: `integration`
+- Branch: `integration/thesis-experiment`
+- Experiment baseline: `day23-complete`
+  (`6ea08f6b7b88f5759808f2b30466ccdcd106919f`)
+- Control-plane base:
+  `aaad2c5fb6f13286c9c1478f39c6e10a5a567cf6`
+- Accepted specialist candidate:
+  `433ee994998afd3c7e79cd1169ddcdd24e19960f`
+- Merge commit: `8280a63`
+- Accepted Day 2 specialist candidate:
+  `ba884cd4d84c15ebe9ada42fe60b39b650860dd1`
+- Day 2 merge commit: `7efabf5c5a0c50f9ae5111978936ad55765eb37f`
+- Integration head: closeout commit recorded after this handoff
+- Lifecycle: Day 1 and Day 2 complete; `THESIS-D3` queued
+
+## Files
+
+The accepted candidate added the reviewed synthetic fixture and Day 1 package
+beneath `data/fixtures/synthetic/thesis-day1/**`,
+`examples/portfolio-risk-thesis/**`, and `tests/thesis/**`, plus the exact
+specialist handoff `docs/handoffs/thesis-sprint/day1.md`.
+
+Day 1 closure changes are limited to these integration-owned paths:
+
+- `.github/workflows/thesis-sprint.yml`
+- `Makefile`
+- `README.md`
+- `config/agent/thesis-sprint/status.json`
+- `docs/handoffs/thesis-sprint/integration.md`
+- `docs/workplans/current.md`
+- `docs/workplans/thesis-sprint/day-1-data-portfolios-replay.md`
+- `scripts/thesis/run_day1_demo.py`
+- `tests/architecture/test_day23_control_plane.py`
+- `tests/architecture/test_overlay_boundaries.py`
+- `tests/architecture/test_thesis_sprint_control_plane.py`
+- `tests/data/test_day23_research_data_plane.py`
+- `tests/journeys/test_thesis_day1_vertical_slice.py`
+
+The pre-existing integration edits in
+`tests/architecture/test_day1_preparation.py` and
+`tests/architecture/test_day23_control_plane.py` were preserved; only the
+active Thesis pointer assertion in the latter advanced from `THESIS-D1` to
+`THESIS-D2`.
+
+The historical data-suite fixture assertion is a repository-wide binary-data
+boundary despite its older `tests/data` location. Its exact allowlist now
+includes only the accepted Thesis Day 1 Parquet fixtures; no data package or
+fixture changed during closure.
+
+Historical journey targets now select non-Thesis journey files explicitly,
+while `test-thesis-journeys` owns `test_thesis*.py`. This prevents cross-
+environment collection without skipping any journey.
+
+The completed D23 lane check now ends at immutable tag `day23-complete`
+instead of the later Thesis branch head, preserving its historical evidence
+range and excluding Thesis-owned paths.
+
+## Tests
+
+- `make preflight`: PASS.
+- `make test-thesis-control`: PASS (`16 passed`).
+- `make test-thesis-journeys`: PASS (`1 passed`).
+- `make verify-thesis-day1`: PASS, including the complete D23 baseline,
+  `16` Thesis control tests, `20` specialist tests, `2` vertical-slice tests,
+  fixture digests, the exact specialist range, and whitespace checks.
+- `make demo-thesis-day1`: PASS; wrote the content-addressed external bundle
+  for run `sha256:f9b855df8c7b016e32c16fd11e3de71623802469922c7aaaef6cc3037ec27e81`.
+- `git diff --check`: PASS.
+- `git -C vendor/servicefabric status --short`: clean.
+
+The completion gate preserves the completed D23 baseline, runs all Thesis
+control, specialist, integration, and journey tests, validates fixture
+digests, checks the exact specialist lane range, and validates whitespace.
+
+## Evidence
+
+The vertical-slice journey runs all three fixed-quantity portfolios through
+all five configured daily replay steps. Every step verifies deterministic run
+identity and order, market and event point-in-time eligibility, latest-price
+selection, canonical `portfolio.snapshot.create` and
+`portfolio.exposure.summarize` invocation, immutable snapshot creation,
+positive and reconciled NAV, reconciled position and cash weights, empty
+effects, and absence of broker, order, trade, and rebalance objects.
+
+The integration demo writes these immutable siblings beneath
+`THESIS_DATA_ROOT/day1/<run_id>`:
+
+- `dataset-metadata.json`
+- `instrument-map.json`
+- `portfolio-definitions.json`
+- `replay-specification.json`
+- `replay-steps.json`
+- `portfolio-snapshots.json`
+- `exposure-snapshots.json`
+- `nav-and-weights.json`
+- `run-manifest.json`
+- `evidence-manifest.json`
+
+The journey executes the complete demo in two separate temporary roots and
+requires byte-identical semantic artifacts, IDs, and digests. The evidence
+manifest digests every other sibling artifact, and Git status must remain
+unchanged. Standard runs derive and record a canonical software revision from
+the execution sources, canonical dependencies, package metadata, and locked
+environment; an explicitly supplied non-empty revision remains authoritative.
+
+## Deviations
+
+The specialist demo remains available as its focused compact example. The
+required acceptance evidence bundle is produced by the integration-owned
+`scripts/thesis/run_day1_demo.py`. The Thesis package path now explicitly
+includes `packages/risk_planning/src`, removing reliance on the package-local
+import fallback for the canonical capability registry.
+
+## Limitations
+
+All inputs and outputs are fictional and synthetic and are not investment
+advice. Day 1 provides only fixed-quantity replay, canonical portfolio
+snapshots, exposure summaries, NAV, and weights. It contains no metrics,
+findings, decision kernel, agents, B0/B1/A1 treatments, architecture
+comparison, evaluation, external provider, external LLM, broker, order, trade,
+rebalance, optimization, or portfolio mutation effect. Soft QA remains queued.
+
+## Blockers
+
+None.
+
+## Rollback
+
+Revert only the integration closure paths listed above, restore
+`config/agent/thesis-sprint/status.json` and `docs/workplans/current.md` to
+`THESIS-D1` in progress, and leave the accepted specialist merge and completed
+historical lifecycle records intact. Generated demo evidence is external and
+may be removed by deleting its exact `THESIS_DATA_ROOT/day1/<run_id>`
+directory; no Git path is involved.
+
+## Accepted Day 2 bridge checkpoint
+
+The accepted `feature/thesis-day2` checkpoint implements the local licensed
+CRSP/Compustat bridge and CLI. Its daily-primary and monthly-smoke builds were
+completed locally under human authorization; licensed data and generated
+snapshots remain external. The candidate-universe artifact is the final
+currently implemented artifact. Metrics remain queued.
+
+## Exact specialist entry point
+
+The Day 2 specialist must read
+`docs/workplans/thesis-sprint/day-2-portfolio-definition.md` and
+`docs/contracts/thesis-real-portfolio-selection-v0.1.md`. Start from the
+candidate-universe artifact and implement only the human-reviewed selection
+YAML to fixed-quantity `PortfolioDefinition` YAML validation flow. The system
+must never choose securities or quantities. Run:
+
+```bash
+make verify-thesis-day1
+```
+
+No metrics, selection algorithm, optimizer, broker, order, trade, rebalance,
+or portfolio mutation is part of this entry point.
+
+## Accepted Day 2 portfolio checkpoint
+
+Specialist candidate `bf23f94` was accepted in merge commit `f9cf082`. It adds
+the private candidate-artifact v2 contract, human-reviewed selection contracts,
+interactive local review wizard, immutable fixed-quantity materialization,
+receipt validation, privacy boundaries, and focused regression coverage.
+
+The licensed local acceptance run produced 250 candidate evidence records,
+three explicitly human-reviewed portfolio definitions, immutable receipt
+`portfolio_receipt_38fae77d7b5c702a0559b0b4`, and `effects = 0`. Receipt
+validation passed on both the specialist and integration source trees. No
+licensed row, PERMNO, GVKEY, private selection, identifier map, generated
+portfolio, or receipt entered Git.
+
+Integration validation after merge:
+
+- `make test-thesis-real-data` — `31 passed`;
+- `make test-thesis-day1` — `57 passed`;
+- private `validate-real-portfolios` — three portfolios, validated, zero effects;
+- specialist lane check — PASS;
+- `git diff --check` and `vendor/servicefabric` cleanliness — PASS.
+
+The portfolio Make targets now invoke the implemented tests and CLI and fail
+closed when required external variables are absent. Lifecycle advances to
+`THESIS-D2 / metrics_decision_kernel`; this transition does not claim that the
+MetricPack or decision kernel is implemented.
+
+## Metrics-stage entry point
+
+Read `docs/workplans/thesis-sprint/day-2-metrics-decision-kernel.md`. Implement
+only the deterministic Morning MetricPack, data-readiness states, findings,
+materiality, review items, and decision points. Preserve null undefined
+metrics, explicit warnings and limitations, point-in-time evidence, and empty
+effects. Do not implement Day 3 agents, an LLM, providers, broker actions,
+trades, rebalancing, optimization, or portfolio mutation.
+
+## Accepted Day 2 metrics and kernel checkpoint
+
+Specialist candidate `ba884cd` was accepted in merge commit `7efabf5`. It adds
+the reviewed private experiment contract and CLI, bounded point-in-time DuckDB
+reads, canonical analytics capability invocations, immutable Morning
+MetricPacks, explicit `READY`, `QUALIFIED`, and `BLOCKED` readiness states,
+deterministic findings, materiality, human review items, and kernel decision
+points. Outcomes are limited to `NO_ISSUE`, `REVIEW`, `URGENT_REVIEW`, and
+`ABSTAIN`; every effect list is empty.
+
+The final reviewed private selection contains three fixed-quantity portfolios
+and receipt `portfolio_receipt_b32ae22d02471da4e6c5d966`. The system did not
+choose securities, aliases, quantities, or cash. The daily-primary local run is
+`day2_e77ee99b473419653d828dc0`; an identical rerun was idempotent. No licensed
+row, PERMNO, GVKEY, private selection, identifier map, generated portfolio,
+catalogue, metric artifact, or receipt entered Git.
+
+Integration closeout adds a synthetic public journey and a private wrapper.
+The public journey links the accepted Day 1 replay to the Morning MetricPack,
+DataReadiness, deterministic finding, materiality, ReviewItem, and
+KernelDecisionPoint contracts. It proves all readiness states and kernel
+outcomes, null undefined metrics with explicit warnings,
+`event_source_not_configured`, deterministic repetition, blocked network
+access, mandatory human review, and empty effects. The private wrapper requires
+the four reviewed external path variables and emits only compact run metadata,
+never source rows, identifiers, records, or paths.
+
+Closeout verification:
+
+- `make verify-thesis-day2` — PASS, including all preserved Day 0, Day 1, and
+  Day 2–3 baselines, `17` Thesis control tests, `66` specialist tests, `31`
+  bridge/boundary tests, `3` Thesis journeys, and `10` focused Day 2 tests;
+- `make verify-thesis-day2-real` — PASS against the reviewed licensed V2
+  experiment, three portfolios, daily-primary mode, and zero effects;
+- focused lifecycle and journey suite — `24 passed`;
+- `git diff --check` and `vendor/servicefabric` cleanliness — PASS.
+
+CI runs only schema-compatible synthetic fixtures and the public synthetic
+vertical slice. It never invokes or claims the licensed local gate. Licensed
+files remain external, `dsf.parquet` is the accepted daily source, and DuckDB
+performs bounded local scans and joins.
+
+## Day 3 entry point
+
+Lifecycle advances to `THESIS-D3` queued. Read
+`docs/workplans/thesis-sprint/day-3-agent-architectures.md` before any new
+implementation. No B0, B1, or A1 treatment, agent architecture, LLM, provider
+call, broker action, order, trade, rebalance, optimization, or portfolio
+mutation is implemented by this closeout.

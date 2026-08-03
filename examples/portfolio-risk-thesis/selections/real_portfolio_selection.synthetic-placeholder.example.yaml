@@ -1,0 +1,43 @@
+# SYNTHETIC PLACEHOLDER ONLY.
+# This deliberately unreviewed template contains no real security, provider
+# identifier, company, or quantity recommendation. Replace every placeholder
+# only in a private external copy and obtain explicit human review.
+selection_version: "1.0"
+selection_id: REPLACE_WITH_NEW_SELECTION_ID
+reviewed: false
+reviewer_id: REPLACE_WITH_REVIEWER_ID
+reviewed_at: "REPLACE_WITH_EXPLICIT_UTC_TIMESTAMP"
+candidate_artifact:
+  path: /ABSOLUTE/PRIVATE/PATH/REPLACE_WITH_CANDIDATE_ARTIFACT.json
+  sha256: sha256:REPLACE_WITH_VERIFIED_DIGEST
+  artifact_id: REPLACE_WITH_VERIFIED_ARTIFACT_ID
+source_snapshot_id: REPLACE_WITH_VERIFIED_SOURCE_SNAPSHOT_ID
+as_of: "REPLACE_WITH_CANDIDATE_ARTIFACT_UTC_AS_OF"
+effective_at: "REPLACE_WITH_EXPLICIT_UTC_TIMESTAMP"
+rationale: REPLACE_WITH_HUMAN_REVIEW_RATIONALE
+warnings:
+  - REPLACE_WITH_EXPLICIT_WARNING_ACKNOWLEDGEMENT
+portfolios:
+  - portfolio_id: placeholder_portfolio
+    title: Replace with a human-authored private portfolio title
+    base_currency: USD
+    benchmark_unavailable: true
+    cash:
+      - currency: USD
+        amount: REPLACE_WITH_EXPLICIT_CASH_BALANCE
+    positions:
+      - candidate_id: REPLACE_WITH_CANDIDATE_ID_1
+        instrument_alias: private-alias-1
+        quantity: REPLACE_WITH_HUMAN_REVIEWED_POSITIVE_INTEGER
+      - candidate_id: REPLACE_WITH_CANDIDATE_ID_2
+        instrument_alias: private-alias-2
+        quantity: REPLACE_WITH_HUMAN_REVIEWED_POSITIVE_INTEGER
+      - candidate_id: REPLACE_WITH_CANDIDATE_ID_3
+        instrument_alias: private-alias-3
+        quantity: REPLACE_WITH_HUMAN_REVIEWED_POSITIVE_INTEGER
+      - candidate_id: REPLACE_WITH_CANDIDATE_ID_4
+        instrument_alias: private-alias-4
+        quantity: REPLACE_WITH_HUMAN_REVIEWED_POSITIVE_INTEGER
+      - candidate_id: REPLACE_WITH_CANDIDATE_ID_5
+        instrument_alias: private-alias-5
+        quantity: REPLACE_WITH_HUMAN_REVIEWED_POSITIVE_INTEGER

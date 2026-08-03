@@ -1,0 +1,40 @@
+name: thesis-sprint
+
+on:
+  push:
+    branches: [integration/thesis-experiment]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install locked thesis environment
+        run: python -m pip install --require-hashes -r requirements/thesis.lock
+      - name: Verify current public fixture-only thesis boundary
+        env:
+          OPENAI_API_KEY: ''
+        run: make verify-thesis-current
+      - name: Write network-free Day 3 fixture evidence
+        env:
+          OPENAI_API_KEY: ''
+          THESIS_DATA_ROOT: ${{ runner.temp }}/thesis-day3
+        run: make demo-thesis-day3-fixture
+      - name: Write the external synthetic Day 1 demo
+        run: THESIS_DATA_ROOT="${RUNNER_TEMP}/thesis-day1" make demo-thesis-day1
+      - name: Record public-only CI boundary
+        run: echo "CI is fixture-only, has no API key, exercises the network-blocked fixture provider, uses public synthetic data only, and never invokes private real-data or model gates"
+      - name: Validate whitespace
+        run: git diff --check
