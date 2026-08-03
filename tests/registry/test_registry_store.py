@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -296,6 +297,9 @@ def test_interrupted_transition_remains_available_and_exact_retry_recovers(
     restarted = LocalRegistryStore(store.root)
     assert restarted.get(identity).state is LifecycleState.CANDIDATE
     assert restarted.list()[0].state is LifecycleState.CANDIDATE
+    assert restarted.index(projection(), actor="bootstrap-reviewer").state is (
+        LifecycleState.CANDIDATE
+    )
     with pytest.raises(RegistryConflict, match="retried exactly"):
         restarted.transition(
             identity,
@@ -344,6 +348,83 @@ def test_transition_retry_is_idempotent_when_catalogue_commit_completed(
     )
     assert recovered.state is LifecycleState.VALIDATED
     assert len(recovered.receipts) == 2
+
+
+def test_transition_recovers_when_event_is_durable_before_its_anchor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = LocalRegistryStore(tmp_path / "registry")
+    identity = projection().identity
+    store.index(projection(), actor="tester")
+
+    def fail_anchor_write(path: Path, value: str) -> None:
+        raise OSError("injected anchor write failure")
+
+    monkeypatch.setattr(store, "_write_immutable_text", fail_anchor_write)
+    with pytest.raises(OSError, match="anchor write failure"):
+        store.transition(
+            identity,
+            LifecycleState.VALIDATED,
+            actor="reviewer",
+            rationale="Contract and source checks passed.",
+        )
+
+    restarted = LocalRegistryStore(store.root)
+    assert restarted.get(identity).state is LifecycleState.CANDIDATE
+    recovered = restarted.transition(
+        identity,
+        LifecycleState.VALIDATED,
+        actor="reviewer",
+        rationale="Contract and source checks passed.",
+    )
+    assert recovered.state is LifecycleState.VALIDATED
+    assert len(recovered.receipts) == 2
+
+
+def test_index_recovers_when_initial_event_is_durable_before_its_anchor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = LocalRegistryStore(tmp_path / "registry")
+
+    def fail_anchor_write(path: Path, value: str) -> None:
+        raise OSError("injected anchor write failure")
+
+    monkeypatch.setattr(store, "_write_immutable_text", fail_anchor_write)
+    with pytest.raises(OSError, match="anchor write failure"):
+        store.index(projection(), actor="tester")
+    assert store.list() == []
+
+    restarted = LocalRegistryStore(store.root)
+    recovered = restarted.index(projection(), actor="tester")
+    assert recovered.state is LifecycleState.CANDIDATE
+    assert len(restarted.list()) == 1
+
+
+def test_missing_committed_receipt_anchor_fails_closed(tmp_path: Path) -> None:
+    store = LocalRegistryStore(tmp_path / "registry")
+    identity = projection().identity
+    store.index(projection(), actor="tester")
+    anchor_path = store._anchors_path(identity) / "000001.sha256"  # noqa: SLF001
+    anchor_path.rename(store.root / "removed-anchor.sha256")
+
+    with pytest.raises(RegistryConflict, match="no safe integrity anchor"):
+        LocalRegistryStore(store.root).get(identity)
+
+
+def test_failed_immutable_staging_never_exposes_partial_final_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "events" / "000001.json"
+
+    def fail_flush(descriptor: int) -> None:
+        raise OSError("injected staging flush failure")
+
+    monkeypatch.setattr(os, "fsync", fail_flush)
+    with pytest.raises(OSError, match="staging flush failure"):
+        LocalRegistryStore._write_exclusive_bytes(target, b"partial")  # noqa: SLF001
+
+    assert not target.exists()
+    assert list(target.parent.iterdir()) == []
 
 
 def test_deprecation_requires_replacement_reference(tmp_path: Path) -> None:

@@ -48,7 +48,7 @@ a clean worktree.
 ## Tests
 
 - `make verify-platform-phase1 DAY0_VENV=.../state/venvs/thesis-sprint` — PASS,
-  41 focused tests plus environment, repository, package and diff gates.
+  45 focused tests plus environment, repository, package and diff gates.
 - `make test-application test-architecture DAY0_VENV=.../state/venvs/thesis-sprint`
   — PASS, 104 application tests and 105 architecture tests.
 - Browser verification at `http://127.0.0.1:8767/?workspace=registry` — PASS:
@@ -100,6 +100,11 @@ Reads expose only the receipt prefix named by that committed catalogue, while
 an exact durable trailing receipt from an interrupted transition is adopted by
 an identical retry. A retry is also idempotent when the catalogue commit
 completed but the caller received a post-commit failure.
+Uncommitted durable lifecycle tails cannot be adopted by rediscovery or bulk
+bootstrap. A failure between event and anchor installation remains readable at
+the committed prefix and an exact retry completes the missing anchor. Immutable
+projection, event, and anchor files are staged and atomically linked into their
+final names, so incomplete bytes never become an authoritative final file.
 
 The API no longer returns an absolute host registry path. The next P1-05 review
 must assess a new exact commit; the earlier BLOCKED candidate cannot be accepted.

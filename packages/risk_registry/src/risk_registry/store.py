@@ -115,25 +115,23 @@ class LocalRegistryStore:
         return LifecycleReceipt.model_validate_json(path.read_text(encoding="utf-8"))
 
     @staticmethod
-    def _write_immutable(path: Path, value: RegistryProjection | LifecycleReceipt) -> None:
-        """Create one source projection or lifecycle event without overwrite semantics."""
+    def _write_exclusive_bytes(path: Path, value: bytes) -> None:
+        """Durably stage bytes, then atomically link them to an unused final path."""
 
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if path.parent.is_symlink() or path.is_symlink():
             raise ValueError("registry immutable paths may not be symbolic links")
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-        if hasattr(os, "O_NOFOLLOW"):
-            flags |= os.O_NOFOLLOW
-        descriptor = os.open(path, flags, 0o600)
+        descriptor, temporary = tempfile.mkstemp(
+            prefix=f".{path.name}-", suffix=".tmp", dir=path.parent
+        )
         try:
-            handle = os.fdopen(descriptor, "w", encoding="utf-8")
-            descriptor = -1
-            with handle:
-                handle.write(value.model_dump_json(indent=2))
-                handle.write("\n")
+            with os.fdopen(descriptor, "wb") as handle:
+                descriptor = -1
+                handle.write(value)
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.chmod(path, 0o400)
+            os.chmod(temporary, 0o400)
+            os.link(temporary, path, follow_symlinks=False)
             directory_descriptor = os.open(path.parent, os.O_RDONLY)
             try:
                 os.fsync(directory_descriptor)
@@ -142,33 +140,22 @@ class LocalRegistryStore:
         finally:
             if descriptor >= 0:
                 os.close(descriptor)
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+
+    @staticmethod
+    def _write_immutable(path: Path, value: RegistryProjection | LifecycleReceipt) -> None:
+        """Create one source projection or lifecycle event without overwrite semantics."""
+
+        LocalRegistryStore._write_exclusive_bytes(
+            path, (value.model_dump_json(indent=2) + "\n").encode("utf-8")
+        )
 
     @staticmethod
     def _write_immutable_text(path: Path, value: str) -> None:
         """Create an immutable plain-text integrity anchor."""
 
-        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        if path.parent.is_symlink() or path.is_symlink():
-            raise ValueError("registry immutable paths may not be symbolic links")
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-        if hasattr(os, "O_NOFOLLOW"):
-            flags |= os.O_NOFOLLOW
-        descriptor = os.open(path, flags, 0o600)
-        try:
-            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-                descriptor = -1
-                handle.write(value)
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.chmod(path, 0o400)
-            directory_descriptor = os.open(path.parent, os.O_RDONLY)
-            try:
-                os.fsync(directory_descriptor)
-            finally:
-                os.close(directory_descriptor)
-        finally:
-            if descriptor >= 0:
-                os.close(descriptor)
+        LocalRegistryStore._write_exclusive_bytes(path, value.encode("utf-8"))
 
     @staticmethod
     def _catalog_digest(entries: dict[str, dict[str, str]]) -> str:
@@ -296,12 +283,17 @@ class LocalRegistryStore:
         if anchors_path.is_symlink() or not anchors_path.exists():
             raise RegistryConflict("registry lifecycle event stream has no safe integrity anchors")
         anchor_files = sorted(anchors_path.glob("*.sha256"))
-        if len(anchor_files) != len(receipts):
-            raise RegistryConflict("registry lifecycle integrity anchor count does not match")
-        for receipt, anchor_path in zip(receipts, anchor_files, strict=True):
-            if anchor_path.name != f"{receipt.sequence:06d}.sha256":
+        for anchor_path in anchor_files:
+            try:
+                sequence = int(anchor_path.stem)
+                receipt = receipts[sequence - 1]
+            except (ValueError, IndexError) as error:
                 raise RegistryConflict(
-                    "registry lifecycle anchor filenames must form a contiguous sequence"
+                    "registry lifecycle integrity anchor has no matching event"
+                ) from error
+            if sequence < 1 or anchor_path.name != f"{sequence:06d}.sha256":
+                raise RegistryConflict(
+                    "registry lifecycle anchor filename is invalid"
                 )
             if anchor_path.is_symlink():
                 raise RegistryConflict("registry lifecycle integrity anchor is not safe")
@@ -358,6 +350,15 @@ class LocalRegistryStore:
             projection=reconstructed.projection,
             receipts=reconstructed.receipts[: committed_index + 1],
         )
+        anchors_path = self._anchors_path(reconstructed.projection.identity)
+        for receipt in committed.receipts:
+            anchor_path = anchors_path / f"{receipt.sequence:06d}.sha256"
+            if not anchor_path.exists() or anchor_path.is_symlink():
+                raise RegistryConflict(
+                    "committed registry lifecycle receipt has no safe integrity anchor"
+                )
+            if anchor_path.read_text(encoding="utf-8").strip() != receipt.receipt_digest:
+                raise RegistryConflict("registry lifecycle integrity anchor mismatch")
         snapshot_path = self._path(reconstructed.projection.identity)
         if snapshot_path.exists():
             snapshot = self._read_path(snapshot_path)
@@ -441,7 +442,18 @@ class LocalRegistryStore:
     ) -> RegistryDocument:
         path = self._path(projection.identity)
         reconstructed = self._reconstruct(projection.identity)
+        catalog_entry = self._read_catalog().get(projection.identity.reference)
+        if reconstructed is not None and catalog_entry is not None:
+            committed = self._committed_document(reconstructed, catalog_entry)
+            if self._same_source_observation(committed.projection, projection):
+                if not path.exists():
+                    self._write(path, committed)
+                return committed
+            raise RegistryConflict(
+                f"{projection.identity.reference} already exists with a different source observation"
+            )
         if reconstructed is not None:
+            self._materialize_event_stream(reconstructed)
             if path.exists() and self._read_path(path) != reconstructed:
                 raise RegistryConflict("registry snapshot does not match its lifecycle event stream")
             if self._same_source_observation(reconstructed.projection, projection):
@@ -627,6 +639,13 @@ class LocalRegistryStore:
                 if not same_request:
                     raise RegistryConflict(
                         "an interrupted lifecycle transition must be retried exactly"
+                    )
+                anchor_path = (
+                    self._anchors_path(identity) / f"{receipt.sequence:06d}.sha256"
+                )
+                if not anchor_path.exists():
+                    self._write_immutable_text(
+                        anchor_path, f"{receipt.receipt_digest}\n"
                     )
                 updated = durable
             else:
