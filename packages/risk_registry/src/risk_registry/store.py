@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import tempfile
 import threading
@@ -40,6 +41,8 @@ class LocalRegistryStore:
         self.records_root = self.root / "records"
         self.projections_root = self.root / "projections"
         self.events_root = self.root / "events"
+        self.anchors_root = self.root / "anchors"
+        self.catalog_path = self.root / "catalog.json"
         self._lock = threading.RLock()
 
     @staticmethod
@@ -55,6 +58,9 @@ class LocalRegistryStore:
     def _events_path(self, identity: RegistryIdentity) -> Path:
         return self.events_root / self._key(identity)
 
+    def _anchors_path(self, identity: RegistryIdentity) -> Path:
+        return self.anchors_root / self._key(identity)
+
     def _ensure_safe_root(self) -> None:
         current = Path(self.root.anchor)
         for part in self.root.parts[1:]:
@@ -64,7 +70,12 @@ class LocalRegistryStore:
         self.root.mkdir(parents=True, exist_ok=True)
         if self.root.is_symlink():
             raise ValueError("registry root may not be a symbolic link")
-        for directory in (self.records_root, self.projections_root, self.events_root):
+        for directory in (
+            self.records_root,
+            self.projections_root,
+            self.events_root,
+            self.anchors_root,
+        ):
             directory.mkdir(mode=0o700, parents=True, exist_ok=True)
             if directory.is_symlink():
                 raise ValueError("registry data directories may not be symbolic links")
@@ -132,6 +143,117 @@ class LocalRegistryStore:
             if descriptor >= 0:
                 os.close(descriptor)
 
+    @staticmethod
+    def _write_immutable_text(path: Path, value: str) -> None:
+        """Create an immutable plain-text integrity anchor."""
+
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if path.parent.is_symlink() or path.is_symlink():
+            raise ValueError("registry immutable paths may not be symbolic links")
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        descriptor = os.open(path, flags, 0o600)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                descriptor = -1
+                handle.write(value)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.chmod(path, 0o400)
+            directory_descriptor = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_descriptor)
+            finally:
+                os.close(directory_descriptor)
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+
+    @staticmethod
+    def _catalog_digest(entries: dict[str, dict[str, str]]) -> str:
+        payload = json.dumps(
+            {"schema_version": "risk-registry-catalog/v1", "entries": entries},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def _read_catalog(self) -> dict[str, dict[str, str]]:
+        if not self.catalog_path.exists():
+            return {}
+        if self.catalog_path.is_symlink():
+            raise ValueError("registry catalogue may not be a symbolic link")
+        try:
+            value = json.loads(self.catalog_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as error:
+            raise RegistryConflict("registry catalogue is not readable") from error
+        entries = value.get("entries") if isinstance(value, dict) else None
+        if (
+            not isinstance(value, dict)
+            or value.get("schema_version") != "risk-registry-catalog/v1"
+            or not isinstance(entries, dict)
+            or value.get("digest") != self._catalog_digest(entries)
+        ):
+            raise RegistryConflict("registry catalogue integrity verification failed")
+        for reference, entry in entries.items():
+            if (
+                not isinstance(reference, str)
+                or not isinstance(entry, dict)
+                or set(entry) != {"key", "head_receipt_digest"}
+                or not isinstance(entry["key"], str)
+                or not isinstance(entry["head_receipt_digest"], str)
+                or len(entry["key"]) != 64
+                or any(character not in "0123456789abcdef" for character in entry["key"])
+                or len(entry["head_receipt_digest"]) != 64
+                or any(
+                    character not in "0123456789abcdef"
+                    for character in entry["head_receipt_digest"]
+                )
+            ):
+                raise RegistryConflict("registry catalogue entry is invalid")
+        return entries
+
+    def _write_catalog(self, entries: dict[str, dict[str, str]]) -> None:
+        self._ensure_safe_root()
+        if self.catalog_path.exists() and self.catalog_path.is_symlink():
+            raise ValueError("registry catalogue may not be a symbolic link")
+        value = {
+            "schema_version": "risk-registry-catalog/v1",
+            "entries": entries,
+            "digest": self._catalog_digest(entries),
+        }
+        descriptor, temporary = tempfile.mkstemp(
+            prefix=".catalog-", suffix=".tmp", dir=self.root
+        )
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                handle.write(json.dumps(value, indent=2, sort_keys=True))
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.chmod(temporary, 0o600)
+            os.replace(temporary, self.catalog_path)
+            directory_descriptor = os.open(self.root, os.O_RDONLY)
+            try:
+                os.fsync(directory_descriptor)
+            finally:
+                os.close(directory_descriptor)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+
+    def _commit_catalog(self, documents: Iterable[RegistryDocument]) -> None:
+        entries = self._read_catalog()
+        updated = dict(entries)
+        for document in documents:
+            identity = document.projection.identity
+            updated[identity.reference] = {
+                "key": self._key(identity),
+                "head_receipt_digest": document.receipts[-1].receipt_digest,
+            }
+        self._write_catalog(updated)
+
     def _reconstruct(self, identity: RegistryIdentity) -> RegistryDocument | None:
         projection_path = self._projection_path(identity)
         if not projection_path.exists():
@@ -147,7 +269,27 @@ class LocalRegistryStore:
         event_files = sorted(events_path.glob("*.json"))
         if not event_files:
             return None
+        for sequence, event_path in enumerate(event_files, start=1):
+            if event_path.name != f"{sequence:06d}.json":
+                raise RegistryConflict(
+                    "registry lifecycle event filenames must form a contiguous sequence"
+                )
         receipts = tuple(self._read_receipt(path) for path in event_files)
+        anchors_path = self._anchors_path(identity)
+        if anchors_path.is_symlink() or not anchors_path.exists():
+            raise RegistryConflict("registry lifecycle event stream has no safe integrity anchors")
+        anchor_files = sorted(anchors_path.glob("*.sha256"))
+        if len(anchor_files) != len(receipts):
+            raise RegistryConflict("registry lifecycle integrity anchor count does not match")
+        for receipt, anchor_path in zip(receipts, anchor_files, strict=True):
+            if anchor_path.name != f"{receipt.sequence:06d}.sha256":
+                raise RegistryConflict(
+                    "registry lifecycle anchor filenames must form a contiguous sequence"
+                )
+            if anchor_path.is_symlink():
+                raise RegistryConflict("registry lifecycle integrity anchor is not safe")
+            if anchor_path.read_text(encoding="utf-8").strip() != receipt.receipt_digest:
+                raise RegistryConflict("registry lifecycle integrity anchor mismatch")
         return RegistryDocument(projection=projection, receipts=receipts)
 
     def _materialize_event_stream(self, document: RegistryDocument) -> None:
@@ -160,10 +302,17 @@ class LocalRegistryStore:
         events_path.mkdir(mode=0o700, parents=True, exist_ok=True)
         if events_path.is_symlink():
             raise ValueError("registry events directory may not be a symbolic link")
+        anchors_path = self._anchors_path(document.projection.identity)
+        anchors_path.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if anchors_path.is_symlink():
+            raise ValueError("registry anchors directory may not be a symbolic link")
         for receipt in document.receipts:
             event_path = events_path / f"{receipt.sequence:06d}.json"
             if not event_path.exists():
                 self._write_immutable(event_path, receipt)
+            anchor_path = anchors_path / f"{receipt.sequence:06d}.sha256"
+            if not anchor_path.exists():
+                self._write_immutable_text(anchor_path, f"{receipt.receipt_digest}\n")
 
     def _write(self, path: Path, document: RegistryDocument) -> None:
         self._ensure_safe_root()
@@ -220,12 +369,14 @@ class LocalRegistryStore:
         occurred_at: datetime | None = None,
     ) -> RegistryDocument:
         with self._lock, self._mutation_lock():
-            return self._index_locked(
+            document = self._index_locked(
                 projection,
                 actor=actor,
                 rationale=rationale,
                 occurred_at=occurred_at,
             )
+            self._commit_catalog((document,))
+            return document
 
     def _index_locked(
         self,
@@ -272,6 +423,12 @@ class LocalRegistryStore:
             self.root.resolve()
         ):
             raise ValueError("registry events directory is not a safe contained path")
+        anchors_path = self._anchors_path(projection.identity)
+        anchors_path.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if anchors_path.is_symlink() or not anchors_path.resolve().is_relative_to(
+            self.root.resolve()
+        ):
+            raise ValueError("registry anchors directory is not a safe contained path")
         projection_path = self._projection_path(projection.identity)
         if projection_path.exists():
             observed = self._read_projection(projection_path)
@@ -284,27 +441,34 @@ class LocalRegistryStore:
         self._write_immutable(
             events_path / "000001.json", receipt
         )
+        self._write_immutable_text(
+            anchors_path / "000001.sha256", f"{receipt.receipt_digest}\n"
+        )
         self._write(path, document)
         return document
 
     def get(self, identity: RegistryIdentity) -> RegistryDocument:
         path = self._path(identity)
         with self._lock:
+            entry = self._read_catalog().get(identity.reference)
+            if entry is None:
+                raise RegistryNotFound(identity.reference)
+            if entry["key"] != self._key(identity):
+                raise RegistryConflict("registry catalogue key does not match its identity")
             if path.exists() and path.is_symlink():
                 raise ValueError("registry record may not be a symbolic link")
             reconstructed = self._reconstruct(identity)
             if reconstructed is not None:
+                if reconstructed.receipts[-1].receipt_digest != entry["head_receipt_digest"]:
+                    raise RegistryConflict(
+                        "registry lifecycle head does not match its catalogue anchor"
+                    )
                 if path.exists() and self._read_path(path) != reconstructed:
                     raise RegistryConflict(
                         "registry snapshot does not match its lifecycle event stream"
                     )
                 return reconstructed
-            if not path.exists():
-                raise RegistryNotFound(identity.reference)
-            document = self._read_path(path)
-            if document.projection.identity != identity:
-                raise RegistryConflict("registry key collision detected")
-            return document
+            raise RegistryConflict("committed registry lifecycle event stream is missing")
 
     def list(
         self,
@@ -314,24 +478,28 @@ class LocalRegistryStore:
         query: str | None = None,
     ) -> list[RegistryDocument]:
         with self._lock:
-            if not self.records_root.exists() and not self.projections_root.exists():
-                return []
-            keys = {
-                path.stem
-                for root in (self.records_root, self.projections_root)
-                for path in root.glob("*.json")
-            }
+            entries = self._read_catalog()
             documents = []
-            for key in keys:
-                projection_path = self.projections_root / f"{key}.json"
-                if projection_path.exists():
-                    projection = self._read_projection(projection_path)
-                    document = self._reconstruct(projection.identity)
-                    if document is None:  # pragma: no cover - guarded above
-                        raise RegistryConflict("registry projection could not be reconstructed")
-                    documents.append(document)
-                else:
-                    documents.append(self._read_path(self.records_root / f"{key}.json"))
+            for reference, entry in entries.items():
+                projection_path = self.projections_root / f"{entry['key']}.json"
+                if not projection_path.exists():
+                    raise RegistryConflict("committed registry projection is missing")
+                projection = self._read_projection(projection_path)
+                if projection.identity.reference != reference:
+                    raise RegistryConflict("registry catalogue identity does not match projection")
+                document = self._reconstruct(projection.identity)
+                if document is None:
+                    raise RegistryConflict("registry projection could not be reconstructed")
+                if document.receipts[-1].receipt_digest != entry["head_receipt_digest"]:
+                    raise RegistryConflict(
+                        "registry lifecycle head does not match its catalogue anchor"
+                    )
+                snapshot_path = self.records_root / f"{entry['key']}.json"
+                if snapshot_path.exists() and self._read_path(snapshot_path) != document:
+                    raise RegistryConflict(
+                        "registry snapshot does not match its lifecycle event stream"
+                    )
+                documents.append(document)
         needle = (query or "").strip().casefold()
         selected = [
             item
@@ -402,7 +570,12 @@ class LocalRegistryStore:
             self._write_immutable(
                 self._events_path(identity) / f"{receipt.sequence:06d}.json", receipt
             )
+            self._write_immutable_text(
+                self._anchors_path(identity) / f"{receipt.sequence:06d}.sha256",
+                f"{receipt.receipt_digest}\n",
+            )
             self._write(self._path(identity), updated)
+            self._commit_catalog((updated,))
             return updated
 
     def index_many(
@@ -441,6 +614,7 @@ class LocalRegistryStore:
                 )
                 for projection in requested
             ]
+            self._commit_catalog(indexed)
             return indexed, []
 
     def preview_many(

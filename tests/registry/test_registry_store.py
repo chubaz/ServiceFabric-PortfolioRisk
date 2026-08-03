@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from risk_registry import (
     AssetKind,
     Compatibility,
+    LifecycleReceipt,
     LifecycleState,
     LocalRegistryStore,
     Provenance,
@@ -175,6 +176,68 @@ def test_tampered_lifecycle_event_fails_closed(tmp_path: Path) -> None:
         LocalRegistryStore(store.root).get(identity)
 
 
+def test_recomputed_lifecycle_event_cannot_replace_anchored_receipt(
+    tmp_path: Path,
+) -> None:
+    store = LocalRegistryStore(tmp_path / "registry")
+    identity = projection().identity
+    store.index(projection(), actor="tester")
+    current = store.transition(
+        identity,
+        LifecycleState.VALIDATED,
+        actor="reviewer",
+        rationale="Original validation receipt.",
+    )
+    original = current.receipts[-1]
+    replacement = LifecycleReceipt.create(
+        registry_reference=original.registry_reference,
+        sequence=original.sequence,
+        from_state=original.from_state,
+        to_state=original.to_state,
+        actor=original.actor,
+        rationale="A validly recomputed but unauthorized replacement.",
+        occurred_at=original.occurred_at,
+        prior_receipt_digest=original.prior_receipt_digest,
+    )
+    event_path = store._events_path(identity) / "000002.json"  # noqa: SLF001
+    event_path.chmod(0o600)
+    event_path.write_text(replacement.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    store._path(identity).unlink()  # noqa: SLF001 - prove snapshot is not the anchor
+
+    with pytest.raises(RegistryConflict, match="integrity anchor mismatch"):
+        LocalRegistryStore(store.root).get(identity)
+
+
+def test_lifecycle_event_filename_gaps_fail_closed(tmp_path: Path) -> None:
+    store = LocalRegistryStore(tmp_path / "registry")
+    identity = projection().identity
+    store.index(projection(), actor="tester")
+    store.transition(
+        identity,
+        LifecycleState.VALIDATED,
+        actor="reviewer",
+        rationale="Contract and source checks passed.",
+    )
+    events_path = store._events_path(identity)  # noqa: SLF001
+    (events_path / "000002.json").rename(events_path / "000003.json")
+
+    with pytest.raises(RegistryConflict, match="contiguous sequence"):
+        LocalRegistryStore(store.root).get(identity)
+
+
+def test_missing_committed_event_stream_cannot_fall_back_to_snapshot(
+    tmp_path: Path,
+) -> None:
+    store = LocalRegistryStore(tmp_path / "registry")
+    identity = projection().identity
+    store.index(projection(), actor="tester")
+    events_path = store._events_path(identity)  # noqa: SLF001
+    events_path.rename(store.root / "removed-events")
+
+    with pytest.raises(RegistryConflict, match="event stream is missing"):
+        LocalRegistryStore(store.root).get(identity)
+
+
 def test_deprecation_requires_replacement_reference(tmp_path: Path) -> None:
     store = LocalRegistryStore(tmp_path / "registry")
     identity = projection().identity
@@ -291,3 +354,31 @@ def test_bootstrap_conflict_prevents_every_new_write(tmp_path: Path) -> None:
     assert indexed == []
     assert len(conflicts) == 1
     assert len(store.list()) == 1
+
+
+def test_bootstrap_write_failure_exposes_no_partial_catalogue(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = LocalRegistryStore(tmp_path / "registry")
+    requested = (projection(), projection(version="2.0.0"))
+    original_write = store._write_immutable  # noqa: SLF001 - fault injection
+    projection_writes = 0
+
+    def fail_on_second_projection(path: Path, value: object) -> None:
+        nonlocal projection_writes
+        if isinstance(value, RegistryProjection):
+            projection_writes += 1
+            if projection_writes == 2:
+                raise OSError("injected durable-write failure")
+        original_write(path, value)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(store, "_write_immutable", fail_on_second_projection)
+    with pytest.raises(OSError, match="injected durable-write failure"):
+        store.index_many(requested, actor="bootstrap-reviewer")
+
+    assert store.list() == []
+    monkeypatch.setattr(store, "_write_immutable", original_write)
+    indexed, conflicts = store.index_many(requested, actor="bootstrap-reviewer")
+    assert conflicts == []
+    assert len(indexed) == 2
+    assert len(store.list()) == 2

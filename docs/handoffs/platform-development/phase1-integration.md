@@ -21,9 +21,11 @@ a clean worktree.
   the 64 KB metadata boundary.
 - Added path-safe local persistence with a cross-process mutation lock,
   immutable source projections, immutable ordered lifecycle event files,
-  reconstructable aggregate snapshots, atomic replacement, filesystem sync,
-  symlink refusal, idempotent rediscovery, collision detection, and transparent
-  upgrade of aggregate-only development records.
+  separately anchored receipt digests, an atomically replaced committed
+  catalogue, reconstructable aggregate snapshots, filesystem sync, symlink
+  refusal, idempotent rediscovery, collision detection, and transparent upgrade
+  of aggregate-only development records. A multi-item bootstrap becomes visible
+  only after every item is durable.
 - Added source adapters for exactly 44 reviewed existing definitions: 4 agent
   roles, 29 capability descriptors, 1 evaluation manifest, 3 report renderers,
   1 dashboard renderer, 3 scenarios, and 3 workflow treatments.
@@ -46,9 +48,9 @@ a clean worktree.
 ## Tests
 
 - `make verify-platform-phase1 DAY0_VENV=.../state/venvs/thesis-sprint` — PASS,
-  23 focused tests plus environment, repository, package and diff gates.
+  38 focused tests plus environment, repository, package and diff gates.
 - `make test-application test-architecture DAY0_VENV=.../state/venvs/thesis-sprint`
-  — PASS, 102 application tests and 105 architecture tests.
+  — PASS, 104 application tests and 105 architecture tests.
 - Browser verification at `http://127.0.0.1:8767/?workspace=registry` — PASS:
   all 44 sources and seven kinds visible; one canonical agent moved through
   candidate, validated, and locally published; a scenario stopped at validated;
@@ -84,6 +86,12 @@ overridden. The subsequent integration repair addresses every reported blocker:
    consequence preview, reports conflicts and truthful counts, and the browser
    requires confirmation; lifecycle changes use server-provided transitions,
    explicit consequence confirmation and an expected-revision guard.
+
+A final adversarial pass then closed three narrower integrity gaps: lifecycle
+event and anchor filenames must be exactly contiguous; each receipt digest is
+checked against both a read-only per-event anchor and the atomically committed
+catalogue head; and partial files from an injected bootstrap write failure stay
+uncommitted and invisible until a complete retry commits the whole catalogue.
 
 The API no longer returns an absolute host registry path. The next P1-05 review
 must assess a new exact commit; the earlier BLOCKED candidate cannot be accepted.
