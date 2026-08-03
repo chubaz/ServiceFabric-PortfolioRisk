@@ -15,17 +15,20 @@ def _json(relative: str) -> dict:
 
 def test_phase1_is_active_from_the_accepted_phase0_merge() -> None:
     status = _json("config/agent/platform-development/status.json")
-    assert status["current"] == "PLATFORM-P1"
+    assert status["current"] in {"PLATFORM-P1", "PLATFORM-P2"}
     assert status["phase_0"] == "accepted"
     assert status["phase_1"] in {"in_progress", "accepted"}
     assert status["baseline_commit"] == (
         "21339db19357277ca9a9a1ca50107f1a884d7aeb"
     )
     if status["phase_1"] == "accepted":
-        assert status["active_wave"] == "accepted"
         assert status["phase_1_accepted_candidate_commit"] == (
             "a68ef6fce9d39f5341fa8675c093db2eba95aed6"
         )
+    if status["current"] == "PLATFORM-P1":
+        assert status["active_wave"] == "accepted"
+    else:
+        assert status["phase_2"] in {"in_progress", "accepted"}
     assert status["development_profile_only"] is True
     assert status["external_effects"] == "disabled"
 
