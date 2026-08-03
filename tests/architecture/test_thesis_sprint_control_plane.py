@@ -36,15 +36,17 @@ def test_thesis_day3_is_complete_and_day4_is_honestly_deferred() -> None:
     }
     assert read_json("config/agent/day23/status.json")["current"] == "D23-COMPLETE"
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
-    assert "ID: THESIS-DEFERRED" in current
-    assert "Status: deferred" in current
+    assert "ID: PLATFORM-P0" in current
+    assert "Status: in progress" in current
     assert "thesis-sprint/deferred.md" in current
-    assert "prior D23 baseline remains complete" in current
-    assert "Thesis Sprint Day 1, Day 2, and Day 3 are complete" in current
-    assert "Morning MetricPacks" in current
-    assert "Day 3 closed" in current
-    assert "Day 4 public synthetic fixture and evaluation pipeline passed" in current
-    assert "Human\nscientific QA was therefore not performed" in current
+    assert "Days 1–3 remain accepted" in current
+    assert "paid real panel and human scientific QA\nwere not run" in current
+    deferred = (ROOT / "docs/workplans/thesis-sprint/deferred.md").read_text(
+        encoding="utf-8"
+    )
+    assert "THESIS-DEFERRED" in deferred
+    assert "complete 270-call real Day 4 panel" in deferred
+    assert "human scientific QA of real-panel results" in deferred
 
 
 def test_lane_manifest_has_frozen_explicit_ownership() -> None:

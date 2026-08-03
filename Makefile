@@ -648,3 +648,9 @@ demo-thesis-day1: thesis-env
 	case "$(abspath $(THESIS_DATA_ROOT))" in "$(CURDIR)"|"$(CURDIR)"/*) echo "ERROR: THESIS_DATA_ROOT must remain outside Git" >&2; exit 1;; esac
 	mkdir -p "$(THESIS_DATA_ROOT)"
 	THESIS_DATA_ROOT="$(THESIS_DATA_ROOT)" PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) "$(THESIS_DEMO)" --data-root "$(THESIS_DATA_ROOT)"
+
+.PHONY: verify-platform-phase0
+verify-platform-phase0: preflight day0-env
+	$(DAY0_PYTEST) tests/architecture/test_platform_development_control_plane.py tests/architecture/test_thesis_sprint_control_plane.py -q
+	git diff --check
+	@echo "Platform development Phase 0 control plane: PASS"

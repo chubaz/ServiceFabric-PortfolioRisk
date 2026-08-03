@@ -248,9 +248,9 @@ providers, external LLMs, broker connectivity, orders, trades, and automatic
 rebalancing. Cadence is metadata only; all consequential actions require
 explicit human review.
 
-## Thesis Sprint four-day experiment
+## Deferred Thesis Sprint four-day experiment
 
-The active experiment uses the separate `thesis-sprint` namespace and begins
+The deferred experiment used the separate `thesis-sprint` namespace and began
 from tag `day23-complete`. It does not reopen or modify the completed Day 0,
 Day 1, or Day 2–3 lifecycle records. Lifecycle state is authoritative in
 `config/agent/thesis-sprint/status.json`, and the active workplan is named by
@@ -312,6 +312,27 @@ or automatic release decision. Provider errors are execution failures, not
 abstentions, and an accepted real run requires zero provider errors.
 Consequential actions remain prohibited and Day 4 completes only after
 explicit human QA.
+
+## Active platform development programme
+
+The current programme is `PLATFORM-P0` on
+`integration/platform-development`. Its authoritative workplan is
+`docs/workplans/platform-development/phase-0-baseline.md`, lifecycle state is
+in `config/agent/platform-development/status.json`, and exact lane ownership is
+in `config/agent/platform-development/lanes.json`.
+
+Phase 0 has one integration authority and three parallel read-only specialist
+audits: canonical contracts/decisions, storage/runtime, and UI/profile/policy.
+Specialists may write only their exact handoff file and stop without merging.
+Independent QA begins only after integration synthesis and likewise writes only
+its exact handoff. Shared contracts, application changes, tests, CI, status,
+and acceptance remain integration-owned.
+
+This programme must reuse canonical objects before proposing new ones, preserve
+the working vertical slice, and keep development, experimental, and persistent
+research semantics distinct. Real, synthetic, fixture, simulated, missing, and
+unavailable data states must never be conflated. Studio–Codex controls remain
+development-only; external effects remain disabled.
 
 ## Completion report
 

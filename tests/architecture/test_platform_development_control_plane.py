@@ -1,0 +1,106 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from scripts.thesis.check_lane_paths import validate_manifest
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def read_json(relative: str) -> dict:
+    return json.loads((ROOT / relative).read_text(encoding="utf-8"))
+
+
+def test_phase0_status_and_current_workplan_are_explicit() -> None:
+    assert read_json("config/agent/platform-development/status.json") == {
+        "current": "PLATFORM-P0",
+        "phase_0": "in_progress",
+        "active_wave": "activation",
+        "baseline_commit": "81660bd3d4be9c8fb6725e5836e7821f9947eb17",
+        "prior_thesis_state": "deferred",
+        "development_profile_only": True,
+        "external_effects": "disabled",
+    }
+    current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
+    assert "ID: PLATFORM-P0" in current
+    assert "Namespace: platform-development" in current
+    assert "integration/platform-development" in current
+    assert "make verify-platform-phase0" in current
+    assert "does not reopen or reinterpret" in current
+
+
+def test_phase0_lane_manifest_freezes_non_overlapping_ownership() -> None:
+    manifest = read_json("config/agent/platform-development/lanes.json")
+    assert manifest["namespace"] == "platform-development"
+    assert manifest["base_commit"] == (
+        "81660bd3d4be9c8fb6725e5836e7821f9947eb17"
+    )
+    assert manifest["waves"] == {
+        "activation": ["integration"],
+        "parallel-audit": [
+            "canonical-decisions",
+            "storage-runtime",
+            "ui-policy",
+        ],
+        "synthesis": ["integration"],
+        "acceptance": ["independent-qa", "integration"],
+    }
+    assert validate_manifest(manifest) == []
+    assert manifest["frozen_directories"] == ["vendor/servicefabric"]
+    assert manifest["rules"]["specialist_may_merge"] is False
+    assert manifest["rules"]["shared_contract_owner"] == "integration"
+
+    expected_handoffs = {
+        "canonical-decisions": (
+            "docs/handoffs/platform-development/phase0-canonical-decisions.md"
+        ),
+        "storage-runtime": (
+            "docs/handoffs/platform-development/phase0-storage-runtime.md"
+        ),
+        "ui-policy": "docs/handoffs/platform-development/phase0-ui-policy.md",
+        "independent-qa": (
+            "docs/handoffs/platform-development/phase0-independent-qa.md"
+        ),
+    }
+    for lane_name, handoff in expected_handoffs.items():
+        lane = manifest["lanes"][lane_name]
+        assert lane["allowed_directories"] == []
+        assert lane["allowed_files"] == [handoff]
+
+
+def test_every_phase0_task_has_a_bounded_instruction() -> None:
+    task_root = ROOT / "docs/workplans/platform-development/phase-0"
+    tasks = {
+        "TASK-00-INTEGRATION-ACTIVATION.md": "integration activation",
+        "TASK-01-CANONICAL-DECISIONS.md": "Only writable path",
+        "TASK-02-STORAGE-RUNTIME.md": "Only writable path",
+        "TASK-03-UI-PROFILES-POLICY.md": "Only writable path",
+        "TASK-04-INTEGRATION-SYNTHESIS.md": "Integration work",
+        "TASK-05-INDEPENDENT-QA.md": "Only writable path",
+    }
+    for filename, marker in tasks.items():
+        text = (task_root / filename).read_text(encoding="utf-8")
+        assert marker in text
+        assert "Objective" in text
+
+
+def test_active_agent_instructions_preserve_profile_and_effect_boundaries() -> None:
+    instructions = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    assert "Active platform development programme" in instructions
+    assert "PLATFORM-P0" in instructions
+    assert "Real, synthetic, fixture, simulated, missing, and" in instructions
+    assert "Studio–Codex controls remain\ndevelopment-only" in instructions
+    assert "external effects remain disabled" in instructions
+
+
+def test_phase0_verification_target_is_deterministic_and_network_free() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    gate = makefile.split(".PHONY: verify-platform-phase0", maxsplit=1)[1]
+    assert "verify-platform-phase0: preflight day0-env" in gate
+    assert "test_platform_development_control_plane.py" in gate
+    assert "test_thesis_sprint_control_plane.py" in gate
+    assert "git diff --check" in gate
+    for forbidden in ("OPENAI_API_KEY", "curl ", "submit_order", "execute_trade"):
+        assert forbidden not in gate
