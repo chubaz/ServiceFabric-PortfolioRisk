@@ -2,13 +2,14 @@
 
 - ID: PLATFORM-P3
 - Title: Experiment workspace and bounded queue
-- Status: in progress
+- Status: accepted
 - Namespace: platform-development
 - Integration branch: integration/platform-experiment-workspace
 - Workplan: docs/workplans/platform-development/phase-3-experiment-workspace.md
 - Baseline commit: 5426cacee004817c17215ec8bff3747d5d00c2c2
 - Phase 1 accepted candidate: a68ef6fce9d39f5341fa8675c093db2eba95aed6
 - Verification: make verify-platform-phase3
+- Accepted candidate: 63530a08040f0976e68d310072a27a809943f15d
 
 Phase 3 adds immutable ExperimentDefinition and ExperimentSet contracts,
 external restart-safe lifecycle and queue metadata, explicit foreground,
@@ -50,3 +51,8 @@ Testing uses fast focused suites during each phase and a bounded phase gate at
 candidate time. The exhaustive cross-phase clean-room suite runs every three
 phases or immediately when a high-risk execution, financial-effect, data-rights,
 or compatibility boundary changes.
+
+Phase 3 is accepted locally at exact implementation candidate
+`63530a08040f0976e68d310072a27a809943f15d`. The focused contract, persistence,
+API, architecture, launcher, JavaScript, and browser interaction checks passed.
+The next phase has not started.

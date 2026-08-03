@@ -1,6 +1,7 @@
 # PLATFORM-P3 — experiment workspace and bounded queue
 
-- Status: in progress
+- Status: accepted
+- Accepted candidate: `63530a08040f0976e68d310072a27a809943f15d`
 - Integration branch: `integration/platform-experiment-workspace`
 - Baseline: `5426cacee004817c17215ec8bff3747d5d00c2c2`
 - Roadmap: `apps/portfolio-risk-workbench/labs/DEVELOPMENT_ROADMAP.md`
