@@ -58,11 +58,20 @@ System Development owns singular object construction and its controlled applicat
 - ReportTemplate;
 - DashboardPackage;
 - ScenarioDefinition;
+- RiskAnalysisPackageDefinition;
 - future WorkflowDefinition;
 - future ProviderAdapter;
 - future PortfolioVersion and MandateVersion.
 
 Each Studio treats the reusable definition and its necessary companion capabilities as one development concern. A Dashboard Studio may therefore build both a `DashboardPackage` and the typed capabilities that validate, render or update it. This does not fuse their identities: each remains separately versioned, reviewable and least-privileged. Agent and Capability Studios add companion capabilities only for lifecycle or native framework gaps.
+
+The first specialised Studio slice is the question-first
+`RiskAnalysisPackageDefinition`. It composes semantic data roles, validated
+default analytical capabilities, compatible substitutions, a package-wide
+point-in-time boundary, optional value-gated dossier sections and dual
+publication validation. Capabilities remain discoverable to agents in this
+slice; package compatibility and run receipts do not constitute an agent
+allowlist.
 
 The System Development header exposes only Overview, Studios and Workbench. Overview is a centred grid of directly clickable object cards. Workbench keeps application testing, Registry, Dictionary and the existing specialist utilities behind one persistent sidebar; this changes navigation only and preserves the underlying workspace routes and contracts.
 

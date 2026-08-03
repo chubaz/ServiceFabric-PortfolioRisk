@@ -84,9 +84,9 @@ def test_system_overview_is_a_minimal_object_launcher() -> None:
     overview = html.split('<section class="lab-page active" id="lab-system"', 1)[1].split(
         '<section class="lab-page" id="lab-studio"', 1
     )[0]
-    assert overview.count('data-open-studio=') == 8
-    assert overview.count('role="button"') == 8
-    assert overview.count('tabindex="0"') == 8
+    assert overview.count('data-open-studio=') == 9
+    assert overview.count('role="button"') == 9
+    assert overview.count('tabindex="0"') == 9
     assert "<h1" not in overview
     assert "definition-lifecycle" not in overview
     assert "registry-summary" not in overview
@@ -123,13 +123,15 @@ def test_studios_pair_objects_with_companion_capabilities_and_safe_codex_handoff
     javascript = read("apps/portfolio-risk-workbench/labs/labs.js")
     for studio in (
         "capability", "scenario", "dashboard", "report", "portfolio_mandate",
-        "workflow", "provider_connector", "agent",
+        "workflow", "provider_connector", "agent", "risk_analysis",
     ):
         assert f'"studio_id": "{studio}"' in server
     assert "Companion capabilities" in html
     assert '<button class="button primary" type="button" disabled>Start Codex session</button>' in html
     assert "Do not publish, merge or remove the worktree" in javascript
     assert "function prepareStudioApplication" in javascript
+    assert 'id="studio-risk-package-preview"' in html
+    assert "function renderRiskAnalysisPackage" in javascript
 
 
 def test_future_zone_dependencies_are_visible_and_non_executable() -> None:

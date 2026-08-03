@@ -795,6 +795,31 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
 .studio-codex-panel > div { align-items: center; display: flex; justify-content: space-between; }
 .studio-codex-panel > div b { background: var(--amber-pale); border-radius: 999px; color: var(--amber); font-size: 7px; padding: 5px 7px; }
 .studio-codex-panel pre { background: #102f35; border-radius: 8px; color: #dce9e8; flex: 1; font-size: 7px; line-height: 1.5; margin: 0; max-height: 440px; min-height: 260px; overflow: auto; padding: 10px; white-space: pre-wrap; }
+.risk-package-preview { background: var(--surface); border: 1px solid var(--line); border-radius: 11px; grid-column: 1 / -1; min-width: 0; overflow: hidden; }
+.risk-package-header { align-items: flex-start; border-bottom: 1px solid var(--line); display: flex; gap: 20px; justify-content: space-between; padding: 15px 16px; }
+.risk-package-header > div:first-child { max-width: 760px; }
+.risk-package-header span, .risk-package-grid article > header span { color: var(--teal); font-size: 7px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.risk-package-header h2 { font: 500 17px/1.3 Georgia, serif; margin: 4px 0; }
+.risk-package-header p { color: var(--muted); font-size: 8px; line-height: 1.55; margin: 0; }
+.risk-package-header > div:last-child { align-items: flex-end; display: flex; flex-direction: column; gap: 8px; }
+.risk-package-header > div:last-child > b { background: var(--amber-pale); border-radius: 999px; color: var(--amber); font-size: 7px; padding: 5px 8px; text-transform: capitalize; }
+.risk-package-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.risk-package-summary span { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); color: var(--muted); font-size: 7px; padding: 9px 12px; }
+.risk-package-summary span:last-child { border-right: 0; }
+.risk-package-summary b { color: var(--navy); font-size: 11px; margin-right: 4px; }
+.risk-package-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.risk-package-grid > article { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); min-width: 0; padding: 13px 14px; }
+.risk-package-grid > article:nth-child(2n) { border-right: 0; }
+.risk-package-grid > article:nth-last-child(-n+2) { border-bottom: 0; }
+.risk-package-grid article > header { align-items: baseline; display: flex; justify-content: space-between; margin-bottom: 8px; }
+.risk-package-grid article > header b { font: 500 13px/1.3 Georgia, serif; }
+.risk-package-group + .risk-package-group { border-top: 1px dashed var(--line); margin-top: 9px; padding-top: 8px; }
+.risk-package-group > em { color: var(--muted); display: block; font-size: 7px; font-style: normal; font-weight: 800; margin-bottom: 3px; text-transform: uppercase; }
+.risk-package-row { border-top: 1px solid var(--line-soft); padding: 8px 0; }
+.risk-package-row:first-of-type { border-top: 0; }
+.risk-package-row strong { display: block; font-size: 8px; text-transform: capitalize; }
+.risk-package-row p { color: var(--muted); font-size: 7px; line-height: 1.45; margin: 3px 0; }
+.risk-package-row small { color: var(--teal); display: block; font-size: 6.5px; overflow-wrap: anywhere; }
 .dictionary-toolbar input { background: transparent; border: 0; color: var(--ink); flex: 1; font-size: 10px; outline: 0; padding: 4px; }
 .dictionary-toolbar span { background: var(--surface-2); border-radius: 999px; color: var(--muted); font-size: 8px; padding: 5px 8px; }
 .dictionary-list { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
@@ -1950,6 +1975,11 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
   .zone-rule { grid-template-columns: 1fr; }
   .system-object-grid, .terminology-grid, .studio-workbench, .application-layout, .application-form-grid, .future-capability-strip, .experimental-process-note { grid-template-columns: 1fr; }
   .studio-codex-panel { grid-column: auto; }
+  .risk-package-preview { grid-column: auto; }
+  .risk-package-summary, .risk-package-grid { grid-template-columns: 1fr; }
+  .risk-package-summary span, .risk-package-grid > article { border-right: 0; }
+  .risk-package-grid > article:nth-last-child(-n+2) { border-bottom: 1px solid var(--line); }
+  .risk-package-grid > article:last-child { border-bottom: 0; }
   .studio-toolbar { align-items: stretch; flex-wrap: wrap; }
   .studio-toolbar select { flex: 1 1 210px; min-width: 0; }
   .studio-toolbar > span { flex-basis: 100%; }

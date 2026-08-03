@@ -45,6 +45,7 @@ class AssetKind(str, Enum):
     DASHBOARD = "dashboard"
     SCENARIO = "scenario"
     WORKFLOW = "workflow"
+    RISK_ANALYSIS_PACKAGE = "risk_analysis_package"
 
 
 class LifecycleState(str, Enum):

@@ -104,6 +104,7 @@ from risk_reports import (
     validate_report,
     with_rendered_html,
 )
+from risk_analytics import RISK_ANALYSIS_PACKAGES
 from risk_decisions import (
     DecisionConflict as DecisionReviewConflict,
     DecisionNotFound as DecisionReviewNotFound,
@@ -1833,6 +1834,25 @@ def platform_workspaces() -> dict[str, Any]:
     for item in saved:
         kind = item["identity"]["kind"]
         saved_counts[kind] = saved_counts.get(kind, 0) + 1
+    discovered_analysis_packages = {
+        item.identity.asset_id: item
+        for item in discover_registry_projections()
+        if item.identity.kind is AssetKind.RISK_ANALYSIS_PACKAGE
+    }
+    analysis_packages = []
+    saved_by_reference = {item["reference"]: item for item in saved}
+    for definition in RISK_ANALYSIS_PACKAGES:
+        projection = discovered_analysis_packages[definition.package_id]
+        indexed = saved_by_reference.get(projection.identity.reference)
+        analysis_packages.append(
+            {
+                "definition": definition.model_dump(mode="json"),
+                "registry_identity": projection.identity.model_dump(mode="json"),
+                "registry_reference": projection.identity.reference,
+                "registry_state": indexed["lifecycle_state"] if indexed else "discovered",
+                "indexed": indexed is not None,
+            }
+        )
     return {
         "schema_version": "portfolio-risk.platform-workspaces/v1",
         "zones": [
@@ -1880,6 +1900,7 @@ def platform_workspaces() -> dict[str, Any]:
             "provider_adapter": "A governed interface to an MCP, API, database or other integration with schemas, rights and effect boundaries.",
             "registry_candidate": "A saved definition version indexed for local review but not yet validated or published.",
             "report_template": "A reusable Markdown-first structure, evidence policy and rendering contract; not a rendered report artifact.",
+            "risk_analysis_package": "A reusable risk-question-first composition of semantic data roles, analytical capabilities, validation and analysis-dossier section briefs.",
             "run_work_product": "An output created during one application or experiment run.",
             "scenario_definition": "A reusable declaration of assumptions, shocks, temporal behavior, applicability and result contracts.",
             "studio_codex": "The future development-only gateway that turns an approved Studio build brief into an isolated Codex worktree task, tests and a candidate definition.",
@@ -1896,6 +1917,7 @@ def platform_workspaces() -> dict[str, Any]:
         ],
         "saved_definitions": saved,
         "saved_counts": saved_counts,
+        "risk_analysis_packages": analysis_packages,
         "portfolios": data_plane.public_portfolios(),
         "fixture_profiles": [
             {
@@ -1918,6 +1940,17 @@ def platform_workspaces() -> dict[str, Any]:
             },
         ],
         "studio_profiles": [
+            {
+                "studio_id": "risk_analysis",
+                "title": "Risk Analysis Studio",
+                "definition_label": "RiskAnalysisPackageDefinition",
+                "registry_kind": "risk_analysis_package",
+                "purpose": "Describe a portfolio-risk question, then compile semantic data roles, modular analytical methods, validation and a concise analysis dossier.",
+                "companion_policy": "Capabilities remain openly discoverable. The package pins validated defaults, permits recorded compatible substitutions and keeps supplemental work separate from the stable core.",
+                "companion_examples": ["portfolio.data_context.create", "risk.volatility.annualized", "risk.drawdown.maximum", "risk.var.historical", "risk.expected_shortfall.historical", "risk.report.render"],
+                "skill_id": "servicefabric-risk-analysis-package-builder",
+                "availability": "reference_package_and_registry",
+            },
             {
                 "studio_id": "capability",
                 "title": "Capability Studio",

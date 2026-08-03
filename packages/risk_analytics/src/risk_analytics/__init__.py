@@ -10,6 +10,18 @@ from .tail_risk import historical_tail_risk
 from .volatility import annualized_volatility
 from risk_domain.monitoring import AlertOutcomeMatch, ContextQualityIssue, ContextualMonitoringRequest, ContextualMonitoringRun, DataVintageSelection, EvaluationWarning, InstrumentDataBinding, MappingCoverage, MonitoringEvaluation, MonitoringEvidenceBundle, MonitoringFindingSet, MonitoringPolicy, MonitoringPolicyVersion, OutcomeLabel, PolicyBreach, PolicyEvaluationRequest, PolicyEvaluationResult, PortfolioDataContext, PortfolioDataContextRequest, ReplayRun, ReplaySpecification, ReplayStep, create_portfolio_data_context, evaluate_monitoring_policy, evaluate_replay, run_contextual_monitoring
 from .monitoring_reports import MonitoringReport, MonitoringReportRequest, render_monitoring_report
+from .analysis_packages import (
+    CapabilityImplementationKind,
+    CapabilityRole,
+    DAILY_PORTFOLIO_DOWNSIDE_RISK_PACKAGE,
+    DossierSectionBrief,
+    NarrativeValuePolicy,
+    PublicationValidationPolicy,
+    RISK_ANALYSIS_PACKAGES,
+    RiskAnalysisPackageDefinition,
+    SemanticDataRole,
+    TemporalEnvelope,
+)
 
 __all__ = [
     "AnalysisEvidence",
@@ -63,4 +75,14 @@ __all__ = [
     "evaluate_replay",
     "render_monitoring_report",
     "run_contextual_monitoring",
+    "CapabilityImplementationKind",
+    "CapabilityRole",
+    "DAILY_PORTFOLIO_DOWNSIDE_RISK_PACKAGE",
+    "DossierSectionBrief",
+    "NarrativeValuePolicy",
+    "PublicationValidationPolicy",
+    "RISK_ANALYSIS_PACKAGES",
+    "RiskAnalysisPackageDefinition",
+    "SemanticDataRole",
+    "TemporalEnvelope",
 ]

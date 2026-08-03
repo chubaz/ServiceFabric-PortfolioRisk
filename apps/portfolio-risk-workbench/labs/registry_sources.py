@@ -33,6 +33,7 @@ from portfolio_risk_thesis.day4.report import (  # noqa: E402
 from risk_agents.roles import ACTIVE_AGENT_ROLE_IDS, AGENT_ROLES  # noqa: E402
 from risk_analytics.monitoring_reports import render_monitoring_report  # noqa: E402
 from risk_analytics.reports import render_report  # noqa: E402
+from risk_analytics.analysis_packages import RISK_ANALYSIS_PACKAGES  # noqa: E402
 from risk_capabilities import CAPABILITY_DESCRIPTORS  # noqa: E402
 from risk_capabilities.registry import DEFAULT_CAPABILITY_REGISTRY  # noqa: E402
 from risk_registry import (  # noqa: E402
@@ -243,6 +244,38 @@ def discover_registry_projections(
             )
         )
 
+    analysis_package_file = "packages/risk_analytics/src/risk_analytics/analysis_packages.py"
+    for package in RISK_ANALYSIS_PACKAGES:
+        relationships = tuple(
+            (
+                "uses_agent"
+                if role.implementation_kind.value == "agent_backed"
+                else "uses_capability",
+                role.default_implementation,
+            )
+            for role in package.capability_roles
+        )
+        projections.append(
+            _projection(
+                kind=AssetKind.RISK_ANALYSIS_PACKAGE,
+                asset_id=package.package_id,
+                version=package.version,
+                native_version=package.version,
+                display_name=package.display_name,
+                summary=package.risk_question,
+                source_reference=_source_path(analysis_package_file, package.package_id),
+                source_file=analysis_package_file,
+                source_namespace="portfolio-risk.analysis-package",
+                source_contract="risk_analytics.RiskAnalysisPackageDefinition",
+                source_value=package.model_dump(mode="json"),
+                source_type="python_registry",
+                tags=("risk-question-first", "hybrid-resolution", "analysis-dossier", "point-in-time"),
+                relationships=relationships,
+                compatibility_status="compatible",
+                discovered_at=observed_at,
+            )
+        )
+
     evaluation_file = "examples/portfolio-risk-thesis/experiments/day4_fixture.yaml"
     manifest = load_day4_manifest(REPOSITORY_ROOT / evaluation_file)
     manifest_value = manifest.model_dump(mode="json")
@@ -434,8 +467,8 @@ def discover_registry_projections(
     identities = [projection.identity.reference for projection in projections]
     if len(identities) != len(set(identities)):
         raise ValueError("source discovery produced duplicate registry identities")
-    if len(projections) != 44:
-        raise ValueError(f"reviewed source adapter set must produce 44 projections, got {len(projections)}")
+    if len(projections) != 45:
+        raise ValueError(f"reviewed source adapter set must produce 45 projections, got {len(projections)}")
     return sorted(projections, key=lambda item: item.identity.reference)
 
 

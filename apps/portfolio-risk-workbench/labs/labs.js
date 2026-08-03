@@ -3318,6 +3318,59 @@
     return studioProfiles().find((item) => item.studio_id === labState.selectedStudioId) || studioProfiles()[0] || null;
   }
 
+  function selectedRiskAnalysisPackage() {
+    return labState.platformArchitecture?.risk_analysis_packages?.[0] || null;
+  }
+
+  function renderRiskAnalysisPackage() {
+    const panel = $("#studio-risk-package-preview");
+    if (!panel) return;
+    const profile = selectedStudioProfile();
+    const record = selectedRiskAnalysisPackage();
+    if (profile?.studio_id !== "risk_analysis" || !record) {
+      panel.classList.add("hidden");
+      panel.innerHTML = "";
+      return;
+    }
+    const definition = record.definition;
+    const rows = (items, render) => items.map(render).join("");
+    const deterministic = definition.capability_roles.filter((item) => item.implementation_kind === "deterministic");
+    const agentBacked = definition.capability_roles.filter((item) => item.implementation_kind === "agent_backed");
+    panel.classList.remove("hidden");
+    panel.innerHTML = `<header class="risk-package-header">
+      <div><span>Reference package · ${escapeHtml(definition.version)}</span><h2>${escapeHtml(definition.display_name)}</h2><p>${escapeHtml(definition.risk_question)}</p></div>
+      <div><b>${escapeHtml(record.registry_state)}</b>${record.indexed ? "" : '<button class="button primary" id="studio-risk-package-index" type="button">Save candidate</button>'}</div>
+    </header>
+    <div class="risk-package-summary">
+      <span><b>${definition.data_roles.length}</b> semantic data roles</span>
+      <span><b>${definition.capability_roles.length}</b> analytical roles</span>
+      <span><b>${definition.dossier_sections.length}</b> optional dossier sections</span>
+      <span><b>2</b> value-admission paths</span>
+    </div>
+    <div class="risk-package-grid">
+      <article><header><span>Data</span><b>Semantic roles</b></header>${rows(definition.data_roles, (item) => `<div class="risk-package-row"><strong>${escapeHtml(item.role_id.replaceAll("_", " "))}</strong><p>${escapeHtml(item.description)}</p><small>${escapeHtml(item.default_binding)} · ${escapeHtml(item.as_of_rule.replaceAll("_", " "))}</small></div>`)}</article>
+      <article><header><span>Analysis</span><b>Hybrid resolution</b></header><div class="risk-package-group"><em>Deterministic</em>${rows(deterministic, (item) => `<div class="risk-package-row"><strong>${escapeHtml(item.role_id.replaceAll("_", " "))}</strong><p>${escapeHtml(item.objective)}</p><small>${escapeHtml(item.default_implementation)}${item.substitutable ? " · substitutable" : ""}</small></div>`)}</div><div class="risk-package-group"><em>Agent-backed</em>${rows(agentBacked, (item) => `<div class="risk-package-row"><strong>${escapeHtml(item.role_id.replaceAll("_", " "))}</strong><p>${escapeHtml(item.objective)}</p><small>${escapeHtml(item.default_implementation)} · bounded child run</small></div>`)}</div></article>
+      <article><header><span>Dossier</span><b>Write only when valuable</b></header>${rows(definition.dossier_sections, (item) => `<div class="risk-package-row"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.question)}</p><small>≤ ${item.max_words} words · empty allowed · ${escapeHtml(item.format)}</small></div>`)}</article>
+      <article><header><span>Controls</span><b>Replayable core</b></header>
+        <div class="risk-package-row"><strong>Temporal envelope</strong><p>All inputs and supplemental queries inherit the package as-of boundary.</p><small>${escapeHtml(definition.temporal_envelope.eligibility_field)} · pinned revisions · point-in-time mappings</small></div>
+        <div class="risk-package-row"><strong>Value gate</strong><p>Decision value or research value may admit a finding. Repetition and unsupported inference are penalised.</p><small>Silence is a valid output</small></div>
+        <div class="risk-package-row"><strong>Publication gate</strong><p>Deterministic validation plus one representative human-reviewed dossier.</p><small>${definition.publication_validation.fixture_cases.map((item) => escapeHtml(item.replaceAll("_", " "))).join(" · ")}</small></div>
+        <div class="risk-package-row"><strong>Supplemental expansion</strong><p>An agent may add analysis without mutating the stable package core.</p><small>Successful additions become revision proposals</small></div>
+      </article>
+    </div>`;
+    $("#studio-risk-package-index")?.addEventListener("click", () => indexRiskAnalysisPackage().catch((error) => showToast(error.message, "error")));
+  }
+
+  async function indexRiskAnalysisPackage() {
+    const record = selectedRiskAnalysisPackage();
+    if (!record || record.indexed) return;
+    if (!window.confirm(`Save ${record.definition.display_name} as a Registry candidate?\n\nThis indexes the reviewed definition and its exact capability relationships. It does not run or publish the package.`)) return;
+    await agentApi("/api/registry/index", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identity: record.registry_identity, actor: "local.developer" }) });
+    await refreshDefinitionConsumers();
+    renderStudioProfile(false);
+    showToast("Risk Analysis Package saved as a candidate.", "success");
+  }
+
   function renderStudioProfile(resetDraft = false) {
     const profile = selectedStudioProfile();
     if (!profile) return;
@@ -3325,9 +3378,10 @@
     select.innerHTML = studioProfiles().map((item) => `<option value="${escapeHtml(item.studio_id)}">${escapeHtml(item.title)}</option>`).join("");
     select.value = profile.studio_id;
     $("#studio-availability").textContent = profile.availability.replaceAll("_", " ");
+    const riskPackage = profile.studio_id === "risk_analysis" ? selectedRiskAnalysisPackage()?.definition : null;
     if (resetDraft || !$("#studio-object-brief").value) {
-      $("#studio-object-name").value = "";
-      $("#studio-object-brief").value = profile.purpose;
+      $("#studio-object-name").value = riskPackage?.display_name || "";
+      $("#studio-object-brief").value = riskPackage?.risk_question || profile.purpose;
       $("#studio-capability-brief").value = `${profile.companion_policy}\n\nCandidates: ${profile.companion_examples.join(", ")}`;
       $("#studio-test-brief").value = `Ask the selected agent to use the admitted capabilities to apply, challenge and explain the ${profile.definition_label}.`;
       labState.studioBuildBrief = null;
@@ -3343,6 +3397,7 @@
     $("#studio-fixture").innerHTML = (labState.platformArchitecture.fixture_profiles || []).map((item) => `<option value="${escapeHtml(item.fixture_id)}">${escapeHtml(item.label)}</option>`).join("");
     $("#studio-portfolio").innerHTML = (labState.platformArchitecture.portfolios || []).map((item) => `<option value="${escapeHtml(item.portfolio_id)}">${escapeHtml(item.title)}</option>`).join("") || '<option value="">No portfolio</option>';
     $("#studio-prepare-application").disabled = !profile.registry_kind || $("#studio-saved-object").disabled || $("#studio-agent").disabled;
+    renderRiskAnalysisPackage();
   }
 
   function openStudio(studioId) {
@@ -3358,7 +3413,9 @@
     const name = $("#studio-object-name").value.trim() || `New ${profile.definition_label}`;
     const objectBrief = $("#studio-object-brief").value.trim();
     const capabilityBrief = $("#studio-capability-brief").value.trim();
-    labState.studioBuildBrief = `ServiceFabric Studio build brief\n\nStudio: ${profile.title}\nObject: ${name}\nCanonical type: ${profile.definition_label}\nRequired skill: ${profile.skill_id}\nAvailability boundary: ${profile.availability}\n\nObject contract\n${objectBrief}\n\nCompanion capability contract\n${capabilityBrief}\n\nBuild together\n- Reuse existing canonical contracts and registries before adding a new type.\n- Implement the object model and only the capabilities needed to create, validate, lifecycle, modify or apply it.\n- Keep data preparation, typed inputs, results, receipts, authority and denied effects explicit.\n- Add representative, failure and adversarial fixtures.\n- Add focused tests, concise documentation and a Registry candidate projection.\n- Run in an isolated Git worktree; return diff, verification and merge handoff.\n- Do not publish, merge or remove the worktree without the declared review step.\n- External financial effects remain disabled.\n\nApplication test\n${$("#studio-test-brief").value.trim()}`;
+    const riskPackage = profile.studio_id === "risk_analysis" ? selectedRiskAnalysisPackage()?.definition : null;
+    const packageContext = riskPackage ? `\n\nReference package\n- Resolution: ${riskPackage.resolution_mode}\n- Output: ${riskPackage.output_boundary}\n- Data roles: ${riskPackage.data_roles.map((item) => item.role_id).join(", ")}\n- Analytical roles: ${riskPackage.capability_roles.map((item) => item.role_id).join(", ")}\n- Dossier sections: ${riskPackage.dossier_sections.map((item) => item.section_id).join(", ")}\n- Temporal rule: ${riskPackage.temporal_envelope.eligibility_field} inside ${riskPackage.temporal_envelope.as_of_binding}\n- Narrative rule: admit decision-value or research-value findings; empty output is valid.` : "";
+    labState.studioBuildBrief = `ServiceFabric Studio build brief\n\nStudio: ${profile.title}\nObject: ${name}\nCanonical type: ${profile.definition_label}\nRequired skill: ${profile.skill_id}\nAvailability boundary: ${profile.availability}\n\nObject contract\n${objectBrief}\n\nCompanion capability contract\n${capabilityBrief}${packageContext}\n\nBuild together\n- Reuse existing canonical contracts and registries before adding a new type.\n- Implement the object model and only the capabilities needed to create, validate, lifecycle, modify or apply it.\n- Keep data preparation, typed inputs, results, receipts, authority and denied effects explicit.\n- Add representative, failure and adversarial fixtures.\n- Add focused tests, concise documentation and a Registry candidate projection.\n- Run in an isolated Git worktree; return diff, verification and merge handoff.\n- Do not publish, merge or remove the worktree without the declared review step.\n- External financial effects remain disabled.\n\nApplication test\n${$("#studio-test-brief").value.trim()}`;
     $("#studio-codex-brief").textContent = labState.studioBuildBrief;
     $("#studio-copy-brief").disabled = false;
   }

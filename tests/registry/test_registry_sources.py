@@ -26,6 +26,7 @@ def test_discovery_surfaces_all_initial_asset_kinds_from_existing_sources() -> N
         "dashboard",
         "scenario",
         "workflow",
+        "risk_analysis_package",
     }
     assert counts == {
         "agent": 4,
@@ -35,8 +36,9 @@ def test_discovery_surfaces_all_initial_asset_kinds_from_existing_sources() -> N
         "dashboard": 1,
         "scenario": 3,
         "workflow": 3,
+        "risk_analysis_package": 1,
     }
-    assert len(items) == 44
+    assert len(items) == 45
     assert len(items) == len({item.identity.reference for item in items})
 
 
@@ -73,7 +75,7 @@ def test_only_reviewed_role_and_capability_contracts_are_canonical() -> None:
     items = discover_registry_projections()
     canonical = {item.identity.kind.value for item in items if item.source.canonical}
     candidate = {item.identity.kind.value for item in items if not item.source.canonical}
-    assert canonical == {"agent", "capability"}
+    assert canonical == {"agent", "capability", "risk_analysis_package"}
     assert candidate == {"evaluation", "report", "dashboard", "scenario", "workflow"}
 
 

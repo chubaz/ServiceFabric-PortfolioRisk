@@ -32,7 +32,8 @@ def test_catalogue_preview_is_truthful_and_covers_each_kind(
         "report",
         "dashboard",
         "scenario",
-        "workflow",
+            "workflow",
+            "risk_analysis_package",
     }
     assert result["states"] == {"discovered": len(result["records"])}
     assert all(record["indexed"] is False for record in result["records"])
@@ -63,7 +64,7 @@ def test_bootstrap_preview_declares_count_and_consequence_without_writing(
     preview = duckdb_server.preview_registry_bootstrap(
         duckdb_server.RegistryBootstrapRequest(actor="test.reviewer")
     )
-    assert preview["would_index"] == preview["discovered"] == 44
+    assert preview["would_index"] == preview["discovered"] == 45
     assert preview["already_indexed"] == 0
     assert preview["conflicts"] == []
     assert "do not copy, run, deploy" in preview["consequence"]

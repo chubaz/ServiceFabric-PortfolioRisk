@@ -175,6 +175,8 @@ The catalogue contains at least:
 - RiskThesis / InvestmentThesis;
 - MonitoringStrategy and SubscriptionPack;
 - ContextPack, CapabilityPack, OutputContract, AutonomyProfile, and RuntimeProfile.
+- RiskAnalysisPackageDefinition, combining a risk question, semantic data roles,
+  modular analytical capability roles, validation and an analysis-dossier contract.
 
 ### 4.2 Storage responsibilities
 

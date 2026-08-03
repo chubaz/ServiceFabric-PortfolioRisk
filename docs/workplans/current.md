@@ -10,6 +10,7 @@
 - Phase 1 accepted candidate: a68ef6fce9d39f5341fa8675c093db2eba95aed6
 - Verification: make verify-platform-phase6
 - Accepted candidate: 5669055bbc6aea205cf3e0eb4867a949daaa5154
+- Active post-acceptance Studio sub-cycle: docs/workplans/platform-development/studio-foundation-1-risk-analysis-package.md
 
 Phase 6 adds a dedicated human due-diligence workspace over the accepted Phase 5
 decision lifecycle. It exposes the proposal's evidence, artifacts, capability
