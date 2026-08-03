@@ -174,6 +174,17 @@ class LocalRegistryStore:
             projection.model_dump_json().encode("utf-8")
         ).hexdigest()
 
+    @staticmethod
+    def _source_observation_digest(projection: RegistryProjection) -> str:
+        value = projection.model_dump(mode="json")
+        value["provenance"].pop("discovered_at", None)
+        value["provenance"].pop("repository_commit", None)
+        value["source"].pop("source_digest", None)
+        payload = json.dumps(value, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
+        return hashlib.sha256(payload).hexdigest()
+
     def _read_catalog(self) -> dict[str, dict[str, str]]:
         if not self.catalog_path.exists():
             return {}
@@ -293,6 +304,7 @@ class LocalRegistryStore:
                     "schema_version",
                     "mode",
                     "references",
+                    "observation_digests",
                     "actor",
                     "rationale",
                     "occurred_at",
@@ -303,6 +315,17 @@ class LocalRegistryStore:
                 or not references
                 or any(not isinstance(reference, str) for reference in references)
                 or references != sorted(set(references))
+                or not isinstance(intent.get("observation_digests"), dict)
+                or set(intent["observation_digests"]) != set(references)  # type: ignore[arg-type]
+                or any(
+                    not isinstance(digest_value, str)
+                    or len(digest_value) != 64
+                    or any(
+                        character not in "0123456789abcdef"
+                        for character in digest_value
+                    )
+                    for digest_value in intent["observation_digests"].values()  # type: ignore[union-attr]
+                )
                 or not isinstance(intent.get("actor"), str)
                 or not isinstance(intent.get("rationale"), str)
                 or (
@@ -326,10 +349,14 @@ class LocalRegistryStore:
         rationale: str,
         occurred_at: datetime | None,
     ) -> None:
+        if not actor or len(actor) > 128:
+            raise ValueError("registry index actor must contain 1 to 128 characters")
+        if len(rationale) < 3 or len(rationale) > 1200:
+            raise ValueError("registry index rationale must contain 3 to 1200 characters")
+        if occurred_at is not None and occurred_at.tzinfo is None:
+            raise ValueError("registry index occurred_at must be timezone-aware")
         references = sorted(item.identity.reference for item in projections)
         catalog = self._read_catalog()
-        if all(reference in catalog for reference in references):
-            return
         timestamp = (
             occurred_at.astimezone(timezone.utc).isoformat()
             if occurred_at is not None
@@ -339,6 +366,12 @@ class LocalRegistryStore:
             "schema_version": "risk-registry-index-intent/v1",
             "mode": mode,
             "references": references,
+            "observation_digests": {
+                item.identity.reference: self._source_observation_digest(item)
+                for item in sorted(
+                    projections, key=lambda projection: projection.identity.reference
+                )
+            },
             "actor": actor,
             "rationale": rationale,
             "occurred_at": timestamp,
@@ -357,6 +390,8 @@ class LocalRegistryStore:
                 raise RegistryConflict(
                     "an interrupted index operation must be retried with its exact source set and intent"
                 )
+            return
+        if all(reference in catalog for reference in references):
             return
         for projection in projections:
             events_path = self._events_path(projection.identity)
@@ -517,23 +552,11 @@ class LocalRegistryStore:
     def _same_source_observation(
         existing: RegistryProjection, discovered: RegistryProjection
     ) -> bool:
-        left = existing.model_dump(mode="json")
-        right = discovered.model_dump(mode="json")
-        # Discovery time records when each scan occurred. It does not change the
-        # source observation and therefore must not defeat idempotent bootstrap.
-        left["provenance"].pop("discovered_at", None)
-        right["provenance"].pop("discovered_at", None)
-        # The indexed observation retains the exact commit where it was first
-        # reviewed. A later scan at another commit is idempotent when both the
-        # canonical definition and adapter bytes are unchanged.
-        left["provenance"].pop("repository_commit", None)
-        right["provenance"].pop("repository_commit", None)
-        # A comment or unrelated sibling definition may change the raw source
-        # file digest without changing this exact semantic definition. The
-        # indexed observation stays immutable and the API reports source drift.
-        left["source"].pop("source_digest", None)
-        right["source"].pop("source_digest", None)
-        return left == right
+        # Scan time, repository checkout, and unrelated raw-file changes do not
+        # alter the semantic definition selected by the adapter.
+        return LocalRegistryStore._source_observation_digest(
+            existing
+        ) == LocalRegistryStore._source_observation_digest(discovered)
 
     def index(
         self,

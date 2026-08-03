@@ -442,6 +442,43 @@ def test_interrupted_explicit_timestamp_index_requires_exact_timestamp_retry(
     assert recovered.receipts[0].occurred_at == NOW
 
 
+def test_journal_only_interruption_binds_semantic_source_observation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = LocalRegistryStore(tmp_path / "registry")
+    original_write = store._write_immutable  # noqa: SLF001 - fault injection
+
+    def fail_projection_write(path: Path, value: object) -> None:
+        if isinstance(value, RegistryProjection):
+            raise OSError("injected projection write failure")
+        original_write(path, value)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(store, "_write_immutable", fail_projection_write)
+    with pytest.raises(OSError, match="projection write failure"):
+        store.index(projection(), actor="tester")
+
+    changed_source = projection().source.model_copy(
+        update={"definition_digest": "f" * 64}
+    )
+    changed_compatibility = projection().compatibility.model_copy(
+        update={"evaluated_source_digest": "f" * 64}
+    )
+    changed = projection().model_copy(
+        update={
+            "summary": "Changed source.",
+            "source": changed_source,
+            "compatibility": changed_compatibility,
+        }
+    )
+    monkeypatch.setattr(store, "_write_immutable", original_write)
+    with pytest.raises(RegistryConflict, match="exact source set and intent"):
+        store.index(changed, actor="tester")
+    assert store.list() == []
+
+    recovered = store.index(projection(), actor="tester")
+    assert recovered.projection.summary == projection().summary
+
+
 def test_missing_committed_receipt_anchor_fails_closed(tmp_path: Path) -> None:
     store = LocalRegistryStore(tmp_path / "registry")
     identity = projection().identity
@@ -618,3 +655,43 @@ def test_bootstrap_write_failure_exposes_no_partial_catalogue(
     assert conflicts == []
     assert len(indexed) == 2
     assert len(store.list()) == 2
+
+
+def test_interrupted_mixed_batch_rejects_committed_subset_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = LocalRegistryStore(tmp_path / "registry")
+    existing = projection()
+    missing = projection(version="2.0.0")
+    store.index(existing, actor="initial-indexer")
+    original_index_locked = store._index_locked  # noqa: SLF001 - fault injection
+
+    def fail_new_item(
+        item: RegistryProjection,
+        *,
+        actor: str,
+        rationale: str,
+        occurred_at: datetime | None,
+    ) -> object:
+        if item.identity == missing.identity:
+            raise OSError("injected new-item failure")
+        return original_index_locked(
+            item,
+            actor=actor,
+            rationale=rationale,
+            occurred_at=occurred_at,
+        )
+
+    monkeypatch.setattr(store, "_index_locked", fail_new_item)
+    with pytest.raises(OSError, match="new-item failure"):
+        store.index_many((existing, missing), actor="bootstrap-reviewer")
+    with pytest.raises(RegistryConflict, match="exact source set and intent"):
+        store.index_many((existing,), actor="bootstrap-reviewer")
+    assert [item.projection.identity for item in store.list()] == [existing.identity]
+
+    monkeypatch.setattr(store, "_index_locked", original_index_locked)
+    indexed, conflicts = store.index_many(
+        (existing, missing), actor="bootstrap-reviewer"
+    )
+    assert conflicts == []
+    assert len(indexed) == 2

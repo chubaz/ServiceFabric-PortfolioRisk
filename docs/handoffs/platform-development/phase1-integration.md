@@ -48,7 +48,7 @@ a clean worktree.
 ## Tests
 
 - `make verify-platform-phase1 DAY0_VENV=.../state/venvs/thesis-sprint` — PASS,
-  46 focused tests plus environment, repository, package and diff gates.
+  48 focused tests plus environment, repository, package and diff gates.
 - `make test-application test-architecture DAY0_VENV=.../state/venvs/thesis-sprint`
   — PASS, 104 application tests and 105 architecture tests.
 - Browser verification at `http://127.0.0.1:8767/?workspace=registry` — PASS:
@@ -112,6 +112,13 @@ An immutable pending-operation journal binds whether the timestamp was supplied
 and the complete sorted source set before the first record write. Omitting an
 original explicit timestamp or retrying only a subset therefore cannot commit
 any part of the interrupted operation.
+The same source-set check applies when a batch mixes previously committed and
+new definitions: even its already-committed subset cannot be used to bypass an
+active full-batch intent.
+Each pending reference is also bound to a normalized semantic-observation
+digest. A crash after journal creation but before projection installation cannot
+therefore be retried with a changed summary, definition, adapter, relationship,
+lineage, or compatibility observation under the same registry identity.
 
 The API no longer returns an absolute host registry path. The next P1-05 review
 must assess a new exact commit; the earlier BLOCKED candidate cannot be accepted.
