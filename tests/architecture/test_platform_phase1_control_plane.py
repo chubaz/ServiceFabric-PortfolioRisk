@@ -21,6 +21,11 @@ def test_phase1_is_active_from_the_accepted_phase0_merge() -> None:
     assert status["baseline_commit"] == (
         "21339db19357277ca9a9a1ca50107f1a884d7aeb"
     )
+    if status["phase_1"] == "accepted":
+        assert status["active_wave"] == "accepted"
+        assert status["phase_1_accepted_candidate_commit"] == (
+            "a68ef6fce9d39f5341fa8675c093db2eba95aed6"
+        )
     assert status["development_profile_only"] is True
     assert status["external_effects"] == "disabled"
 

@@ -1,8 +1,10 @@
 # PLATFORM-P1 — unified registry kernel and catalogue
 
-- Status: integration candidate
+- Status: accepted
 - Integration branch: `integration/platform-registry-kernel`
 - Baseline: `21339db19357277ca9a9a1ca50107f1a884d7aeb`
+- Accepted candidate: `a68ef6fce9d39f5341fa8675c093db2eba95aed6`
+- Independent QA: R10 PASS (`52f16f6db49ba653edb23d4c2d2f93327ac5b083`)
 - Roadmap: `apps/portfolio-risk-workbench/labs/DEVELOPMENT_ROADMAP.md`
 - Lane manifest: `config/agent/platform-development/phase1-lanes.json`
 

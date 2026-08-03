@@ -2,12 +2,13 @@
 
 - ID: PLATFORM-P1
 - Title: Unified registry kernel and catalogue
-- Status: in progress
+- Status: accepted
 - Namespace: platform-development
 - Integration branch: integration/platform-registry-kernel
 - Workplan: docs/workplans/platform-development/phase-1-registry-kernel.md
 - Baseline commit: 21339db19357277ca9a9a1ca50107f1a884d7aeb
-- Independent QA: pending
+- Accepted candidate: a68ef6fce9d39f5341fa8675c093db2eba95aed6
+- Independent QA: R10 PASS
 - Verification: make verify-platform-phase1
 
 Phase 1 builds a persistent, development-only index over the definitions that
@@ -34,6 +35,8 @@ portfolio mutation authority is introduced.
 
 Phase 0 is accepted and was merged by PR #20 as commit
 `21339db19357277ca9a9a1ca50107f1a884d7aeb`; all required workflows passed.
-Phase 1 starts from that immutable baseline. It does not introduce artifact
+Phase 1 was accepted after independent adversarial R10 review of exact candidate
+`a68ef6fce9d39f5341fa8675c093db2eba95aed6`. It starts from that immutable
+baseline. It does not introduce artifact
 repository semantics, production publication, Studio–Codex execution, or any
 financial effect.

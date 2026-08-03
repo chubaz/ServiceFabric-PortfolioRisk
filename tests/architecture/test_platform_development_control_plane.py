@@ -22,7 +22,7 @@ def test_phase0_acceptance_is_preserved_under_the_phase1_pointer() -> None:
     assert status["current"] == "PLATFORM-P1"
     assert status["phase_0"] == "accepted"
     assert status["phase_1"] in {"in_progress", "accepted"}
-    assert status["accepted_candidate_commit"] == (
+    assert status["phase_0_accepted_candidate_commit"] == (
         "76651ea8a580832698e99e594581db9c12969dd4"
     )
     assert status["prior_thesis_state"] == "deferred"

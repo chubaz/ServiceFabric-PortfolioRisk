@@ -3,9 +3,10 @@
 - Lane: P1-00/P1-04 integration
 - Branch: `integration/platform-registry-kernel`
 - Baseline: `21339db19357277ca9a9a1ca50107f1a884d7aeb`
-- Candidate: this handoff's parent implementation commit; the independent-QA
-  handoff records the exact reviewed commit
-- Status: ready for independent QA
+- Accepted candidate: `a68ef6fce9d39f5341fa8675c093db2eba95aed6`
+- Independent QA: R10 PASS; QA commit
+  `52f16f6db49ba653edb23d4c2d2f93327ac5b083`
+- Status: accepted; pull-request merge pending
 
 ## Activation evidence
 
@@ -144,6 +145,5 @@ removed independently once its exact configured root is verified.
 
 ## Recommended next action
 
-Run P1-05 against the exact candidate in a clean worktree. If it passes, record
-the accepted candidate commit, close Phase 1, and complete the pull-request
-lifecycle without starting Phase 2.
+Complete the pull-request lifecycle for the accepted candidate and its preserved
+QA record. Do not start Phase 2 in this workstream.
