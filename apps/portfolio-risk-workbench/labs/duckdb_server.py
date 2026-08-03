@@ -258,16 +258,6 @@ def find_private_root(start: Path) -> Path:
 
 
 PROTOTYPE_ROOT = Path(__file__).resolve().parent
-PRIVATE_ROOT = find_private_root(PROTOTYPE_ROOT)
-RAW_ROOT = PRIVATE_ROOT / "raw"
-SELECTION_ROOT = (
-    PRIVATE_ROOT
-    / "portfolio-definitions"
-    / "portfolio-definitions"
-    / "thesis-real-portfolios-day4-v1"
-)
-SELECTION_PATH = PRIVATE_ROOT / "config" / "portfolio-selection-day4.yaml"
-INSTRUMENT_MAP_PATH = SELECTION_ROOT / "private-instrument-map.json"
 
 DATASETS: dict[str, dict[str, Any]] = {
     "stocknames": {
@@ -422,13 +412,25 @@ def json_safe(value: Any) -> Any:
 
 class ReadOnlyDataPlane:
     def __init__(self) -> None:
+        self.private_root = find_private_root(PROTOTYPE_ROOT)
+        self.raw_root = self.private_root / "raw"
+        selection_root = (
+            self.private_root
+            / "portfolio-definitions"
+            / "portfolio-definitions"
+            / "thesis-real-portfolios-day4-v1"
+        )
+        selection_path = (
+            self.private_root / "config" / "portfolio-selection-day4.yaml"
+        )
+        instrument_map_path = selection_root / "private-instrument-map.json"
         self.connection = duckdb.connect(":memory:")
         self.parser_connection = duckdb.connect(":memory:")
         self.connection.execute("SET threads=4")
         self.connection.execute("SET memory_limit='4GB'")
         self.lock = threading.Lock()
-        self.selection = yaml.safe_load(SELECTION_PATH.read_text())
-        instrument_map = json.loads(INSTRUMENT_MAP_PATH.read_text())
+        self.selection = yaml.safe_load(selection_path.read_text())
+        instrument_map = json.loads(instrument_map_path.read_text())
         self.alias_to_permno = {
             item["instrument_alias"]: int(item["permno"])
             for item in instrument_map["instruments"]
@@ -446,8 +448,8 @@ class ReadOnlyDataPlane:
         definition = DATASETS.get(dataset)
         if not definition:
             raise KeyError(dataset)
-        path = (RAW_ROOT / definition["file"]).resolve()
-        if path.parent != RAW_ROOT.resolve() or not path.is_file():
+        path = (self.raw_root / definition["file"]).resolve()
+        if path.parent != self.raw_root.resolve() or not path.is_file():
             raise RuntimeError(f"dataset file unavailable: {dataset}")
         return str(path)
 
@@ -1217,7 +1219,25 @@ def plan_sql(question: str) -> tuple[str, dict[str, Any]]:
     return plan.sql, receipt
 
 
-data_plane = ReadOnlyDataPlane()
+class LazyReadOnlyDataPlane:
+    """Open licensed local data only when a data endpoint actually needs it."""
+
+    def __init__(self) -> None:
+        self._value: ReadOnlyDataPlane | None = None
+        self._lock = threading.Lock()
+
+    def _get(self) -> ReadOnlyDataPlane:
+        if self._value is None:
+            with self._lock:
+                if self._value is None:
+                    self._value = ReadOnlyDataPlane()
+        return self._value
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._get(), name)
+
+
+data_plane = LazyReadOnlyDataPlane()
 app = FastAPI(
     title="Portfolio Replay Lab — CRSP/Compustat DuckDB API",
     version="0.1.0",
@@ -1577,7 +1597,7 @@ def health() -> dict[str, Any]:
         "engine": "duckdb",
         "access": "read_only",
         "bind": "localhost",
-        "raw_root": str(RAW_ROOT),
+        "raw_root": str(data_plane.raw_root),
         "datasets": len(data_plane.catalog),
         "reviewed_portfolios": len(data_plane.portfolios),
         "runtime_boundary": LAB_RUNTIME_BOUNDARY,

@@ -82,8 +82,8 @@ def test_visible_synthesis_commit_is_within_integration_lane_grant() -> None:
     assert "apps/portfolio-risk-workbench" in integration["allowed_directories"]
     assert "tests/application" in integration["allowed_directories"]
     changes = changed_paths(
-        "e3acab1252269066fa6818b24a84047d4ac38847",
-        "a0a4fb920291cf1f4fe52e651632bf75d0968a9b",
+        "81660bd3d4be9c8fb6725e5836e7821f9947eb17",
+        "21339db19357277ca9a9a1ca50107f1a884d7aeb",
     )
     assert validate_changes(changes, integration) == []
 

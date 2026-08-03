@@ -55,6 +55,11 @@ a clean worktree.
   restart retained both records and their receipts; console contained no errors.
 - Recovery test — PASS: a corrupt aggregate snapshot was ignored and the exact
   document was reconstructed from its immutable projection and event stream.
+- GitHub's first candidate run exposed two checkout-environment defects that
+  local data access had masked. The Phase 0 lane test now validates the accepted
+  baseline-to-squash-merge range available on every clone, and the licensed
+  DuckDB plane opens lazily only for data endpoints. The exact CI command passes
+  with the private-data root deliberately unavailable.
 
 ## Deviations, blockers, and limitations
 
