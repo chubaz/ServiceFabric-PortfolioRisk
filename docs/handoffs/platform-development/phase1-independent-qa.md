@@ -1,12 +1,13 @@
 # Phase 1 independent QA
 
 - Task: P1-05
-- Current review: R10
-- Reviewed candidate: `a68ef6fce9d39f5341fa8675c093db2eba95aed6`
-- Review branch: `review/platform-p1-independent-qa-r10`
+- Current review: R11
+- Reviewed bookkeeping commit: `ff28b251b46154bb323d5acb12512990ee1cfe47`
+- Accepted implementation candidate: `a68ef6fce9d39f5341fa8675c093db2eba95aed6`
+- Review branch: `review/platform-p1-independent-qa-r11`
 - Accepted Phase 0 baseline: `21339db19357277ca9a9a1ca50107f1a884d7aeb`
 - Pinned ServiceFabric gitlink: `7632b61d94a966346f95eb6c5bb2a5ea27f3bc14`
-- Current verdict: **PASS — ACCEPT**
+- Current verdict: **PASS — ACCEPT BOOKKEEPING**
 - Repair authority: integration only
 
 ## R5 executive result — preserved
@@ -1723,3 +1724,79 @@ execution, production publication, external adapters, or financial effects.
 All QA registries were temporary and non-authoritative; canonical definitions,
 the accepted Phase 0 baseline, and the read-only ServiceFabric pin remain
 unchanged.
+
+## R11 acceptance-bookkeeping audit — PASS
+
+R11 independently audits only the acceptance bookkeeping applied after the R10
+implementation verdict. The accepted Phase 1 implementation remains exact
+candidate `a68ef6fce9d39f5341fa8675c093db2eba95aed6`; bookkeeping commit
+`ff28b251b46154bb323d5acb12512990ee1cfe47` is not a replacement implementation
+candidate and introduces no runtime behavior.
+
+### R11 bounded-diff and history findings
+
+The exact diff from the accepted implementation candidate to the reviewed
+bookkeeping commit contains eight paths only:
+
+```text
+config/agent/platform-development/status.json
+docs/handoffs/platform-development/phase1-independent-qa.md
+docs/handoffs/platform-development/phase1-integration.md
+docs/workplans/current.md
+docs/workplans/platform-development/phase-1-registry-kernel.md
+tests/architecture/test_platform_development_control_plane.py
+tests/architecture/test_platform_phase1_control_plane.py
+tests/architecture/test_thesis_sprint_control_plane.py
+```
+
+The changes are limited to the preserved R10 QA handoff, Phase 1 acceptance
+status and documentation, and matching architecture assertions. There are no
+code, runtime, API, UI, package, dependency, vendor, or behavioral-test changes,
+and no test assertion is weakened.
+
+The status record now distinguishes the Phase 0 accepted candidate
+`76651ea8a580832698e99e594581db9c12969dd4`, the accepted Phase 0 integration
+baseline `21339db19357277ca9a9a1ca50107f1a884d7aeb`, and the accepted Phase 1
+implementation candidate `a68ef6fce9d39f5341fa8675c093db2eba95aed6`.
+Those identities agree across the status record, workplans, and handoffs. The
+ServiceFabric gitlink remains exactly
+`7632b61d94a966346f95eb6c5bb2a5ea27f3bc14`.
+
+The R10 handoff blob is byte-for-byte identical at original QA commit
+`52f16f6db49ba653edb23d4c2d2f93327ac5b083`, its integration commit
+`e424b727a75919157d3fcfb1300317e6e7fb0176`, and reviewed bookkeeping commit
+`ff28b251b46154bb323d5acb12512990ee1cfe47`. R5 through R10 remain in order,
+including every prior blocked verdict and the exact R10 acceptance record.
+
+Programme control also remains closed after Phase 1: Phase 1 is accepted,
+Phase 0 remains accepted, the prior thesis stream remains deferred, and no
+Phase 2 work is activated. The current plan and Phase 1 handoffs explicitly
+state that Phase 2 must not start in this workstream.
+
+### R11 automated verification
+
+```bash
+PIP_NO_INDEX=1 make verify-platform-phase1 \
+  BOOTSTRAP_VENV=/private/tmp/platform-p1-r6-qa.Ff4OMP/venv \
+  DAY0_VENV=/Users/lorenzocc/Developer/servicefabric-lab/state/venvs/thesis-sprint
+```
+
+Result: **PASS** — environment, repository, exact ServiceFabric pin, package,
+diff, and `48 passed in 3.23s`.
+
+```bash
+PIP_NO_INDEX=1 make test-application test-architecture \
+  DAY0_VENV=/Users/lorenzocc/Developer/servicefabric-lab/state/venvs/thesis-sprint
+```
+
+Result: **PASS** — `104 passed in 17.67s` for application tests and
+`105 passed in 1.57s` for architecture tests. `git diff --check` also passes.
+
+### R11 verdict
+
+**Accept bookkeeping commit
+`ff28b251b46154bb323d5acb12512990ee1cfe47`.** It truthfully records the R10
+acceptance of exact Phase 1 implementation candidate
+`a68ef6fce9d39f5341fa8675c093db2eba95aed6` without changing that
+implementation. The programme remains stopped after Phase 1; this verdict does
+not authorize or begin Phase 2.
