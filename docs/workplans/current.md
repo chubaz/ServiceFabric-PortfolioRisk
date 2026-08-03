@@ -1,22 +1,22 @@
 # Current Workplan
 
-- ID: PLATFORM-P5
-- Title: Decision Review v1
+- ID: PLATFORM-P6
+- Title: Decision due-diligence workspace
 - Status: accepted
 - Namespace: platform-development
-- Integration branch: integration/platform-decision-review
-- Workplan: docs/workplans/platform-development/phase-5-decision-review.md
-- Baseline commit: 8ec4ed5501d5a322439237be4207068c96347fca
+- Integration branch: integration/platform-decision-due-diligence
+- Workplan: docs/workplans/platform-development/phase-6-decision-due-diligence.md
+- Baseline commit: b07c7f8a0abac713d5d50158d6bd3ce24421eca3
 - Phase 1 accepted candidate: a68ef6fce9d39f5341fa8675c093db2eba95aed6
-- Verification: make verify-platform-phase5
-- Cross-phase checkpoint: make verify-platform-phase5-cross-phase
-- Accepted candidate: 57e6a397231c8a1327fba4c6856edd2373f45e80
+- Verification: make verify-platform-phase6
+- Accepted candidate: 5669055bbc6aea205cf3e0eb4867a949daaa5154
 
-Phase 5 makes material decision proposals a typed, persisted, human-owned
-lifecycle. The Workflow Cycle pauses for one of five explicit reviewer outcomes,
-each with a consequence preview and empty financial/external effects. A bounded
-investigation creates supplemental decision context without rewriting the
-proposal.
+Phase 6 adds a dedicated human due-diligence workspace over the accepted Phase 5
+decision lifecycle. It exposes the proposal's evidence, artifacts, capability
+receipts, mandate/policy and alternatives, and lets the user assemble a temporary
+workflow from five registered effect-free inspection modules. Each run retains
+step receipts, supplemental evidence and an additive candidate proposal revision
+without rewriting or resolving the original proposal.
 
 The earlier Thesis Sprint is closed as `THESIS-DEFERRED` in
 `docs/workplans/thesis-sprint/deferred.md`. Days 1–3 remain accepted and the Day
@@ -79,3 +79,18 @@ paused a real-daily-anchor/synthetic-intraday cycle at a 1.02% loss, created one
 effect-free context revision through Investigate, resolved it through Accept &
 monitor, kept manual resume separate, showed no console errors and produced no
 narrow-layout overflow.
+
+Phase 6 starts from the exact Phase 5 closure
+`b07c7f8a0abac713d5d50158d6bd3ce24421eca3`. It owns decision due diligence
+only. Authority remains human-only D1; temporary workflows cannot be published,
+cannot fetch new empirical data and cannot create financial or external effects.
+The next exhaustive cross-phase checkpoint remains scheduled after Phase 8.
+
+Phase 6 is accepted at exact implementation candidate
+`5669055bbc6aea205cf3e0eb4867a949daaa5154`. The focused gate passed 39 tests.
+Browser qualification opened the dedicated workspace from a live synthetic
+decision pause, exposed all five reference categories, retained two temporary
+investigations, nine supplemental evidence items and contiguous Proposal
+Revisions 2–3, kept the base proposal awaiting human review, survived a process
+restart, produced no console warnings or errors, and showed no horizontal
+overflow at a 705px qualification width.

@@ -62,3 +62,51 @@ def test_decision_workspace_exposes_five_outcomes_and_context_revision() -> None
     assert "The immutable proposal was not rewritten." in javascript
     for outcome in ("investigate", "accept_and_monitor", "defer", "reject", "escalate"):
         assert outcome in javascript
+
+
+def test_due_diligence_api_retains_effect_free_run_and_candidate_revision(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "decision-repository"
+    monkeypatch.setenv("PORTFOLIO_RISK_DECISION_ROOT", str(root))
+    created = LocalDecisionStore(root).create(admit_proposal(make_proposal("proposal-api-due-diligence")))
+
+    initial = duckdb_server.decision_due_diligence(created.proposal.proposal_id)
+    assert initial["workspace"]["authority"] == "human_review_only_D1"
+    assert initial["workspace"]["executable"] is True
+    assert [item["group_id"] for item in initial["reference_groups"]] == [
+        "evidence", "artifacts", "capabilities", "policy", "alternatives",
+    ]
+    assert len(initial["modules"]) == 5
+
+    completed = duckdb_server.execute_decision_due_diligence(
+        created.proposal.proposal_id,
+        duckdb_server.DecisionDueDiligenceRunRequest(
+            name="API decision evidence review",
+            investigation_question="Does the declared evidence support investigation?",
+            capability_ids=[
+                "decision.evidence.coverage.inspect",
+                "decision.policy.alignment.inspect",
+                "decision.alternatives.compare",
+            ],
+            candidate_recommendation="investigate",
+            actor_id="api.reviewer",
+            actor_type="human",
+            idempotency_key="api-due-diligence-1",
+            expected_revision=created.record_revision,
+        ),
+    )
+    assert len(completed["investigation_runs"]) == 1
+    assert len(completed["supplemental_evidence"]) == 3
+    assert completed["proposal_revisions"][0]["revision_number"] == 2
+    assert completed["resolutions"] == []
+    assert completed["workspace"]["state"] == "awaiting_review"
+    assert all(step["effects"] == [] for step in completed["investigation_runs"][0]["steps"])
+
+
+def test_due_diligence_workspace_is_dedicated_and_opened_from_decision_card() -> None:
+    html = (LABS_ROOT / "index.html").read_text(encoding="utf-8")
+    javascript = (LABS_ROOT / "labs.js").read_text(encoding="utf-8")
+    assert 'data-workspace="decision-diligence"' in html
+    assert 'id="diligence-workspace"' in html
+    assert "data-open-due-diligence" in javascript
+    assert "Temporary investigation workflow" in javascript
+    assert "base proposal remains unchanged" in javascript

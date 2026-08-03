@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Interactive workbench for constructing and replaying portfolio-risk experiments.">
-  <title>Portfolio Replay Lab</title>
+  <meta name="description" content="Unified ServiceFabric environment for developing system definitions, applying agents, and running portfolio-risk experiments.">
+  <title>ServiceFabric Risk Lab</title>
   <script>
     if (window.location.protocol === "file:") {
       const liveAgentLab = "http://127.0.0.1:8766/?workspace=agent";
@@ -20,28 +20,31 @@
       });
     }
   </script>
-  <link rel="stylesheet" href="./styles.css?v=11">
+  <link rel="stylesheet" href="./styles.css?v=14">
 </head>
 <body>
   <header class="app-header">
-    <a class="brand" href="#experiment" aria-label="Portfolio Replay Lab home">
-      <span class="brand-mark">PR</span>
-      <span><strong>Portfolio Replay Lab</strong><small>Build the context. Then test the agents.</small></span>
+    <a class="brand" href="?zone=system&workspace=system" aria-label="ServiceFabric Risk Lab home">
+      <span class="brand-mark">SF</span>
+      <span><strong>ServiceFabric Risk Lab</strong><small>Build definitions. Apply agents. Test hypotheses.</small></span>
     </a>
-    <nav class="workspace-switcher" aria-label="Independent laboratories">
-      <button class="workspace-tab active" type="button" data-workspace="dataset">Database</button>
-      <button class="workspace-tab" type="button" data-workspace="portfolio">Portfolio</button>
-      <button class="workspace-tab" type="button" data-workspace="agent">Agent</button>
-      <button class="workspace-tab" type="button" data-workspace="graph">Agent graph</button>
-      <button class="workspace-tab" type="button" data-workspace="registry">Registry</button>
-      <button class="workspace-tab" type="button" data-workspace="artifacts">Artifacts</button>
-      <button class="workspace-tab" type="button" data-workspace="experiments">Experiments</button>
-      <button class="workspace-tab" type="button" data-workspace="decisions">Decisions</button>
-      <button class="workspace-tab" type="button" data-workspace="cycle">Simulated cycle</button>
-      <button class="workspace-tab" type="button" data-workspace="full">Full experiment</button>
-    </nav>
+    <div class="workspace-navigation">
+      <nav class="operating-zone-switcher" aria-label="Operating zones">
+        <button class="operating-zone-tab active" type="button" data-zone="system">System Development</button>
+        <button class="operating-zone-tab" type="button" data-zone="research">Experimental Research</button>
+      </nav>
+      <nav class="workspace-switcher" aria-label="Workspaces in the selected operating zone">
+        <button class="workspace-tab active" type="button" data-zone="system" data-workspace="system">Overview</button>
+        <button class="workspace-tab" type="button" data-zone="system" data-workspace="studio">Studios</button>
+        <button class="workspace-tab" type="button" data-zone="system" data-workspace="application" data-workbench-root>Workbench</button>
+
+        <button class="workspace-tab hidden" type="button" data-zone="research" data-workspace="experiments">Experiments</button>
+        <button class="workspace-tab hidden" type="button" data-zone="research" data-workspace="artifacts">Artifacts</button>
+        <button class="workspace-tab hidden" type="button" data-zone="research" data-workspace="full">Legacy prototype</button>
+      </nav>
+    </div>
     <div class="header-actions">
-      <span class="mode-badge">Development workbench</span>
+      <span class="mode-badge" id="active-zone-badge">System Development</span>
       <button class="button ghost" id="open-system-map" type="button">View complete system map</button>
     </div>
   </header>
@@ -53,8 +56,100 @@
     <div><span>Persistence</span><strong id="truth-persistence">Not yet established</strong></div>
   </section>
 
+  <aside class="workbench-sidebar hidden" id="workbench-sidebar" aria-label="Workbench navigation">
+    <button type="button" data-workbench-workspace="application" data-workspace="application"><span>01</span>Application test</button>
+    <button type="button" data-workbench-workspace="dictionary" data-workspace="dictionary"><span>02</span>Dictionary</button>
+    <button type="button" data-workbench-workspace="registry" data-workspace="registry"><span>03</span>Registry</button>
+    <button type="button" data-workbench-workspace="portfolio" data-workspace="portfolio"><span>04</span>Portfolio</button>
+    <button type="button" data-workbench-workspace="agent" data-workspace="agent"><span>05</span>Agent Studio</button>
+    <button type="button" data-workbench-workspace="graph" data-workspace="graph"><span>06</span>Agent graph</button>
+    <button type="button" data-workbench-workspace="dataset" data-workspace="dataset"><span>07</span>Data utility</button>
+    <button type="button" data-workbench-workspace="decisions" data-workspace="decisions"><span>08</span>Decisions</button>
+    <button type="button" data-workbench-workspace="decision-diligence" data-workspace="decision-diligence"><span>09</span>Due diligence</button>
+    <button type="button" data-workbench-workspace="cycle" data-workspace="cycle"><span>10</span>Workflow cycle</button>
+  </aside>
+
   <main class="lab-workspace" id="lab-workspace">
-    <section class="lab-page active" id="lab-dataset" aria-labelledby="lab-dataset-title">
+    <section class="lab-page active" id="lab-system" aria-labelledby="lab-system-title">
+      <div class="system-object-grid" id="system-object-grid">
+        <article class="system-object-card partial" role="button" tabindex="0" data-open-studio="agent" aria-label="Open Agent Studio"><span>AgentBlueprint</span><h2 id="lab-system-title">Agent Studio</h2><p>Design and test agents.</p><small>Available now</small></article>
+        <article class="system-object-card ready" role="button" tabindex="0" data-open-studio="capability" aria-label="Open Capability Studio"><span>CapabilityDefinition</span><h2>Capability Studio</h2><p>Build typed operations.</p><small>Available now</small></article>
+        <article class="system-object-card ready" role="button" tabindex="0" data-open-studio="scenario" aria-label="Open Scenario Studio"><span>ScenarioDefinition</span><h2>Scenario Studio</h2><p>Build and lifecycle scenarios.</p><small>Available now</small></article>
+        <article class="system-object-card ready" role="button" tabindex="0" data-open-studio="dashboard" aria-label="Open Dashboard Studio"><span>DashboardPackage</span><h2>Dashboard Studio</h2><p>Compose persistent monitoring views.</p><small>Available now</small></article>
+        <article class="system-object-card ready" role="button" tabindex="0" data-open-studio="report" aria-label="Open Report Studio"><span>ReportTemplate</span><h2>Report Studio</h2><p>Design Markdown-first reports.</p><small>Available now</small></article>
+        <article class="system-object-card partial" role="button" tabindex="0" data-open-studio="portfolio_mandate" aria-label="Open Portfolio and Mandate Studio"><span>PortfolioVersion + MandateVersion</span><h2>Portfolio &amp; Mandate Studio</h2><p>Model holdings, rules and covenants.</p><small>PLATFORM-P9</small></article>
+        <article class="system-object-card future" role="button" tabindex="0" data-open-studio="workflow" aria-label="Open Workflow Studio"><span>AgentGraphDefinition + WorkflowDefinition</span><h2>Workflow Studio</h2><p>Compose agents and review points.</p><small>PLATFORM-P14</small></article>
+        <article class="system-object-card future" role="button" tabindex="0" data-open-studio="provider_connector" aria-label="Open Provider and Connector Studio"><span>ProviderAdapter</span><h2>Provider &amp; Connector Studio</h2><p>Build governed integrations.</p><small>PLATFORM-P15</small></article>
+      </div>
+    </section>
+
+    <section class="lab-page" id="lab-studio" aria-label="System object studio">
+      <div class="studio-toolbar">
+        <button class="text-button" type="button" data-open-workspace="system">← Objects</button>
+        <select id="studio-profile-select" aria-label="Studio"></select>
+        <span id="studio-availability"></span>
+        <button class="text-button" type="button" data-open-workspace="registry">Registry</button>
+      </div>
+      <div class="studio-workbench">
+        <section class="studio-card">
+          <span>Build</span>
+          <label class="field"><span>Name</span><input id="studio-object-name" placeholder="Object name"></label>
+          <label class="field"><span>Object</span><textarea id="studio-object-brief" rows="5" placeholder="Describe what the object is and how it should behave."></textarea></label>
+          <label class="field"><span>Companion capabilities</span><textarea id="studio-capability-brief" rows="5" placeholder="Describe how agents create, validate, modify, lifecycle or apply it."></textarea></label>
+          <button class="button primary" id="studio-prepare-brief" type="button">Prepare Codex brief</button>
+        </section>
+        <section class="studio-card">
+          <span>Apply</span>
+          <label class="field"><span>Saved object</span><select id="studio-saved-object"></select></label>
+          <label class="field"><span>Agent</span><select id="studio-agent"></select></label>
+          <label class="field"><span>Fixture</span><select id="studio-fixture"></select></label>
+          <label class="field"><span>Portfolio</span><select id="studio-portfolio"></select></label>
+          <label class="field"><span>Test</span><textarea id="studio-test-brief" rows="5" placeholder="What should the agent do to this object?"></textarea></label>
+          <button class="button primary" id="studio-prepare-application" type="button">Open application test</button>
+        </section>
+        <aside class="studio-codex-panel">
+          <div><span>Studio–Codex</span><b>PLATFORM-P12</b></div>
+          <pre id="studio-codex-brief">Prepare a build brief.</pre>
+          <button class="button ghost" id="studio-copy-brief" type="button" disabled>Copy brief</button>
+          <button class="button primary" type="button" disabled>Start Codex session</button>
+        </aside>
+      </div>
+    </section>
+
+    <section class="lab-page" id="lab-dictionary" aria-label="Shared language dictionary">
+      <div class="dictionary-toolbar"><input id="dictionary-search" type="search" placeholder="Search shared language"><span id="dictionary-count">0</span></div>
+      <div class="dictionary-list" id="dictionary-list"></div>
+    </section>
+
+    <section class="lab-page" id="lab-application" aria-labelledby="lab-application-title">
+      <div class="lab-heading platform-zone-heading">
+        <div><span class="eyebrow">Operating zone 02</span><h1 id="lab-application-title">Apply an agent inside a controlled scenario</h1><p>Start from an explicit fixture context, load saved definitions, then inspect the agent’s inputs, capability use, work record, reviews and outputs without mutating the system definition.</p></div>
+        <span class="stage-status" id="application-status">Loading</span>
+      </div>
+      <div class="zone-rule" role="note"><strong>Application boundary</strong><span>This zone tests how saved objects behave together. Its run work products are temporary until separately retained as artifacts; an agent cannot modify source code or promote its own output.</span></div>
+      <div class="application-flow" aria-label="Agent Application flow">
+        <span>Fixture Context</span><b>→</b><span>Saved Agent</span><b>→</b><span>Saved capabilities and presentation definitions</span><b>→</b><span>Inspectable work record</span><b>→</b><strong>Run work products</strong>
+      </div>
+      <div class="application-layout">
+        <section class="lab-panel application-composer">
+          <div class="panel-heading"><div><span class="panel-label">Application scenario</span><h2>Choose what the agent is allowed to exercise</h2></div><span class="truth-chip">No external effects</span></div>
+          <div class="application-form-grid">
+            <label class="field application-wide"><span>Saved agent definition</span><select id="application-agent"></select><small>Only explicitly saved Registry versions appear.</small></label>
+            <label class="field"><span>Fixture context</span><select id="application-fixture"></select></label>
+            <label class="field"><span>Portfolio</span><select id="application-portfolio"></select></label>
+            <label class="field"><span>Saved capability</span><select id="application-capability"></select></label>
+            <label class="field"><span>Saved report definition</span><select id="application-report"></select></label>
+            <label class="field"><span>Saved dashboard definition</span><select id="application-dashboard"></select></label>
+            <label class="field"><span>Saved scenario definition</span><select id="application-scenario"></select></label>
+          </div>
+          <div class="action-row"><button class="button ghost" id="application-review" type="button">Review exact boundary</button><button class="button primary" id="application-open-runner" type="button">Open compatible isolated runner</button></div>
+        </section>
+        <aside class="lab-panel application-preview" id="application-preview"><div class="empty-state">Select saved definitions and review the boundary before opening the runner.</div></aside>
+      </div>
+      <section class="future-capability-strip" id="application-future-dependencies" aria-label="Future phase dependencies"></section>
+    </section>
+
+    <section class="lab-page" id="lab-dataset" aria-labelledby="lab-dataset-title">
       <div class="lab-heading data-lab-heading">
         <div><span class="eyebrow">Database</span><h1 id="lab-dataset-title">Ask the data</h1><p>Describe the table you need.</p></div>
         <span class="stage-status" id="dataset-query-status">Checking</span>
@@ -688,10 +783,10 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
 
     <section class="lab-page" id="lab-artifacts" aria-labelledby="lab-artifacts-title">
       <div class="lab-heading registry-heading">
-        <div><span class="eyebrow">Governed local outputs</span><h1 id="lab-artifacts-title">Artifact Repository</h1><p>Browse retained runs, verify immutable files, and review retention or deletion consequences.</p></div>
+        <div><span class="eyebrow">Experimental Research · retained work products</span><h1 id="lab-artifacts-title">Artifact Repository</h1><p>Browse run work products that were deliberately retained, verify immutable files, and review retention or deletion consequences.</p></div>
         <div class="registry-heading-actions"><span class="stage-status" id="artifact-status">Loading</span><button class="button primary" id="artifact-refresh" type="button">Refresh repository</button></div>
       </div>
-      <div class="registry-boundary" role="note">Retained files are immutable, content-addressed local outputs. The repository records provenance and policy around them; it does not define or execute the agent, workflow, data, or experiment that produced them.</div>
+      <div class="registry-boundary" role="note"><strong>Artifact means retained work product.</strong> Files are immutable, content-addressed local outputs. They do not become reusable system definitions unless a separate reviewed promotion creates a Registry definition.</div>
       <div class="registry-summary" id="artifact-summary" aria-live="polite"></div>
       <section class="artifact-admission lab-panel hidden" id="artifact-admission" aria-label="Temporary run admission">
         <div class="panel-heading"><div><span class="panel-label">Temporary Agent Lab runs</span><h2>Review before retaining</h2></div><span class="truth-chip" id="artifact-candidate-count">0 candidates</span></div>
@@ -717,27 +812,33 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
 
     <section class="lab-page" id="lab-experiments" aria-labelledby="lab-experiments-title">
       <div class="lab-heading registry-heading">
-        <div><span class="eyebrow">Isolated research control plane</span><h1 id="lab-experiments-title">Experiment Workspace</h1><p>Bind immutable inputs and system definitions, choose how the work is presented, then admit it to an explicit resumable queue.</p></div>
+        <div><span class="eyebrow">Operating zone 03 · thesis apparatus</span><h1 id="lab-experiments-title">Experimental Research</h1><p>Compose saved definition versions, immutable inputs and explicit execution policies into reproducible research records, then compare agentic frameworks on risk-management work.</p></div>
         <div class="registry-heading-actions"><span class="stage-status" id="experiment-status">Loading</span><button class="button primary" id="experiment-refresh" type="button">Refresh</button></div>
       </div>
       <div class="experiment-boundary-grid" role="note">
-        <div><b>System assets</b><span>Versioned definitions are referenced, never copied.</span></div>
+        <div><b>Saved definitions only</b><span>Registry-indexed versions are referenced, never copied.</span></div>
         <div><b>Experiment overlays</b><span>Local changes must be explicit and digest-bound.</span></div>
         <div><b>Run outputs</b><span>Receipts and generated files belong to runs and artifacts.</span></div>
         <div><b>Promotion</b><span>Nothing becomes reusable without separate review.</span></div>
       </div>
       <div class="registry-summary" id="experiment-summary" aria-live="polite"></div>
+      <section class="experimental-process-note" role="note">
+        <div><strong>Available now</strong><span>Saved definitions, immutable experiment drafts, lifecycle, explicit queue admission, foreground/headless/evaluation modes, persistent records and comparison sets.</span></div>
+        <div><strong>PLATFORM-P14 dependency</strong><span>Human-fractioned, supra-agent, parallel headless and modular workflow policies.</span></div>
+        <div><strong>Experimental-apparatus dependency</strong><span>Branch-from-version controls, framework factor matrices, hundreds-run workers and thesis-quality comparative metrics.</span></div>
+      </section>
 
       <details class="lab-panel experiment-create" open>
-        <summary>Create an isolated experiment</summary>
+        <summary>Design and save an isolated experiment</summary>
         <form id="experiment-create-form">
           <div class="experiment-form-grid">
             <label class="field"><span>Name</span><input id="experiment-name" value="Daily portfolio risk review" required></label>
             <label class="field"><span>Mode</span><select id="experiment-mode"><option value="interactive_foreground">Interactive foreground</option><option value="background_headless">Background / headless</option><option value="evaluation_only">Evaluation only · no agent calls</option></select></label>
+            <label class="field"><span>Experimental process</span><select id="experiment-process"><option value="single_run">Single governed run</option><option value="fractioned_human" disabled>Fractioned · human review (PLATFORM-P14)</option><option value="fractioned_supra" disabled>Fractioned · supra-agent (PLATFORM-P14)</option><option value="parallel_headless" disabled>Parallel headless · supra-agents (PLATFORM-P14)</option></select></label>
             <label class="field"><span>Start</span><input id="experiment-start" type="date" value="2024-01-02" required></label>
             <label class="field"><span>End</span><input id="experiment-end" type="date" value="2024-01-05" required></label>
             <label class="field"><span>Data truth</span><select id="experiment-truth"><option value="licensed_real" selected>Licensed real</option><option value="reviewed_synthetic">Reviewed synthetic</option><option value="simulated_intraday">Simulated intraday</option><option value="public_real">Public real · unavailable</option><option value="mixed">Mixed · unavailable</option></select></label>
-            <label class="field"><span>Workflow / evaluation</span><select id="experiment-system-asset" required></select></label>
+            <label class="field"><span>Saved workflow / evaluation</span><select id="experiment-system-asset" required></select><small>Source discovery is insufficient; the exact version must first be saved in the Registry.</small></label>
             <label class="field"><span>Portfolio reference</span><select id="experiment-portfolio" required></select></label>
             <label class="field"><span>Mandate version</span><input id="experiment-mandate" value="mandate:research-default@v1" required></label>
             <label class="field"><span>Snapshot policy</span><input id="experiment-snapshot-policy" value="snapshot-policy:point-in-time-available-at@v1" required></label>
@@ -747,7 +848,7 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
             <label class="field experiment-wide"><span>Purpose</span><textarea id="experiment-purpose" rows="2">Produce an evidence-backed daily risk review across a bounded point-in-time replay.</textarea></label>
             <label class="field experiment-wide"><span>Hypothesis</span><textarea id="experiment-hypothesis" rows="2">The selected workflow produces concise, reviewable findings without look-ahead or external effects.</textarea></label>
           </div>
-          <div class="action-row"><button class="button primary" type="submit">Create immutable draft</button><span class="action-hint">Creation stores metadata outside Git. It does not run the workflow.</span></div>
+          <div class="action-row"><button class="button primary" type="submit">Save immutable experiment draft</button><span class="action-hint">Saving records the composition outside Git. It does not run the workflow.</span></div>
         </form>
       </details>
 
@@ -781,6 +882,15 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
           <div class="empty-state">Run the simulated Workflow Cycle until it pauses, then select its Decision Card here.</div>
         </main>
       </div>
+    </section>
+
+    <section class="lab-page" id="lab-decision-diligence" aria-labelledby="lab-decision-diligence-title">
+      <div class="lab-heading diligence-lab-heading">
+        <div><span class="eyebrow">Decision due diligence</span><h1 id="lab-decision-diligence-title">Test the proposal before resolving it</h1><p>Inspect the decision basis, assemble an effect-free investigation, and retain a candidate revision without changing the original proposal.</p></div>
+        <div class="diligence-heading-actions"><span class="stage-status" id="diligence-status">Select a proposal</span><button class="button ghost" id="diligence-back" type="button">Back to Decision Review</button></div>
+      </div>
+      <div class="diligence-boundary" role="note"><strong>Human-only D1 review</strong><span>Temporary workflows inspect declared references only. They cannot resolve the proposal, resume the clock, publish a workflow, fetch new data, or create portfolio/external effects.</span></div>
+      <div id="diligence-workspace"><div class="empty-state">Open due diligence from a Decision Card.</div></div>
     </section>
 
     <section class="lab-page" id="lab-cycle" aria-labelledby="lab-cycle-title">
@@ -1437,6 +1547,6 @@ checkpoint store and server route are connected, selecting it returns BLOCKED.</
   </dialog>
 
   <script src="./app.js"></script>
-  <script src="./labs.js?v=12"></script>
+  <script src="./labs.js?v=15"></script>
 </body>
 </html>

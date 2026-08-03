@@ -16,12 +16,16 @@ from risk_experiments import DataTruth, PresentationMode  # noqa: E402
 from risk_registry import AssetKind  # noqa: E402
 
 
-def workflow_identity():
-    return next(
-        item.identity
+def workflow_identity(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("PORTFOLIO_RISK_REGISTRY_ROOT", str(tmp_path / "registry"))
+    projection = next(
+        item
         for item in duckdb_server.discover_registry_projections()
         if item.identity.kind == AssetKind.WORKFLOW
     )
+    return duckdb_server.registry_store().index(
+        projection, actor="test.reviewer"
+    ).projection.identity
 
 
 def synthetic_portfolio_option():
@@ -36,6 +40,7 @@ def test_draft_validate_ready_enqueue_and_resume_controls(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("PORTFOLIO_RISK_EXPERIMENT_ROOT", str(tmp_path / "experiments"))
+    system_asset = workflow_identity(tmp_path, monkeypatch)
     portfolio = synthetic_portfolio_option()
     created = duckdb_server.draft_experiment(
         duckdb_server.ExperimentDraftRequest(
@@ -51,7 +56,7 @@ def test_draft_validate_ready_enqueue_and_resume_controls(
             snapshot_policy_reference="snapshot-policy:available-at@v1",
             mandate_reference="mandate:research-default@v1",
             data_revision_reference=portfolio["data_revision_reference"],
-            system_asset=workflow_identity(),
+            system_asset=system_asset,
         )
     )
     assert created["state"] == "draft"
@@ -98,6 +103,7 @@ def test_evaluation_mode_requires_evaluation_asset(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("PORTFOLIO_RISK_EXPERIMENT_ROOT", str(tmp_path / "evaluation"))
+    system_asset = workflow_identity(tmp_path, monkeypatch)
     portfolio = synthetic_portfolio_option()
     with pytest.raises(duckdb_server.HTTPException) as denied:
         duckdb_server.draft_experiment(
@@ -114,7 +120,7 @@ def test_evaluation_mode_requires_evaluation_asset(
                 snapshot_policy_reference="snapshot-policy:available-at@v1",
                 mandate_reference="mandate:research-default@v1",
                 data_revision_reference=portfolio["data_revision_reference"],
-                system_asset=workflow_identity(),
+                system_asset=system_asset,
             )
         )
     assert denied.value.status_code == 409
@@ -133,6 +139,7 @@ def test_draft_rejects_portfolio_truth_misclassification(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("PORTFOLIO_RISK_EXPERIMENT_ROOT", str(tmp_path / "truth"))
+    system_asset = workflow_identity(tmp_path, monkeypatch)
     synthetic = synthetic_portfolio_option()
     with pytest.raises(duckdb_server.HTTPException) as denied:
         duckdb_server.draft_experiment(
@@ -149,8 +156,60 @@ def test_draft_rejects_portfolio_truth_misclassification(
                 snapshot_policy_reference="snapshot-policy:available-at@v1",
                 mandate_reference="mandate:research-default@v1",
                 data_revision_reference=synthetic["data_revision_reference"],
-                system_asset=workflow_identity(),
+                system_asset=system_asset,
             )
         )
     assert denied.value.status_code == 409
     assert "data-truth class" in denied.value.detail
+
+
+def test_experiment_rejects_discovered_but_unsaved_system_asset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PORTFOLIO_RISK_REGISTRY_ROOT", str(tmp_path / "empty-registry"))
+    monkeypatch.setenv("PORTFOLIO_RISK_EXPERIMENT_ROOT", str(tmp_path / "experiments"))
+    portfolio = synthetic_portfolio_option()
+    unsaved = next(
+        item.identity
+        for item in duckdb_server.discover_registry_projections()
+        if item.identity.kind == AssetKind.WORKFLOW
+    )
+    with pytest.raises(duckdb_server.HTTPException) as denied:
+        duckdb_server.draft_experiment(
+            duckdb_server.ExperimentDraftRequest(
+                experiment_id="unsaved-system-asset",
+                name="Unsaved system asset",
+                purpose="Verify the Registry admission boundary.",
+                hypothesis="Source discovery alone must not authorize experimental use.",
+                start_date=date(2024, 1, 2),
+                end_date=date(2024, 1, 5),
+                presentation_mode=PresentationMode.INTERACTIVE_FOREGROUND,
+                data_truth=DataTruth.REVIEWED_SYNTHETIC,
+                portfolio_reference=portfolio["reference"],
+                snapshot_policy_reference="snapshot-policy:available-at@v1",
+                mandate_reference="mandate:research-default@v1",
+                data_revision_reference=portfolio["data_revision_reference"],
+                system_asset=unsaved,
+            )
+        )
+    assert denied.value.status_code == 409
+    assert "must be saved in the Registry" in denied.value.detail
+
+
+def test_platform_workspace_projection_separates_definitions_and_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workflow_identity(tmp_path, monkeypatch)
+    payload = duckdb_server.platform_workspaces()
+    assert [zone["zone_id"] for zone in payload["zones"]] == ["system", "research"]
+    assert [phase["phase_id"] for phase in payload["development_phases"]] == ["build", "apply"]
+    assert {profile["studio_id"] for profile in payload["studio_profiles"]} >= {
+        "agent", "capability", "dashboard", "report", "scenario", "workflow"
+    }
+    assert payload["terminology"]["artifact"].startswith("A run work product")
+    assert "companion_capability" in payload["terminology"]
+    assert payload["saved_counts"]["workflow"] == 1
+    assert payload["saved_definitions"][0]["experiment_eligible"] is True
+    assert {item["phase"] for item in payload["future_dependencies"]} >= {
+        "PLATFORM-P7", "PLATFORM-P8", "PLATFORM-P9", "PLATFORM-P14", "PLATFORM-P15"
+    }

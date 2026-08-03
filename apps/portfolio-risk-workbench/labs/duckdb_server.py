@@ -64,6 +64,7 @@ from experiment_workspace import (
 from decision_review import (
     catalogue_payload as decision_catalogue_payload,
     decision_store,
+    due_diligence_payload as decision_due_diligence_payload,
     record_payload as decision_record_payload,
 )
 from risk_artifacts import (
@@ -107,6 +108,8 @@ from risk_decisions import (
     DecisionConflict as DecisionReviewConflict,
     DecisionNotFound as DecisionReviewNotFound,
     DecisionOutcome,
+    DueDiligenceCapability,
+    run_due_diligence,
     resolve as resolve_decision_record,
 )
 
@@ -115,6 +118,11 @@ SQL_AGENT_MODEL = "gpt-5.6-luna"
 SQL_AGENT_REASONING_EFFORT = "low"
 MAX_QUERY_ROWS = 10_000
 MAX_QUERY_COLUMNS = 200
+EXPERIMENT_ELIGIBLE_REGISTRY_STATES = {
+    LifecycleState.CANDIDATE,
+    LifecycleState.VALIDATED,
+    LifecycleState.PUBLISHED,
+}
 QUERY_TIMEOUT_SECONDS = 20
 
 LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
@@ -155,6 +163,26 @@ LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
             "authority": "Compiled plan preview · not registered or executable",
             "persistence": "Browser-local draft · not published",
         },
+        "system": {
+            "data": "Canonical sources and saved registry metadata · no run output is treated as a definition",
+            "authority": "Author, isolate-test and govern reusable definitions · external effects prohibited",
+            "persistence": "Saved definitions use the local versioned Registry; browser drafts remain explicitly unsaved",
+        },
+        "studio": {
+            "data": "Canonical source definitions, Registry metadata and browser-local Studio drafts",
+            "authority": "Build-brief preparation only · Studio–Codex execution requires PLATFORM-P12",
+            "persistence": "Draft brief is browser-local · Registry candidates require reviewed source changes",
+        },
+        "dictionary": {
+            "data": "Platform vocabulary projected by the local application",
+            "authority": "Read-only reference",
+            "persistence": "Versioned with the application architecture",
+        },
+        "application": {
+            "data": "Explicit fixture context plus saved, versioned system definitions",
+            "authority": "Effect-free isolated object and agent testing · no code mutation or external effects",
+            "persistence": "Run work products are temporary until separately retained as artifacts",
+        },
         "registry": {
             "data": "Existing definitions · indexed metadata points to canonical sources",
             "authority": "Local lifecycle review only · no financial effects",
@@ -165,13 +193,18 @@ LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
             "authority": "Human review only · D1 recommendation · portfolio and external effects prohibited",
             "persistence": "Persistent local Decision Repository · lifecycle and consequence receipts retained",
         },
+        "decision-diligence": {
+            "data": "Declared proposal references · supplemental analysis is truth-labelled and point-in-time bound",
+            "authority": "Human-built temporary workflow · no decision, publication, portfolio or external effect",
+            "persistence": "Runs, step receipts, evidence and candidate revisions retained in the Decision Repository",
+        },
         "artifacts": {
             "data": "Retained generated outputs · data truth disclosed per record",
             "authority": "Browse and govern local artifacts only · execution and external effects prohibited",
             "persistence": "Content-addressed local repository · outside Git · not production publication",
         },
         "experiments": {
-            "data": "Immutable source revisions and explicit real/synthetic/simulated declarations",
+            "data": "Immutable source revisions and saved registry definitions with explicit real/synthetic/simulated declarations",
             "authority": "Local research orchestration only · external effects prohibited",
             "persistence": "Restart-safe experiment metadata outside Git · outputs remain separate artifacts",
         },
@@ -453,6 +486,17 @@ class WorkflowCycleDecisionRequest(BaseModel):
 
 class DecisionResolveRequest(WorkflowCycleDecisionRequest):
     pass
+
+
+class DecisionDueDiligenceRunRequest(BaseModel):
+    name: str = Field(min_length=3, max_length=160)
+    investigation_question: str = Field(min_length=5, max_length=1200)
+    capability_ids: list[DueDiligenceCapability] = Field(min_length=1, max_length=5)
+    candidate_recommendation: Literal["investigate", "accept_and_monitor", "defer", "reject", "escalate"]
+    actor_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,119}$")
+    actor_type: Literal["human"] = "human"
+    idempotency_key: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,159}$")
+    expected_revision: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
 
 
 class WorkflowCycleAgentAttachRequest(BaseModel):
@@ -1763,6 +1807,236 @@ def health() -> dict[str, Any]:
     }
 
 
+@app.get("/api/platform/workspaces")
+def platform_workspaces() -> dict[str, Any]:
+    """Project existing stores into the two user-facing operating areas."""
+
+    documents = registry_store().list()
+    eligible_states = EXPERIMENT_ELIGIBLE_REGISTRY_STATES
+    saved = [
+        {
+            "identity": item.projection.identity.model_dump(mode="json"),
+            "reference": item.projection.identity.reference,
+            "display_name": item.projection.display_name,
+            "summary": item.projection.summary,
+            "lifecycle_state": item.state.value,
+            "registry_revision": item.receipts[-1].receipt_digest,
+            "experiment_eligible": (
+                item.state in eligible_states
+                and item.projection.identity.kind
+                in {AssetKind.WORKFLOW, AssetKind.EVALUATION}
+            ),
+        }
+        for item in documents
+    ]
+    saved_counts: dict[str, int] = {}
+    for item in saved:
+        kind = item["identity"]["kind"]
+        saved_counts[kind] = saved_counts.get(kind, 0) + 1
+    return {
+        "schema_version": "portfolio-risk.platform-workspaces/v1",
+        "zones": [
+            {
+                "zone_id": "system",
+                "title": "System Development",
+                "purpose": "Build reusable definitions, then apply them with agents inside controlled fixtures.",
+                "accepts": "Drafts and canonical source definitions",
+                "produces": "Saved definitions plus temporary application-test work products",
+            },
+            {
+                "zone_id": "research",
+                "title": "Experimental Research",
+                "purpose": "Compose reproducible experiments and comparisons from saved definitions.",
+                "accepts": "Registry identities, immutable source bindings and explicit policies",
+                "produces": "Experiment records, run work products, evaluations and retained artifacts",
+            },
+        ],
+        "development_phases": [
+            {
+                "phase_id": "build",
+                "title": "Build the system object",
+                "purpose": "Model the reusable object and any companion capabilities together, test them in isolation, and prepare a Registry candidate.",
+            },
+            {
+                "phase_id": "apply",
+                "title": "Apply it with an agent",
+                "purpose": "Load the saved object and its capabilities into a Fixture Context and inspect how an agent acts upon it.",
+            },
+        ],
+        "terminology": {
+            "agent": "A bounded worker that receives context, invokes admitted capabilities, creates work products and escalates under policy.",
+            "agent_application": "The System Development test phase where an agent exercises saved objects inside a labelled Fixture Context.",
+            "artifact": "A run work product deliberately retained with provenance and lifecycle policy.",
+            "capability": "A reviewed typed operation with explicit inputs, outputs, authority, validation and receipts.",
+            "companion_capability": "A capability created alongside an object to create, validate, lifecycle, modify or apply that object.",
+            "dashboard_package": "A reusable definition of pages, panels, data bindings, interactions and refresh behavior.",
+            "definition": "A reusable system object with a stable identity and version.",
+            "experiment": "A reproducible composition of saved definitions, source bindings and execution/evaluation policy.",
+            "experiment_set": "A governed group or factor matrix of independent experiments answering one research question.",
+            "fixture_context": "A labelled, bounded input environment used to exercise a definition.",
+            "mandate_version": "An immutable version of portfolio rules, covenants, interpretations and effective dates.",
+            "portfolio_version": "An immutable portfolio identity, holdings/cash state and point-in-time provenance boundary.",
+            "promotion": "A separate reviewed process that turns an approved proposal into a new reusable definition version.",
+            "provider_adapter": "A governed interface to an MCP, API, database or other integration with schemas, rights and effect boundaries.",
+            "registry_candidate": "A saved definition version indexed for local review but not yet validated or published.",
+            "report_template": "A reusable Markdown-first structure, evidence policy and rendering contract; not a rendered report artifact.",
+            "run_work_product": "An output created during one application or experiment run.",
+            "scenario_definition": "A reusable declaration of assumptions, shocks, temporal behavior, applicability and result contracts.",
+            "studio_codex": "The future development-only gateway that turns an approved Studio build brief into an isolated Codex worktree task, tests and a candidate definition.",
+            "system_object": "A reusable definition developed and governed by the platform rather than an output from one run.",
+            "workflow_definition": "A reusable composition of agents, state, routes, interrupts, review points and output contracts.",
+        },
+        "definition_lifecycle": [
+            "author_draft",
+            "isolated_fixture_test",
+            "index_candidate",
+            "validate",
+            "publish_locally",
+            "load_into_application_or_experiment",
+        ],
+        "saved_definitions": saved,
+        "saved_counts": saved_counts,
+        "portfolios": data_plane.public_portfolios(),
+        "fixture_profiles": [
+            {
+                "fixture_id": "licensed_real",
+                "label": "Licensed historical fixture",
+                "data_truth": "licensed_real",
+                "description": "Point-in-time CRSP/Compustat records queried locally through DuckDB.",
+            },
+            {
+                "fixture_id": "reviewed_synthetic",
+                "label": "Reviewed synthetic fixture",
+                "data_truth": "reviewed_synthetic",
+                "description": "Named deterministic cases for normal, failure and adversarial behavior.",
+            },
+            {
+                "fixture_id": "simulated_intraday",
+                "label": "Real-anchored simulated intraday",
+                "data_truth": "simulated_intraday",
+                "description": "Seeded intraday evolution between licensed daily close anchors.",
+            },
+        ],
+        "studio_profiles": [
+            {
+                "studio_id": "capability",
+                "title": "Capability Studio",
+                "definition_label": "CapabilityDefinition",
+                "registry_kind": "capability",
+                "purpose": "Build one typed, least-privilege operation with input preparation, execution, validation and receipts.",
+                "companion_policy": "The capability is the primary object. Add a lifecycle meta-capability only when it materially improves creation, validation or versioning.",
+                "companion_examples": ["capability.validate", "capability.fixture.run", "capability.publish_candidate"],
+                "skill_id": "servicefabric-capability-builder",
+                "availability": "registry_and_fixture_test",
+            },
+            {
+                "studio_id": "scenario",
+                "title": "Scenario Studio",
+                "definition_label": "ScenarioDefinition",
+                "registry_kind": "scenario",
+                "purpose": "Model scenario assumptions, shocks, temporal behavior, applicability and deterministic result contracts.",
+                "companion_policy": "Create capabilities that instantiate, parameterize, validate, compare and lifecycle the scenario without silently changing its assumptions.",
+                "companion_examples": ["scenario.parameterize", "scenario.validate", "scenario.compare", "scenario.revise_candidate"],
+                "skill_id": "servicefabric-scenario-builder",
+                "availability": "registry_and_future_studio",
+            },
+            {
+                "studio_id": "dashboard",
+                "title": "Dashboard Studio",
+                "definition_label": "DashboardPackage",
+                "registry_kind": "dashboard",
+                "purpose": "Model pages, panels, data bindings, interactions, refresh rules and persistent monitoring intent.",
+                "companion_policy": "Build capabilities that create, patch, render, validate and apply the dashboard while preserving provenance and safe rendering.",
+                "companion_examples": ["dashboard.compose", "dashboard.patch", "dashboard.render", "dashboard.validate"],
+                "skill_id": "servicefabric-dashboard-builder",
+                "availability": "registry_and_future_studio",
+            },
+            {
+                "studio_id": "report",
+                "title": "Report Studio",
+                "definition_label": "ReportTemplate",
+                "registry_kind": "report",
+                "purpose": "Model Markdown-first structure, section ownership, evidence rules, tables, charts and rendering contracts.",
+                "companion_policy": "Build capabilities that plan, compose, critique, revise, render and publish a report candidate without conflating template and rendered artifact.",
+                "companion_examples": ["report.plan_sections", "report.compose_markdown", "report.validate", "report.render"],
+                "skill_id": "servicefabric-report-builder",
+                "availability": "registry_and_composer",
+            },
+            {
+                "studio_id": "portfolio_mandate",
+                "title": "Portfolio & Mandate Studio",
+                "definition_label": "PortfolioVersion + MandateVersion",
+                "registry_kind": None,
+                "purpose": "Build professional portfolio state and mandate rules, covenants, interpretations and knowledge-graph mappings together.",
+                "companion_policy": "Build capabilities for ingestion, normalization, mandate extraction, compliance evaluation and governed revision; never use them to create live financial effects.",
+                "companion_examples": ["portfolio.normalize", "mandate.extract", "mandate.validate", "mandate.compliance.evaluate"],
+                "skill_id": "servicefabric-portfolio-mandate-builder",
+                "availability": "PLATFORM-P9",
+            },
+            {
+                "studio_id": "workflow",
+                "title": "Workflow Studio",
+                "definition_label": "AgentGraphDefinition + WorkflowDefinition",
+                "registry_kind": "workflow",
+                "purpose": "Compose saved agents into explicit routes, state transitions, interrupts, review points and output contracts.",
+                "companion_policy": "Prefer native LangGraph routing, state and interrupt methods. Add capabilities only for typed workflow lifecycle, validation or external operations.",
+                "companion_examples": ["workflow.compile", "workflow.validate", "workflow.replay", "workflow.publish_candidate"],
+                "skill_id": "servicefabric-workflow-builder",
+                "availability": "PLATFORM-P14",
+            },
+            {
+                "studio_id": "provider_connector",
+                "title": "Provider & Connector Studio",
+                "definition_label": "ProviderAdapter",
+                "registry_kind": None,
+                "purpose": "Model MCP, API and database integrations with rights, secrets, schemas, health checks and effect boundaries.",
+                "companion_policy": "Build capabilities that discover, configure, query and health-check the adapter through reviewed typed contracts rather than granting raw provider access.",
+                "companion_examples": ["provider.discover", "provider.configure", "provider.healthcheck", "provider.query"],
+                "skill_id": "servicefabric-provider-adapter-builder",
+                "availability": "PLATFORM-P15",
+            },
+            {
+                "studio_id": "agent",
+                "title": "Agent Studio",
+                "definition_label": "AgentBlueprint",
+                "registry_kind": "agent",
+                "purpose": "Model a bounded agent's objective, state, routing, tools, prompts, outputs, authority and test expectations.",
+                "companion_policy": "Domain capabilities remain selected dependencies. Create companion capabilities only for agent lifecycle, specialist/sub-agent creation, or operations not already native to LangGraph.",
+                "companion_examples": ["agent.validate", "agent.fixture.run", "agent.specialist.propose", "agent.publish_candidate"],
+                "skill_id": "servicefabric-agent-builder",
+                "availability": "agent_studio_and_registry",
+            },
+        ],
+        "future_dependencies": [
+            {
+                "phase": "PLATFORM-P7",
+                "capability": "Fixture Context compiler and cumulative Environment Risk Context boundary",
+                "unlocks": "Portable context fixtures that can be reused across object tests.",
+            },
+            {
+                "phase": "PLATFORM-P8",
+                "capability": "End-to-end Agent Application execution adapter",
+                "unlocks": "Execute the selected saved agent against the selected saved objects in one vertical slice.",
+            },
+            {
+                "phase": "PLATFORM-P9",
+                "capability": "Mandate Lab and registered portfolio/mandate versions",
+                "unlocks": "First-class mandate and portfolio selection rather than source-binding text references.",
+            },
+            {
+                "phase": "PLATFORM-P14",
+                "capability": "Agent graph and workflow composition",
+                "unlocks": "Fractioned human-review, supra-agent and modular workflow experimental policies.",
+            },
+            {
+                "phase": "PLATFORM-P15",
+                "capability": "Provider and external adapter registry",
+                "unlocks": "Governed MCP, API and external integration selection.",
+            },
+        ],
+    }
+
+
 @app.get("/api/catalog")
 def catalog() -> dict[str, Any]:
     return {
@@ -2206,16 +2480,42 @@ def experiment_options() -> dict[str, Any]:
     return _experiment_options_payload()
 
 
+def _experiment_registry_documents() -> list[Any]:
+    """Return only saved registry definitions that may enter new experiments."""
+
+    return [
+        document
+        for document in registry_store().list()
+        if document.projection.identity.kind in {AssetKind.WORKFLOW, AssetKind.EVALUATION}
+        and document.state in EXPERIMENT_ELIGIBLE_REGISTRY_STATES
+    ]
+
+
+def _require_experiment_registry_assets(identities: tuple[RegistryIdentity, ...]) -> None:
+    eligible = {
+        document.projection.identity.reference: document
+        for document in _experiment_registry_documents()
+    }
+    missing = [identity.reference for identity in identities if identity.reference not in eligible]
+    if missing:
+        raise ExperimentConflict(
+            "experiment assets must be saved in the Registry and remain candidate, validated, "
+            "or published: " + ", ".join(missing)
+        )
+
+
 def _experiment_options_payload() -> dict[str, Any]:
     assets = [
         {
-            "identity": item.identity.model_dump(mode="json"),
-            "reference": item.identity.reference,
-            "display_name": item.display_name,
-            "summary": item.summary,
+            "identity": document.projection.identity.model_dump(mode="json"),
+            "reference": document.projection.identity.reference,
+            "display_name": document.projection.display_name,
+            "summary": document.projection.summary,
+            "lifecycle_state": document.state.value,
+            "registry_revision": document.receipts[-1].receipt_digest,
+            "saved": True,
         }
-        for item in discover_registry_projections()
-        if item.identity.kind in {AssetKind.WORKFLOW, AssetKind.EVALUATION}
+        for document in _experiment_registry_documents()
     ]
     selection_id = data_plane.selection["selection_id"]
     snapshot_id = data_plane.selection["source_snapshot_id"]
@@ -2254,6 +2554,13 @@ def _experiment_options_payload() -> dict[str, Any]:
         )
     return {
         "system_assets": assets,
+        "eligibility_policy": {
+            "registry_required": True,
+            "accepted_lifecycle_states": sorted(
+                state.value for state in EXPERIMENT_ELIGIBLE_REGISTRY_STATES
+            ),
+            "meaning": "Only explicitly indexed, versioned definitions can enter a new experiment.",
+        },
         "defaults": {
             "snapshot_policy_reference": "snapshot-policy:point-in-time-available-at@v1",
             "mandate_reference": "mandate:research-default@v1",
@@ -2275,9 +2582,7 @@ def draft_experiment(request: ExperimentDraftRequest) -> dict[str, Any]:
             raise ExperimentConflict(
                 f"{request.presentation_mode.value} requires a {expected_kind.value} definition"
             )
-        known = {item.identity.reference for item in discover_registry_projections()}
-        if request.system_asset.reference not in known:
-            raise ExperimentConflict("system asset must resolve to a discovered canonical definition")
+        _require_experiment_registry_assets((request.system_asset,))
         options = _experiment_options_payload()
         portfolio_option = next(
             (
@@ -2344,6 +2649,7 @@ def draft_experiment(request: ExperimentDraftRequest) -> dict[str, Any]:
 @app.post("/api/experiments")
 def create_experiment(request: ExperimentCreateRequest) -> dict[str, Any]:
     try:
+        _require_experiment_registry_assets(request.definition.system_assets)
         record = experiment_store().create(
             request.definition,
             actor=request.actor,
@@ -2369,14 +2675,7 @@ def transition_experiment(
     try:
         if request.to_state == ExperimentState.VALIDATED:
             current = experiment_store().get(experiment_id)
-            known = {item.identity.reference for item in discover_registry_projections()}
-            unresolved = [
-                item.reference for item in current.definition.system_assets if item.reference not in known
-            ]
-            if unresolved:
-                raise ExperimentConflict(
-                    "validation cannot resolve canonical system assets: " + ", ".join(unresolved)
-                )
+            _require_experiment_registry_assets(current.definition.system_assets)
         record = experiment_store().transition(
             experiment_id,
             request.to_state,
@@ -2597,6 +2896,40 @@ def resolve_persisted_decision(proposal_id: str, request: DecisionResolveRequest
                 expected_revision=request.expected_revision,
             )
         return decision_record_payload(record)
+    except DecisionReviewNotFound as error:
+        raise HTTPException(status_code=404, detail="decision proposal not found") from error
+    except DecisionReviewConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/api/decisions/{proposal_id}/due-diligence")
+def decision_due_diligence(proposal_id: str) -> dict[str, Any]:
+    try:
+        return decision_due_diligence_payload(decision_store().get(proposal_id))
+    except DecisionReviewNotFound as error:
+        raise HTTPException(status_code=404, detail="decision proposal not found") from error
+
+
+@app.post("/api/decisions/{proposal_id}/due-diligence/runs")
+def execute_decision_due_diligence(
+    proposal_id: str,
+    request: DecisionDueDiligenceRunRequest,
+) -> dict[str, Any]:
+    try:
+        session = workflow_cycle_manager.find_by_proposal(proposal_id)
+        store = session.decision_store if session is not None else decision_store()
+        record = run_due_diligence(
+            store,
+            proposal_id,
+            name=request.name,
+            investigation_question=request.investigation_question,
+            capability_ids=tuple(request.capability_ids),
+            candidate_recommendation=DecisionOutcome(request.candidate_recommendation),
+            actor_id=request.actor_id,
+            idempotency_key=request.idempotency_key,
+            expected_revision=request.expected_revision,
+        )
+        return decision_due_diligence_payload(record)
     except DecisionReviewNotFound as error:
         raise HTTPException(status_code=404, detail="decision proposal not found") from error
     except DecisionReviewConflict as error:

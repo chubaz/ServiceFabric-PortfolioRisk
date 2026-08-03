@@ -21,6 +21,16 @@ The objective is to build a system in which users can:
 
 The system is not a collection of one-off agent demos. It is a governed authoring, experiment, persistence, and evaluation environment.
 
+### 1.1 Unified application operating zones
+
+The application now projects the existing services into three explicit zones:
+
+- **System Development** creates and fixture-tests reusable definitions, then saves them in the Registry;
+- **Agent Application** loads saved definitions into a labelled fixture context and exposes the agent/object work record;
+- **Experimental Research** composes only saved definition versions into persistent experiments and comparisons.
+
+The normative terminology, movement rules, backend reuse and later-phase dependency reminders are maintained in [`docs/architecture/platform-operating-zones.md`](../../../docs/architecture/platform-operating-zones.md). Every later phase must preserve the distinction among reusable definitions, Fixture Contexts, temporary run work products, retained artifacts and experiments.
+
 ## 2. Product principles
 
 ### 2.1 Separate meaning, execution, and persistence
