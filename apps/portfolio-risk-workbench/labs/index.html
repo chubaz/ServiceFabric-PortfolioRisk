@@ -20,7 +20,7 @@
       });
     }
   </script>
-  <link rel="stylesheet" href="./styles.css?v=6">
+  <link rel="stylesheet" href="./styles.css?v=11">
 </head>
 <body>
   <header class="app-header">
@@ -33,10 +33,11 @@
       <button class="workspace-tab" type="button" data-workspace="portfolio">Portfolio</button>
       <button class="workspace-tab" type="button" data-workspace="agent">Agent</button>
       <button class="workspace-tab" type="button" data-workspace="graph">Agent graph</button>
+      <button class="workspace-tab" type="button" data-workspace="cycle">Live cycle</button>
       <button class="workspace-tab" type="button" data-workspace="full">Full experiment</button>
     </nav>
     <div class="header-actions">
-      <span class="mode-badge">Synthetic sandbox</span>
+      <span class="mode-badge">Local research workbench</span>
       <button class="button ghost" id="open-system-map" type="button">View complete system map</button>
     </div>
   </header>
@@ -164,9 +165,124 @@
         <span class="truth-chip" id="agent-framework-truth">Loading runtime</span>
       </section>
 
+      <nav class="agent-builder-modebar" aria-label="Agent builder detail level">
+        <div>
+          <span class="panel-label">Agent Builder v2</span>
+          <strong>One agent, three levels of control</strong>
+          <small>Every view edits the same executable blueprint.</small>
+        </div>
+        <div class="mode-switch" role="tablist">
+          <button class="active" type="button" data-agent-builder-mode="basic">Basic</button>
+          <button type="button" data-agent-builder-mode="professional">Professional</button>
+          <button type="button" data-agent-builder-mode="advanced">Advanced manifest</button>
+        </div>
+      </nav>
+
+      <section class="agent-basic-builder" id="agent-basic-builder">
+        <nav class="basic-agent-stepper" aria-label="Agent creation steps">
+          <button class="active" type="button" data-basic-agent-step="outcome"><span>1</span><b>Outcome</b><small>Purpose and recipe</small></button>
+          <button type="button" data-basic-agent-step="scope"><span>2</span><b>Scope</b><small>Trigger and boundary</small></button>
+          <button type="button" data-basic-agent-step="context"><span>3</span><b>Context</b><small>Information and tools</small></button>
+          <button type="button" data-basic-agent-step="output"><span>4</span><b>Output</b><small>Artifact and authority</small></button>
+          <button type="button" data-basic-agent-step="test"><span>5</span><b>Test</b><small>Review and save</small></button>
+        </nav>
+
+        <div class="basic-agent-layout">
+          <div class="basic-agent-main">
+            <section class="basic-agent-panel active" data-basic-agent-panel="outcome">
+              <div class="basic-step-heading"><span>01 · Outcome</span><h2>What should be different when this agent finishes?</h2><p>Start from a governed recipe or describe the job. Both produce the same reviewable blueprint.</p></div>
+              <details class="basic-step-guide"><summary>Understand this step and every option</summary><div><p><strong>Recipe</strong> supplies a coherent starting pattern: prompts, state, routing, capabilities, governance and output design. Selecting one does not publish an agent; it creates an editable draft.</p><p><strong>Agent name</strong> identifies a reusable job, not a single run. <strong>Observable outcome</strong> describes the artifact or change a reviewer can verify after completion. Prefer “create a cited Event Risk Brief” over personality instructions such as “be a brilliant analyst.”</p><p><strong>Draft with AI</strong> compiles the description into the existing strict blueprint. It can suggest registered options but cannot enable portfolio effects or unknown capabilities.</p></div></details>
+              <div class="basic-recipe-grid" id="basic-agent-recipes"></div>
+              <div class="basic-description-box">
+                <label class="field wide"><span>Describe the job</span><textarea id="basic-agent-description" rows="5" placeholder="Monitor eligible events about portfolio holdings and create a cited review brief. Never change the portfolio."></textarea></label>
+                <button class="button primary" id="basic-generate-agent" type="button">Draft with AI</button>
+              </div>
+              <div class="basic-two-fields">
+                <label class="field"><span>Agent name</span><input id="basic-agent-name"></label>
+                <label class="field"><span>Observable outcome</span><textarea id="basic-agent-outcome" rows="3"></textarea></label>
+              </div>
+            </section>
+
+            <section class="basic-agent-panel" data-basic-agent-panel="scope">
+              <div class="basic-step-heading"><span>02 · Trigger and scope</span><h2>When does it run, and what may it work on?</h2><p>The current prototype records these invocation rules for the workflow. Scheduling remains controlled by the workflow runtime.</p></div>
+              <details class="basic-step-guide"><summary>Understand triggers, scope, time and duplicate handling</summary><div><p><strong>Trigger</strong> describes who starts the assignment: a person, workflow cycle, eligible event, or schedule. It does not grant authority. <strong>Scope</strong> limits the portfolio, experiment or dataset the assignment may address.</p><p><strong>As-of rule</strong> is the information boundary. Workflow date suits periodic replay; event availability time prevents an event agent from seeing information before ingestion; assignment time is useful for manually commissioned analysis.</p><p><strong>Duplicate handling</strong> makes repeated delivery safe. It identifies when two requests should resolve to the same logical piece of work instead of creating duplicate reviews.</p></div></details>
+              <div class="basic-step-copilot"><label class="field"><span>Describe the trigger and boundary in words</span><textarea rows="3" data-basic-step-intent="scope" placeholder="Run for each eligible event, use only information available when it was ingested, and create one review per event and portfolio snapshot."></textarea></label><button class="button ghost" type="button" data-generate-basic-step="scope">Prepare scope with AI</button></div>
+              <div class="basic-two-fields">
+                <label class="field"><span>Trigger</span><select id="basic-agent-trigger"><option value="manual">Manual run</option><option value="workflow" selected>Workflow cycle</option><option value="event">Eligible event</option><option value="scheduled">Schedule</option></select></label>
+                <label class="field"><span>Scope</span><select id="basic-agent-scope"><option value="selected_portfolio" selected>Portfolio selected at run time</option><option value="current_experiment">Current experiment portfolio</option><option value="dataset_revision">Selected dataset revision</option></select></label>
+                <label class="field"><span>As-of rule</span><select id="basic-agent-as-of"><option value="workflow_date" selected>Workflow date</option><option value="event_available_at">Event availability time</option><option value="assignment_as_of">Assignment as-of time</option></select></label>
+                <label class="field"><span>Duplicate handling</span><select id="basic-agent-dedup"><option value="assignment_and_snapshot" selected>Assignment + portfolio snapshot</option><option value="event_and_snapshot">Event + portfolio snapshot</option><option value="one_per_workflow_cycle">One result per workflow cycle</option></select></label>
+              </div>
+              <div class="basic-compiled-note"><span>Compiled boundary</span><p id="basic-scope-summary"></p></div>
+            </section>
+
+            <section class="basic-agent-panel" data-basic-agent-panel="context">
+              <div class="basic-step-heading"><span>03 · Context and capabilities</span><h2>Which reviewed information and operations may it use?</h2><p>Packs are named presets over the existing input contract and capability latches.</p></div>
+              <details class="basic-step-guide"><summary>Understand context and capability packs</summary><div><p><strong>Context Pack</strong> controls which reviewed information is supplied and under which point-in-time boundary. It is the agent’s readable evidence envelope—not unrestricted database access.</p><p><strong>Capability Pack</strong> is the allow-list of registered operations the agent may request. Market data reads observations; risk metrics reads deterministic MetricPack values; portfolio exposure calculates concentration; scenario stress applies bounded shocks; event retrieval reads eligible events; the evidence critic checks claims.</p><p>A capability permits an operation but never grants portfolio authority. Advanced mode exposes invocation conditions, output bindings, requirements and failure policies for every latch.</p></div></details>
+              <div class="basic-step-copilot"><label class="field"><span>Describe the information and operations needed</span><textarea rows="3" data-basic-step-intent="context" placeholder="Use the frozen portfolio, mandate, point-in-time market observations and eligible events. Calculate exposure and require an evidence check."></textarea></label><button class="button ghost" type="button" data-generate-basic-step="context">Prepare context with AI</button></div>
+              <div class="basic-two-fields">
+                <label class="field"><span>Context pack</span><select id="basic-agent-context-pack"><option value="morning_risk_context">Morning risk context</option><option value="portfolio_event_review">Portfolio event review</option><option value="portfolio_context">Portfolio context only</option><option value="specialist_output_review">Specialist output review</option></select></label>
+                <label class="field"><span>Capability pack</span><select id="basic-agent-capability-pack"><option value="daily_risk_review">Daily risk review</option><option value="portfolio_event_triage">Portfolio event triage</option><option value="market_risk_summary">Market risk summary</option><option value="concentration_review">Concentration review</option><option value="evidence_validation">Evidence validation</option></select></label>
+              </div>
+              <div class="basic-pack-preview"><span>Granted operations</span><div id="basic-capability-preview"></div></div>
+              <button class="text-button basic-open-advanced" type="button" data-open-agent-section="capabilities">Adjust individual capabilities in Advanced</button>
+            </section>
+
+            <section class="basic-agent-panel" data-basic-agent-panel="output">
+              <div class="basic-step-heading"><span>04 · Output and authority</span><h2>What must it return, and where must it stop?</h2><p>The rendered artifact stays machine-readable underneath. Portfolio effects remain locked off.</p></div>
+              <details class="basic-step-guide"><summary>Understand output contracts and authority</summary><div><p><strong>Risk Review Draft</strong> is a human-facing decision-support review. <strong>Specialist Interpretation</strong> is a bounded analytical contribution. <strong>Evidence Critique</strong> audits claims and temporal eligibility. <strong>Capability Request</strong> records why the current grants are insufficient without inventing a tool.</p><p><strong>A1</strong> drafts from supplied context and uses only evidence validation. <strong>A2</strong> may call the displayed effect-free analytical capabilities. Both stop at human review and both permanently deny trading, hedging, rebalancing, broker contact and portfolio mutation.</p><p>Selecting an Output Contract regenerates a matching strict schema. Advanced mode can then define fields, validations, rendering, charts, tables and multi-pass assembly.</p></div></details>
+              <div class="basic-step-copilot"><label class="field"><span>Describe the finished artifact in words</span><textarea rows="3" data-basic-step-intent="output" placeholder="Return a concise cited brief with affected holdings, relevance, risk channels, uncertainties and review actions."></textarea></label><button class="button ghost" type="button" data-generate-basic-step="output">Prepare output with AI</button></div>
+              <div class="basic-two-fields">
+                <label class="field"><span>Output contract</span><select id="basic-agent-output"><option value="RiskReviewDraft">Risk Review Draft</option><option value="SpecialistInterpretation">Specialist Interpretation</option><option value="EvidenceCritique">Evidence Critique</option><option value="CapabilityRequest">Capability Request</option></select></label>
+                <label class="field"><span>Authority profile</span><select id="basic-agent-authority"><option value="A2" selected>A2 · analytical tools and draft</option><option value="A1">A1 · draft from supplied context</option></select></label>
+              </div>
+              <div class="basic-authority-card">
+                <div><span id="basic-authority-level">A2</span><strong id="basic-authority-title">Effect-free analysis and draft</strong><p id="basic-authority-copy"></p></div>
+                <ul><li>Evidence required</li><li>Portfolio effects denied</li><li id="basic-review-boundary">Human review required</li></ul>
+              </div>
+              <div class="basic-output-preview" id="basic-output-preview"></div>
+              <button class="text-button basic-open-advanced" type="button" data-open-agent-section="structured-output">Design the detailed Structured Output</button>
+            </section>
+
+            <section class="basic-agent-panel" data-basic-agent-panel="test">
+              <div class="basic-step-heading"><span>05 · Test and save</span><h2>Is this version safe and useful on representative cases?</h2><p>A quick gate checks the contract, an ordinary case, a failure boundary, and an adversarial evidence case.</p></div>
+              <details class="basic-step-guide"><summary>Understand validation, testing and saved runs</summary><div><p><strong>Validate</strong> checks schema coherence, capability allow-lists, prompt variables, state, routing, output production and locked effects. It does not judge analytical usefulness.</p><p><strong>Representative test</strong> checks normal work. <strong>Failure boundary</strong> checks missing evidence and abstention or escalation. <strong>Adversarial test</strong> confirms untrusted content cannot alter governance. A quick pass supports iteration; historical replay and reviewer thresholds are still required for research certification.</p><p>The Run Review page distinguishes synthetic fixtures from real DuckDB data, freezes the exact input, records the work log and stores every output in a run-specific local folder.</p></div></details>
+              <div class="basic-step-copilot"><label class="field"><span>Describe the safety and review behavior</span><textarea rows="3" data-basic-step-intent="test" placeholder="Require evidence for every material claim, abstain when issuer mapping is ambiguous, and always stop for human review."></textarea></label><button class="button ghost" type="button" data-generate-basic-step="test">Prepare governance with AI</button></div>
+              <div class="basic-test-cases">
+                <div><i>1</i><span><strong>Representative</strong><small>Concentration breach with complete evidence</small></span><b data-basic-test-state="normal">Ready</b></div>
+                <div><i>2</i><span><strong>Failure boundary</strong><small>Required evidence is missing</small></span><b data-basic-test-state="failure">Ready</b></div>
+                <div><i>3</i><span><strong>Adversarial</strong><small>Untrusted text cannot alter governance</small></span><b data-basic-test-state="adversarial">Policy check</b></div>
+              </div>
+              <div class="basic-test-actions">
+                <button class="button ghost" id="basic-validate-agent" type="button">Validate blueprint</button>
+                <button class="button primary" id="basic-test-agent" type="button">Compile and run test</button>
+                <button class="button ghost" id="basic-save-agent" type="button">Save draft</button>
+              </div>
+              <div class="basic-test-result" id="basic-test-result"><span>Not tested</span><p>The agent remains a local draft until validation and testing succeed.</p></div>
+            </section>
+          </div>
+
+          <aside class="basic-agent-preview">
+            <div class="basic-preview-heading"><span class="panel-label">Live Agent Card</span><b id="basic-preview-version">Draft · recipe defaults</b></div>
+            <h2 id="basic-preview-name">Daily Portfolio Risk Reviewer</h2>
+            <p id="basic-preview-outcome"></p>
+            <dl>
+              <div><dt>Starts</dt><dd id="basic-preview-trigger"></dd></div>
+              <div><dt>Receives</dt><dd id="basic-preview-context"></dd></div>
+              <div><dt>Can use</dt><dd id="basic-preview-capabilities"></dd></div>
+              <div><dt>Returns</dt><dd id="basic-preview-output"></dd></div>
+              <div><dt>Authority</dt><dd id="basic-preview-authority"></dd></div>
+            </dl>
+            <div class="basic-policy-lock"><strong>Locked policy</strong><span>No order, trade, hedge, rebalance, broker contact, or portfolio mutation.</span></div>
+            <div class="basic-provenance"><span>Field provenance</span><div><i class="user"></i>User</div><div><i class="recipe"></i>Recipe</div><div><i class="policy"></i>Policy</div><div><i class="derived"></i>Derived</div></div>
+            <button class="button ghost btn-block" id="basic-inspect-manifest" type="button">Inspect advanced manifest</button>
+          </aside>
+        </div>
+      </section>
+
       <section class="lab-panel agent-description-launcher">
         <div><span class="panel-label">Describe the whole agent</span><h2>Start with the desired result</h2><p>OpenAI can recursively populate every section below: routing, memory, governance, state, capability latches, instructions, Prompt Messages, and PromptTemplate.</p></div>
-        <label class="field wide"><span>Agent design brief</span><textarea id="agent-description" rows="6">Create a Daily Portfolio Risk Reviewer. It receives the Overall Default Context, gathers point-in-time market data, deterministic risk metrics and portfolio exposures, drafts a clear narrative explaining breaches and changes, checks every claim against evidence, and pauses for human approval. It must never change the portfolio.</textarea></label>
+        <label class="field wide"><span>Agent design brief</span><textarea id="agent-description" rows="6">Create a Daily Portfolio Risk Reviewer. It receives a point-in-time assignment and frozen source data, parameterizes the permitted exposure and risk capabilities, assembles the Overall Default Context from their validated results, drafts a clear narrative explaining portfolio-risk effects, checks every claim against evidence, and pauses for human approval. It must never change the portfolio.</textarea></label>
         <div class="llm-plan-row">
           <label class="field"><span>Blueprint planner</span><select id="agent-model"><option value="gpt-5.6-terra">GPT-5.6 Terra · fast structured design</option><option value="gpt-5.6-sol">GPT-5.6 Sol · deepest design</option><option value="gpt-5.6">GPT-5.6 alias</option><option value="gpt-5.4">GPT-5.4 · baseline</option></select></label>
           <button class="button primary" id="generate-agent-blueprint" type="button">Transform description into complete blueprint</button>
@@ -182,7 +298,7 @@
               <div class="lab-form-grid">
                 <label class="field"><span>Agent name</span><input id="agent-name" value="Daily Portfolio Risk Reviewer"></label>
                 <label class="field"><span>Model</span><select id="agent-config-model"><option value="gpt-5.6-terra">GPT-5.6 Terra</option><option value="gpt-5.6-sol">GPT-5.6 Sol</option><option value="gpt-5.6">GPT-5.6 alias</option><option value="gpt-5.4">GPT-5.4</option></select></label>
-                <label class="field"><span>Input contract</span><select id="agent-input"><option>PortfolioContext</option><option>RiskContext</option><option selected>OverallDefaultContext</option><option>SpecialistOutputBundle</option></select></label>
+                <label class="field"><span>Interpretation context contract</span><select id="agent-input"><option>PortfolioContext</option><option>RiskContext</option><option selected>OverallDefaultContext</option><option>SpecialistOutputBundle</option></select><small>The runtime may assemble this contract from frozen source data and capability results before the model receives it.</small></label>
                 <label class="field"><span>Output contract</span><select id="agent-output"><option>SpecialistInterpretation</option><option selected>RiskReviewDraft</option><option>EvidenceCritique</option><option>CapabilityRequest</option></select></label>
               </div>
               <label class="field wide"><span>Purpose description</span><textarea id="agent-purpose" rows="3">Interpret the deterministic daily portfolio risk context and prepare a clear, evidence-grounded review for a human portfolio manager.</textarea><small>Explain the business responsibility rather than the implementation.</small></label>
@@ -239,7 +355,7 @@ Evidence state: {evidence_state}</textarea></label>
           <details class="agent-config-section" open data-agent-section="state">
             <summary><span>04</span><div><strong>State management</strong><small>Named state fields, ownership, requirements, and update reducers.</small></div><b id="agent-state-count">0 fields</b></summary>
             <div class="agent-section-body">
-              <label class="field wide"><span>State-management description</span><textarea id="agent-state-description" rows="3">Carry the immutable Overall Default Context, append capability evidence, replace the current narrative revision, and retain review status until the workflow cycle ends.</textarea></label>
+              <label class="field wide"><span>State-management description</span><textarea id="agent-state-description" rows="3">Carry frozen point-in-time source data through capability preparation, assemble the immutable Overall Default Context after calculation, append capability evidence, replace the current narrative revision, and retain review status until the workflow cycle ends.</textarea></label>
               <div class="section-subheading"><div><strong>Typed state fields</strong><small>Each field explains what LangGraph nodes may read or update.</small></div><button class="text-button" id="add-agent-state-field" type="button">+ Add state field</button></div>
               <div class="state-field-list" id="agent-state-fields"></div>
             </div>
@@ -255,7 +371,7 @@ Evidence state: {evidence_state}</textarea></label>
                 <label class="field"><span>Maximum iterations</span><select id="agent-max-iterations"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
               </div>
               <div class="routing-condition-grid">
-                <label class="field"><span>Entry condition</span><textarea id="agent-entry-condition" rows="3">A validated OverallDefaultContext is available for the workflow date.</textarea></label>
+                <label class="field"><span>Entry condition</span><textarea id="agent-entry-condition" rows="3">A point-in-time assignment and its frozen source data are available; OverallDefaultContext will be assembled after the required capabilities complete.</textarea></label>
                 <label class="field"><span>Revision condition</span><textarea id="agent-revision-condition" rows="3">The evidence critic finds an unsupported or insufficiently qualified material claim.</textarea></label>
                 <label class="field"><span>Escalation condition</span><textarea id="agent-escalation-condition" rows="3">A mandate threshold is breached, evidence is missing, or the output proposes a decision.</textarea></label>
                 <label class="field"><span>Stop condition</span><textarea id="agent-stop-condition" rows="3">The output contract passes validation and any required human review has completed.</textarea></label>
@@ -339,7 +455,7 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
               </div>
               <label class="field wide"><span>Completion rule</span><textarea id="agent-output-completion-rule" rows="2">Every declared field has passed its producing pass and final validation; missing evidence is represented explicitly rather than omitted.</textarea></label>
               <label class="field wide"><span>Final quality gate</span><textarea id="agent-output-quality-gate" rows="2">All material claims reference supplied evidence, visual specifications agree with underlying values, and no output implies an executed portfolio effect.</textarea></label>
-              <div class="section-subheading"><div><strong>Typed output fields</strong><small>All fields are required by Structured Outputs; use nullable when absence is valid.</small></div><button class="text-button" id="add-agent-output-field" type="button">+ Add output field</button></div>
+              <div class="section-subheading"><div><strong>Typed output fields</strong><small>Begin with one field, or apply the concise risk-report structure and edit its sections.</small></div><div><button class="text-button" id="apply-concise-report" type="button">Use concise risk report</button><button class="text-button" id="add-agent-output-field" type="button">+ Add output field</button></div></div>
               <div class="output-field-list" id="agent-output-fields"></div>
             </div>
           </details>
@@ -401,16 +517,73 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
         </div>
         <div class="agent-output-view" id="agent-output-checks"><div id="agent-compile-checks"><div class="empty-state">No compilation report yet.</div></div></div>
         <div class="agent-output-view" id="agent-output-run">
-          <div class="agent-run-controls">
-            <label class="field"><span>Synthetic PortfolioContext</span><select id="agent-test-scenario"><option value="routine">Routine diversified day</option><option value="concentration" selected>Concentration breach</option><option value="loss">Daily loss breach</option><option value="missing">Missing evidence</option></select></label>
-            <label class="review-test-toggle"><input id="agent-auto-review" type="checkbox" checked><span>Automatically approve the interrupt for this isolated test only</span></label>
-            <button class="button primary" id="test-agent" type="button">Run compiled agent</button>
-            <span class="readiness" id="agent-run-status">Not run</span>
+          <header class="run-review-heading">
+            <div><span class="panel-label">Agent Run Review</span><h2>Know the data. Watch the work. Keep every output.</h2><p>Each execution freezes its exact input and writes a separate, deletable run folder. The work log shows concise rationale, capability receipts, evidence critique and review boundaries—not private chain-of-thought.</p></div>
+            <div class="run-heading-actions"><span class="run-mode-identity synthetic" id="agent-run-mode-badge">Synthetic fixture</span><button class="button ghost" id="open-cycle-from-agent" type="button">Test through simulated time</button></div>
+          </header>
+
+          <div class="run-context-lifecycle" aria-label="Run context lifecycle">
+            <span>1 · Frozen source data</span><b>→</b><span>2 · Parameterize capabilities</span><b>→</b><span>3 · Calculate</span><b>→</b><strong>4 · Assemble Overall Default Context</strong><b>→</b><span>5 · Interpret and review</span>
           </div>
-          <div class="agent-run-layout">
-            <div><span class="panel-label">Node-by-node trace</span><ol class="trace-list" id="agent-trace"><li>Compile and run the agent to see each executed LangGraph node.</li></ol></div>
-            <div><span class="panel-label">Final typed state</span><div class="agent-test-output" id="agent-test-output"><p>No output produced.</p></div></div>
+
+          <div class="run-mode-selector" role="group" aria-label="Agent test data source">
+            <button class="active synthetic" type="button" data-agent-data-mode="synthetic_fixture"><strong>Synthetic fixture</strong><small>Deliberately invented values for controlled behavior tests.</small></button>
+            <button type="button" data-agent-data-mode="real_duckdb"><strong>Real point-in-time data</strong><small>Reviewed portfolio positions queried from local CRSP/Compustat Parquet.</small></button>
           </div>
+
+          <section class="run-execution-selector" aria-label="Agent execution method">
+            <div><span class="panel-label">Execution method</span><strong>Choose how the agent interprets the evidence</strong></div>
+            <button class="active" type="button" data-agent-execution-mode="deterministic"><strong>Deterministic verification</strong><small>Real graph and capabilities, but no LLM call and no model cost.</small></button>
+            <button type="button" data-agent-execution-mode="live_llm"><strong>Live LLM interpretation</strong><small>One bounded OpenAI call with a saved model and token receipt.</small></button>
+            <label class="field live-run-model hidden" id="agent-live-run-model-field"><span>Live model</span><select id="agent-live-run-model"><option value="gpt-5.4" selected>GPT-5.4 · standard</option><option value="gpt-5.6-terra">GPT-5.6 Terra</option><option value="gpt-5.6-sol">GPT-5.6 Sol</option><option value="gpt-5.6">GPT-5.6</option></select><small>One call, 2,200 output-token ceiling, provider storage disabled.</small></label>
+          </section>
+
+          <section class="run-assignment-card">
+            <div class="run-assignment-fields">
+              <div data-agent-run-mode-panel="synthetic_fixture">
+                <label class="field"><span>Named fixture</span><select id="agent-test-scenario"><option value="routine">Routine diversified day</option><option value="concentration" selected>Concentration breach</option><option value="loss">Daily loss breach</option><option value="missing">Missing evidence</option></select></label>
+              </div>
+              <div class="hidden real-run-fields" data-agent-run-mode-panel="real_duckdb">
+                <label class="field"><span>Reviewed portfolio</span><select id="agent-real-portfolio"></select></label>
+                <label class="field"><span>As-of date</span><input id="agent-real-as-of" type="date" value="2008-09-15"></label>
+              </div>
+              <label class="field run-label-field"><span>Assignment</span><input id="agent-run-label" value="Review the supplied portfolio-risk context and prepare the declared output."></label>
+              <label class="review-test-toggle"><input id="agent-auto-review" type="checkbox" checked><span>Auto-approve the human interrupt for this isolated test</span></label>
+            </div>
+            <div class="run-assignment-actions">
+              <button class="button ghost" id="preview-agent-input" type="button">Preview exact input</button>
+              <button class="button primary" id="test-agent" type="button">Run and save</button>
+              <span class="readiness" id="agent-run-status">Not run</span>
+            </div>
+            <details class="run-input-preview" id="agent-input-preview-details" open>
+              <summary><span>Frozen source input · before calculations</span><b id="agent-input-preview-status">Preview not loaded</b></summary>
+              <div class="run-input-provenance" id="agent-input-provenance"><p>Select a data source and preview it before running.</p></div>
+              <pre class="agent-json" id="agent-input-json">{}</pre>
+            </details>
+          </section>
+
+          <div class="run-review-layout">
+            <aside class="run-repository-panel">
+              <div class="run-pane-heading"><div><span class="panel-label">Run repository</span><strong>Saved test folders</strong></div><button class="text-button" id="refresh-agent-runs" type="button">Refresh</button></div>
+              <div class="run-repository-list" id="agent-run-repository"><div class="empty-state">No saved runs loaded.</div></div>
+            </aside>
+
+            <section class="run-conversation-panel">
+              <div class="run-pane-heading"><div><span class="panel-label">Live work record</span><strong>Agent conversation</strong></div><span class="truth-chip" id="agent-live-state">Idle</span></div>
+              <div class="agent-run-chat" id="agent-run-chat">
+                <div class="run-chat-empty"><strong>No run selected</strong><p>Preview the input, run the agent, or choose a saved run to review its complete work record.</p></div>
+              </div>
+            </section>
+
+            <aside class="run-files-panel">
+              <div class="run-pane-heading"><div><span class="panel-label">Run folder</span><strong>Created files</strong></div><button class="text-button danger hidden" id="delete-agent-run" type="button">Delete run</button></div>
+              <div class="run-folder-path" id="agent-run-folder">No run folder selected.</div>
+              <div class="run-file-list" id="agent-run-files"></div>
+              <details class="run-file-viewer" open><summary>File preview</summary><pre id="agent-run-file-content">Select a file to inspect it.</pre></details>
+            </aside>
+          </div>
+          <ol class="trace-list hidden" id="agent-trace"></ol>
+          <div class="agent-test-output hidden" id="agent-test-output"></div>
         </div>
         <div class="agent-output-view" id="agent-output-assembly">
           <div class="assembly-run-controls">
@@ -475,6 +648,76 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
           <details><summary>LangGraph adapter plan</summary><pre id="graph-compile-plan">No plan compiled.</pre></details>
         </aside>
       </div>
+    </section>
+
+    <section class="lab-page" id="lab-cycle" aria-labelledby="lab-cycle-title">
+      <div class="lab-heading cycle-lab-heading">
+        <div><span class="eyebrow">Workflow Cycle Console</span><h1 id="lab-cycle-title">Watch agents work through simulated market time</h1><p>Real CRSP daily closes anchor a seeded synthetic intraday stream. Every position updates once per simulated second and is aggregated into one-minute candles.</p></div>
+        <span class="stage-status" id="cycle-runtime-status">Not configured</span>
+      </div>
+
+      <section class="cycle-setup-panel" id="cycle-setup-panel">
+        <div class="cycle-setup-fields">
+          <label class="field"><span>Reviewed portfolio</span><select id="cycle-portfolio"></select></label>
+          <label class="field"><span>First simulated date</span><input id="cycle-start-date" type="date" value="2018-09-13"></label>
+          <label class="field"><span>Last simulated date</span><input id="cycle-end-date" type="date" value="2018-09-18"></label>
+          <label class="field"><span>Deterministic seed</span><input id="cycle-seed" type="number" min="0" max="2147483647" value="20260802"></label>
+          <label class="field"><span>Initial clock speed</span><select id="cycle-initial-speed"><option value="1">1× · real time</option><option value="15">15×</option><option value="60" selected>60× · one minute/second</option><option value="300">300×</option><option value="900">900× · fifteen minutes/second</option><option value="3600">3,600×</option></select></label>
+          <label class="field"><span>Intraday loss review</span><select id="cycle-loss-limit"><option value="0.01">1.0%</option><option value="0.02" selected>2.0%</option><option value="0.03">3.0%</option><option value="0.05">5.0%</option></select></label>
+        </div>
+        <div class="cycle-truth-card"><b>Synthetic intraday · real daily anchors</b><p>The next real close is sealed inside the runtime. Agents and dashboards see only observations released by the simulated clock. Intraday paths are workflow fixtures, not historical evidence.</p></div>
+        <button class="button primary" id="create-cycle-session" type="button">Create workflow-cycle session</button>
+      </section>
+
+      <section class="cycle-console hidden" id="cycle-console">
+        <header class="cycle-console-bar">
+          <div class="cycle-clock-readout"><span>Simulated market time</span><strong id="cycle-clock-time">—</strong><small id="cycle-clock-progress">Waiting</small></div>
+          <div class="cycle-control-buttons">
+            <button class="button primary" id="cycle-start" type="button">Start clock</button>
+            <button class="button" id="cycle-pause" type="button">Pause</button>
+            <label class="cycle-speed-control"><span>Speed</span><select id="cycle-speed"><option value="1">1×</option><option value="15">15×</option><option value="60">60×</option><option value="300">300×</option><option value="900">900×</option><option value="3600">3,600×</option></select></label>
+            <button class="button ghost" id="cycle-new-session" type="button">New session</button>
+          </div>
+          <div class="cycle-live-state"><i id="cycle-live-dot"></i><span id="cycle-live-label">Paused</span><b id="cycle-update-count">0 released updates</b></div>
+        </header>
+
+        <div class="cycle-console-layout">
+          <aside class="cycle-timeline-panel">
+            <div class="cycle-panel-heading"><span>Workflow timeline</span><b id="cycle-day-label">Day 0 / 0</b></div>
+            <div class="cycle-day-progress"><i id="cycle-day-progress-bar"></i></div>
+            <div class="cycle-event-stream" id="cycle-event-stream"><div class="empty-state">Start the clock to release observations.</div></div>
+          </aside>
+
+          <main class="cycle-dashboard-panel">
+            <header class="cycle-dashboard-heading">
+              <div><span>Living dashboard</span><strong id="cycle-dashboard-title">Portfolio overview</strong><small id="cycle-dashboard-version">Version 1</small></div>
+              <nav id="cycle-dashboard-pages" aria-label="Dashboard pages"></nav>
+            </header>
+            <div id="cycle-dashboard-view"></div>
+          </main>
+
+          <aside class="cycle-agents-panel">
+            <div class="cycle-panel-heading"><span>Latched agents</span><b>Effect-free</b></div>
+            <div id="cycle-agent-latches"></div>
+            <div class="cycle-agent-attach">
+              <label class="field"><span>Dashboard page</span><select id="cycle-agent-page"></select></label>
+              <label class="field"><span>Specialist</span><select id="cycle-agent-select"><option value="daily-portfolio-risk-reviewer">Daily Portfolio Risk Reviewer</option><option value="market-liquidity-risk-analyst">Market and Liquidity Risk Analyst</option><option value="concentration-mandate-monitor">Concentration and Mandate Monitor</option><option value="scenario-stress-analyst">Scenario Stress Analyst</option><option value="fundamental-event-deterioration-watcher">Event Deterioration Watcher</option></select></label>
+              <button class="button ghost" id="cycle-attach-agent" type="button">Attach reviewed specialist</button>
+            </div>
+            <div class="cycle-meta-list"><span>Active meta-capabilities</span><div id="cycle-meta-capabilities"></div></div>
+          </aside>
+        </div>
+
+        <section class="cycle-report-panel">
+          <header><div><span>Agent report</span><strong id="cycle-report-title">Live portfolio risk review</strong></div><b id="cycle-report-status">Waiting</b></header>
+          <div class="cycle-report-sections" id="cycle-report-sections"></div>
+        </section>
+
+        <section class="cycle-decision-panel hidden" id="cycle-decision-panel">
+          <div><span>Human decision</span><strong id="cycle-decision-finding"></strong><small>The clock is paused. No portfolio effect has been created.</small></div>
+          <div><button class="button primary" data-cycle-decision="accepted" type="button">Accept and resume</button><button class="button" data-cycle-decision="investigate" type="button">Open investigation</button><button class="button ghost" data-cycle-decision="rejected" type="button">Reject finding</button></div>
+        </section>
+      </section>
     </section>
   </main>
 
@@ -1061,6 +1304,6 @@ checkpoint store and server route are connected, selecting it returns BLOCKED.</
   </dialog>
 
   <script src="./app.js"></script>
-  <script src="./labs.js?v=6"></script>
+  <script src="./labs.js?v=12"></script>
 </body>
 </html>

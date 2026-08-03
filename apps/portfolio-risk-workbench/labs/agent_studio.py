@@ -8,9 +8,12 @@ import importlib.util
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal
 
@@ -18,12 +21,176 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 COMPILER_VERSION = "agent-blueprint-compiler/0.4.0"
+
+def _repository_root(start: Path) -> Path:
+    for candidate in (start, *start.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return start
+
+
 GENERATED_ROOT = Path(
     os.environ.get(
         "PORTFOLIO_RISK_AGENT_OUTPUT_ROOT",
-        Path(__file__).resolve().parent / "generated_agents",
+        _repository_root(Path(__file__).resolve().parent)
+        / ".agent-runs"
+        / "generated-agents",
     )
 ).expanduser().resolve()
+
+
+RUN_ROOT = Path(
+    os.environ.get(
+        "PORTFOLIO_RISK_AGENT_RUN_ROOT",
+        _repository_root(Path(__file__).resolve().parent) / ".agent-runs" / "agent-lab",
+    )
+).expanduser().resolve()
+
+CAPABILITY_MEMORY_ROOT = Path(
+    os.environ.get(
+        "PORTFOLIO_RISK_CAPABILITY_MEMORY_ROOT",
+        _repository_root(Path(__file__).resolve().parent)
+        / ".agent-runs"
+        / "capability-memory",
+    )
+).expanduser().resolve()
+CAPABILITY_MEMORY_MIN_ELAPSED_MS = int(
+    os.environ.get("PORTFOLIO_RISK_CAPABILITY_MEMORY_MIN_MS", "5000")
+)
+
+META_CAPABILITY_REGISTRY: tuple[dict[str, Any], ...] = (
+    {
+        "capability_id": "meta.data.query.duckdb",
+        "name": "Governed DuckDB query",
+        "purpose": "Fetch point-in-time research data through validated read-only SQL.",
+        "status": "available",
+        "input_contract": "GovernedSqlQueryRequest",
+        "output_contract": "TabularDatasetArtifact",
+        "effects": [],
+        "look_ahead_guard": "Every temporal dataset must be bounded by the assignment as-of time.",
+        "memory_policy": "reuse_when_identical_and_slow",
+    },
+    {
+        "capability_id": "meta.visualisation.render",
+        "name": "Visualisation renderer",
+        "purpose": "Create a reviewable chart from a registered dataset artifact and chart specification.",
+        "status": "foundation",
+        "input_contract": "VisualisationRequest",
+        "output_contract": "VisualisationArtifact",
+        "effects": ["write_run_artifact"],
+        "look_ahead_guard": "Inherited from the dataset artifact and its evidence receipt.",
+        "memory_policy": "reuse_when_identical_and_slow",
+    },
+    {
+        "capability_id": "meta.package.compose",
+        "name": "Live package composer",
+        "purpose": "Compose registered findings, tables and visualisations into a run-scoped review package.",
+        "status": "foundation",
+        "input_contract": "PackageCompositionRequest",
+        "output_contract": "ReviewPackageArtifact",
+        "effects": ["write_run_artifact"],
+        "look_ahead_guard": "May only consume artifacts eligible for the same workflow date.",
+        "memory_policy": "reuse_when_identical_and_slow",
+    },
+    {
+        "capability_id": "meta.capability.propose",
+        "name": "Capability proposal",
+        "purpose": "Draft a non-executable capability specification when an analytical gap is found.",
+        "status": "foundation",
+        "input_contract": "CapabilityProposalRequest",
+        "output_contract": "CapabilityProposalDraft",
+        "effects": [],
+        "look_ahead_guard": "The proposal inherits the assignment's data boundary and cannot self-register.",
+        "memory_policy": "never",
+    },
+)
+
+
+def _ensure_workspace_packages() -> None:
+    """Make the repository's canonical packages importable in the local lab."""
+
+    package_root = _repository_root(Path(__file__).resolve().parent) / "packages"
+    for source_root in sorted(package_root.glob("*/src")):
+        path = str(source_root)
+        if path not in sys.path:
+            sys.path.insert(0, path)
+
+
+def capability_platform_manifest() -> dict[str, Any]:
+    """Expose the bounded runtime surface without making draft meta-tools executable."""
+
+    return {
+        "context_lifecycle": [
+            "frozen_source_data",
+            "parameterized_capability_requests",
+            "canonical_calculations",
+            "overall_default_context",
+            "agent_interpretation",
+            "human_review",
+        ],
+        "memory": {
+            "key": "capability_id + canonical_input_digest + point_in_time_boundary",
+            "minimum_elapsed_ms": CAPABILITY_MEMORY_MIN_ELAPSED_MS,
+            "reuse_rule": "Only successful, effect-free results on an identical input digest may be reused.",
+            "root": str(CAPABILITY_MEMORY_ROOT),
+        },
+        "meta_capabilities": list(META_CAPABILITY_REGISTRY),
+    }
+
+
+def _memory_payload_key(namespace: str, value: Any) -> str:
+    canonical = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(f"{namespace}:{canonical}".encode()).hexdigest()
+
+
+def _load_capability_memory(namespace: str, value: Any) -> dict[str, Any] | None:
+    key = _memory_payload_key(namespace, value)
+    path = CAPABILITY_MEMORY_ROOT / namespace.replace(".", "-") / f"{key}.json"
+    if not path.exists():
+        return None
+    payload = json.loads(path.read_text())
+    if payload.get("input_key") != key or payload.get("status") != "succeeded":
+        return None
+    return payload
+
+
+def _store_capability_memory(
+    namespace: str,
+    value: Any,
+    result: dict[str, Any],
+    *,
+    elapsed_ms: float,
+) -> None:
+    if elapsed_ms < CAPABILITY_MEMORY_MIN_ELAPSED_MS:
+        return
+    calls = result.get("calls", [])
+    if not calls or any(call.get("status") != "succeeded" for call in calls):
+        return
+    if any(call.get("receipt", {}).get("effects") for call in calls):
+        return
+    key = _memory_payload_key(namespace, value)
+    directory = CAPABILITY_MEMORY_ROOT / namespace.replace(".", "-")
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{key}.json"
+    payload = {
+        "input_key": key,
+        "namespace": namespace,
+        "status": "succeeded",
+        "stored_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "elapsed_ms": elapsed_ms,
+        "result": result,
+    }
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str) + "\n")
+
+
+def _mark_memory_reuse(payload: dict[str, Any]) -> dict[str, Any]:
+    result = payload["result"]
+    for call in result.get("calls", []):
+        receipt = call.setdefault("receipt", {})
+        receipt["memory_reused"] = True
+        receipt["memory_stored_at"] = payload.get("stored_at")
+        receipt["original_elapsed_ms"] = payload.get("elapsed_ms")
+    return result
 
 CAPABILITIES: dict[str, dict[str, str]] = {
     "market_data": {
@@ -57,12 +224,13 @@ CAPABILITIES: dict[str, dict[str, str]] = {
 }
 
 PATTERN_NODES: dict[str, list[str]] = {
-    "direct": ["load_context", "gather_evidence", "draft"],
-    "tool_loop": ["load_context", "gather_evidence", "draft", "evidence_critic"],
-    "reflection": ["load_context", "gather_evidence", "draft", "evidence_critic"],
+    "direct": ["load_context", "gather_evidence", "assemble_context", "draft"],
+    "tool_loop": ["load_context", "gather_evidence", "assemble_context", "draft", "evidence_critic"],
+    "reflection": ["load_context", "gather_evidence", "assemble_context", "draft", "evidence_critic"],
     "human_review": [
         "load_context",
         "gather_evidence",
+        "assemble_context",
         "draft",
         "evidence_critic",
         "human_review",
@@ -614,6 +782,18 @@ class CompileRequest(BaseModel):
 class RunRequest(BaseModel):
     blueprint: AgentBlueprint
     scenario: Literal["routine", "concentration", "loss", "missing"] = "concentration"
+    data_mode: Literal["synthetic_fixture", "real_duckdb"] = "synthetic_fixture"
+    execution_mode: Literal["deterministic", "live_llm"] = "deterministic"
+    execution_model: Literal[
+        "gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6", "gpt-5.4"
+    ] = "gpt-5.4"
+    input_context: dict[str, Any] | None = None
+    input_provenance: dict[str, Any] = Field(default_factory=dict)
+    portfolio_id: str | None = Field(default=None, max_length=80)
+    as_of: str | None = Field(default=None, max_length=32)
+    datasets: list[str] = Field(default_factory=list, max_length=8)
+    run_label: str | None = Field(default=None, max_length=120)
+    persist_run: bool = True
     auto_approve_review: bool = True
 
 
@@ -1525,6 +1705,1076 @@ def _compiler_projection(blueprint: AgentBlueprint) -> dict[str, Any]:
     return value
 
 
+def _parse_utc(value: Any) -> datetime:
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("capability timestamps must be timezone-aware")
+    return parsed.astimezone(timezone.utc)
+
+
+def _decimal_text(value: Any) -> Decimal:
+    if value is None or isinstance(value, bool):
+        raise ValueError("financial values must be explicit numbers")
+    result = Decimal(str(value))
+    if not result.is_finite():
+        raise ValueError("financial values must be finite")
+    return result
+
+
+def _context_capability_value(
+    capability_id: str, context: dict[str, Any]
+) -> dict[str, Any]:
+    values = {
+        "market_data": {
+            "daily_return": context.get("daily_return"),
+            "var_95": context.get("var_95"),
+        },
+        "risk_metrics": {
+            "var_95": context.get("var_95"),
+            "drawdown": context.get("drawdown"),
+        },
+        "scenario_stress": {"stress_loss": context.get("stress_loss")},
+        "fundamental_change": {
+            "fundamental_signal": context.get("fundamental_signal", "not supplied")
+        },
+        "event_retrieval": {
+            "eligible_event": context.get("eligible_event", "none")
+        },
+        "evidence_critic": {
+            "evidence_state": context.get("evidence_state", "complete")
+        },
+    }
+    return values.get(capability_id, {})
+
+
+def _exposure_capability_call(
+    context: dict[str, Any], capability_input: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Format canonical input and invoke the registered exposure capability."""
+
+    _ensure_workspace_packages()
+    from risk_capabilities import (
+        CapabilityRegistry,
+        EvidenceReference,
+        ExposureSummaryRequest,
+    )
+    from risk_domain import CashBalance, PortfolioSnapshot, Position, SourceReference
+    from risk_domain.digests import sha256_digest
+
+    started = time.perf_counter()
+    request_summary: dict[str, Any] = {
+        "contract": "ExposureSummaryRequest",
+        "source": capability_input.get("source_label", "Supplied portfolio context"),
+        "portfolio": context.get("portfolio_name") or context.get("portfolio_id"),
+        "as_of": capability_input.get("as_of") or context.get("as_of_date"),
+    }
+    stages: list[dict[str, Any]] = [
+        {
+            "name": "Locate data",
+            "status": "succeeded",
+            "detail": capability_input.get(
+                "source_detail", "Used the frozen portfolio context supplied to the run."
+            ),
+        }
+    ]
+    try:
+        as_of = _parse_utc(capability_input.get("as_of") or context.get("as_of_date"))
+        positions = []
+        labels = capability_input.get("instrument_labels", {})
+        excluded_positions: list[dict[str, Any]] = []
+        for item in capability_input.get("positions", []):
+            instrument_id = str(item.get("instrument_id", "")).strip()
+            if not instrument_id:
+                raise ValueError("every capability position requires an instrument_id")
+            if item.get("price") is None:
+                label = labels.get(instrument_id, {})
+                excluded_positions.append(
+                    {
+                        "instrument_id": instrument_id,
+                        "display_name": item.get("display_name")
+                        or label.get("company_name")
+                        or instrument_id,
+                        "ticker": item.get("ticker") or label.get("ticker"),
+                        "quality": item.get("quality") or "missing",
+                        "last_known_price": item.get("last_known_price"),
+                        "last_observed_at": item.get("observed_at"),
+                    }
+                )
+                continue
+            quantity = _decimal_text(item.get("quantity"))
+            price = _decimal_text(item.get("price"))
+            positions.append(
+                Position(
+                    instrument_id=instrument_id,
+                    quantity=quantity,
+                    price=price,
+                    market_value=quantity * price,
+                    currency=str(item.get("currency") or capability_input.get("base_currency") or "USD"),
+                )
+            )
+        if not positions:
+            raise ValueError("the capability requires at least one priced position")
+        cash_balances = tuple(
+            CashBalance(
+                currency=str(item.get("currency") or capability_input.get("base_currency") or "USD"),
+                amount=_decimal_text(item.get("amount")),
+            )
+            for item in capability_input.get("cash_balances", [])
+        )
+        retrieved_at = _parse_utc(capability_input.get("retrieved_at") or as_of.isoformat())
+        source_reference = SourceReference(
+            source_id=str(capability_input.get("source_id") or "agent-studio-input"),
+            source_type=str(capability_input.get("source_type") or "frozen-run-context"),
+            reference=str(capability_input.get("source_reference") or "context://agent-studio"),
+            retrieved_at=retrieved_at,
+        )
+        snapshot_id = str(
+            capability_input.get("snapshot_id")
+            or f"agent-studio:{context.get('workflow_cycle_id', 'portfolio')}"
+        )
+        snapshot = PortfolioSnapshot(
+            snapshot_id=snapshot_id,
+            as_of=as_of,
+            base_currency=str(capability_input.get("base_currency") or "USD"),
+            positions=tuple(positions),
+            cash_balances=cash_balances,
+            sources=(source_reference,),
+        )
+        evidence = (
+            EvidenceReference(
+                evidence_id=str(
+                    capability_input.get("evidence_id")
+                    or f"evidence:{context.get('workflow_cycle_id', 'agent-studio')}"
+                ),
+                reference=source_reference.reference,
+                source_type=source_reference.source_type,
+                digest=snapshot.digest,
+                description=(
+                    "Frozen portfolio positions and point-in-time prices formatted for "
+                    "the canonical exposure capability."
+                ),
+            ),
+        )
+        request = ExposureSummaryRequest(
+            snapshot_id=f"exposure:{snapshot.snapshot_id}",
+            portfolio_snapshot=snapshot,
+            evidence_references=evidence,
+        )
+        request_summary.update(
+            {
+                "snapshot_id": snapshot.snapshot_id,
+                "position_count": len(snapshot.positions),
+                "total_position_count": len(capability_input.get("positions", [])),
+                "excluded_positions": excluded_positions,
+                "coverage_status": "partial" if excluded_positions else "complete",
+                "cash_balance_count": len(snapshot.cash_balances),
+                "base_currency": snapshot.base_currency,
+                "evidence_ids": [item.evidence_id for item in evidence],
+                "input_digest": sha256_digest(request),
+            }
+        )
+        stages.extend(
+            [
+                {
+                    "name": "Format request",
+                    "status": "succeeded",
+                    "detail": (
+                        f"Mapped {len(snapshot.positions)} positions and "
+                        f"{len(snapshot.cash_balances)} cash balance(s) into "
+                        "ExposureSummaryRequest. "
+                        + (
+                            f"Excluded {len(excluded_positions)} holding(s) without a current "
+                            "eligible price; none was converted to zero."
+                            if excluded_positions
+                            else "All holdings had eligible prices."
+                        )
+                    ),
+                },
+                {
+                    "name": "Validate contract",
+                    "status": "succeeded",
+                    "detail": (
+                        "Validated identifiers, finite Decimal values, currency, explicit "
+                        "UTC as-of time, snapshot digest and evidence references."
+                    ),
+                },
+            ]
+        )
+        invoked_at = time.perf_counter()
+        result = CapabilityRegistry().invoke("portfolio.exposure.summarize", request)
+        capability_elapsed_ms = round((time.perf_counter() - invoked_at) * 1000, 2)
+        total_elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+        if result.status != "succeeded" or result.data is None:
+            warning = "; ".join(result.warnings) or "The capability returned no result."
+            stages.append(
+                {"name": "Invoke capability", "status": result.status, "detail": warning}
+            )
+            return (
+                {
+                    "capability": "portfolio_exposure",
+                    "canonical_capability_id": "portfolio.exposure.summarize",
+                    "execution_mode": "canonical_registry",
+                    "status": result.status,
+                    "detail": warning,
+                    "request": request_summary,
+                    "result": {},
+                    "stages": stages,
+                    "receipt": {
+                        "input_digest": request_summary["input_digest"],
+                        "output_digest": result.output_digest or sha256_digest(result),
+                        "elapsed_ms": total_elapsed_ms,
+                        "capability_elapsed_ms": capability_elapsed_ms,
+                        "warnings": list(result.warnings),
+                        "effects": list(result.effects),
+                    },
+                },
+                {},
+            )
+        exposure = result.data
+        ranked = sorted(
+            exposure.position_exposures,
+            key=lambda item: abs(item.weight),
+            reverse=True,
+        )
+        top_positions = [
+            {
+                "instrument_id": item.instrument_id,
+                "display_name": labels.get(item.instrument_id, {}).get("company_name")
+                or item.instrument_id,
+                "ticker": labels.get(item.instrument_id, {}).get("ticker"),
+                "sector": labels.get(item.instrument_id, {}).get("sector"),
+                "market_value": str(item.market_value),
+                "weight": float(item.weight),
+            }
+            for item in ranked[:5]
+        ]
+        largest = ranked[0] if ranked else None
+        result_summary = {
+            "nav": str(exposure.nav),
+            "coverage_status": "partial" if excluded_positions else "complete",
+            "priced_position_count": len(positions),
+            "total_position_count": len(capability_input.get("positions", [])),
+            "excluded_positions": excluded_positions,
+            "weight_basis": (
+                "priced sleeve plus cash; excluded holdings were not valued at zero"
+                if excluded_positions
+                else "complete valued portfolio plus cash"
+            ),
+            "gross_exposure": float(exposure.gross_exposure),
+            "net_exposure": float(exposure.net_exposure),
+            "largest_position": (
+                {
+                    "instrument_id": largest.instrument_id,
+                    "display_name": labels.get(largest.instrument_id, {}).get("company_name")
+                    or largest.instrument_id,
+                    "ticker": labels.get(largest.instrument_id, {}).get("ticker"),
+                    "weight": float(largest.weight),
+                }
+                if largest is not None
+                else None
+            ),
+            "cash_weight": float(exposure.cash_weight),
+            "top_positions": top_positions,
+        }
+        methodology = (
+            result.methodology.value
+            if result.methodology is not None
+            else "registered deterministic exposure calculation"
+        )
+        stages.append(
+            {
+                "name": "Invoke capability",
+                "status": "succeeded",
+                "detail": (
+                    "The canonical registry returned a validated ExposureSnapshot "
+                    f"in {capability_elapsed_ms:.2f} ms."
+                ),
+            }
+        )
+        largest_weight = float(exposure.largest_position_weight)
+        largest_name = (
+            labels.get(largest.instrument_id, {}).get("company_name")
+            if largest is not None
+            else None
+        ) or (largest.instrument_id if largest is not None else "the largest holding")
+        coverage_prefix = (
+            f"Across the {len(positions)} priced holdings, excluding "
+            + ", ".join(item["display_name"] for item in excluded_positions)
+            + ", "
+            if excluded_positions
+            else "Across the fully priced portfolio, "
+        )
+        if largest is not None and largest_weight >= 0.25:
+            interpretation = (
+                f"{coverage_prefix}{largest_name} is the largest position at "
+                f"{largest_weight:.1%} of the valued NAV. "
+                "This level can make security-specific outcomes disproportionately important, "
+                "so it should be compared with the applicable mandate concentration limit."
+            )
+        elif largest is not None:
+            interpretation = (
+                f"{coverage_prefix}{largest_name} is the largest position at "
+                f"{largest_weight:.1%} of the valued NAV. "
+                "No concentration conclusion is implied without the applicable mandate limit."
+            )
+        else:
+            interpretation = "No priced position was available for concentration interpretation."
+        output_digest = result.output_digest or sha256_digest(result)
+        receipt_limitations = list(result.limitations)
+        receipt_warnings = list(result.warnings)
+        if excluded_positions:
+            excluded_names = ", ".join(
+                item["display_name"] for item in excluded_positions
+            )
+            receipt_warnings.append(
+                f"Partial valuation coverage: excluded {excluded_names}."
+            )
+            receipt_limitations.append(
+                "Exposure weights describe the priced sleeve plus cash, not the complete portfolio."
+            )
+        return (
+            {
+                "capability": "portfolio_exposure",
+                "canonical_capability_id": "portfolio.exposure.summarize",
+                "execution_mode": "canonical_registry",
+                "status": "succeeded",
+                "detail": interpretation,
+                "request": request_summary,
+                "result": result_summary,
+                "stages": stages,
+                "receipt": {
+                    "input_digest": request_summary["input_digest"],
+                    "output_digest": output_digest,
+                    "evidence_ids": [item.evidence_id for item in result.evidence_references],
+                    "methodology": methodology,
+                    "assumptions": list(result.assumptions),
+                    "warnings": receipt_warnings,
+                    "limitations": receipt_limitations,
+                    "elapsed_ms": total_elapsed_ms,
+                    "capability_elapsed_ms": capability_elapsed_ms,
+                    "effects": list(result.effects),
+                },
+            },
+            {
+                "largest_weight": largest_weight,
+                "cash_weight": float(exposure.cash_weight),
+                "nav": str(exposure.nav),
+                "gross_exposure": float(exposure.gross_exposure),
+                "net_exposure": float(exposure.net_exposure),
+                "canonical_exposure_interpretation": interpretation,
+                "exposure_snapshot_digest": output_digest,
+                "exposure_coverage": result_summary["coverage_status"],
+                "exposure_excluded_holdings": [
+                    item["display_name"] for item in excluded_positions
+                ],
+            },
+        )
+    except Exception as error:
+        message = str(error) or type(error).__name__
+        stages.extend(
+            [
+                {
+                    "name": "Format request",
+                    "status": "stopped",
+                    "detail": message,
+                },
+                {
+                    "name": "Invoke capability",
+                    "status": "not_run",
+                    "detail": "The registry was not called because canonical input validation failed.",
+                },
+            ]
+        )
+        return (
+            {
+                "capability": "portfolio_exposure",
+                "canonical_capability_id": "portfolio.exposure.summarize",
+                "execution_mode": "canonical_registry",
+                "status": "stopped",
+                "detail": message,
+                "request": request_summary,
+                "result": {},
+                "stages": stages,
+                "receipt": {
+                    "elapsed_ms": round((time.perf_counter() - started) * 1000, 2),
+                    "warnings": [message],
+                    "effects": [],
+                },
+            },
+            {
+                "canonical_exposure_interpretation": (
+                    "The exposure capability was not run because its canonical input "
+                    f"could not be prepared: {message}."
+                )
+            },
+        )
+
+
+def _metric_pack_capability_calls(
+    context: dict[str, Any], metric_input: dict[str, Any]
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Calculate a point-in-time priced-sleeve MetricPack through the registry."""
+
+    _ensure_workspace_packages()
+    from risk_analytics import AnalysisEvidence, AnalysisHorizon
+    from risk_capabilities import (
+        CapabilityRegistry,
+        DerivedReturnsRequest,
+        HistoricalTailRiskRequest,
+        ReturnsRequest,
+        VolatilityRequest,
+    )
+    from risk_domain import MarketObservation, SourceReference
+    from risk_domain.digests import sha256_digest
+
+    started = time.perf_counter()
+    observations = metric_input.get("observations", [])
+    if len(observations) < 2:
+        message = "At least two complete priced-sleeve observations are required."
+        return (
+            [
+                {
+                    "capability": "risk_metrics",
+                    "canonical_capability_id": "risk.returns.simple",
+                    "execution_mode": "canonical_registry",
+                    "status": "stopped",
+                    "detail": message,
+                    "request": {
+                        "contract": "ReturnsRequest",
+                        "observation_count": len(observations),
+                    },
+                    "result": {},
+                    "stages": [
+                        {"name": "Validate history", "status": "stopped", "detail": message}
+                    ],
+                    "receipt": {"warnings": [message], "effects": []},
+                }
+            ],
+            {"metric_pack_status": "stopped"},
+        )
+
+    retrieved_at = _parse_utc(metric_input.get("as_of") or context.get("as_of_date"))
+    source = SourceReference(
+        source_id="local-duckdb-crsp-compustat",
+        source_type="licensed_local_research_data",
+        reference=str(metric_input.get("source_reference") or "duckdb://portfolio/history"),
+        retrieved_at=retrieved_at,
+    )
+    prices = tuple(
+        MarketObservation(
+            instrument_id="portfolio-priced-sleeve",
+            observed_at=_parse_utc(f"{item['observed_at']}T23:59:59+00:00"),
+            price=_decimal_text(item["portfolio_value"]),
+            currency=str(metric_input.get("base_currency") or "USD"),
+            synthetic=False,
+            sources=(source,),
+        )
+        for item in observations
+    )
+    evidence_digest = sha256_digest(
+        {
+            "snapshot_id": metric_input.get("snapshot_id"),
+            "prices": prices,
+            "coverage": metric_input.get("coverage"),
+        }
+    )
+    evidence = (
+        AnalysisEvidence(
+            evidence_id=str(metric_input.get("evidence_id") or "metric-pack-evidence"),
+            reference=source.reference,
+            digest=evidence_digest,
+            description=(
+                "Fixed-quantity portfolio values for holdings with current eligible prices; "
+                "cash is included and excluded holdings are disclosed."
+            ),
+        ),
+    )
+    horizon = AnalysisHorizon(
+        label="daily close-to-close", periods=1, expected_interval_seconds=86400
+    )
+    assumptions = (
+        "Historical values use fixed as-of quantities and therefore describe market movement, not historical holdings changes.",
+    )
+    limitations = tuple(
+        [
+            "Metrics describe the priced sleeve plus cash, not the complete portfolio."
+        ]
+        if metric_input.get("excluded_holdings")
+        else []
+    )
+    registry = CapabilityRegistry()
+    returns_request = ReturnsRequest(
+        analysis_id=f"{metric_input.get('analysis_id', 'metric-pack')}:returns",
+        snapshot_id=str(metric_input.get("snapshot_id") or "portfolio-priced-sleeve"),
+        prices=prices,
+        horizon=horizon,
+        evidence=evidence,
+        assumptions=assumptions,
+        limitations=limitations,
+    )
+
+    calls: list[dict[str, Any]] = []
+
+    def invoke(
+        capability_id: str,
+        request: Any,
+        result_fields: tuple[str, ...],
+        label: str,
+    ) -> Any:
+        invoked_at = time.perf_counter()
+        response = registry.invoke(capability_id, request)
+        capability_elapsed_ms = round((time.perf_counter() - invoked_at) * 1000, 2)
+        output: dict[str, Any] = {}
+        if response.data is not None:
+            dumped = response.data.model_dump(mode="json")
+            output = {field: dumped.get(field) for field in result_fields}
+            output.update(
+                {
+                    "observation_count": dumped.get("observation_count"),
+                    "sample_period": dumped.get("sample_period"),
+                    "methodology": dumped.get("methodology"),
+                    "coverage": metric_input.get("coverage"),
+                    "excluded_holdings": metric_input.get("excluded_holdings", []),
+                }
+            )
+        input_digest = sha256_digest(request)
+        detail = (
+            f"Calculated {label} from {len(prices)} point-in-time portfolio-value "
+            "observations for the priced sleeve."
+            if response.status == "succeeded"
+            else "; ".join(response.warnings) or f"{label} did not complete."
+        )
+        calls.append(
+            {
+                "capability": "risk_metrics",
+                "canonical_capability_id": capability_id,
+                "execution_mode": "canonical_registry",
+                "status": response.status,
+                "detail": detail,
+                "request": {
+                    "contract": type(request).__name__,
+                    "analysis_id": getattr(request, "analysis_id", None),
+                    "observation_count": len(prices),
+                    "coverage": metric_input.get("coverage"),
+                    "input_digest": input_digest,
+                },
+                "result": output,
+                "stages": [
+                    {
+                        "name": "Parameterize request",
+                        "status": "succeeded",
+                        "detail": (
+                            f"Bound the frozen {metric_input.get('coverage', 'portfolio')} "
+                            f"history to {type(request).__name__}."
+                        ),
+                    },
+                    {
+                        "name": "Invoke capability",
+                        "status": response.status,
+                        "detail": detail,
+                    },
+                ],
+                "receipt": {
+                    "input_digest": input_digest,
+                    "output_digest": response.output_digest or sha256_digest(response),
+                    "evidence_ids": [item.evidence_id for item in response.evidence_references],
+                    "methodology": (
+                        response.methodology.value if response.methodology is not None else None
+                    ),
+                    "assumptions": list(response.assumptions),
+                    "warnings": list(response.warnings),
+                    "limitations": list(response.limitations),
+                    "capability_elapsed_ms": capability_elapsed_ms,
+                    "effects": list(response.effects),
+                },
+            }
+        )
+        return response
+
+    returns_response = invoke(
+        "risk.returns.simple",
+        returns_request,
+        ("return_method", "observations"),
+        "daily simple returns",
+    )
+    if returns_response.status != "succeeded" or returns_response.data is None:
+        return calls, {"metric_pack_status": "stopped"}
+
+    returns_result = returns_response.data
+    derived_base = {
+        "returns": returns_result,
+        "horizon": horizon,
+        "evidence": evidence,
+        "assumptions": assumptions,
+        "limitations": limitations,
+    }
+    volatility_response = invoke(
+        "risk.volatility.annualized",
+        VolatilityRequest(
+            analysis_id=f"{metric_input.get('analysis_id', 'metric-pack')}:volatility",
+            periods_per_year=252,
+            **derived_base,
+        ),
+        ("annualized_volatility", "periods_per_year"),
+        "annualized volatility",
+    )
+    drawdown_response = invoke(
+        "risk.drawdown.maximum",
+        DerivedReturnsRequest(
+            analysis_id=f"{metric_input.get('analysis_id', 'metric-pack')}:drawdown",
+            **derived_base,
+        ),
+        ("maximum_drawdown", "peak_at", "trough_at"),
+        "maximum drawdown",
+    )
+    tail_request = HistoricalTailRiskRequest(
+        analysis_id=f"{metric_input.get('analysis_id', 'metric-pack')}:tail-risk",
+        confidence_level=Decimal("0.95"),
+        **derived_base,
+    )
+    var_response = invoke(
+        "risk.var.historical",
+        tail_request,
+        ("confidence_level", "value_at_risk", "historical_rank", "tail_observation_count"),
+        "95% historical value at risk",
+    )
+    es_response = invoke(
+        "risk.expected_shortfall.historical",
+        tail_request.model_copy(
+            update={
+                "analysis_id": f"{metric_input.get('analysis_id', 'metric-pack')}:expected-shortfall"
+            }
+        ),
+        ("confidence_level", "expected_shortfall", "tail_observation_count"),
+        "95% historical expected shortfall",
+    )
+    latest_return = (
+        float(returns_result.observations[-1].value)
+        if returns_result.observations
+        else None
+    )
+    updates: dict[str, Any] = {
+        "metric_pack_status": "complete"
+        if all(item.status == "succeeded" for item in (volatility_response, drawdown_response, var_response, es_response))
+        else "partial",
+        "metric_pack_basis": "priced sleeve plus cash",
+        "metric_observation_count": returns_result.observation_count,
+        "daily_return": latest_return,
+    }
+    if volatility_response.data is not None:
+        updates["annualized_volatility"] = float(
+            volatility_response.data.annualized_volatility
+        )
+    if drawdown_response.data is not None:
+        updates["drawdown"] = -float(drawdown_response.data.maximum_drawdown)
+        updates["maximum_drawdown"] = float(drawdown_response.data.maximum_drawdown)
+    if var_response.data is not None:
+        updates["var_95"] = float(var_response.data.value_at_risk)
+    if es_response.data is not None:
+        updates["expected_shortfall_95"] = float(
+            es_response.data.expected_shortfall
+        )
+    total_elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+    for call in calls:
+        call["receipt"]["chain_elapsed_ms"] = total_elapsed_ms
+    return calls, updates
+
+
+def execute_capability_chain(
+    context: dict[str, Any], capabilities: list[str]
+) -> dict[str, Any]:
+    """Execute the first canonical chain and retain explicit context bindings."""
+
+    results: list[dict[str, Any]] = []
+    context_updates: dict[str, Any] = {}
+    canonical_selected_count = 0
+    canonical_executed_count = 0
+    context_binding_count = 0
+    capability_input = context.get("portfolio_capability_input")
+    metric_input = context.get("metric_pack_input")
+    for capability_id in capabilities:
+        if capability_id == "portfolio_exposure" and isinstance(capability_input, dict):
+            memory_input = {
+                key: value
+                for key, value in capability_input.items()
+                if key != "retrieved_at"
+            }
+            cached = _load_capability_memory(
+                "portfolio.exposure.summarize", memory_input
+            )
+            if cached:
+                cached_result = _mark_memory_reuse(cached)
+                call = cached_result["calls"][0]
+                updates = cached_result["context_updates"]
+            else:
+                call, updates = _exposure_capability_call(context, capability_input)
+                _store_capability_memory(
+                    "portfolio.exposure.summarize",
+                    memory_input,
+                    {"calls": [call], "context_updates": updates},
+                    elapsed_ms=float(call.get("receipt", {}).get("elapsed_ms", 0) or 0),
+                )
+            results.append(call)
+            context_updates.update(updates)
+            canonical_selected_count += 1
+            if "capability_elapsed_ms" in call.get("receipt", {}):
+                canonical_executed_count += 1
+            continue
+        if capability_id == "risk_metrics" and isinstance(metric_input, dict):
+            cached = _load_capability_memory("risk.metric_pack", metric_input)
+            if cached:
+                cached_result = _mark_memory_reuse(cached)
+                metric_calls = cached_result["calls"]
+                metric_updates = cached_result["context_updates"]
+            else:
+                metric_calls, metric_updates = _metric_pack_capability_calls(
+                    {**context, **context_updates}, metric_input
+                )
+                chain_elapsed_ms = max(
+                    (
+                        float(call.get("receipt", {}).get("chain_elapsed_ms", 0) or 0)
+                        for call in metric_calls
+                    ),
+                    default=0,
+                )
+                _store_capability_memory(
+                    "risk.metric_pack",
+                    metric_input,
+                    {"calls": metric_calls, "context_updates": metric_updates},
+                    elapsed_ms=chain_elapsed_ms,
+                )
+            results.extend(metric_calls)
+            context_updates.update(metric_updates)
+            canonical_selected_count += len(metric_calls)
+            canonical_executed_count += sum(
+                1
+                for call in metric_calls
+                if "capability_elapsed_ms" in call.get("receipt", {})
+            )
+            continue
+        if capability_id == "evidence_critic":
+            continue
+        value = _context_capability_value(capability_id, context)
+        results.append(
+            {
+                "capability": capability_id,
+                "canonical_capability_id": None,
+                "execution_mode": "supplied_context",
+                "status": "available" if any(item is not None for item in value.values()) else "unavailable",
+                "detail": (
+                    "Read the value from the frozen input context. This capability is "
+                    "not yet connected to the canonical registry in this increment."
+                ),
+                "result": value,
+                "receipt": {"effects": []},
+            }
+        )
+        context_binding_count += 1
+    plan = {
+        "title": "Calculate the point-in-time risk context before interpretation",
+        "outcome": (
+            "Produce a reproducible exposure and MetricPack context that the agent can "
+            "interpret without inventing calculations."
+        ),
+        "steps": [
+            "Freeze the selected portfolio, market history, identities and as-of boundary.",
+            "Parameterize typed exposure and MetricPack requests from that source data.",
+            "Invoke the reviewed capability registry and retain evidence-backed receipts.",
+            "Assemble OverallDefaultContext only after successful calculations.",
+            "Interpret portfolio risk effects and limitations for human review.",
+        ],
+        "canonical_capabilities": canonical_selected_count,
+        "context_bindings": context_binding_count,
+    }
+    return {
+        "results": results,
+        "context_updates": context_updates,
+        "plan": plan,
+        "canonical_count": canonical_executed_count,
+        "canonical_selected_count": canonical_selected_count,
+        "context_binding_count": context_binding_count,
+    }
+
+
+def compile_model_context(
+    context: dict[str, Any], capability_results: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Project the complete auditable context into a compact interpretation view."""
+
+    exposure = next(
+        (
+            item.get("result", {})
+            for item in capability_results
+            if item.get("canonical_capability_id") == "portfolio.exposure.summarize"
+            and item.get("status") == "succeeded"
+        ),
+        {},
+    )
+    largest = exposure.get("largest_position") or {}
+    material_metrics = {
+        "daily_return": context.get("daily_return"),
+        "annualized_volatility": context.get("annualized_volatility"),
+        "maximum_drawdown": context.get("maximum_drawdown"),
+        "historical_var_95": context.get("var_95"),
+        "historical_expected_shortfall_95": context.get("expected_shortfall_95"),
+        "largest_position": largest,
+        "cash_weight": exposure.get("cash_weight", context.get("cash_weight")),
+    }
+    instruments = [
+        {
+            "company_name": item.get("company_name"),
+            "ticker": item.get("ticker"),
+            "sector": item.get("sector"),
+            "valuation_quality": item.get("valuation_quality"),
+            "valuation_date": item.get("valuation_date"),
+        }
+        for item in context.get("instrument_context", [])
+    ][:20]
+    capability_index = [
+        {
+            "capability_id": item.get("canonical_capability_id")
+            or item.get("capability"),
+            "status": item.get("status"),
+            "summary": item.get("detail"),
+            "evidence_ids": item.get("receipt", {}).get("evidence_ids", []),
+            "artifact_digest": item.get("receipt", {}).get("output_digest"),
+        }
+        for item in capability_results
+        if item.get("status") in {"succeeded", "stopped"}
+    ]
+    projection = {
+        "assignment": {
+            "portfolio": context.get("portfolio_name") or context.get("portfolio_id"),
+            "as_of": context.get("as_of_date"),
+            "issue": context.get("issue"),
+            "mandate_status": context.get("mandate_status"),
+            "evidence_state": context.get("evidence_state"),
+        },
+        "material_metrics": material_metrics,
+        "valuation_coverage": context.get("valuation_coverage"),
+        "instruments": instruments,
+        "eligible_event": context.get("eligible_event"),
+        "event_context": context.get("event_context"),
+        "news_context": context.get("news_context"),
+        "capability_index": capability_index,
+        "retrieval_notice": (
+            "The complete canonical context and detailed capability artifacts remain "
+            "available by their evidence IDs and digests; they were not repeated here."
+        ),
+    }
+    encoded = json.dumps(projection, sort_keys=True, default=str)
+    return {
+        "projection": projection,
+        "telemetry": {
+            "characters": len(encoded),
+            "estimated_tokens": max(1, round(len(encoded) / 4)),
+            "omitted_fields": [
+                "source_records",
+                "source_quality_counts",
+                "portfolio_capability_input",
+                "metric_pack_input",
+                "full_precision_return_series",
+                "duplicated_methodology",
+            ],
+        },
+    }
+
+
+def execute_live_interpretation(
+    *,
+    context: dict[str, Any],
+    capability_results: list[dict[str, Any]],
+    blueprint: dict[str, Any],
+    rendered_prompt: str,
+    model: str,
+) -> dict[str, Any]:
+    """Run one bounded, schema-constrained model interpretation pass."""
+
+    api_key = _keychain_key(include_value=True)
+    if not api_key:
+        raise RuntimeError("OpenAI credential is unavailable")
+    from openai import OpenAI
+
+    compiled_context = compile_model_context(context, capability_results)
+    model_input = {
+        "agent_name": blueprint.get("name"),
+        "agent_purpose": blueprint.get("purpose"),
+        "agent_objective": blueprint.get("instructions", {}).get("objective"),
+        "success_criteria": blueprint.get("instructions", {}).get(
+            "success_criteria", []
+        )[:4],
+        "requested_output_contract": blueprint.get("output_contract"),
+        "operating_prompt_digest": "sha256:"
+        + hashlib.sha256(rendered_prompt.encode()).hexdigest(),
+        "compact_context_projection": compiled_context["projection"],
+        "context_telemetry": compiled_context["telemetry"],
+    }
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "executive_signal": {"type": "string", "maxLength": 650},
+            "what_changed": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": 4,
+            },
+            "risk_interpretation": {"type": "string", "maxLength": 1200},
+            "exposure_and_mandate": {"type": "string", "maxLength": 1000},
+            "material_findings": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "claim": {"type": "string"},
+                        "evidence_ids": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                    },
+                    "required": ["claim", "evidence_ids"],
+                },
+                "maxItems": 6,
+            },
+            "uncertainties": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": 4,
+            },
+            "review_actions": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": 5,
+            },
+            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        },
+        "required": [
+            "executive_signal",
+            "what_changed",
+            "risk_interpretation",
+            "exposure_and_mandate",
+            "material_findings",
+            "uncertainties",
+            "review_actions",
+            "confidence",
+        ],
+    }
+    prompt_text = json.dumps(model_input, sort_keys=True, default=str)
+    prompt_digest = "sha256:" + hashlib.sha256(prompt_text.encode()).hexdigest()
+    started = time.perf_counter()
+    client = OpenAI(api_key=str(api_key))
+    response = client.responses.create(
+        model=model,
+        store=False,
+        tools=[],
+        input=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": (
+                            "You are the live interpretation node of a governed portfolio-risk "
+                            "agent. The supplied OverallDefaultContext was assembled only after "
+                            "the recorded deterministic capabilities completed. Lead with the "
+                            "portfolio-risk effects: concentration, downside, drawdown, tail risk, "
+                            "diversification, liquidity/cash and mandate implications. Use company "
+                            "names instead of internal aliases. Format ratios as percentages with "
+                            "one or two decimal places and currency with separators. Explain why "
+                            "each material finding matters in clear narrative language. Give each "
+                            "fact one owning section: do not repeat metrics, warnings or review "
+                            "instructions. The executive signal must contain only the decision-relevant "
+                            "conclusion; use the other sections for changes, risk meaning, exposure and "
+                            "actions. Omit trivial process commentary. Mention "
+                            "pipeline mechanics only where a data limitation changes interpretation; "
+                            "do not repeat them across sections. Distinguish the priced sleeve from "
+                            "the full portfolio. Never invent unavailable metrics or evidence, never "
+                            "imply a portfolio effect, and preserve uncertainty. Return concise, "
+                            "reviewable rationale summaries rather than private chain-of-thought."
+                        ),
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [{"type": "input_text", "text": prompt_text}],
+            },
+        ],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "portfolio_risk_live_interpretation",
+                "strict": True,
+                "schema": schema,
+            }
+        },
+        max_output_tokens=1400,
+    )
+    elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+    output_text = response.output_text
+    if not output_text:
+        raise RuntimeError("The model returned no structured interpretation")
+    interpretation = json.loads(output_text)
+    interpretation["narrative"] = interpretation["executive_signal"]
+    interpretation["rationale_summary"] = [
+        interpretation["risk_interpretation"],
+        interpretation["exposure_and_mandate"],
+    ]
+    interpretation["recommended_review_steps"] = interpretation["review_actions"]
+    interpretation["report_sections"] = [
+        {
+            "section_id": "executive_signal",
+            "title": "Executive signal",
+            "content": interpretation["executive_signal"],
+        },
+        {
+            "section_id": "what_changed",
+            "title": "What changed",
+            "items": interpretation["what_changed"],
+        },
+        {
+            "section_id": "risk_interpretation",
+            "title": "Risk interpretation",
+            "content": interpretation["risk_interpretation"],
+        },
+        {
+            "section_id": "exposure_and_mandate",
+            "title": "Exposure and mandate",
+            "content": interpretation["exposure_and_mandate"],
+        },
+        {
+            "section_id": "uncertainty",
+            "title": "Uncertainty",
+            "items": interpretation["uncertainties"],
+        },
+        {
+            "section_id": "review_actions",
+            "title": "Review actions",
+            "items": interpretation["review_actions"],
+        },
+    ]
+    usage = getattr(response, "usage", None)
+    input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
+    output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+    receipt = {
+        "provider": "openai_responses",
+        "model": getattr(response, "model", model),
+        "response_id": getattr(response, "id", None),
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+        "elapsed_ms": elapsed_ms,
+        "store": False,
+        "tools_exposed_to_model": [],
+        "prompt_digest": prompt_digest,
+        "output_digest": "sha256:"
+        + hashlib.sha256(output_text.encode()).hexdigest(),
+        "context_compiler": compiled_context["telemetry"],
+    }
+    return {"interpretation": interpretation, "receipt": receipt}
+
+
 def _module_source(blueprint: AgentBlueprint) -> str:
     blueprint_literal = repr(_compiler_projection(blueprint))
     return f'''"""Generated by {COMPILER_VERSION}. Do not edit by hand."""
@@ -1541,9 +2791,14 @@ BLUEPRINT = {blueprint_literal}
 
 class AgentState(TypedDict, total=False):
     context: dict[str, Any]
+    overall_context: dict[str, Any]
     capability_results: list[dict[str, Any]]
+    research_plan: dict[str, Any]
     rendered_prompt: str
     narrative: str
+    rationale_summary: list[str]
+    model_output: dict[str, Any]
+    model_receipts: list[dict[str, Any]]
     critique: str
     iteration: int
     trace: list[dict[str, Any]]
@@ -1561,38 +2816,60 @@ def load_context(state: AgentState) -> AgentState:
         "trace": _event(
             state,
             "load_context",
-            f"Validated {{BLUEPRINT['input_contract']}} with {{len(context)}} fields.",
+            f"Validated {{len(context)}} frozen source-data fields. OverallDefaultContext "
+            "has not been assembled yet.",
         ),
     }}
 
 
 def gather_evidence(state: AgentState) -> AgentState:
     context = state.get("context", {{}})
-    values = {{
-        "market_data": {{"daily_return": context.get("daily_return"), "var_95": context.get("var_95")}},
-        "risk_metrics": {{"var_95": context.get("var_95"), "drawdown": context.get("drawdown")}},
-        "portfolio_exposure": {{"largest_weight": context.get("largest_weight"), "cash_weight": context.get("cash_weight")}},
-        "scenario_stress": {{"stress_loss": context.get("stress_loss")}},
-        "fundamental_change": {{"fundamental_signal": context.get("fundamental_signal", "not supplied")}},
-        "event_retrieval": {{"eligible_event": context.get("eligible_event", "none")}},
-        "evidence_critic": {{"evidence_state": context.get("evidence_state", "complete")}},
-    }}
-    results = [
-        {{"capability": capability, "result": values[capability]}}
-        for capability in BLUEPRINT["capabilities"]
-    ]
+    from agent_studio import execute_capability_chain
+
+    execution = execute_capability_chain(context, BLUEPRINT["capabilities"])
+    results = execution["results"]
+    updated_context = {{**context, **execution["context_updates"]}}
     return {{
+        "context": updated_context,
         "capability_results": results,
+        "research_plan": execution["plan"],
         "trace": _event(
             state,
             "gather_evidence",
-            f"Executed {{len(results)}} allow-listed, effect-free capabilities.",
+            f"Executed {{execution['canonical_count']}} canonical capability and "
+            f"retained {{execution['context_binding_count']}} explicit supplied-context bindings.",
+        ),
+    }}
+
+
+def assemble_context(state: AgentState) -> AgentState:
+    context = state.get("context", {{}})
+    results = state.get("capability_results", [])
+    successful = [item for item in results if item.get("status") == "succeeded"]
+    overall_context = {{
+        **context,
+        "context_contract": "OverallDefaultContext",
+        "context_assembled_after_calculation": True,
+        "canonical_capability_results": len(successful),
+        "capability_result_digests": [
+            item.get("receipt", {{}}).get("output_digest")
+            for item in successful
+            if item.get("receipt", {{}}).get("output_digest")
+        ],
+    }}
+    return {{
+        "overall_context": overall_context,
+        "trace": _event(
+            state,
+            "assemble_context",
+            f"Assembled OverallDefaultContext after {{len(successful)}} successful "
+            "canonical capability result(s).",
         ),
     }}
 
 
 def render_prompt(state: AgentState) -> str:
-    context = state.get("context", {{}})
+    context = state.get("overall_context") or state.get("context", {{}})
     template = BLUEPRINT["prompt_template"]["template"]
     for variable in BLUEPRINT["prompt_template"]["variables"]:
         placeholder = "{{" + variable + "}}"
@@ -1617,23 +2894,94 @@ def render_prompt(state: AgentState) -> str:
     )
 
 
+def _percentage(value: Any, *, decimals: int = 2) -> str:
+    if value is None:
+        return "not calculated"
+    return f"{{float(value):.{{decimals}}%}}"
+
+
 def draft(state: AgentState) -> AgentState:
-    context = state.get("context", {{}})
+    context = state.get("overall_context") or state.get("context", {{}})
     iteration = state.get("iteration", 0) + 1
     rendered_prompt = render_prompt(state)
+    if context.get("_agent_execution_mode") == "live_llm":
+        from agent_studio import execute_live_interpretation
+
+        live = execute_live_interpretation(
+            context=context,
+            capability_results=state.get("capability_results", []),
+            blueprint=BLUEPRINT,
+            rendered_prompt=rendered_prompt,
+            model=context.get("_agent_execution_model", "gpt-5.4"),
+        )
+        model_output = live["interpretation"]
+        return {{
+            "iteration": iteration,
+            "rendered_prompt": rendered_prompt,
+            "narrative": model_output["narrative"],
+            "rationale_summary": model_output["rationale_summary"],
+            "model_output": model_output,
+            "model_receipts": [*state.get("model_receipts", []), live["receipt"]],
+            "trace": _event(
+                state,
+                "draft",
+                f"OpenAI Responses produced schema-valid {{BLUEPRINT['output_contract']}} revision {{iteration}}.",
+            ),
+        }}
     issue = context.get("issue", "No risk exception was supplied.")
     narrative = (
-        f"Portfolio review: {{issue}} "
-        f"The portfolio returned {{context.get('daily_return', 0):.2%}}; "
-        f"95% historical VaR is {{context.get('var_95', 0):.2%}} and the "
-        f"largest position is {{context.get('largest_weight', 0):.1%}}. "
-        f"Evidence status: {{context.get('evidence_state', 'complete')}}. "
-        "This is an interpretation of supplied deterministic context and creates no portfolio effect."
+        f"The priced sleeve's 95% expected shortfall is "
+        f"{{_percentage(context.get('expected_shortfall_95'))}}, against a maximum observed "
+        f"drawdown of {{_percentage(context.get('maximum_drawdown'))}}. Its largest valued position is "
+        f"{{_percentage(context.get('largest_weight'), decimals=1)}} of NAV, making concentration "
+        "the principal review question."
     )
+    report_sections = [
+        {{"section_id": "executive_signal", "title": "Executive signal", "content": narrative}},
+        {{
+            "section_id": "what_changed",
+            "title": "What changed",
+            "items": [
+                f"Latest daily return: {{_percentage(context.get('daily_return'))}}.",
+                f"Annualized volatility: {{_percentage(context.get('annualized_volatility'))}}.",
+            ],
+        }},
+        {{
+            "section_id": "risk_interpretation",
+            "title": "Risk interpretation",
+            "content": (
+                f"Historical VaR is {{_percentage(context.get('var_95'))}} and losses beyond "
+                f"that threshold averaged {{_percentage(context.get('expected_shortfall_95'))}}."
+            ),
+        }},
+        {{
+            "section_id": "exposure_and_mandate",
+            "title": "Exposure and mandate",
+            "content": context.get("canonical_exposure_interpretation", issue),
+        }},
+        {{
+            "section_id": "uncertainty",
+            "title": "Uncertainty",
+            "items": [
+                "The statistics describe the priced sleeve when valuation coverage is incomplete."
+            ] if context.get("evidence_state") != "complete" else [],
+        }},
+        {{
+            "section_id": "review_actions",
+            "title": "Review actions",
+            "items": ["Compare the largest exposure with the approved mandate limit."],
+        }},
+    ]
     return {{
         "iteration": iteration,
         "rendered_prompt": rendered_prompt,
         "narrative": narrative,
+        "model_output": {{
+            "report_sections": report_sections,
+            "material_findings": [],
+            "uncertainties": report_sections[4]["items"],
+            "recommended_review_steps": report_sections[5]["items"],
+        }},
         "trace": _event(
             state,
             "draft",
@@ -1643,9 +2991,12 @@ def draft(state: AgentState) -> AgentState:
 
 
 def evidence_critic(state: AgentState) -> AgentState:
-    missing = state.get("context", {{}}).get("evidence_state") == "missing"
+    context = state.get("overall_context") or state.get("context", {{}})
+    evidence_state = context.get("evidence_state", "complete")
+    missing = evidence_state in {{"missing", "partial"}}
     critique = (
-        "Evidence is incomplete; causal claims must remain explicitly uncertain."
+        f"Evidence coverage is {{evidence_state}}; full-portfolio and causal claims must "
+        "remain explicitly qualified."
         if missing
         else "Every material claim is grounded in the supplied deterministic context."
     )
@@ -1656,7 +3007,8 @@ def evidence_critic(state: AgentState) -> AgentState:
 
 
 def route_after_critic(state: AgentState) -> str:
-    missing = state.get("context", {{}}).get("evidence_state") == "missing"
+    context = state.get("overall_context") or state.get("context", {{}})
+    missing = context.get("evidence_state") in {{"missing", "partial"}}
     if (
         BLUEPRINT["pattern"] == "reflection"
         and missing
@@ -1685,6 +3037,7 @@ def build_graph():
     builder = StateGraph(AgentState)
     builder.add_node("load_context", load_context)
     builder.add_node("gather_evidence", gather_evidence)
+    builder.add_node("assemble_context", assemble_context)
     builder.add_node("draft", draft)
     if BLUEPRINT["pattern"] in {{"tool_loop", "reflection", "human_review"}}:
         builder.add_node("evidence_critic", evidence_critic)
@@ -1693,7 +3046,8 @@ def build_graph():
 
     builder.add_edge(START, "load_context")
     builder.add_edge("load_context", "gather_evidence")
-    builder.add_edge("gather_evidence", "draft")
+    builder.add_edge("gather_evidence", "assemble_context")
+    builder.add_edge("assemble_context", "draft")
     if BLUEPRINT["pattern"] == "direct":
         builder.add_edge("draft", END)
     else:
@@ -1883,7 +3237,53 @@ def _scenario_context(scenario: str) -> dict[str, Any]:
             "issue": "The cause of the risk change cannot be evidenced.",
         },
     }
-    return contexts[scenario]
+    synthetic_values = {
+        "routine": ([18, 18, 18, 18, 20], 8),
+        "concentration": ([31, 24, 20, 20], 5),
+        "loss": ([21, 20, 18, 17, 17], 7),
+        "missing": ([23, 20, 18, 17, 16], 6),
+    }
+    position_values, cash_value = synthetic_values[scenario]
+    positions = [
+        {
+            "instrument_id": f"instrument-{chr(97 + index)}",
+            "quantity": "1",
+            "price": None if scenario == "missing" and index == 0 else str(value),
+            "currency": "USD",
+        }
+        for index, value in enumerate(position_values)
+    ]
+    return {
+        "portfolio_name": "Synthetic diversified research portfolio",
+        "mandate_status": (
+            "concentration review required"
+            if scenario == "concentration"
+            else "evidence incomplete"
+            if scenario == "missing"
+            else "within reviewed limits"
+        ),
+        "event_context": contexts[scenario]["eligible_event"],
+        "news_context": contexts[scenario]["eligible_event"],
+        "workflow_cycle_id": f"synthetic-{scenario}-2008-09-15",
+        "portfolio_capability_input": {
+            "snapshot_id": f"synthetic-{scenario}-2008-09-15",
+            "as_of": "2008-09-15T23:59:59+00:00",
+            "retrieved_at": "2008-09-15T23:59:59+00:00",
+            "base_currency": "USD",
+            "positions": positions,
+            "cash_balances": [{"currency": "USD", "amount": str(cash_value)}],
+            "source_id": "agent-studio-synthetic-fixture",
+            "source_type": "synthetic_fixture",
+            "source_reference": f"fixture://agent-studio/{scenario}",
+            "source_label": f"Named synthetic fixture: {scenario}",
+            "source_detail": (
+                "Used deliberately synthetic positions, prices and cash supplied by "
+                "the selected named fixture."
+            ),
+            "evidence_id": f"synthetic-evidence:{scenario}:2008-09-15",
+        },
+        **contexts[scenario],
+    }
 
 
 def _structured_field_schema(field: StructuredOutputFieldSpec) -> dict[str, Any]:
@@ -2209,6 +3609,623 @@ def run_output_pass(request: OutputPassRunRequest) -> dict[str, Any]:
     }
 
 
+def _json_text(value: Any) -> str:
+    return json.dumps(value, indent=2, sort_keys=True, default=str) + "\n"
+
+
+def _run_activity(result: dict[str, Any]) -> list[dict[str, Any]]:
+    activities: list[dict[str, Any]] = [
+        {
+            "sequence": 1,
+            "kind": "input",
+            "actor": "System",
+            "title": "Input context accepted",
+            "detail": (
+                f"{result['data_label']} source data was frozen for this run before the "
+                "agent graph started. This is not yet OverallDefaultContext; that contract "
+                "is assembled only after the calculations complete. "
+                + (
+                    f"Live model interpretation was enabled with {result.get('execution_model')}."
+                    if result.get("execution_mode") == "live_llm"
+                    else "The graph used deterministic interpretation; no model was called."
+                )
+            ),
+        }
+    ]
+    sequence = 2
+    final_state = result.get("final_state", {})
+    capability_results = final_state.get("capability_results", [])
+    research_plan = final_state.get("research_plan")
+    for trace in result.get("trace", []):
+        node = trace.get("node", "agent")
+        kind = (
+            "capability"
+            if node == "gather_evidence"
+            else "critique"
+            if node == "evidence_critic"
+            else "review"
+            if node == "human_review"
+            else "rationale"
+        )
+        activities.append(
+            {
+                "sequence": sequence,
+                "kind": kind,
+                "actor": "Agent" if kind != "review" else "Human review boundary",
+                "title": node.replace("_", " ").title(),
+                "detail": trace.get("detail", ""),
+            }
+        )
+        sequence += 1
+        if node == "draft" and final_state.get("model_receipts"):
+            receipt = final_state["model_receipts"][-1]
+            activities.append(
+                {
+                    "sequence": sequence,
+                    "kind": "llm_call",
+                    "actor": "Live model",
+                    "title": "Structured portfolio-risk interpretation",
+                    "detail": (
+                        "A real OpenAI Responses API call interpreted the frozen context "
+                        "and completed the declared output contract."
+                    ),
+                    "payload": {
+                        "model": receipt.get("model"),
+                        "response_id": receipt.get("response_id"),
+                        "rationale_summary": final_state.get("rationale_summary", []),
+                        "confidence": final_state.get("model_output", {}).get("confidence"),
+                    },
+                }
+            )
+            sequence += 1
+            activities.append(
+                {
+                    "sequence": sequence,
+                    "kind": "llm_receipt",
+                    "actor": "OpenAI Responses API",
+                    "title": "Verifiable model-call receipt",
+                    "detail": (
+                        "The provider response identifier, model, token usage, latency and "
+                        "digests were saved. The response was not stored by the provider."
+                    ),
+                    "payload": receipt,
+                }
+            )
+            sequence += 1
+        if node == "gather_evidence":
+            if research_plan:
+                activities.append(
+                    {
+                        "sequence": sequence,
+                        "kind": "research_plan",
+                        "actor": "Agent",
+                        "title": research_plan.get("title", "Research plan"),
+                        "detail": research_plan.get("outcome", ""),
+                        "payload": {"steps": research_plan.get("steps", [])},
+                    }
+                )
+                sequence += 1
+            context_bindings = []
+            for call in capability_results:
+                if call.get("execution_mode") != "canonical_registry":
+                    context_bindings.append(call)
+                    continue
+                canonical_id = call.get("canonical_capability_id") or call.get(
+                    "capability", "registered capability"
+                )
+                activities.append(
+                    {
+                        "sequence": sequence,
+                        "kind": "capability_prepare",
+                        "actor": "Data adapter",
+                        "title": f"Prepare {call.get('request', {}).get('contract', 'capability request')}",
+                        "detail": (
+                            "Located the frozen data, formatted the exact request and "
+                            "validated it before capability invocation."
+                            + (
+                                " An identical slow, effect-free result was reused from "
+                                "capability memory."
+                                if call.get("receipt", {}).get("memory_reused")
+                                else ""
+                            )
+                        ),
+                        "payload": {
+                            "request": call.get("request", {}),
+                            "stages": call.get("stages", [])[:-1],
+                        },
+                    }
+                )
+                sequence += 1
+                activities.append(
+                    {
+                        "sequence": sequence,
+                        "kind": "capability_call",
+                        "actor": "Canonical capability",
+                        "title": canonical_id,
+                        "detail": call.get("detail", "Capability execution completed."),
+                        "status": call.get("status"),
+                        "payload": call.get("result", {}),
+                    }
+                )
+                sequence += 1
+                activities.append(
+                    {
+                        "sequence": sequence,
+                        "kind": "capability_receipt",
+                        "actor": "Capability registry",
+                        "title": "Traceable execution receipt",
+                        "detail": (
+                            "The exact input, output, evidence, timing and empty effects were "
+                            "registered. Successful effect-free calls above the memory threshold "
+                            "can be reused on an identical point-in-time input."
+                        ),
+                        "payload": call.get("receipt", {}),
+                    }
+                )
+                sequence += 1
+            if context_bindings:
+                activities.append(
+                    {
+                        "sequence": sequence,
+                        "kind": "context_binding",
+                        "actor": "Agent",
+                        "title": "Existing supplied-context bindings retained",
+                        "detail": (
+                            f"{len(context_bindings)} additional blueprint latches still "
+                            "read the frozen context in this first increment; they are not "
+                            "misrepresented as canonical capability executions."
+                        ),
+                        "payload": {
+                            "bindings": [
+                                {
+                                    "name": call.get("capability"),
+                                    "status": call.get("status"),
+                                }
+                                for call in context_bindings
+                            ]
+                        },
+                    }
+                )
+                sequence += 1
+    return activities
+
+
+def _run_transcript(result: dict[str, Any]) -> str:
+    state = result.get("final_state", {})
+    lines = [
+        f"# Agent run {result['run_id']}",
+        "",
+        f"- Agent: {result['agent_name']}",
+        f"- Data: {result['data_label']}",
+        f"- Status: {result['status']}",
+        f"- Created: {result['created_at']}",
+        "",
+        "## Assignment",
+        "",
+        result.get("assignment_summary", "Review the supplied context."),
+        "",
+        "## Agent work record",
+        "",
+    ]
+    for item in result.get("activity", []):
+        lines.extend(
+            [
+                f"### {item['sequence']}. {item['title']}",
+                "",
+                item.get("detail", ""),
+                "",
+            ]
+        )
+        if "payload" in item:
+            lines.extend(["```json", json.dumps(item["payload"], indent=2), "```", ""])
+    lines.extend(
+        [
+            "## Agent output",
+            "",
+            state.get("narrative", "No narrative output was produced."),
+            "",
+            "## Evidence review",
+            "",
+            state.get("critique", "No separate evidence critique was produced."),
+            "",
+            "## Human review",
+            "",
+            json.dumps(state.get("review", {}), indent=2),
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _display_percentage(value: Any, *, decimals: int = 1) -> str:
+    if value is None:
+        return "Not calculated"
+    try:
+        return f"{float(value):.{decimals}%}"
+    except (TypeError, ValueError):
+        return "Unavailable"
+
+
+def _run_presentation(result: dict[str, Any]) -> dict[str, Any]:
+    state = result.get("final_state", {})
+    context = state.get("overall_context") or result.get("input_context", {})
+    model_output = state.get("model_output", {}) or {}
+    provenance = result.get("input_provenance", {})
+    review = state.get("review", {}) or {}
+    real_data = result.get("data_mode") == "real_duckdb"
+    evidence_state = context.get("evidence_state", "unknown")
+    canonical_exposure = next(
+        (
+            item
+            for item in state.get("capability_results", [])
+            if item.get("canonical_capability_id")
+            == "portfolio.exposure.summarize"
+        ),
+        None,
+    )
+    canonical_result = (canonical_exposure or {}).get("result", {})
+    metric_calls = [
+        item
+        for item in state.get("capability_results", [])
+        if str(item.get("canonical_capability_id") or "").startswith("risk.")
+    ]
+    missing_metrics = [
+        label
+        for field, label in (
+            ("var_95", "95% historical VaR"),
+            ("drawdown", "drawdown"),
+            ("annualized_volatility", "annualized volatility"),
+            ("expected_shortfall_95", "95% expected shortfall"),
+        )
+        if context.get(field) is None
+    ]
+    limitations = list(provenance.get("limitations", []))
+    limitations.extend(model_output.get("uncertainties", []))
+    if canonical_exposure:
+        limitations.extend(canonical_exposure.get("receipt", {}).get("limitations", []))
+        if canonical_exposure.get("status") != "succeeded":
+            limitations.append(
+                "The canonical exposure capability stopped: "
+                + canonical_exposure.get("detail", "input validation failed")
+            )
+    for call in metric_calls:
+        limitations.extend(call.get("receipt", {}).get("limitations", []))
+        if call.get("status") != "succeeded":
+            limitations.append(
+                f"{call.get('canonical_capability_id')} stopped: "
+                + call.get("detail", "input validation failed")
+            )
+    if missing_metrics:
+        limitations.insert(
+            0,
+            "The run did not calculate " + ", ".join(missing_metrics) + ".",
+        )
+    event_context_missing = context.get("event_context") == "Not included" or context.get(
+        "news_context"
+    ) == "Not included"
+    if event_context_missing and not any(
+        "event" in item.lower() and "news" in item.lower() for item in limitations
+    ):
+        limitations.append(
+            "Governed event and news context was not included in this test input."
+        )
+    limitations = list(dict.fromkeys(limitations))
+
+    findings = [context.get("issue", "No portfolio exception was supplied.")]
+    findings.extend(
+        item.get("claim", "")
+        for item in model_output.get("material_findings", [])
+        if item.get("claim")
+    )
+    if canonical_exposure and canonical_exposure.get("status") == "succeeded":
+        findings.append(canonical_exposure.get("detail", "Canonical exposure analysis completed."))
+    largest_position = canonical_result.get("largest_position") or {}
+    largest_weight = largest_position.get("weight", context.get("largest_weight"))
+    cash_weight = canonical_result.get("cash_weight", context.get("cash_weight"))
+    if largest_weight is not None and float(largest_weight) >= 0.25:
+        findings.append(
+            f"The largest position represents {_display_percentage(largest_weight)} "
+            "of the available portfolio value and should be checked against the mandate."
+        )
+    if evidence_state != "complete":
+        findings.append(
+            f"Evidence coverage is {evidence_state}; conclusions must remain qualified."
+        )
+
+    next_steps = []
+    next_steps.extend(model_output.get("recommended_review_steps", []))
+    if missing_metrics:
+        next_steps.append(
+            "Run the reviewed MetricPack before treating this as the complete daily risk review."
+        )
+    if event_context_missing:
+        next_steps.append(
+            "Attach eligible event and news context for the same point-in-time date."
+        )
+    if largest_weight is not None and float(largest_weight) >= 0.25:
+        next_steps.append(
+            "Compare the largest position with the applicable mandate concentration limit."
+        )
+    next_steps.append(
+        "A human reviewer should confirm, qualify, or reject the draft before any downstream decision."
+    )
+
+    if result.get("status") == "waiting_for_human_review":
+        status_label = "Awaiting human review"
+        tone = "review"
+        title = "The draft is ready, but the human review checkpoint is still open."
+    elif limitations:
+        status_label = "Completed with limitations"
+        tone = "limited"
+        title = "The portfolio review is usable, with important evidence limitations."
+    else:
+        status_label = "Review ready"
+        tone = "complete"
+        title = "The requested portfolio review is ready for human assessment."
+
+    data_basis = (
+        "Point-in-time CRSP/Compustat records from local DuckDB"
+        if real_data
+        else f"Named synthetic fixture: {result.get('scenario', 'test')}"
+    )
+    review_boundary = (
+        "The isolated test automatically released the graph's review interrupt. "
+        "It did not authorize a trade, hedge, rebalance, or portfolio mutation."
+        if result.get("auto_approved")
+        else "The graph remains review-bound and has not created any portfolio effect."
+    )
+    outcome_sought = str(result.get("assignment_summary") or "Review the supplied context").rstrip(". ")
+    return {
+        "title": title,
+        "status_label": status_label,
+        "tone": tone,
+        "outcome_sought": outcome_sought,
+        "premise": (
+            f"Requested outcome: {outcome_sought}. Data basis: {data_basis}."
+        ),
+        "portfolio": context.get("portfolio_name") or context.get("portfolio_id") or "Supplied portfolio",
+        "as_of": context.get("as_of_date") or result.get("as_of") or "Not specified",
+        "data_basis": data_basis,
+        "execution_basis": (
+            f"Live OpenAI interpretation · {result.get('execution_model')}"
+            if result.get("execution_mode") == "live_llm"
+            else "Deterministic LangGraph interpretation · no LLM call"
+        ),
+        "executive_conclusion": state.get("narrative") or "No final narrative was produced.",
+        "report_sections": model_output.get("report_sections", []),
+        "observations": [
+            {
+                "label": "Gross exposure",
+                "value": _display_percentage(canonical_result.get("gross_exposure")),
+                "note": "Canonical positions divided by portfolio NAV",
+            },
+            {
+                "label": "Largest position",
+                "value": _display_percentage(largest_weight),
+                "note": largest_position.get("display_name")
+                or largest_position.get("instrument_id", "Compare with the mandate limit"),
+            },
+            {
+                "label": "Annualized volatility",
+                "value": _display_percentage(context.get("annualized_volatility")),
+                "note": "252-day annualization of the priced-sleeve daily return series",
+            },
+            {
+                "label": "Maximum drawdown",
+                "value": _display_percentage(context.get("drawdown")),
+                "note": "Largest peak-to-trough loss in the available history",
+            },
+            {
+                "label": "95% historical VaR",
+                "value": _display_percentage(context.get("var_95")),
+                "note": "One-day historical loss threshold for the priced sleeve",
+            },
+            {
+                "label": "95% expected shortfall",
+                "value": _display_percentage(context.get("expected_shortfall_95")),
+                "note": "Average loss beyond the historical VaR threshold",
+            },
+            {
+                "label": "Cash weight",
+                "value": _display_percentage(cash_weight),
+                "note": "Share of valued portfolio NAV",
+            },
+        ],
+        "findings": findings,
+        "limitations": limitations,
+        "next_steps": next_steps,
+        "review_boundary": review_boundary,
+        "review": review,
+        "effects": [],
+    }
+
+
+def _review_brief(result: dict[str, Any]) -> str:
+    presentation = result["presentation"]
+    lines = [
+        f"# {result['agent_name']} — Review Brief",
+        "",
+        f"**{presentation['status_label']}**",
+        "",
+        f"## {presentation['title']}",
+        "",
+        presentation["premise"],
+        "",
+        f"- Portfolio: {presentation['portfolio']}",
+        f"- As of: {presentation['as_of']}",
+        f"- Data basis: {presentation['data_basis']}",
+        "",
+        "## Executive conclusion",
+        "",
+        presentation["executive_conclusion"],
+        "",
+        "## Key observations",
+        "",
+    ]
+    for observation in presentation["observations"]:
+        lines.append(
+            f"- **{observation['label']}: {observation['value']}** — {observation['note']}"
+        )
+    lines.extend(["", "## Material findings", ""])
+    lines.extend(f"- {finding}" for finding in presentation["findings"])
+    lines.extend(["", "## Limitations", ""])
+    lines.extend(
+        [f"- {limitation}" for limitation in presentation["limitations"]]
+        or ["- No additional limitations were recorded."]
+    )
+    lines.extend(["", "## Recommended review steps", ""])
+    lines.extend(
+        f"{index}. {step}"
+        for index, step in enumerate(presentation["next_steps"], start=1)
+    )
+    lines.extend(
+        [
+            "",
+            "## Decision boundary",
+            "",
+            presentation["review_boundary"],
+            "",
+            "Effects: none.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _persist_run(result: dict[str, Any]) -> dict[str, Any]:
+    directory = RUN_ROOT / result["run_id"]
+    directory.mkdir(parents=True, exist_ok=False)
+    output = {
+        "output_contract": result["output_contract"],
+        "narrative": result.get("final_state", {}).get("narrative"),
+        "critique": result.get("final_state", {}).get("critique"),
+        "presentation": result.get("presentation"),
+        "research_plan": result.get("final_state", {}).get("research_plan"),
+        "capability_results": result.get("final_state", {}).get(
+            "capability_results", []
+        ),
+        "model_output": result.get("final_state", {}).get("model_output"),
+        "rationale_summary": result.get("final_state", {}).get(
+            "rationale_summary", []
+        ),
+        "model_receipts": result.get("final_state", {}).get("model_receipts", []),
+        "review": result.get("final_state", {}).get("review"),
+        "status": result["status"],
+    }
+    payloads: dict[str, str] = {
+        "input.json": _json_text(result["input_context"]),
+        "input-provenance.json": _json_text(result["input_provenance"]),
+        "blueprint.json": _json_text(result["blueprint"]),
+        "activity.json": _json_text(result["activity"]),
+        "research-plan.json": _json_text(output["research_plan"] or {}),
+        "capability-executions.json": _json_text(output["capability_results"]),
+        "model-executions.json": _json_text(output["model_receipts"]),
+        "output.json": _json_text(output),
+        "review.json": _json_text(
+            {
+                "critique": output["critique"],
+                "human_review": output["review"],
+                "interrupted": result["interrupted"],
+                "auto_approved": result["auto_approved"],
+            }
+        ),
+        "review-brief.md": _review_brief(result),
+        "transcript.md": _run_transcript(result),
+    }
+    files = []
+    for name, content in payloads.items():
+        path = directory / name
+        path.write_text(content)
+        files.append(
+            {
+                "name": name,
+                "bytes": path.stat().st_size,
+                "kind": "markdown" if name.endswith(".md") else "json",
+            }
+        )
+    manifest = {
+        "run_id": result["run_id"],
+        "agent_name": result["agent_name"],
+        "output_contract": result["output_contract"],
+        "status": result["status"],
+        "data_mode": result["data_mode"],
+        "data_label": result["data_label"],
+        "execution_mode": result.get("execution_mode", "deterministic"),
+        "execution_model": result.get("execution_model"),
+        "scenario": result.get("scenario"),
+        "portfolio_id": result.get("portfolio_id"),
+        "as_of": result.get("as_of"),
+        "created_at": result["created_at"],
+        "elapsed_ms": result["elapsed_ms"],
+        "folder": str(directory),
+        "files": files,
+    }
+    (directory / "manifest.json").write_text(_json_text(manifest))
+    manifest["files"] = [
+        {"name": "manifest.json", "bytes": (directory / "manifest.json").stat().st_size, "kind": "json"},
+        *files,
+    ]
+    (directory / "manifest.json").write_text(_json_text(manifest))
+    return manifest
+
+
+def _safe_run_directory(run_id: str) -> Path:
+    # ``+0000`` was emitted briefly by the first development build. Keep those
+    # already-created local test runs reviewable while emitting canonical ``Z``
+    # identifiers for every new run.
+    if not re.fullmatch(r"run-[0-9]{8}T[0-9]{6}(?:Z|\+0000)-[a-f0-9]{8}", run_id):
+        raise ValueError("invalid run identifier")
+    directory = (RUN_ROOT / run_id).resolve()
+    if directory.parent != RUN_ROOT.resolve():
+        raise ValueError("run directory is outside the local run repository")
+    return directory
+
+
+def list_agent_runs() -> list[dict[str, Any]]:
+    if not RUN_ROOT.exists():
+        return []
+    runs = []
+    for directory in RUN_ROOT.iterdir():
+        if not directory.is_dir():
+            continue
+        manifest_path = directory / "manifest.json"
+        try:
+            runs.append(json.loads(manifest_path.read_text()))
+        except (OSError, json.JSONDecodeError):
+            continue
+    return sorted(runs, key=lambda item: item.get("created_at", ""), reverse=True)
+
+
+def load_agent_run(run_id: str) -> dict[str, Any]:
+    directory = _safe_run_directory(run_id)
+    if not directory.is_dir():
+        raise FileNotFoundError(run_id)
+    manifest = json.loads((directory / "manifest.json").read_text())
+    contents: dict[str, Any] = {}
+    for file in manifest.get("files", []):
+        name = file.get("name", "")
+        path = (directory / name).resolve()
+        if path.parent != directory or not path.is_file() or path.stat().st_size > 2_000_000:
+            continue
+        text = path.read_text()
+        if name.endswith(".json"):
+            try:
+                contents[name] = json.loads(text)
+            except json.JSONDecodeError:
+                contents[name] = text
+        else:
+            contents[name] = text
+    return {"manifest": manifest, "contents": contents}
+
+
+def delete_agent_run(run_id: str) -> dict[str, Any]:
+    directory = _safe_run_directory(run_id)
+    if not directory.is_dir():
+        raise FileNotFoundError(run_id)
+    shutil.rmtree(directory)
+    return {"deleted": True, "run_id": run_id, "repository": str(RUN_ROOT)}
+
+
 def run_blueprint(request: RunRequest) -> dict[str, Any]:
     from langgraph.types import Command
 
@@ -2225,10 +4242,13 @@ def run_blueprint(request: RunRequest) -> dict[str, Any]:
     thread_id = f"studio-{compiled['artifact_id']}-{time.time_ns()}"
     config = {"configurable": {"thread_id": thread_id}}
     started = time.perf_counter()
-    initial = graph.invoke(
-        {"context": _scenario_context(request.scenario), "trace": []},
-        config,
-    )
+    input_context = request.input_context or _scenario_context(request.scenario)
+    execution_context = {
+        **input_context,
+        "_agent_execution_mode": request.execution_mode,
+        "_agent_execution_model": request.execution_model,
+    }
+    initial = graph.invoke({"context": execution_context, "trace": []}, config)
     interrupted = "__interrupt__" in initial
     interrupt_payload: Any = None
     final = initial
@@ -2241,7 +4261,7 @@ def run_blueprint(request: RunRequest) -> dict[str, Any]:
                 Command(
                     resume={
                         "approved": True,
-                        "reviewer": "Agent Studio synthetic test",
+                        "reviewer": "Agent Studio isolated test",
                         "note": "Automatically approved for isolated execution only.",
                     }
                 ),
@@ -2249,7 +4269,33 @@ def run_blueprint(request: RunRequest) -> dict[str, Any]:
             )
     history = list(graph.get_state_history(config))
     elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
-    return {
+    created_at_dt = datetime.now(timezone.utc).replace(microsecond=0)
+    created_at = created_at_dt.isoformat()
+    run_digest = hashlib.sha256(
+        f"{thread_id}:{created_at}".encode()
+    ).hexdigest()[:8]
+    run_id = f"run-{created_at_dt.strftime('%Y%m%dT%H%M%SZ')}-{run_digest}"
+    result = {
+        "run_id": run_id,
+        "agent_name": request.blueprint.name,
+        "output_contract": request.blueprint.output_contract,
+        "blueprint": request.blueprint.model_dump(mode="json"),
+        "data_mode": request.data_mode,
+        "execution_mode": request.execution_mode,
+        "execution_model": (
+            request.execution_model if request.execution_mode == "live_llm" else None
+        ),
+        "data_label": (
+            "REAL · point-in-time DuckDB / CRSP-Compustat"
+            if request.data_mode == "real_duckdb"
+            else f"SYNTHETIC FIXTURE · {request.scenario}"
+        ),
+        "input_context": input_context,
+        "input_provenance": request.input_provenance,
+        "assignment_summary": request.run_label or request.blueprint.purpose,
+        "portfolio_id": request.portfolio_id,
+        "as_of": request.as_of,
+        "created_at": created_at,
         "status": (
             "completed"
             if "__interrupt__" not in final
@@ -2271,3 +4317,7 @@ def run_blueprint(request: RunRequest) -> dict[str, Any]:
         "elapsed_ms": elapsed_ms,
         "graph": compiled["graph"],
     }
+    result["presentation"] = _run_presentation(result)
+    result["activity"] = _run_activity(result)
+    result["run"] = _persist_run(result) if request.persist_run else None
+    return result

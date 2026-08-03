@@ -29,7 +29,9 @@ The launcher uses the thesis Python environment under the surrounding
 `servicefabric-lab/state` directory. Override it when needed with
 `PORTFOLIO_RISK_PYTHON`. Override the licensed-data location with
 `PORTFOLIO_RISK_PRIVATE_DATA_ROOT`, and the generated-agent output directory
-with `PORTFOLIO_RISK_AGENT_OUTPUT_ROOT`.
+with `PORTFOLIO_RISK_AGENT_OUTPUT_ROOT`. Generated agents default to the
+repository's ignored `.agent-runs/generated-agents` directory, outside the
+application source and package manifest.
 
 ## Boundaries
 

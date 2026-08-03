@@ -66,6 +66,30 @@
     { id: "evidence_critic", name: "Evidence critic", purpose: "Reject unsupported claims and invalid references.", status: "runnable" },
   ];
 
+  const basicContextPacks = {
+    morning_risk_context: { label: "Morning risk context", input: "OverallDefaultContext", detail: "Portfolio, mandate, deterministic metrics, eligible events and evidence state." },
+    portfolio_event_review: { label: "Portfolio event review", input: "OverallDefaultContext", detail: "Eligible event, point-in-time mappings, portfolio exposure and prior eligible evidence." },
+    portfolio_context: { label: "Portfolio context only", input: "PortfolioContext", detail: "Immutable holdings, cash, exposure and mandate state for the workflow date." },
+    specialist_output_review: { label: "Specialist output review", input: "SpecialistOutputBundle", detail: "Typed specialist outputs and their evidence references for independent validation." },
+  };
+
+  const basicCapabilityPacks = {
+    daily_risk_review: { label: "Daily risk review", ids: ["market_data", "risk_metrics", "portfolio_exposure", "scenario_stress", "event_retrieval", "evidence_critic"] },
+    portfolio_event_triage: { label: "Portfolio event triage", ids: ["event_retrieval", "portfolio_exposure", "market_data", "evidence_critic"] },
+    market_risk_summary: { label: "Market risk summary", ids: ["market_data", "risk_metrics", "portfolio_exposure", "evidence_critic"] },
+    concentration_review: { label: "Concentration review", ids: ["portfolio_exposure", "risk_metrics", "evidence_critic"] },
+    evidence_validation: { label: "Evidence validation", ids: ["event_retrieval", "evidence_critic"] },
+  };
+
+  const basicRecipeDefaults = {
+    "risk-template-daily-portfolio-risk-reviewer": ["morning_risk_context", "daily_risk_review"],
+    "risk-template-market-liquidity-risk-analyst": ["morning_risk_context", "market_risk_summary"],
+    "risk-template-concentration-mandate-monitor": ["portfolio_context", "concentration_review"],
+    "risk-template-scenario-stress-analyst": ["morning_risk_context", "daily_risk_review"],
+    "risk-template-fundamental-event-deterioration-watcher": ["portfolio_event_review", "portfolio_event_triage"],
+    "risk-template-evidence-point-in-time-critic": ["specialist_output_review", "evidence_validation"],
+  };
+
   const promptVariableCandidates = [
     { id: "as_of_date", label: "Workflow date", source: "Workflow cycle" },
     { id: "portfolio_name", label: "Portfolio name", source: "PortfolioContext" },
@@ -183,6 +207,25 @@
     riskAgentTemplates: null,
     agentBlueprint: null,
     agentCompile: null,
+    agentRunDataMode: "synthetic_fixture",
+    agentRunExecutionMode: "deterministic",
+    agentInputPreview: null,
+    agentRuns: [],
+    selectedAgentRunId: null,
+    selectedAgentRunDetail: null,
+    agentBuilderMode: "basic",
+    agentBuilderStep: "outcome",
+    agentBuilderMeta: {
+      recipe_id: "risk-template-daily-portfolio-risk-reviewer",
+      trigger: "workflow",
+      scope: "selected_portfolio",
+      as_of: "workflow_date",
+      deduplication: "assignment_and_snapshot",
+      context_pack: "morning_risk_context",
+      capability_pack: "daily_risk_review",
+      authority_profile: "A2",
+      provenance: "recipe_defaults",
+    },
     agentStateFields: [
       { name: "context", value_type: "object", description: "Immutable Overall Default Context supplied for the workflow date.", source: "input", required: true, reducer: "replace" },
       { name: "capability_results", value_type: "array", description: "Effect-free evidence returned by latched capabilities.", source: "capability", required: true, reducer: "append" },
@@ -209,6 +252,10 @@
     outputAssemblyCompleted: [],
     outputAssemblyLog: [],
     outputAssemblyReviewPending: null,
+    cycleSessionId: null,
+    cycleSnapshot: null,
+    cyclePollTimer: null,
+    cycleDashboardPage: "overview",
   };
 
   function canonicalCurrentPortfolio() {
@@ -240,9 +287,14 @@
     $$(".workspace-tab").forEach((button) => button.classList.toggle("active", button.dataset.workspace === name));
     $(".mode-badge").textContent = name === "dataset" && labState.liveConnected
       ? "Local data · read-only"
-      : "Synthetic sandbox";
+      : name === "agent"
+        ? "Agent laboratory · local"
+        : name === "cycle"
+          ? "Synthetic intraday · real close anchors"
+        : "Local research workbench";
     if (name === "dataset") populateDatasetPortfolios();
     if (name === "graph") refreshGraphAgents();
+    if (name === "cycle") populateCyclePortfolios();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -255,6 +307,29 @@
     $("#dataset-portfolio").innerHTML = options.map((portfolio, index) =>
       `<option value="${escapeHtml(portfolio.id || `saved-${index}`)}">${escapeHtml(portfolio.title)} · ${portfolio.holdings.length} positions</option>`).join("");
     if (options.some((portfolio) => String(portfolio.id) === selected)) $("#dataset-portfolio").value = selected;
+  }
+
+  function populateAgentRunPortfolios() {
+    const select = $("#agent-real-portfolio");
+    if (!select) return;
+    const current = select.value;
+    select.innerHTML = labState.livePortfolios.length
+      ? labState.livePortfolios.map((portfolio) => `<option value="${escapeHtml(portfolio.id)}">${escapeHtml(portfolio.title)} · ${portfolio.holdings.length} positions</option>`).join("")
+      : '<option value="">Real portfolio service unavailable</option>';
+    if (labState.livePortfolios.some((portfolio) => portfolio.id === current)) select.value = current;
+    select.disabled = !labState.livePortfolios.length;
+  }
+
+  function populateCyclePortfolios() {
+    const select = $("#cycle-portfolio");
+    if (!select) return;
+    const current = select.value;
+    select.innerHTML = labState.livePortfolios.length
+      ? labState.livePortfolios.map((portfolio) => `<option value="${escapeHtml(portfolio.id)}">${escapeHtml(portfolio.title)} · ${portfolio.holdings.length} positions</option>`).join("")
+      : '<option value="">Local portfolio service unavailable</option>';
+    if (labState.livePortfolios.some((portfolio) => portfolio.id === current)) select.value = current;
+    select.disabled = !labState.livePortfolios.length;
+    $("#create-cycle-session").disabled = !labState.livePortfolios.length;
   }
 
   function selectedDatasetPortfolio() {
@@ -340,7 +415,12 @@
       ? ` · showing first ${previewRows.length.toLocaleString("en-US")}`
       : "";
     const truncationNote = payload.truncated ? " · capped" : "";
-    $("#data-query-result-meta").textContent = `${payload.row_count.toLocaleString("en-US")} rows · ${payload.column_count} columns · ${payload.elapsed_ms} ms${previewNote}${truncationNote}`;
+    const routedTables = payload.receipt?.catalog_routing?.selected_tables?.length || 0;
+    const inputTokens = Number(payload.receipt?.input_tokens || 0);
+    const modelNote = inputTokens
+      ? ` · ${inputTokens.toLocaleString("en-US")} LLM input tokens · ${routedTables} routed ${routedTables === 1 ? "table" : "tables"}`
+      : "";
+    $("#data-query-result-meta").textContent = `${payload.row_count.toLocaleString("en-US")} rows · ${payload.column_count} columns · ${payload.elapsed_ms} ms${modelNote}${previewNote}${truncationNote}`;
     $("#data-query-sql").textContent = payload.sql;
     $("#data-query-result").classList.remove("hidden");
     $("#data-query-message").textContent = "";
@@ -368,12 +448,15 @@
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.detail || `Query failed with HTTP ${response.status}.`);
       labState.dataQueryResult = payload;
-      $("#data-query-agent").textContent = "Luna · low";
+      $("#data-query-agent").textContent = "Luna · low · routed schema";
       renderDataQuery(payload);
     } catch (error) {
-      $("#data-query-message").textContent = error.message;
+      const serviceUnavailable = error instanceof TypeError && /fetch/i.test(error.message || "");
+      $("#data-query-message").textContent = serviceUnavailable
+        ? "The local data service is offline. Restart the Portfolio Replay Lab service, then run the question again."
+        : error.message;
       $("#data-query-message").classList.add("error");
-      $("#dataset-query-status").textContent = "Query failed";
+      $("#dataset-query-status").textContent = serviceUnavailable ? "Service offline" : "Query failed";
       $("#dataset-query-status").classList.add("warning");
     } finally {
       button.disabled = false;
@@ -569,6 +652,8 @@
           price: instruments.find((item) => item.id === position.instrument_alias)?.price || 0,
         })),
       }));
+      populateAgentRunPortfolios();
+      populateCyclePortfolios();
       $("#duckdb-connection-status").textContent = "Connected";
       $("#duckdb-connection-status").className = "quality-good";
       $("#duckdb-connection-copy").textContent = `${health.reviewed_portfolios} reviewed portfolios · ${health.datasets} Parquet datasets · read-only localhost service.`;
@@ -590,6 +675,7 @@
       $("#data-query-message").classList.add("error");
       $("#dataset-query-status").textContent = "Offline";
       $("#dataset-query-status").classList.add("warning");
+      populateAgentRunPortfolios();
       configureDatasetMode();
     }
   }
@@ -1177,8 +1263,329 @@
       instructions: compiledInstructions(blueprint),
       capabilities: blueprint.capability_latches.map((latch) => latch.capability_id),
       blueprint,
+      builder_meta: structuredClone(labState.agentBuilderMeta),
       compiledArtifact: labState.agentCompile?.artifact_id || null,
     };
+  }
+
+  function agentBuilderLabel(value) {
+    return String(value || "").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  function setBasicValue(selector, value) {
+    const element = $(selector);
+    if (element && document.activeElement !== element) element.value = value;
+  }
+
+  function renderBasicRecipes() {
+    const recipes = builtInRiskAgents();
+    $("#basic-agent-recipes").innerHTML = recipes.map((agent) => `
+      <button class="basic-recipe-card ${labState.agentBuilderMeta.recipe_id === agent.id ? "active" : ""}" type="button" data-basic-agent-recipe="${escapeHtml(agent.id)}">
+        <span>${escapeHtml(agent.category || "Risk agent")}</span>
+        <strong>${escapeHtml(agent.name)}</strong>
+        <small>${escapeHtml(agent.blueprint?.purpose || agent.instructions)}</small>
+      </button>`).join("");
+  }
+
+  function basicEffectiveCapabilities() {
+    const blueprint = currentAgentBlueprint();
+    return blueprint.capability_latches.map((latch) => latch.capability_id);
+  }
+
+  function renderBasicBuilder() {
+    if (!$("#agent-basic-builder")) return;
+    const blueprint = currentAgentBlueprint();
+    const meta = labState.agentBuilderMeta;
+    const context = basicContextPacks[meta.context_pack] || basicContextPacks.morning_risk_context;
+    const capabilityIds = basicEffectiveCapabilities();
+    const capabilityNames = capabilityIds.map((id) => capabilities.find((item) => item.id === id)?.name || id);
+    const triggerLabels = {
+      manual: "Manual run",
+      workflow: "Workflow cycle",
+      event: "Eligible event",
+      scheduled: "Schedule",
+    };
+    const authorityA1 = meta.authority_profile === "A1";
+    const recipe = builtInRiskAgents().find((item) => item.id === meta.recipe_id);
+    const expectedIds = authorityA1
+      ? ["evidence_critic"]
+      : (basicCapabilityPacks[meta.capability_pack]?.ids || []);
+    const customized = blueprint.input_contract !== context.input
+      || blueprint.output_contract !== $("#basic-agent-output").value
+      || capabilityIds.slice().sort().join("|") !== expectedIds.slice().sort().join("|");
+
+    renderBasicRecipes();
+    setBasicValue("#basic-agent-name", blueprint.name);
+    setBasicValue("#basic-agent-outcome", blueprint.purpose);
+    setBasicValue("#basic-agent-trigger", meta.trigger);
+    setBasicValue("#basic-agent-scope", meta.scope);
+    setBasicValue("#basic-agent-as-of", meta.as_of);
+    setBasicValue("#basic-agent-dedup", meta.deduplication);
+    setBasicValue("#basic-agent-context-pack", meta.context_pack);
+    setBasicValue("#basic-agent-capability-pack", meta.capability_pack);
+    setBasicValue("#basic-agent-output", blueprint.output_contract);
+    setBasicValue("#basic-agent-authority", meta.authority_profile);
+
+    $$("[data-basic-agent-step]").forEach((button, index) => {
+      const active = button.dataset.basicAgentStep === labState.agentBuilderStep;
+      button.classList.toggle("active", active);
+      button.classList.toggle("complete", index < ["outcome", "scope", "context", "output", "test"].indexOf(labState.agentBuilderStep));
+    });
+    $$("[data-basic-agent-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.basicAgentPanel === labState.agentBuilderStep));
+
+    $("#basic-scope-summary").textContent = `${triggerLabels[meta.trigger]} · ${agentBuilderLabel(meta.scope)} · information eligible at ${agentBuilderLabel(meta.as_of).toLowerCase()} · duplicate key ${agentBuilderLabel(meta.deduplication).toLowerCase()}.`;
+    $("#basic-capability-preview").innerHTML = capabilityNames.map((name, index) => `<span class="basic-capability-chip ${index === capabilityNames.length - 1 ? "required" : ""}">${escapeHtml(name)}</span>`).join("");
+    $("#basic-authority-level").textContent = meta.authority_profile;
+    $("#basic-authority-title").textContent = authorityA1 ? "Context-bound draft" : "Effect-free analysis and draft";
+    $("#basic-authority-copy").textContent = authorityA1
+      ? "Drafts from the supplied context and invokes only the evidence validator."
+      : "May invoke the displayed analytical capabilities and prepare a review artifact.";
+    $("#basic-output-preview").innerHTML = `
+      <header><strong>${escapeHtml(agentBuilderLabel(blueprint.output_contract))}</strong><span>Human review required</span></header>
+      <div><h3>${escapeHtml(blueprint.structured_output.fields[0]?.title || "Evidence-grounded result")}</h3><p>${escapeHtml(blueprint.structured_output.description)} The complete typed schema remains available in Advanced.</p></div>`;
+
+    $("#basic-preview-version").textContent = customized ? "Draft · customized" : `Draft · ${recipe ? "recipe defaults" : "manual"}`;
+    $("#basic-preview-name").textContent = blueprint.name;
+    $("#basic-preview-outcome").textContent = blueprint.purpose;
+    $("#basic-preview-trigger").innerHTML = `${escapeHtml(triggerLabels[meta.trigger])} · ${escapeHtml(agentBuilderLabel(meta.scope))}<span class="field-provenance user">User</span>`;
+    $("#basic-preview-context").innerHTML = `${escapeHtml(context.label)} · ${escapeHtml(context.detail)}<span class="field-provenance recipe">Recipe</span>`;
+    $("#basic-preview-capabilities").innerHTML = `${capabilityNames.length ? escapeHtml(capabilityNames.join(", ")) : "No analytical capability"}<span class="field-provenance ${customized ? "user" : "recipe"}">${customized ? "Customized" : "Recipe"}</span>`;
+    $("#basic-preview-output").innerHTML = `${escapeHtml(agentBuilderLabel(blueprint.output_contract))}<span class="field-provenance derived">Contract</span>`;
+    $("#basic-preview-authority").innerHTML = `${escapeHtml(meta.authority_profile)} · ${authorityA1 ? "context-bound draft" : "analytical tools and draft"} · human review<span class="field-provenance policy">Policy</span>`;
+  }
+
+  function syncBasicBuilderFromBlueprint() {
+    const blueprint = currentAgentBlueprint();
+    const matchingContext = Object.entries(basicContextPacks).find(([, pack]) => pack.input === blueprint.input_contract)?.[0];
+    if (matchingContext) labState.agentBuilderMeta.context_pack = matchingContext;
+    const enabled = blueprint.capability_latches.map((latch) => latch.capability_id).slice().sort().join("|");
+    const matchingPack = Object.entries(basicCapabilityPacks).find(([, pack]) => pack.ids.slice().sort().join("|") === enabled)?.[0];
+    if (matchingPack) labState.agentBuilderMeta.capability_pack = matchingPack;
+    labState.agentBuilderMeta.authority_profile = enabled === "evidence_critic" ? "A1" : "A2";
+    renderBasicBuilder();
+  }
+
+  function setAgentBuilderMode(mode) {
+    labState.agentBuilderMode = mode;
+    $("#lab-agent").dataset.builderMode = mode;
+    $$("[data-agent-builder-mode]").forEach((button) => button.classList.toggle("active", button.dataset.agentBuilderMode === mode));
+    if (mode === "basic") syncBasicBuilderFromBlueprint();
+  }
+
+  function setBasicAgentStep(step) {
+    labState.agentBuilderStep = step;
+    renderBasicBuilder();
+  }
+
+  function applyBasicCapabilityAndAuthority() {
+    const meta = labState.agentBuilderMeta;
+    const selected = new Set(meta.authority_profile === "A1"
+      ? ["evidence_critic"]
+      : (basicCapabilityPacks[meta.capability_pack]?.ids || ["evidence_critic"]));
+    selected.add("evidence_critic");
+    capabilities.forEach((capability) => {
+      const latch = labState.agentCapabilityLatches[capability.id];
+      latch.enabled = selected.has(capability.id);
+      latch.required = capability.id === "evidence_critic" || selected.has(capability.id) && capability.id !== "market_data";
+      if (latch.required) latch.failure_policy = "human_review";
+    });
+    $("#agent-evidence-required").checked = true;
+    $("#agent-human-review").checked = true;
+    $("#agent-pattern").value = "human_review";
+    labState.agentBlueprint = null;
+    renderCapabilities();
+    renderAgentContract();
+    renderBasicBuilder();
+  }
+
+  function selectBasicRecipe(id) {
+    const agent = labState.savedAgents.find((item) => item.id === id && item.built_in);
+    if (!agent?.blueprint) return;
+    labState.agentBuilderMeta.recipe_id = id;
+    labState.agentBuilderMeta.provenance = "recipe_defaults";
+    const [contextPack, capabilityPack] = basicRecipeDefaults[id] || ["morning_risk_context", "daily_risk_review"];
+    labState.agentBuilderMeta.context_pack = contextPack;
+    labState.agentBuilderMeta.capability_pack = capabilityPack;
+    labState.agentBuilderMeta.authority_profile = "A2";
+    applyAgentBlueprint(structuredClone(agent.blueprint));
+    $("#basic-agent-description").value = agent.blueprint.purpose;
+    applyBasicCapabilityAndAuthority();
+    $("#agent-builder-status").textContent = "Recipe loaded";
+  }
+
+  function applyBasicIdentity() {
+    $("#agent-name").value = $("#basic-agent-name").value.trim() || "Untitled agent";
+    const outcome = $("#basic-agent-outcome").value.trim();
+    if (outcome) {
+      $("#agent-purpose").value = outcome;
+      $("#agent-objective").value = outcome;
+    }
+    labState.agentBlueprint = null;
+    labState.agentBuilderMeta.provenance = "user_customized";
+    renderAgentContract();
+    renderBasicBuilder();
+  }
+
+  function applyBasicContext() {
+    const meta = labState.agentBuilderMeta;
+    const context = basicContextPacks[meta.context_pack];
+    if (context) $("#agent-input").value = context.input;
+    labState.agentBlueprint = null;
+    renderAgentContract();
+    renderBasicBuilder();
+  }
+
+  function applyBasicOutputContract() {
+    const contract = $("#basic-agent-output").value;
+    const presets = {
+      RiskReviewDraft: {
+        name: "risk_review_draft",
+        description: "A review-bound portfolio risk artifact containing supported findings, uncertainty and effect-free next review actions.",
+        fields: [
+          ["material_findings", "Material findings", "array", "evidence", "Material portfolio-risk findings supported by supplied point-in-time evidence."],
+          ["review_narrative", "Review narrative", "string", "narrative", "A concise interpretation that distinguishes observations, implications and uncertainty."],
+          ["suggested_review_actions", "Suggested review actions", "array", "recommendations", "Effect-free questions and checks for the human reviewer to consider next."],
+        ],
+      },
+      SpecialistInterpretation: {
+        name: "specialist_interpretation",
+        description: "A bounded specialist interpretation of supplied deterministic evidence with a clear conclusion and disclosed limitations.",
+        fields: [
+          ["specialist_findings", "Specialist findings", "array", "evidence", "Domain-specific findings linked to the supplied evidence and point-in-time context."],
+          ["interpretation", "Interpretation", "string", "narrative", "The specialist conclusion, its portfolio relevance and material uncertainty."],
+          ["limitations", "Limitations", "array", "metadata", "Missing information and methodological limits affecting the interpretation."],
+        ],
+      },
+      EvidenceCritique: {
+        name: "evidence_critique",
+        description: "An independent evidence audit identifying unsupported claims, temporal defects, conflicts and required corrections.",
+        fields: [
+          ["evidence_findings", "Evidence findings", "array", "evidence", "Claim-level evidence and point-in-time validation findings."],
+          ["audit_conclusion", "Audit conclusion", "string", "narrative", "A concise conclusion describing whether the reviewed output is supportable."],
+          ["required_corrections", "Required corrections", "array", "recommendations", "Corrections required before the output can proceed to human review."],
+        ],
+      },
+      CapabilityRequest: {
+        name: "capability_request",
+        description: "A governed request for unavailable information or analytical capability without invoking an unknown tool or weakening policy.",
+        fields: [
+          ["request_reason", "Request reason", "string", "narrative", "Why the current assignment cannot be completed with the granted context and capabilities."],
+          ["required_capabilities", "Required capabilities", "array", "metadata", "Plain-language operations required to complete the bounded assignment."],
+          ["missing_context", "Missing context", "array", "evidence", "Information that must become available before analysis can continue."],
+        ],
+      },
+    };
+    const preset = presets[contract];
+    if (!preset) return;
+    $("#agent-output").value = contract;
+    $("#agent-structured-output-name").value = preset.name;
+    $("#agent-structured-output-description").value = preset.description;
+    labState.agentOutputFields = preset.fields.map(([name, title, valueType, semanticRole, description]) => ({
+      name,
+      title,
+      value_type: valueType,
+      semantic_role: semanticRole,
+      description,
+      nullable: false,
+      format: valueType === "string" ? "markdown" : "json",
+      enum_values: [],
+      nested_schema_json: "",
+      merge_strategy: "replace",
+      citation_required: semanticRole === "evidence" || semanticRole === "narrative",
+      validation_rule: "The field is complete, internally consistent and supported by the supplied eligible context.",
+      produced_in_passes: ["produce_output"],
+    }));
+    labState.agentOutputPasses = [{
+      pass_id: "produce_output",
+      title: `Produce ${agentBuilderLabel(contract)}`,
+      objective: "Populate the complete selected Output Contract from supplied context and accepted capability evidence.",
+      target_fields: labState.agentOutputFields.map((field) => field.name),
+      operation: "replace",
+      context_policy: "full_context",
+      depends_on: [],
+      max_output_tokens: 3200,
+      quality_gate: "Every required field is schema-valid, evidence-grounded, effect-free and ready for human review.",
+      human_review_after: true,
+    }];
+    $("#agent-assembly-description").value = "Produce the selected typed artifact in one bounded pass, validate it and stop at human review.";
+    $("#agent-assembly-token-budget").value = "4000";
+    labState.agentBlueprint = null;
+    labState.agentBuilderMeta.provenance = "user_customized";
+    renderOutputFields();
+    renderOutputPasses();
+    renderAgentContract();
+    renderBasicBuilder();
+  }
+
+  function openAdvancedAgentSection(sectionKey) {
+    setAgentBuilderMode("advanced");
+    const section = document.querySelector(`[data-agent-section="${sectionKey}"]`);
+    if (!section) return;
+    section.open = true;
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function generateBasicAgent() {
+    const description = $("#basic-agent-description").value.trim();
+    if (description.length < 20) {
+      $("#agent-builder-status").textContent = "Description too short";
+      return;
+    }
+    const button = $("#basic-generate-agent");
+    button.disabled = true;
+    button.textContent = "Drafting…";
+    $("#agent-description").value = description;
+    const result = await generateAgentBlueprint();
+    if (result) {
+      labState.agentBuilderMeta.provenance = "ai_suggestion";
+      syncBasicBuilderFromBlueprint();
+    }
+    button.disabled = false;
+    button.textContent = "Draft with AI";
+  }
+
+  async function generateBasicStep(step, button) {
+    const sectionByStep = {
+      scope: "routing",
+      context: "capabilities",
+      output: "structured_output",
+      test: "governance",
+    };
+    const section = sectionByStep[step];
+    const input = document.querySelector(`[data-basic-step-intent="${step}"]`);
+    const description = input?.value.trim() || "";
+    if (!section || description.length < 10) {
+      input?.focus();
+      $("#agent-builder-status").textContent = "Describe this step first";
+      return;
+    }
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = "Preparing…";
+    $("#agent-builder-status").textContent = `Preparing ${step}`;
+    try {
+      const result = await agentApi("/api/agents/blueprint/plan-section", {
+        method: "POST",
+        body: JSON.stringify({
+          section,
+          description,
+          draft: currentAgentBlueprint(),
+          model: $("#agent-model").value,
+        }),
+      });
+      applyGeneratedSection(result.section, result.value);
+      labState.agentBuilderMeta.provenance = "ai_suggestion";
+      syncBasicBuilderFromBlueprint();
+      const tokens = Number(result.receipt.input_tokens || 0) + Number(result.receipt.output_tokens || 0);
+      $("#agent-builder-status").textContent = `${agentBuilderLabel(step)} prepared · ${tokens} tokens`;
+    } catch (error) {
+      $("#agent-builder-status").textContent = `${agentBuilderLabel(step)} unchanged`;
+      $("#agent-validation-summary").className = "validation-summary";
+      $("#agent-validation-summary").innerHTML = `<span>AI draft failed</span><small>${escapeHtml(error.message)}</small>`;
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+    }
   }
 
   function frameworkLabel(value) {
@@ -1406,11 +1813,13 @@
       $("#agent-validation-summary").className = "validation-summary valid";
       $("#agent-validation-summary").innerHTML = `<span>Validated</span><small>${escapeHtml(result.receipt.model)} · ${result.receipt.input_tokens + result.receipt.output_tokens} tokens · ${result.receipt.elapsed_ms} ms · stored=false</small>`;
       $("#agent-compile-checks").innerHTML = `<div class="agent-receipt">Structured blueprint receipt · response ${escapeHtml(result.receipt.response_id || "not returned")} · no tools · no browser credential exposure</div>`;
+      return result;
     } catch (error) {
       $("#agent-builder-status").textContent = "Planning failed";
       $("#agent-blueprint-status").textContent = "Needs attention";
       $("#agent-validation-summary").className = "validation-summary";
       $("#agent-validation-summary").innerHTML = `<span>Error</span><small>${escapeHtml(error.message)}</small>`;
+      return null;
     } finally {
       button.disabled = false;
       button.textContent = "Transform description into complete blueprint";
@@ -1475,49 +1884,429 @@
     }
   }
 
+  function currentAgentInputRequest() {
+    return {
+      data_mode: labState.agentRunDataMode,
+      scenario: $("#agent-test-scenario").value,
+      portfolio_id: $("#agent-real-portfolio").value || null,
+      as_of: $("#agent-real-as-of").value || null,
+      datasets: ["market", "fundamental", "identity", "links"],
+    };
+  }
+
+  function setAgentRunDataMode(mode) {
+    labState.agentRunDataMode = mode;
+    labState.agentInputPreview = null;
+    $$("[data-agent-data-mode]").forEach((button) => button.classList.toggle("active", button.dataset.agentDataMode === mode));
+    $$("[data-agent-run-mode-panel]").forEach((panel) => panel.classList.toggle("hidden", panel.dataset.agentRunModePanel !== mode));
+    const real = mode === "real_duckdb";
+    $("#agent-run-mode-badge").textContent = real ? "New run · Real point-in-time data" : "New run · Synthetic fixture";
+    $("#agent-run-mode-badge").className = `run-mode-identity ${real ? "real" : "synthetic"}`;
+    $("#agent-input-preview-status").textContent = "Preview not loaded";
+    $("#agent-input-json").textContent = "{}";
+    $("#agent-input-provenance").innerHTML = `<p>${real ? "Select a reviewed portfolio and as-of date, then load the exact DuckDB input." : "Select a named fixture, then load its deliberately synthetic values."}</p>`;
+  }
+
+  function setAgentRunExecutionMode(mode) {
+    labState.agentRunExecutionMode = mode;
+    const live = mode === "live_llm";
+    $$('[data-agent-execution-mode]').forEach((button) => button.classList.toggle("active", button.dataset.agentExecutionMode === mode));
+    $("#agent-live-run-model-field").classList.toggle("hidden", !live);
+    $("#agent-run-status").textContent = live ? "Live call not run" : "Deterministic check not run";
+    $("#test-agent").textContent = live ? "Run live LLM and save" : "Run and save";
+  }
+
+  function renderAgentInputPreview(preview) {
+    labState.agentInputPreview = preview;
+    const provenance = preview.provenance || {};
+    const real = provenance.data_mode === "real_duckdb";
+    $("#agent-input-preview-status").textContent = provenance.label || (real ? "Real input" : "Synthetic fixture");
+    $("#agent-input-json").textContent = JSON.stringify(preview.context, null, 2);
+    const chips = [
+      `<span class="run-provenance-chip ${real ? "real" : "warning"}">${escapeHtml(provenance.label || provenance.data_mode)}</span>`,
+      `<span class="run-provenance-chip">${real ? "Licensed local rows used" : "No licensed rows used"}</span>`,
+      provenance.as_of ? `<span class="run-provenance-chip">As of ${escapeHtml(provenance.as_of)}</span>` : "",
+      provenance.record_count !== undefined ? `<span class="run-provenance-chip">${Number(provenance.record_count).toLocaleString()} source records</span>` : "",
+      provenance.warning ? `<span class="run-provenance-chip warning">${escapeHtml(provenance.warning)}</span>` : "",
+    ].filter(Boolean);
+    $("#agent-input-provenance").innerHTML = chips.join("");
+    $("#agent-input-preview-details").open = true;
+  }
+
+  async function previewAgentInput() {
+    const button = $("#preview-agent-input");
+    button.disabled = true;
+    button.textContent = "Loading input…";
+    $("#agent-input-preview-status").textContent = "Loading";
+    try {
+      const preview = await agentApi("/api/agents/input-preview", {
+        method: "POST",
+        body: JSON.stringify(currentAgentInputRequest()),
+      });
+      renderAgentInputPreview(preview);
+      return preview;
+    } catch (error) {
+      $("#agent-input-preview-status").textContent = "Unavailable";
+      $("#agent-input-provenance").innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+      throw error;
+    } finally {
+      button.disabled = false;
+      button.textContent = "Preview exact input";
+    }
+  }
+
+  function runPayloadMarkup(item) {
+    const payload = item.payload;
+    if (payload === undefined) return "";
+    if (item.kind === "research_plan") {
+      const steps = (payload.steps || []).map((step) => `<li>${escapeHtml(step)}</li>`).join("");
+      return `<ol class="run-plan-steps">${steps}</ol>`;
+    }
+    if (item.kind === "capability_prepare") {
+      const request = payload.request || {};
+      const stages = (payload.stages || []).map((stage) => `<li><b>${escapeHtml(stage.name)}</b><span>${escapeHtml(stage.detail)}</span></li>`).join("");
+      return `<div class="run-request-summary">
+        <div><span>Contract</span><strong>${escapeHtml(request.contract || "Capability request")}</strong></div>
+        <div><span>${request.observation_count !== undefined ? "Observations" : "Positions"}</span><strong>${escapeHtml(request.observation_count ?? request.position_count ?? "—")}</strong></div>
+        <div><span>As of</span><strong>${escapeHtml(request.as_of || "—")}</strong></div>
+        <div><span>Source</span><strong>${escapeHtml(request.source || "Frozen context")}</strong></div>
+      </div><ul class="run-stage-list">${stages}</ul>`;
+    }
+    if (item.kind === "capability_call") {
+      const largest = payload.largest_position || {};
+      let entries;
+      if (payload.annualized_volatility !== undefined) entries = [["Annualized volatility", runPercentage(payload.annualized_volatility, 2)], ["Observations", payload.observation_count ?? "—"]];
+      else if (payload.maximum_drawdown !== undefined) entries = [["Maximum drawdown", runPercentage(-Math.abs(Number(payload.maximum_drawdown)), 2)], ["Peak", formatRunDate(payload.peak_at)], ["Trough", formatRunDate(payload.trough_at)]];
+      else if (payload.value_at_risk !== undefined) entries = [["95% historical VaR", runPercentage(payload.value_at_risk, 2)], ["Tail observations", payload.tail_observation_count ?? "—"]];
+      else if (payload.expected_shortfall !== undefined) entries = [["95% expected shortfall", runPercentage(payload.expected_shortfall, 2)], ["Tail observations", payload.tail_observation_count ?? "—"]];
+      else if (payload.return_method !== undefined) {
+        const returns = payload.observations || [];
+        entries = [["Latest daily return", runPercentage(returns.at(-1)?.value, 2)], ["Return observations", payload.observation_count ?? returns.length]];
+      } else entries = [
+        ["Valued NAV", formatRunCurrency(payload.nav)],
+        ["Gross exposure", runPercentage(payload.gross_exposure)],
+        ["Largest position", largest.weight === undefined ? "—" : `${largest.display_name || largest.instrument_id || "Position"} · ${runPercentage(largest.weight)}`],
+        ["Cash weight", runPercentage(payload.cash_weight)],
+      ];
+      const cards = entries.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
+      return `<div class="run-capability-summary">${cards}</div>`;
+    }
+    if (item.kind === "capability_receipt") {
+      const evidence = (payload.evidence_ids || []).join(", ") || "No evidence identifier returned";
+      const limitations = (payload.limitations || []).map((value) => `<li>${escapeHtml(value)}</li>`).join("");
+      return `<div class="run-receipt-summary">
+        <div><span>Capability time</span><strong>${escapeHtml(payload.capability_elapsed_ms ?? payload.elapsed_ms ?? "—")} ms</strong></div>
+        <div><span>Evidence</span><strong>${escapeHtml(evidence)}</strong></div>
+        <div><span>Effects</span><strong>${(payload.effects || []).length ? escapeHtml(payload.effects.join(", ")) : "None"}</strong></div>
+      </div>${limitations ? `<ul class="run-receipt-notes">${limitations}</ul>` : ""}
+      <details class="run-technical-receipt"><summary>Technical receipt</summary><pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre></details>`;
+    }
+    if (item.kind === "context_binding") {
+      return `<div class="run-binding-list">${(payload.bindings || []).map((binding) => `<span>${escapeHtml(String(binding.name || "context").replaceAll("_", " "))} · ${escapeHtml(binding.status || "unknown")}</span>`).join("")}</div>`;
+    }
+    if (item.kind === "llm_call") {
+      const rationale = (payload.rationale_summary || []).map((value) => `<li>${escapeHtml(value)}</li>`).join("");
+      return `<div class="run-llm-summary">
+        <div><span>Model</span><strong>${escapeHtml(payload.model || "Unknown")}</strong></div>
+        <div><span>Response</span><strong>${escapeHtml(payload.response_id || "Unavailable")}</strong></div>
+        <div><span>Confidence</span><strong>${payload.confidence === undefined || payload.confidence === null ? "Not supplied" : escapeHtml(`${Math.round(Number(payload.confidence) * 100)}%`)}</strong></div>
+      </div>${rationale ? `<ol class="run-rationale-points">${rationale}</ol>` : ""}`;
+    }
+    if (item.kind === "llm_receipt") {
+      return `<div class="run-llm-receipt">
+        <div><span>Input tokens</span><strong>${Number(payload.input_tokens || 0).toLocaleString()}</strong></div>
+        <div><span>Output tokens</span><strong>${Number(payload.output_tokens || 0).toLocaleString()}</strong></div>
+        <div><span>Latency</span><strong>${escapeHtml(payload.elapsed_ms ?? "—")} ms</strong></div>
+        <div><span>Provider storage</span><strong>${payload.store === false ? "Disabled" : "Unknown"}</strong></div>
+      </div><details class="run-technical-receipt"><summary>Technical model receipt</summary><pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre></details>`;
+    }
+    return `<pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`;
+  }
+
+  function runMessageMarkup(item) {
+    return `<article class="run-message ${escapeHtml(item.kind || "rationale")}">
+      <header><strong>${escapeHtml(item.actor || "Agent")}</strong><span>${escapeHtml(item.title || "Work step")}</span></header>
+      <p>${escapeHtml(item.detail || "")}</p>${runPayloadMarkup(item)}
+    </article>`;
+  }
+
+  function runPercentage(value, decimals = 1) {
+    if (value === null || value === undefined || value === "") return "Not calculated";
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? `${(numeric * 100).toFixed(decimals)}%` : "Unavailable";
+  }
+
+  function formatRunCurrency(value, currency = "USD") {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return "Not calculated";
+    return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(numeric);
+  }
+
+  function formatRunDate(value) {
+    if (!value) return "—";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString();
+  }
+
+  function buildRunPresentation(input = {}, output = {}, meta = {}, provenance = {}) {
+    const evidence = input.evidence_state || "unknown";
+    const missingMetrics = [
+      ["var_95", "95% historical VaR"],
+      ["drawdown", "drawdown"],
+      ["stress_loss", "scenario stress"],
+    ].filter(([field]) => input[field] === null || input[field] === undefined).map(([, label]) => label);
+    const limitations = [...(provenance.limitations || [])];
+    if (missingMetrics.length) limitations.unshift(`The run did not calculate ${missingMetrics.join(", ")}.`);
+    const eventContextMissing = input.event_context === "Not included" || input.news_context === "Not included";
+    if (eventContextMissing && !limitations.some((item) => item.toLowerCase().includes("event") && item.toLowerCase().includes("news"))) limitations.push("Governed event and news context was not included in this test input.");
+    const uniqueLimitations = [...new Set(limitations)];
+    const largestWeight = input.largest_weight;
+    const findings = [input.issue || "No portfolio exception was supplied."];
+    if (largestWeight !== null && largestWeight !== undefined && Number(largestWeight) >= .25) findings.push(`The largest position represents ${runPercentage(largestWeight)} of available portfolio value and should be checked against the mandate.`);
+    if (evidence !== "complete") findings.push(`Evidence coverage is ${evidence}; conclusions must remain qualified.`);
+    const nextSteps = [];
+    if (missingMetrics.length) nextSteps.push("Run the reviewed MetricPack before treating this as the complete daily risk review.");
+    if (eventContextMissing) nextSteps.push("Attach eligible event and news context for the same point-in-time date.");
+    if (largestWeight !== null && largestWeight !== undefined && Number(largestWeight) >= .25) nextSteps.push("Compare the largest position with the applicable mandate concentration limit.");
+    nextSteps.push("A human reviewer should confirm, qualify, or reject the draft before any downstream decision.");
+    const waiting = meta.status === "waiting_for_human_review";
+    const real = meta.data_mode === "real_duckdb" || input.source_mode === "real_duckdb";
+    const outcomeSought = (meta.assignment_summary || meta.purpose || "Review the supplied portfolio-risk context and create the declared artifact.").trim().replace(/[.\s]+$/, "");
+    const review = output.review || {};
+    const reviewReleased = Boolean(meta.auto_approved || review.approved);
+    return {
+      title: waiting ? "The draft is ready, but the human review checkpoint is still open." : uniqueLimitations.length ? "The portfolio review is usable, with important evidence limitations." : "The requested portfolio review is ready for human assessment.",
+      status_label: waiting ? "Awaiting human review" : uniqueLimitations.length ? "Completed with limitations" : "Review ready",
+      tone: waiting ? "review" : uniqueLimitations.length ? "limited" : "complete",
+      outcome_sought: outcomeSought,
+      premise: `Requested outcome: ${outcomeSought}. Data basis: ${real ? "point-in-time CRSP/Compustat records from local DuckDB" : `the named ${meta.scenario || "test"} synthetic fixture`}.`,
+      portfolio: input.portfolio_name || input.portfolio_id || "Supplied portfolio",
+      as_of: input.as_of_date || meta.as_of || "Not specified",
+      data_basis: real ? "Point-in-time CRSP/Compustat records from local DuckDB" : `Named synthetic fixture: ${meta.scenario || "test"}`,
+      execution_basis: meta.execution_mode === "live_llm" ? `Live OpenAI interpretation · ${meta.execution_model || "configured model"}` : "Deterministic LangGraph interpretation · no LLM call",
+      executive_conclusion: output.narrative || "No final narrative was produced.",
+      observations: [
+        { label: "Daily return", value: runPercentage(input.daily_return, 2), note: "Available point-in-time portfolio signal" },
+        { label: "Largest position", value: runPercentage(largestWeight), note: "Compare with the mandate limit" },
+        { label: "Cash weight", value: runPercentage(input.cash_weight), note: "Share of available portfolio value" },
+        { label: "Evidence", value: evidence.charAt(0).toUpperCase() + evidence.slice(1), note: output.critique || "Evidence review unavailable" },
+      ],
+      findings,
+      limitations: uniqueLimitations,
+      next_steps: nextSteps,
+      review_boundary: reviewReleased ? "The isolated test released the graph's review interrupt. It did not authorize a trade, hedge, rebalance, or portfolio mutation." : "The graph remains review-bound and has not created any portfolio effect.",
+      review,
+      effects: [],
+    };
+  }
+
+  function runPremiseMarkup(presentation, meta = {}) {
+    return `<article class="run-premise-card">
+      <header><div><span>Outcome sought</span><strong>${escapeHtml(presentation.outcome_sought)}</strong></div><b>${escapeHtml(meta.data_label || presentation.data_basis)}</b></header>
+      <dl><div><dt>Portfolio</dt><dd>${escapeHtml(presentation.portfolio)}</dd></div><div><dt>As of</dt><dd>${escapeHtml(presentation.as_of)}</dd></div><div><dt>Output</dt><dd>${escapeHtml(meta.output_contract || "Review artifact")}</dd></div><div><dt>Execution</dt><dd>${escapeHtml(presentation.execution_basis || (meta.execution_mode === "live_llm" ? `Live LLM · ${meta.execution_model || "configured model"}` : "Deterministic · no LLM"))}</dd></div></dl>
+      <p>The exact frozen input remains available above and in <strong>input.json</strong>; the conversation stays focused on the work and outcome.</p>
+    </article>`;
+  }
+
+  function runOutcomeMarkup(presentation, output = {}) {
+    const observations = (presentation.observations || []).map((item) => `<div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong><small>${escapeHtml(item.note)}</small></div>`).join("");
+    const findings = (presentation.findings || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+    const limitations = (presentation.limitations || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("") || "<li>No additional limitation was recorded.</li>";
+    const nextSteps = (presentation.next_steps || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+    const review = presentation.review || output.review || {};
+    const reviewLabel = review.approved ? "Isolated checkpoint released" : "Human review required";
+    const sections = presentation.report_sections || output.model_output?.report_sections || [];
+    const sectionMarkup = sections.length ? `<div class="run-report-sections">${sections.map((section) => `<section class="${section.section_id === "executive_signal" ? "lead" : ""}"><span>${escapeHtml(section.title)}</span>${section.content ? `<p>${escapeHtml(section.content)}</p>` : ""}${section.items?.length ? `<ul>${section.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}</section>`).join("")}</div>` : "";
+    return `<article class="run-outcome-card ${escapeHtml(presentation.tone || "limited")}">
+      <header class="run-outcome-masthead"><div><span>Agent result</span><h3>${escapeHtml(presentation.title)}</h3></div><b>${escapeHtml(presentation.status_label)}</b></header>
+      <p class="run-outcome-premise">${escapeHtml(presentation.premise)}</p>
+      ${sections.length ? sectionMarkup : `<section class="run-outcome-conclusion"><span>Executive conclusion</span><p>${escapeHtml(presentation.executive_conclusion)}</p></section>`}
+      <div class="run-outcome-metrics">${observations}</div>
+      ${sections.length ? `<details class="run-condensed-evidence"><summary>Additional execution and evidence limitations</summary><ul>${limitations}</ul></details>` : `<div class="run-outcome-columns">
+        <section><span>Material findings</span><ul>${findings}</ul></section>
+        <section><span>Important limitations</span><ul>${limitations}</ul></section>
+      </div>
+      <section class="run-outcome-next"><span>Recommended review steps</span><ol>${nextSteps}</ol></section>`}
+      <footer><div><span>Decision boundary</span><p>${escapeHtml(presentation.review_boundary)}</p></div><b>${escapeHtml(reviewLabel)} · Effects: none</b></footer>
+    </article>`;
+  }
+
+  async function renderLiveAgentRun(result) {
+    const chat = $("#agent-run-chat");
+    const state = result.final_state || {};
+    const presentation = result.presentation || buildRunPresentation(result.input_context || {}, state, result, result.input_provenance || {});
+    chat.innerHTML = runPremiseMarkup(presentation, result);
+    for (const item of result.activity || []) {
+      chat.insertAdjacentHTML("beforeend", runMessageMarkup(item));
+      chat.scrollTop = chat.scrollHeight;
+      await new Promise((resolve) => setTimeout(resolve, 70));
+    }
+    chat.insertAdjacentHTML("beforeend", runOutcomeMarkup(presentation, state));
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function renderSavedAgentRun(detail) {
+    const manifest = detail.manifest;
+    const contents = detail.contents || {};
+    const input = contents["input.json"] || {};
+    const provenance = contents["input-provenance.json"] || {};
+    const blueprint = contents["blueprint.json"] || {};
+    const output = contents["output.json"] || {};
+    const activity = contents["activity.json"] || [];
+    const real = manifest.data_mode === "real_duckdb" || provenance.data_mode === "real_duckdb";
+    $("#agent-run-mode-badge").textContent = real ? "Viewing saved run · Real point-in-time data" : "Viewing saved run · Synthetic fixture";
+    $("#agent-run-mode-badge").className = `run-mode-identity ${real ? "real" : "synthetic"}`;
+    const presentation = output.presentation || buildRunPresentation(input, output, { ...manifest, purpose: blueprint.purpose }, provenance);
+    $("#agent-run-chat").innerHTML = `
+      ${runPremiseMarkup(presentation, manifest)}
+      ${activity.map(runMessageMarkup).join("")}
+      ${runOutcomeMarkup(presentation, output)}`;
+    $("#agent-run-chat").scrollTop = 0;
+    renderRunFiles(detail);
+  }
+
+  function renderRunFiles(detail) {
+    const manifest = detail.manifest;
+    labState.selectedAgentRunDetail = detail;
+    labState.selectedAgentRunId = manifest.run_id;
+    $("#agent-run-folder").textContent = manifest.folder;
+    $("#delete-agent-run").classList.remove("hidden");
+    $("#agent-run-files").innerHTML = manifest.files.map((file) => `
+      <button class="run-file-item" type="button" data-agent-run-file="${escapeHtml(file.name)}"><strong>${escapeHtml(file.name)}</strong><span>${Number(file.bytes || 0).toLocaleString()} bytes</span></button>`).join("");
+    $("#agent-run-file-content").textContent = "Select a file to inspect it.";
+    $$(".run-repository-item").forEach((item) => item.classList.toggle("active", item.dataset.agentRunId === manifest.run_id));
+  }
+
+  function renderAgentRunRepository() {
+    $("#agent-run-repository").innerHTML = labState.agentRuns.length ? labState.agentRuns.map((run) => `
+      <button class="run-repository-item ${labState.selectedAgentRunId === run.run_id ? "active" : ""}" type="button" data-agent-run-id="${escapeHtml(run.run_id)}">
+        <b class="${run.data_mode === "real_duckdb" ? "real" : "synthetic"}">${run.data_mode === "real_duckdb" ? "Real data" : "Synthetic fixture"}</b>
+        <strong>${escapeHtml(run.agent_name)}</strong>
+        <span>${escapeHtml(run.created_at)} · ${escapeHtml(run.status)}${run.execution_mode === "live_llm" ? ` · live LLM` : " · deterministic"}</span>
+      </button>`).join("") : '<div class="empty-state">No saved agent runs.</div>';
+  }
+
+  async function loadAgentRuns() {
+    try {
+      const result = await agentApi("/api/agents/runs");
+      labState.agentRuns = result.runs || [];
+      renderAgentRunRepository();
+    } catch (error) {
+      $("#agent-run-repository").innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+    }
+  }
+
+  async function openAgentRun(runId) {
+    const detail = await agentApi(`/api/agents/runs/${encodeURIComponent(runId)}`);
+    renderSavedAgentRun(detail);
+    renderAgentRunRepository();
+    $("#agent-live-state").textContent = "Saved run";
+  }
+
+  async function deleteSelectedAgentRun() {
+    const runId = labState.selectedAgentRunId;
+    if (!runId || !window.confirm(`Delete local test run ${runId} and every file in its folder?`)) return;
+    await agentApi(`/api/agents/runs/${encodeURIComponent(runId)}`, { method: "DELETE" });
+    labState.selectedAgentRunId = null;
+    labState.selectedAgentRunDetail = null;
+    $("#delete-agent-run").classList.add("hidden");
+    $("#agent-run-folder").textContent = "No run folder selected.";
+    $("#agent-run-files").innerHTML = "";
+    $("#agent-run-file-content").textContent = "Select a file to inspect it.";
+    $("#agent-run-chat").innerHTML = '<div class="run-chat-empty"><strong>Run deleted</strong><p>The local run folder and its files were removed.</p></div>';
+    await loadAgentRuns();
+  }
+
   async function runAgentTest() {
     $("#test-agent").disabled = true;
-    $("#agent-run-status").textContent = "Running";
+    $("#agent-run-status").textContent = "Preparing";
+    $("#agent-live-state").textContent = "Freezing input";
     try {
+      const preview = labState.agentInputPreview || await previewAgentInput();
+      $("#agent-run-chat").innerHTML = `<article class="run-message assignment"><header><strong>System</strong><span>${escapeHtml(preview.provenance.label)}</span></header><p>Exact input frozen. Compiling the current blueprint and starting its governed graph.</p></article>`;
+      $("#agent-live-state").textContent = "Compiling";
       const compiled = labState.agentCompile || await compileAgent();
+      switchAgentOutputTab("run");
+      $("#agent-live-state").textContent = "Agent working";
+      $("#agent-run-status").textContent = "Running";
+      const input = currentAgentInputRequest();
       const result = await agentApi("/api/agents/run", {
         method: "POST",
         body: JSON.stringify({
           blueprint: compiled.blueprint,
-          scenario: $("#agent-test-scenario").value,
+          ...input,
+          execution_mode: labState.agentRunExecutionMode,
+          execution_model: $("#agent-live-run-model").value,
+          run_label: $("#agent-run-label").value.trim(),
+          persist_run: true,
           auto_approve_review: $("#agent-auto-review").checked,
         }),
       });
-      $("#agent-run-status").textContent = result.status === "completed" ? "Completed" : "Paused for review";
+      $("#agent-run-status").textContent = result.status === "completed" ? "Completed and saved" : "Paused and saved";
       $("#agent-run-status").classList.toggle("warning", result.status !== "completed");
-      $("#agent-trace").innerHTML = result.trace.map((event) =>
-        `<li><strong>${escapeHtml(event.node.replaceAll("_", " "))}</strong><br>${escapeHtml(event.detail)}</li>`).join("");
-      if (result.interrupted && !result.auto_approved) {
-        $("#agent-trace").innerHTML += "<li><strong>human interrupt</strong><br>Execution is checkpointed and waiting for a reviewer.</li>";
-      }
-      const state = result.final_state;
-      $("#agent-test-output").innerHTML = `
-        <h3>${result.status === "completed" ? "Compiled agent completed" : "Agent is waiting for human review"}</h3>
-        <p>${escapeHtml(state.narrative || "The graph paused before final state completion.")}</p>
-        <ul>
-          <li>Evidence critic: ${escapeHtml(state.critique || "not part of this pattern")}</li>
-          <li>Human interrupt reached: ${result.interrupted ? "yes" : "no"}${result.auto_approved ? " · automatically resumed for this test" : ""}</li>
-          <li>Checkpoints: ${result.checkpoint_count} · elapsed: ${result.elapsed_ms} ms</li>
-          <li>Portfolio effects: none</li>
-        </ul>
-        <details class="run-prompt-details">
-          <summary>Inspect rendered Prompt Messages + PromptTemplate</summary>
-          <pre>${escapeHtml(state.rendered_prompt || "The selected route did not render a prompt.")}</pre>
-        </details>
-        <div class="agent-receipt">Thread ${escapeHtml(result.thread_id)} · generated artifact ${escapeHtml(result.artifact_id)}</div>`;
-      $("#agent-builder-status").textContent = result.status === "completed" ? "Execution complete" : "Review interrupt";
-      switchAgentOutputTab("run");
+      $("#agent-live-state").textContent = result.status === "completed" ? "Complete" : "Human review";
+      await renderLiveAgentRun(result);
+      $("#agent-builder-status").textContent = result.status === "completed" ? "Run saved" : "Review interrupt saved";
+      await loadAgentRuns();
+      if (result.run?.run_id) await openAgentRun(result.run.run_id);
+      return result;
     } catch (error) {
       $("#agent-run-status").textContent = "Execution failed";
       $("#agent-run-status").classList.add("warning");
-      $("#agent-test-output").innerHTML = `<h3>Execution could not complete</h3><p>${escapeHtml(error.message)}</p>`;
+      $("#agent-live-state").textContent = "Failed";
+      $("#agent-run-chat").insertAdjacentHTML("beforeend", `<article class="run-message critique"><header><strong>Runtime</strong><span>Execution failed</span></header><p>${escapeHtml(error.message)}</p></article>`);
+      return null;
     } finally {
       $("#test-agent").disabled = false;
+    }
+  }
+
+  function setBasicTestState(name, label, state) {
+    const target = document.querySelector(`[data-basic-test-state="${name}"]`);
+    if (!target) return;
+    target.textContent = label;
+    target.className = state;
+  }
+
+  async function runBasicTestSuite() {
+    const button = $("#basic-test-agent");
+    button.disabled = true;
+    button.textContent = "Running tests…";
+    $("#basic-test-result").className = "basic-test-result";
+    $("#basic-test-result").innerHTML = "<span>Running</span><p>Compiling once, then checking representative, missing-evidence, and locked-policy behaviour.</p>";
+    ["normal", "failure", "adversarial"].forEach((name) => setBasicTestState(name, "Running", "warning"));
+    try {
+      const compiled = labState.agentCompile || await compileAgent();
+      if (!compiled) throw new Error("The blueprint did not compile.");
+      const normal = await agentApi("/api/agents/run", {
+        method: "POST",
+        body: JSON.stringify({ blueprint: compiled.blueprint, scenario: "concentration", persist_run: false, auto_approve_review: true }),
+      });
+      const failure = await agentApi("/api/agents/run", {
+        method: "POST",
+        body: JSON.stringify({ blueprint: compiled.blueprint, scenario: "missing", persist_run: false, auto_approve_review: true }),
+      });
+      const policyPassed = compiled.blueprint.governance.effects_allowed === false
+        && compiled.blueprint.governance.prohibited_actions.length > 0
+        && compiled.blueprint.capability_latches.every((latch) => capabilities.some((capability) => capability.id === latch.capability_id));
+      const normalPassed = normal.status === "completed" && normal.trace.length > 0;
+      const failurePassed = failure.status === "completed" && (failure.interrupted || failure.trace.length > 0);
+      setBasicTestState("normal", normalPassed ? "Passed" : "Attention", normalPassed ? "passed" : "warning");
+      setBasicTestState("failure", failurePassed ? "Passed" : "Attention", failurePassed ? "passed" : "warning");
+      setBasicTestState("adversarial", policyPassed ? "Passed" : "Attention", policyPassed ? "passed" : "warning");
+      const allPassed = normalPassed && failurePassed && policyPassed;
+      $("#basic-test-result").className = `basic-test-result ${allPassed ? "passed" : ""}`;
+      $("#basic-test-result").innerHTML = `<span>${allPassed ? "Passed" : "Review"}</span><p>${allPassed ? "The blueprint compiled and all three quick gates passed. Save it as a review-bound draft." : "At least one quick gate needs attention before publication."}</p>`;
+      $("#agent-run-status").textContent = allPassed ? "3 quick gates passed" : "Needs attention";
+      $("#agent-builder-status").textContent = allPassed ? "Quick tests passed" : "Test attention";
+      return allPassed;
+    } catch (error) {
+      ["normal", "failure", "adversarial"].forEach((name) => setBasicTestState(name, "Not passed", "warning"));
+      $("#basic-test-result").innerHTML = `<span>Failed</span><p>${escapeHtml(error.message)}</p>`;
+      return false;
+    } finally {
+      button.disabled = false;
+      button.textContent = "Compile and run test";
     }
   }
 
@@ -1822,9 +2611,17 @@
     const agent = labState.savedAgents.find((item) => item.id === id);
     if (!agent) return;
     if (agent.blueprint?.instructions && agent.blueprint?.routing && agent.blueprint?.structured_output?.presentation && agent.blueprint?.output_assembly) {
+      if (agent.builder_meta) labState.agentBuilderMeta = { ...labState.agentBuilderMeta, ...structuredClone(agent.builder_meta) };
+      else if (agent.built_in) {
+        labState.agentBuilderMeta.recipe_id = agent.id;
+        const [contextPack, capabilityPack] = basicRecipeDefaults[agent.id] || ["morning_risk_context", "daily_risk_review"];
+        labState.agentBuilderMeta.context_pack = contextPack;
+        labState.agentBuilderMeta.capability_pack = capabilityPack;
+      }
       applyAgentBlueprint(agent.blueprint);
       labState.agentCompile = null;
       $("#agent-builder-status").textContent = agent.compiledArtifact ? "Loaded compiled definition" : "Loaded draft";
+      syncBasicBuilderFromBlueprint();
       return;
     }
     $("#agent-name").value = agent.name;
@@ -1903,8 +2700,331 @@
     $("#graph-status").classList.toggle("warning", !structurallyValid || unavailable.length > 0);
   }
 
+  function cycleMoney(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return "—";
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(numeric);
+  }
+
+  function cycleTimeLabel(value) {
+    if (!value) return "—";
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime())
+      ? value
+      : parsed.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium", timeZone: "UTC" });
+  }
+
+  function cycleCandleChart(candles = []) {
+    const values = candles.slice(-90);
+    if (!values.length) return '<div class="cycle-chart-empty">No one-minute candle has been released.</div>';
+    const width = 900;
+    const height = 270;
+    const pad = 34;
+    const minimum = Math.min(...values.map((item) => Number(item.low)));
+    const maximum = Math.max(...values.map((item) => Number(item.high)));
+    const span = maximum - minimum || Math.abs(maximum) * .001 || 1;
+    const xStep = (width - pad * 2) / Math.max(values.length, 1);
+    const y = (value) => pad + (maximum - Number(value)) / span * (height - pad * 2);
+    const candlesMarkup = values.map((item, index) => {
+      const x = pad + index * xStep + xStep / 2;
+      const open = y(item.open);
+      const close = y(item.close);
+      const high = y(item.high);
+      const low = y(item.low);
+      const positive = Number(item.close) >= Number(item.open);
+      const bodyTop = Math.min(open, close);
+      const bodyHeight = Math.max(Math.abs(close - open), 1.5);
+      return `<g class="${positive ? "up" : "down"}"><line x1="${x}" y1="${high}" x2="${x}" y2="${low}"></line><rect x="${x - Math.max(1, xStep * .28)}" y="${bodyTop}" width="${Math.max(2, xStep * .56)}" height="${bodyHeight}"></rect></g>`;
+    }).join("");
+    return `<div class="cycle-chart"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Synthetic one-minute portfolio candles">
+      <line class="grid" x1="${pad}" y1="${pad}" x2="${width - pad}" y2="${pad}"></line>
+      <line class="grid" x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}"></line>
+      ${candlesMarkup}
+      <text x="${pad}" y="20">${escapeHtml(cycleMoney(maximum))}</text><text x="${pad}" y="${height - 8}">${escapeHtml(cycleMoney(minimum))}</text>
+    </svg><footer><span>${escapeHtml(cycleTimeLabel(values[0].timestamp))}</span><b>Seeded synthetic candles · ${values.at(-1).updates || 0} updates in current minute</b><span>${escapeHtml(cycleTimeLabel(values.at(-1).timestamp))}</span></footer></div>`;
+  }
+
+  function cycleMetricCards(snapshot) {
+    const market = snapshot.market || {};
+    const largest = market.positions?.[0];
+    const clock = snapshot.clock || {};
+    return `<div class="cycle-metric-grid">
+      <article><span>Portfolio NAV</span><strong>${escapeHtml(cycleMoney(market.nav))}</strong><small>Real close anchors · synthetic intraday path</small></article>
+      <article><span>From session open</span><strong class="${Number(market.return_from_open) < 0 ? "negative" : "positive"}">${escapeHtml(runPercentage(market.return_from_open, 2))}</strong><small>Released observations only</small></article>
+      <article><span>Largest exposure</span><strong>${escapeHtml(runPercentage(largest?.weight, 1))}</strong><small>${escapeHtml(largest?.display_name || "No valued position")}</small></article>
+      <article><span>Released ticks</span><strong>${Number(clock.second_of_session || 0).toLocaleString()}</strong><small>Per active position · aggregated every minute</small></article>
+    </div>`;
+  }
+
+  function cyclePositionTable(positions = []) {
+    return `<div class="cycle-position-table"><div class="head"><span>Company</span><span>Price</span><span>From open</span><span>Weight</span></div>${positions.map((item) => `<div><strong>${escapeHtml(item.display_name || item.instrument_id)}<small>${escapeHtml(item.ticker || item.instrument_id)}</small></strong><span>${Number(item.price).toLocaleString(undefined, { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span><span class="${Number(item.return_from_open) < 0 ? "negative" : "positive"}">${runPercentage(item.return_from_open, 2)}</span><span>${runPercentage(item.weight, 1)}</span></div>`).join("")}</div>`;
+  }
+
+  function renderCycleDashboard(snapshot) {
+    const dashboard = snapshot.dashboard || { pages: [] };
+    const pages = dashboard.pages || [];
+    if (!pages.some((item) => item.page_id === labState.cycleDashboardPage)) labState.cycleDashboardPage = pages[0]?.page_id || "overview";
+    $("#cycle-dashboard-pages").innerHTML = pages.map((page) => `<button type="button" data-cycle-page="${escapeHtml(page.page_id)}" class="${page.page_id === labState.cycleDashboardPage ? "active" : ""}">${escapeHtml(page.title)}</button>`).join("");
+    const page = pages.find((item) => item.page_id === labState.cycleDashboardPage) || pages[0];
+    $("#cycle-dashboard-title").textContent = page?.title || "Living dashboard";
+    $("#cycle-dashboard-version").textContent = `Version ${dashboard.version || 1} · ${page?.agent_id ? `interpreted by ${page.agent_id.replaceAll("-", " ")}` : "no specialist attached"}`;
+    const market = snapshot.market || {};
+    const candles = market.candles?.portfolio || [];
+    if (labState.cycleDashboardPage === "market") {
+      $("#cycle-dashboard-view").innerHTML = `<section class="cycle-page-intro"><span>Live market tape</span><p>Each completed candle contains sixty deterministic pseudo-random second updates. The current candle grows until the simulated minute closes.</p></section>${cycleCandleChart(candles)}${cyclePositionTable(market.positions || [])}`;
+      return;
+    }
+    if (labState.cycleDashboardPage === "risk") {
+      const decisions = snapshot.decisions || [];
+      const history = snapshot.daily_history || [];
+      $("#cycle-dashboard-view").innerHTML = `${cycleMetricCards(snapshot)}<div class="cycle-risk-columns"><section><span>Decision queue</span>${decisions.length ? decisions.map((item) => `<article class="cycle-decision-card"><b>${escapeHtml(item.status)}</b><strong>${escapeHtml(item.finding)}</strong><small>${escapeHtml(cycleTimeLabel(item.as_of))}</small></article>`).join("") : '<div class="empty-state">No threshold has created a decision.</div>'}</section><section><span>Completed dates</span>${history.length ? history.map((item) => `<article class="cycle-history-row"><strong>${escapeHtml(item.date)}</strong><b class="${Number(item.return) < 0 ? "negative" : "positive"}">${runPercentage(item.return, 2)}</b><small>${escapeHtml(cycleMoney(item.close_nav))}</small></article>`).join("") : '<div class="empty-state">No simulated day has closed.</div>'}</section></div>`;
+      return;
+    }
+    if (labState.cycleDashboardPage === "agents") {
+      const patches = dashboard.patches || [];
+      $("#cycle-dashboard-view").innerHTML = `<section class="cycle-page-intro"><span>Dashboard composition record</span><p>Agents use bounded meta-capabilities to propose declarative changes. The platform records the reason and version; no application code or portfolio state is modified.</p></section><div class="cycle-patch-list">${patches.map((patch) => `<article><b>${escapeHtml(patch.capability_id)}</b><strong>${escapeHtml(patch.action.replaceAll("_", " "))} · ${escapeHtml(patch.page_id)}</strong><p>${escapeHtml(patch.rationale)}</p><small>Version ${patch.version} · effects limited to run artifact</small></article>`).join("")}</div>`;
+      return;
+    }
+    $("#cycle-dashboard-view").innerHTML = `${cycleMetricCards(snapshot)}${cycleCandleChart(candles)}<section class="cycle-overview-note"><span>Current monitoring premise</span><p>${escapeHtml(snapshot.report?.sections?.find((item) => item.section_id === "risk_interpretation")?.content || "Waiting for the first risk interpretation.")}</p></section>`;
+  }
+
+  function renderCycleReport(report = {}) {
+    $("#cycle-report-title").textContent = report.title || "Live portfolio risk review";
+    $("#cycle-report-status").textContent = report.status || "Waiting";
+    $("#cycle-report-sections").innerHTML = (report.sections || []).map((section) => `<article class="cycle-report-section ${section.section_id === "executive_signal" ? "lead" : ""}"><span>${escapeHtml(section.title)}</span>${section.content ? `<p>${escapeHtml(section.content)}</p>` : ""}${section.items?.length ? `<ul>${section.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}</article>`).join("");
+  }
+
+  function renderCycleAgents(snapshot) {
+    const pages = snapshot.dashboard?.pages || [];
+    $("#cycle-agent-latches").innerHTML = pages.map((page) => `<article><span>${escapeHtml(page.title)}</span><strong>${escapeHtml(page.agent_id ? page.agent_id.replaceAll("-", " ") : "No specialist")}</strong><small>${escapeHtml(page.purpose)}</small></article>`).join("");
+    const selected = $("#cycle-agent-page").value;
+    $("#cycle-agent-page").innerHTML = pages.map((page) => `<option value="${escapeHtml(page.page_id)}">${escapeHtml(page.title)}</option>`).join("");
+    if (pages.some((page) => page.page_id === selected)) $("#cycle-agent-page").value = selected;
+    $("#cycle-meta-capabilities").innerHTML = (snapshot.meta_capabilities || []).map((item) => `<span>${escapeHtml(item)}</span>`).join("");
+  }
+
+  function renderCycleSnapshot(snapshot) {
+    labState.cycleSnapshot = snapshot;
+    const clock = snapshot.clock || {};
+    $("#cycle-runtime-status").textContent = snapshot.status.replaceAll("_", " ");
+    $("#cycle-runtime-status").classList.toggle("warning", snapshot.status === "paused_for_review");
+    $("#cycle-clock-time").textContent = cycleTimeLabel(clock.timestamp);
+    $("#cycle-clock-progress").textContent = `Day ${Number(clock.day_index || 0) + 1} of ${clock.day_count || 0} · ${Number(snapshot.speed || 1).toLocaleString()}× speed`;
+    $("#cycle-day-label").textContent = `Day ${Number(clock.day_index || 0) + 1} / ${clock.day_count || 0}`;
+    $("#cycle-day-progress-bar").style.width = `${Math.min(100, Number(clock.second_of_session || 0) / Number(clock.seconds_per_day || 1) * 100)}%`;
+    $("#cycle-live-dot").classList.toggle("running", Boolean(snapshot.running));
+    $("#cycle-live-label").textContent = snapshot.running ? "Generating" : snapshot.status === "complete" ? "Complete" : "Paused";
+    const positions = snapshot.market?.positions?.length || 0;
+    const released = Number(clock.second_of_session || 0) * positions;
+    $("#cycle-update-count").textContent = `${released.toLocaleString()} released position updates`;
+    $("#cycle-speed").value = String(snapshot.speed);
+    $("#cycle-event-stream").innerHTML = (snapshot.events || []).length ? snapshot.events.map((item) => `<article class="${escapeHtml(item.kind)}"><span>${escapeHtml(cycleTimeLabel(item.timestamp))}</span><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail)}</p></article>`).join("") : '<div class="empty-state">No event has been released.</div>';
+    renderCycleDashboard(snapshot);
+    renderCycleReport(snapshot.report);
+    renderCycleAgents(snapshot);
+    const decision = (snapshot.decisions || []).find((item) => item.status === "pending");
+    $("#cycle-decision-panel").classList.toggle("hidden", !decision);
+    if (decision) {
+      $("#cycle-decision-panel").dataset.decisionId = decision.decision_id;
+      $("#cycle-decision-finding").textContent = decision.finding;
+    }
+  }
+
+  async function loadCycleSnapshot() {
+    if (!labState.cycleSessionId) return;
+    try {
+      const snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}`);
+      renderCycleSnapshot(snapshot);
+    } catch (error) {
+      $("#cycle-runtime-status").textContent = "Connection lost";
+      if (labState.cyclePollTimer) window.clearInterval(labState.cyclePollTimer);
+      labState.cyclePollTimer = null;
+    }
+  }
+
+  function startCyclePolling() {
+    if (labState.cyclePollTimer) window.clearInterval(labState.cyclePollTimer);
+    labState.cyclePollTimer = window.setInterval(loadCycleSnapshot, 500);
+  }
+
+  async function createCycleSession() {
+    const button = $("#create-cycle-session");
+    button.disabled = true;
+    button.textContent = "Preparing real anchors…";
+    try {
+      if (labState.cycleSessionId) {
+        await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}`, { method: "DELETE" }).catch(() => {});
+      }
+      const snapshot = await agentApi("/api/workflow-cycle/sessions", {
+        method: "POST",
+        body: JSON.stringify({
+          portfolio_id: $("#cycle-portfolio").value,
+          start_date: $("#cycle-start-date").value,
+          end_date: $("#cycle-end-date").value,
+          seed: Number($("#cycle-seed").value),
+          speed: Number($("#cycle-initial-speed").value),
+          daily_loss_limit: Number($("#cycle-loss-limit").value),
+        }),
+      });
+      labState.cycleSessionId = snapshot.session_id;
+      labState.cycleDashboardPage = "overview";
+      $("#cycle-console").classList.remove("hidden");
+      $("#cycle-setup-panel").classList.add("compact");
+      renderCycleSnapshot(snapshot);
+      startCyclePolling();
+    } catch (error) {
+      $("#cycle-runtime-status").textContent = error.message;
+      $("#cycle-runtime-status").classList.add("warning");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Create workflow-cycle session";
+    }
+  }
+
+  async function controlCycle(action, speed = null) {
+    if (!labState.cycleSessionId) return;
+    const snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}/control`, {
+      method: "POST",
+      body: JSON.stringify({ action, speed }),
+    });
+    renderCycleSnapshot(snapshot);
+  }
+
+  async function resolveCycleDecision(outcome) {
+    const decisionId = $("#cycle-decision-panel").dataset.decisionId;
+    if (!labState.cycleSessionId || !decisionId) return;
+    let snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}/decisions/${encodeURIComponent(decisionId)}`, {
+      method: "POST",
+      body: JSON.stringify({ outcome }),
+    });
+    if (outcome === "accepted") {
+      snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}/control`, { method: "POST", body: JSON.stringify({ action: "start" }) });
+    }
+    renderCycleSnapshot(snapshot);
+  }
+
+  async function attachCycleAgent() {
+    if (!labState.cycleSessionId) return;
+    const snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}/agents`, {
+      method: "POST",
+      body: JSON.stringify({ page_id: $("#cycle-agent-page").value, agent_id: $("#cycle-agent-select").value }),
+    });
+    renderCycleSnapshot(snapshot);
+  }
+
+  function applyConciseReportStructure() {
+    const field = (name, title, valueType, role, description, passId, validation) => ({
+      name, title, value_type: valueType, semantic_role: role, description,
+      nullable: false, format: valueType === "string" ? "markdown" : "none",
+      enum_values: [], nested_schema_json: "", merge_strategy: "replace",
+      citation_required: !["uncertainty", "review_actions"].includes(name),
+      validation_rule: validation, produced_in_passes: [passId],
+    });
+    labState.agentOutputFields = [
+      field("executive_signal", "Executive signal", "string", "introduction", "State only the decision-relevant portfolio conclusion in no more than 100 words.", "conclusion", "Contains one concise conclusion and does not repeat supporting sections."),
+      field("what_changed", "What changed", "array", "results", "List no more than four material changes since the prior accepted workflow cycle.", "conclusion", "Contains only material deltas, with no methodology commentary."),
+      field("risk_interpretation", "Risk interpretation", "string", "narrative", "Explain the non-trivial downside, drawdown, volatility and tail-risk implications.", "risk_analysis", "Explains why the calculated risk state matters without repeating the executive signal."),
+      field("exposure_and_mandate", "Exposure and mandate", "string", "results", "Interpret concentration, cash, sector and applicable mandate relevance.", "risk_analysis", "Uses named firms and distinguishes priced-sleeve coverage from the full portfolio."),
+      field("uncertainty", "Uncertainty", "array", "evidence", "List only limitations that could materially change the conclusion.", "review", "Contains no generic disclaimer or duplicated process description."),
+      field("review_actions", "Review actions", "array", "recommendations", "List no more than five concrete questions or analyses for the human reviewer.", "review", "Every action is specific, effect-free and decision-relevant."),
+    ];
+    labState.agentOutputPasses = [
+      { pass_id: "conclusion", title: "Material conclusion", objective: "Write the executive signal and material changes from the compact context projection.", target_fields: ["executive_signal", "what_changed"], operation: "replace", context_policy: "evidence_subset", depends_on: [], max_output_tokens: 800, quality_gate: "The conclusion is under 100 words and no fact is repeated.", human_review_after: false },
+      { pass_id: "risk_analysis", title: "Risk and mandate interpretation", objective: "Explain downside, tail risk and exposure implications without repeating the conclusion.", target_fields: ["risk_interpretation", "exposure_and_mandate"], operation: "replace", context_policy: "evidence_subset", depends_on: ["conclusion"], max_output_tokens: 1000, quality_gate: "Each fact has one owning section and every numerical claim is supported.", human_review_after: false },
+      { pass_id: "review", title: "Uncertainty and review actions", objective: "Surface only decision-changing uncertainty and concrete human review actions.", target_fields: ["uncertainty", "review_actions"], operation: "replace", context_policy: "selected_prior_fields", depends_on: ["risk_analysis"], max_output_tokens: 700, quality_gate: "No generic caveats, repeated findings or portfolio effects are present.", human_review_after: true },
+    ];
+    $("#agent-output-composition").value = "sectioned_report";
+    $("#agent-output-density").value = "dense";
+    $("#agent-assembly-token-budget").value = 4000;
+    $("#agent-structured-output-description").value = "A concise six-section portfolio-risk review in which every fact has one owning section and only material uncertainty is shown.";
+    renderOutputFields();
+    renderOutputPasses();
+    renderAgentContract();
+    $("#agent-builder-status").textContent = "Concise report structure applied";
+  }
+
   function bind() {
     $$(".workspace-tab").forEach((button) => button.addEventListener("click", () => switchWorkspace(button.dataset.workspace)));
+    $("#create-cycle-session").addEventListener("click", createCycleSession);
+    $("#cycle-start").addEventListener("click", () => controlCycle("start").catch((error) => { $("#cycle-runtime-status").textContent = error.message; }));
+    $("#cycle-pause").addEventListener("click", () => controlCycle("pause").catch((error) => { $("#cycle-runtime-status").textContent = error.message; }));
+    $("#cycle-speed").addEventListener("change", () => controlCycle("set_speed", Number($("#cycle-speed").value)).catch((error) => { $("#cycle-runtime-status").textContent = error.message; }));
+    $("#cycle-new-session").addEventListener("click", async () => {
+      if (labState.cycleSessionId) await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}`, { method: "DELETE" }).catch(() => {});
+      labState.cycleSessionId = null;
+      labState.cycleSnapshot = null;
+      if (labState.cyclePollTimer) window.clearInterval(labState.cyclePollTimer);
+      labState.cyclePollTimer = null;
+      $("#cycle-console").classList.add("hidden");
+      $("#cycle-setup-panel").classList.remove("compact");
+      $("#cycle-runtime-status").textContent = "Not configured";
+    });
+    $("#cycle-dashboard-pages").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-cycle-page]");
+      if (!button || !labState.cycleSnapshot) return;
+      labState.cycleDashboardPage = button.dataset.cyclePage;
+      renderCycleDashboard(labState.cycleSnapshot);
+    });
+    $("#cycle-decision-panel").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-cycle-decision]");
+      if (button) resolveCycleDecision(button.dataset.cycleDecision).catch((error) => { $("#cycle-runtime-status").textContent = error.message; });
+    });
+    $("#cycle-attach-agent").addEventListener("click", () => attachCycleAgent().catch((error) => { $("#cycle-runtime-status").textContent = error.message; }));
+    $("#open-cycle-from-agent").addEventListener("click", () => {
+      const selectedPortfolio = $("#agent-real-portfolio").value;
+      switchWorkspace("cycle");
+      if (selectedPortfolio && [...$("#cycle-portfolio").options].some((item) => item.value === selectedPortfolio)) $("#cycle-portfolio").value = selectedPortfolio;
+    });
+    $("#apply-concise-report").addEventListener("click", applyConciseReportStructure);
+    $$("[data-agent-builder-mode]").forEach((button) => button.addEventListener("click", () => setAgentBuilderMode(button.dataset.agentBuilderMode)));
+    $$("[data-basic-agent-step]").forEach((button) => button.addEventListener("click", () => setBasicAgentStep(button.dataset.basicAgentStep)));
+    $("#basic-agent-recipes").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-basic-agent-recipe]");
+      if (button) selectBasicRecipe(button.dataset.basicAgentRecipe);
+    });
+    $("#basic-agent-name").addEventListener("input", applyBasicIdentity);
+    $("#basic-agent-outcome").addEventListener("input", applyBasicIdentity);
+    [
+      ["#basic-agent-trigger", "trigger"],
+      ["#basic-agent-scope", "scope"],
+      ["#basic-agent-as-of", "as_of"],
+      ["#basic-agent-dedup", "deduplication"],
+    ].forEach(([selector, key]) => $(selector).addEventListener("change", () => {
+      labState.agentBuilderMeta[key] = $(selector).value;
+      labState.agentBuilderMeta.provenance = "user_customized";
+      renderBasicBuilder();
+    }));
+    $("#basic-agent-context-pack").addEventListener("change", () => {
+      labState.agentBuilderMeta.context_pack = $("#basic-agent-context-pack").value;
+      labState.agentBuilderMeta.provenance = "user_customized";
+      applyBasicContext();
+    });
+    $("#basic-agent-capability-pack").addEventListener("change", () => {
+      labState.agentBuilderMeta.capability_pack = $("#basic-agent-capability-pack").value;
+      labState.agentBuilderMeta.provenance = "user_customized";
+      applyBasicCapabilityAndAuthority();
+    });
+    $("#basic-agent-output").addEventListener("change", () => {
+      applyBasicOutputContract();
+    });
+    $("#basic-agent-authority").addEventListener("change", () => {
+      labState.agentBuilderMeta.authority_profile = $("#basic-agent-authority").value;
+      labState.agentBuilderMeta.provenance = "user_customized";
+      applyBasicCapabilityAndAuthority();
+    });
+    $("#basic-generate-agent").addEventListener("click", generateBasicAgent);
+    $$('[data-generate-basic-step]').forEach((button) => button.addEventListener("click", () => generateBasicStep(button.dataset.generateBasicStep, button)));
+    $("#basic-inspect-manifest").addEventListener("click", () => setAgentBuilderMode("advanced"));
+    $$(".basic-open-advanced").forEach((button) => button.addEventListener("click", () => openAdvancedAgentSection(button.dataset.openAgentSection)));
+    $("#basic-validate-agent").addEventListener("click", async () => {
+      try {
+        await validateAgentBlueprint();
+        $("#basic-test-result").className = "basic-test-result passed";
+        $("#basic-test-result").innerHTML = "<span>Valid</span><p>The simplified choices compile into the existing strict blueprint contract.</p>";
+      } catch {}
+    });
+    $("#basic-test-agent").addEventListener("click", runBasicTestSuite);
+    $("#basic-save-agent").addEventListener("click", saveAgent);
     $("#data-query-form").addEventListener("submit", askDatabase);
     $("#data-query-export").addEventListener("click", exportDataQueryCsv);
     $("#run-dataset-query").addEventListener("click", runDatasetQuery);
@@ -1950,7 +3070,37 @@
       labState.builderHoldings = portfolio.holdings.map((holding) => ({ ...holding }));
       renderBuilder();
     });
-    $$("[data-agent-output-tab]").forEach((button) => button.addEventListener("click", () => switchAgentOutputTab(button.dataset.agentOutputTab)));
+    $$("[data-agent-output-tab]").forEach((button) => button.addEventListener("click", () => {
+      switchAgentOutputTab(button.dataset.agentOutputTab);
+      if (button.dataset.agentOutputTab === "run") loadAgentRuns();
+    }));
+    $$("[data-agent-data-mode]").forEach((button) => button.addEventListener("click", () => setAgentRunDataMode(button.dataset.agentDataMode)));
+    $$("[data-agent-execution-mode]").forEach((button) => button.addEventListener("click", () => setAgentRunExecutionMode(button.dataset.agentExecutionMode)));
+    ["#agent-test-scenario", "#agent-real-portfolio", "#agent-real-as-of"].forEach((selector) => $(selector).addEventListener("change", () => {
+      labState.agentInputPreview = null;
+      $("#agent-input-preview-status").textContent = "Preview changed · reload required";
+    }));
+    $("#preview-agent-input").addEventListener("click", () => previewAgentInput().catch(() => {}));
+    $("#refresh-agent-runs").addEventListener("click", loadAgentRuns);
+    $("#agent-run-repository").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-agent-run-id]");
+      if (button) openAgentRun(button.dataset.agentRunId).catch((error) => {
+        $("#agent-live-state").textContent = "Load failed";
+        $("#agent-run-chat").innerHTML = `<article class="run-message critique"><p>${escapeHtml(error.message)}</p></article>`;
+      });
+    });
+    $("#agent-run-files").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-agent-run-file]");
+      if (!button || !labState.selectedAgentRunDetail) return;
+      const name = button.dataset.agentRunFile;
+      const content = labState.selectedAgentRunDetail.contents?.[name];
+      $("#agent-run-file-content").textContent = typeof content === "string" ? content : JSON.stringify(content ?? "File preview unavailable.", null, 2);
+      $$(".run-file-item").forEach((item) => item.classList.toggle("active", item === button));
+    });
+    $("#delete-agent-run").addEventListener("click", () => deleteSelectedAgentRun().catch((error) => {
+      $("#agent-live-state").textContent = "Delete failed";
+      $("#agent-run-file-content").textContent = error.message;
+    }));
     $("#lab-agent").addEventListener("click", (event) => {
       const helpButton = event.target.closest("[data-agent-help]");
       if (!helpButton) {
@@ -2291,15 +3441,22 @@
     renderAdvisorMessages();
     setAdvisorOpen(false);
     seedAgents();
+    selectBasicRecipe(labState.agentBuilderMeta.recipe_id);
     renderSavedAgents();
-    renderAgentContract();
+    renderBasicBuilder();
+    setAgentBuilderMode("basic");
+    setAgentRunDataMode("synthetic_fixture");
+    setAgentRunExecutionMode("deterministic");
+    populateAgentRunPortfolios();
+    populateCyclePortfolios();
+    loadAgentRuns();
     refreshGraphAgents();
     bind();
     configureDatasetMode();
     initializeLiveConnection();
     initializeAgentRuntime();
     const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
-    if (["dataset", "portfolio", "agent", "graph", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace);
+    if (["dataset", "portfolio", "agent", "graph", "cycle", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace);
   }
 
   initialize();
