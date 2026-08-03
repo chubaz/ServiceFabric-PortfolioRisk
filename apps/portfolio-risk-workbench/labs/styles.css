@@ -744,6 +744,7 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
 .system-object-card h2 { color: var(--navy); font-family: Georgia, serif; font-size: 18px; font-weight: 500; margin: 3px 0 7px; }
 .system-object-card p { color: var(--muted); flex: 1; font-size: 8px; line-height: 1.5; margin: 0 0 10px; }
 .system-object-card small { color: var(--amber); display: block; font-size: 7px; font-weight: 700; margin-top: 7px; }
+.system-object-card > div { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; }
 .system-object-card.future { background: #faf9f4; border-style: dashed; }
 .system-object-card.partial { border-color: #dfc995; }
 .terminology-panel { margin-top: 10px; }
@@ -770,6 +771,26 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
 .future-capability-strip b { color: var(--amber); font-size: 7px; }
 .future-capability-strip strong, .experimental-process-note strong { color: var(--navy); font-size: 8px; }
 .future-capability-strip span, .experimental-process-note span { color: var(--muted); font-size: 7px; line-height: 1.45; }
+
+.studio-toolbar, .dictionary-toolbar { align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; display: flex; gap: 9px; margin-bottom: 10px; padding: 8px 10px; }
+.studio-toolbar select { background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px; color: var(--navy); font-size: 9px; font-weight: 800; min-width: 210px; padding: 7px 9px; }
+.studio-toolbar > span { color: var(--muted); flex: 1; font-size: 7px; text-transform: capitalize; }
+.studio-workbench { display: grid; gap: 10px; grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr) minmax(300px, 1.1fr); }
+.studio-card, .studio-codex-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 11px; min-width: 0; padding: 12px; }
+.studio-card { display: flex; flex-direction: column; gap: 9px; }
+.studio-card > span, .studio-codex-panel > div span { color: var(--teal); font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.studio-card .button { margin-top: auto; }
+.studio-codex-panel { display: flex; flex-direction: column; gap: 8px; }
+.studio-codex-panel > div { align-items: center; display: flex; justify-content: space-between; }
+.studio-codex-panel > div b { background: var(--amber-pale); border-radius: 999px; color: var(--amber); font-size: 7px; padding: 5px 7px; }
+.studio-codex-panel pre { background: #102f35; border-radius: 8px; color: #dce9e8; flex: 1; font-size: 7px; line-height: 1.5; margin: 0; max-height: 440px; min-height: 260px; overflow: auto; padding: 10px; white-space: pre-wrap; }
+.dictionary-toolbar input { background: transparent; border: 0; color: var(--ink); flex: 1; font-size: 10px; outline: 0; padding: 4px; }
+.dictionary-toolbar span { background: var(--surface-2); border-radius: 999px; color: var(--muted); font-size: 8px; padding: 5px 8px; }
+.dictionary-list { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.dictionary-list article { align-items: start; border-top: 1px solid var(--line); display: grid; gap: 12px; grid-template-columns: minmax(120px, .28fr) minmax(0, 1fr); padding: 10px 12px; }
+.dictionary-list article:first-child { border-top: 0; }
+.dictionary-list strong { color: var(--navy); font-size: 8px; text-transform: capitalize; }
+.dictionary-list p { color: var(--muted); font-size: 8px; line-height: 1.45; margin: 0; }
 .lab-workspace { margin: 0 auto; max-width: 1500px; padding: 42px clamp(22px, 4vw, 62px) 80px; }
 .lab-page { display: none; }
 .lab-page.active { display: block; }
@@ -1861,6 +1882,8 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
   .workspace-navigation { max-width: 58vw; }
   .operating-zone-switcher { max-width: 100%; overflow-x: auto; }
   .system-object-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .studio-workbench { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .studio-codex-panel { grid-column: 1 / -1; }
   .terminology-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .builder-layout, .agent-layout, .graph-layout, .agent-studio-grid, .agent-design-layout { grid-template-columns: 1fr; }
   .agent-inspector-panel { position: static; }
@@ -1908,7 +1931,12 @@ dialog::backdrop { background: rgba(10, 30, 35, .62); }
   .lab-workspace { padding: 30px 16px 60px; }
   .lab-heading { grid-template-columns: 1fr; }
   .zone-rule { grid-template-columns: 1fr; }
-  .system-object-grid, .terminology-grid, .application-layout, .application-form-grid, .future-capability-strip, .experimental-process-note { grid-template-columns: 1fr; }
+  .system-object-grid, .terminology-grid, .studio-workbench, .application-layout, .application-form-grid, .future-capability-strip, .experimental-process-note { grid-template-columns: 1fr; }
+  .studio-codex-panel { grid-column: auto; }
+  .studio-toolbar { align-items: stretch; flex-wrap: wrap; }
+  .studio-toolbar select { flex: 1 1 210px; min-width: 0; }
+  .studio-toolbar > span { flex-basis: 100%; }
+  .dictionary-list article { grid-template-columns: 1fr; }
   .application-form-grid .application-wide { grid-column: auto; }
   .data-query-form { grid-template-columns: 1fr; }
   .data-query-run { width: 100%; }

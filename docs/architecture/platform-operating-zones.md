@@ -6,26 +6,25 @@
 
 ## 1. Decision
 
-The unified application has three operating zones with different responsibilities:
+The unified application has two operating areas with different responsibilities:
 
-1. **System Development** authors, isolate-tests, validates and saves reusable definitions.
-2. **Agent Application** loads saved definitions into a labelled fixture context and shows how an agent uses them.
-3. **Experimental Research** composes saved definition versions and immutable source bindings into reproducible experiments and comparisons.
+1. **System Development** has a Build phase that authors, isolate-tests and saves reusable definitions, followed by an Apply phase that loads saved definitions into a labelled Fixture Context and shows how an agent uses them.
+2. **Experimental Research** composes saved definition versions and immutable source bindings into reproducible experiments and comparisons.
 
 The zones share canonical contracts and storage services. They do not share authority implicitly.
 
 ```text
 SYSTEM DEVELOPMENT
-draft -> isolated fixture test -> saved Registry candidate -> validated/published version
-                                      |
-                                      +--------------------+
-                                                           v
-AGENT APPLICATION                              EXPERIMENTAL RESEARCH
-fixture + saved definitions                    immutable bindings + saved definitions
-  -> isolated agent/object work                  -> run / pause / evaluate / compare
-  -> temporary run work products                 -> experiment work products
-                  |                                             |
-                  +------ explicit retention review ------------+
+BUILD                                            APPLY
+draft -> isolated object test                    fixture + saved definitions
+  -> Registry candidate -> saved version ----------> isolated agent/object work
+                                                     -> temporary run work products
+                         |                                      |
+                         +---------- saved versions ------------+-----> EXPERIMENTAL RESEARCH
+                                                                 immutable bindings + saved definitions
+                                                                   -> run / pause / compare
+                                                                   -> experiment work products
+                         +------------- explicit retention review -------------+
                                         |
                                         v
                               ARTIFACT REPOSITORY
@@ -39,7 +38,8 @@ fixture + saved definitions                    immutable bindings + saved defini
 | Reusable definition | A system-level object with stable identity, version, source pointer and lifecycle. |
 | Saved definition | A definition explicitly indexed in the Registry. Source discovery alone is not saving. |
 | Fixture Context | A labelled, point-in-time input environment used to exercise an object or agent. |
-| Application scenario | A saved agent plus selected saved definitions and one Fixture Context. |
+| Application scenario | A System Development Apply-phase test containing a saved agent, selected saved definitions and one Fixture Context. |
+| Companion capability | A typed operation needed to create, validate, lifecycle, modify or apply a reusable definition. |
 | Experiment | A reproducible composition of immutable source bindings, saved definitions, execution policy and evaluation intent. |
 | Run work product | Any output created by one application or experiment execution. It is temporary by default. |
 | Artifact | A run work product deliberately retained in content-addressed storage with provenance, truth and lifecycle policy. |
@@ -51,29 +51,30 @@ An Artifact is therefore important, but it is not a synonym for every system obj
 
 ### 3.1 Responsibility
 
-System Development owns singular object construction and fixture testing:
+System Development owns singular object construction and its controlled application test:
 
 - AgentBlueprint and agent role;
 - CapabilityDefinition;
 - ReportTemplate;
 - DashboardPackage;
 - ScenarioDefinition;
-- EvaluationSuite;
 - future WorkflowDefinition;
 - future ProviderAdapter;
 - future PortfolioVersion and MandateVersion.
 
-The current Registry remains an index over canonical sources rather than their replacement. Git remains authoritative for reviewed code and declarative definitions. Registry metadata adds discovery, immutable identity, lifecycle, compatibility, provenance and relationships.
+Each Studio treats the reusable definition and its necessary companion capabilities as one development concern. A Dashboard Studio may therefore build both a `DashboardPackage` and the typed capabilities that validate, render or update it. This does not fuse their identities: each remains separately versioned, reviewable and least-privileged. Agent and Capability Studios add companion capabilities only for lifecycle or native framework gaps.
+
+The current Registry remains an index over canonical sources rather than their replacement. Git remains authoritative for reviewed code and declarative definitions. Registry metadata adds discovery, immutable identity, lifecycle, compatibility, provenance and relationships. Evaluation authoring is deliberately deferred until the thesis evaluation methodology is agreed.
 
 ### 3.2 Save gate
 
 A draft may be tested locally without being reusable. It becomes loadable only after explicit Registry indexing creates a candidate lifecycle receipt. Validation and local publication add review strength; they do not deploy the object or grant financial effects.
 
-Candidate, validated and locally published workflow/evaluation definitions may enter development experiments. Deprecated, retired, archived and merely discovered definitions may not enter new experiments. Existing experiment records retain their exact historical identities.
+Candidate, validated and locally published definitions may enter development experiments. Deprecated, retired, archived and merely discovered definitions may not enter new experiments. Existing experiment records retain their exact historical identities.
 
-## 4. Agent Application
+## 4. System Development: Apply
 
-Agent Application is not another authoring form. It is an object-behaviour workbench.
+The Apply phase is not another authoring form. It is an object-behaviour workbench reached from every Studio after a version has been saved.
 
 An Application Scenario declares:
 
@@ -123,7 +124,7 @@ The `GET /api/platform/workspaces` endpoint is a projection across these service
 | Phase | Required follow-through from this boundary |
 |---|---|
 | PLATFORM-P7 | Create portable Fixture Context contracts; separate portfolio, environment and portfolio-applied environment layers; preserve point-in-time eligibility and context revisions. |
-| PLATFORM-P8 | Execute one saved agent with selected saved capabilities and presentation definitions in Agent Application; retain complete work receipts and compare output revisions. |
+| PLATFORM-P8 | Execute one saved agent with selected saved capabilities and presentation definitions in the System Development Apply phase; retain complete work receipts and compare output revisions. |
 | PLATFORM-P9 | Make PortfolioVersion and MandateVersion first-class registered definitions; build Mandate Lab and mandate knowledge-graph mappings. |
 | PLATFORM-P11 | Route agent-authored change proposals to System Development without permitting runtime code mutation or self-promotion. |
 | PLATFORM-P12 | Implement the development-only Studio-Codex gateway, worktree lifecycle and candidate definition registration. |
@@ -142,6 +143,6 @@ Placeholders in the interface must name the phase that unlocks them. A placehold
 5. Fixtures always disclose real, synthetic, simulated or mixed truth.
 6. Application testing cannot mutate the canonical definition under test.
 7. Experimental overlays remain local and digest-bound.
-8. System, application and research authority is visible in the interface and in API validation.
+8. Build, Apply and Experimental Research authority is visible in the interface and in API validation.
 9. External financial effects remain disabled.
 10. Future controls remain honest placeholders until their contracts and tests exist.

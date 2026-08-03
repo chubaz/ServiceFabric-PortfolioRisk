@@ -109,15 +109,20 @@ high-risk boundary changes.
 
 ## Post-acceptance structural correction
 
-Before Phase 7, the unified Labs shell was corrected to expose three operating
-zones without replacing the accepted Phase 6 stores or decision contracts:
+Before Phase 7, the unified Labs shell was corrected to expose two operating
+areas without replacing the accepted Phase 6 stores or decision contracts:
 
-1. **System Development** for authoring, singular fixture tests and explicit
-   Registry saving;
-2. **Agent Application** for loading saved definitions into a labelled fixture
-   and reviewing object/agent behaviour through the existing isolated runner;
-3. **Experimental Research** for persistent experiment composition, queueing and
+1. **System Development**, with a Build phase for authoring, singular fixture
+   tests and explicit Registry saving, and an Apply phase for loading saved
+   definitions into a labelled fixture and reviewing object/agent behaviour;
+2. **Experimental Research** for persistent experiment composition, queueing and
    comparison.
+
+The System Development overview is a minimal launcher of eight object Studios.
+Each Studio treats its reusable definition and any necessary companion
+capabilities as one development concern, then hands a saved version to the Apply
+phase. Shared terminology lives in a separate searchable Dictionary. Evaluation
+authoring remains deferred until its thesis methodology is decided.
 
 The correction also closes an experiment admission defect: source discovery is
 no longer enough to enter a new experiment. Workflow and evaluation identities

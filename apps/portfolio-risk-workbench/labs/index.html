@@ -31,22 +31,22 @@
     <div class="workspace-navigation">
       <nav class="operating-zone-switcher" aria-label="Operating zones">
         <button class="operating-zone-tab active" type="button" data-zone="system">System Development</button>
-        <button class="operating-zone-tab" type="button" data-zone="application">Agent Application</button>
         <button class="operating-zone-tab" type="button" data-zone="research">Experimental Research</button>
       </nav>
       <nav class="workspace-switcher" aria-label="Workspaces in the selected operating zone">
         <button class="workspace-tab active" type="button" data-zone="system" data-workspace="system">Overview</button>
+        <button class="workspace-tab" type="button" data-zone="system" data-workspace="studio">Studios</button>
+        <button class="workspace-tab" type="button" data-zone="system" data-workspace="application">Application testing</button>
+        <button class="workspace-tab" type="button" data-zone="system" data-workspace="dictionary">Dictionary</button>
         <button class="workspace-tab" type="button" data-zone="system" data-workspace="registry">Registry</button>
         <button class="workspace-tab" type="button" data-zone="system" data-workspace="portfolio">Portfolio</button>
         <button class="workspace-tab" type="button" data-zone="system" data-workspace="agent">Agent Studio</button>
         <button class="workspace-tab" type="button" data-zone="system" data-workspace="graph">Agent graph</button>
 
-        <button class="workspace-tab hidden" type="button" data-zone="application" data-workspace="application">Overview</button>
-        <button class="workspace-tab hidden" type="button" data-zone="application" data-workspace="dataset">Data utility</button>
-        <button class="workspace-tab hidden" type="button" data-zone="application" data-workspace="agent">Isolated agent</button>
-        <button class="workspace-tab hidden" type="button" data-zone="application" data-workspace="decisions">Decisions</button>
-        <button class="workspace-tab hidden" type="button" data-zone="application" data-workspace="decision-diligence">Due diligence</button>
-        <button class="workspace-tab hidden" type="button" data-zone="application" data-workspace="cycle">Workflow cycle</button>
+        <button class="workspace-tab" type="button" data-zone="system" data-workspace="dataset">Data utility</button>
+        <button class="workspace-tab" type="button" data-zone="system" data-workspace="decisions">Decisions</button>
+        <button class="workspace-tab" type="button" data-zone="system" data-workspace="decision-diligence">Due diligence</button>
+        <button class="workspace-tab" type="button" data-zone="system" data-workspace="cycle">Workflow cycle</button>
 
         <button class="workspace-tab hidden" type="button" data-zone="research" data-workspace="experiments">Experiments</button>
         <button class="workspace-tab hidden" type="button" data-zone="research" data-workspace="artifacts">Artifacts</button>
@@ -68,26 +68,54 @@
 
   <main class="lab-workspace" id="lab-workspace">
     <section class="lab-page active" id="lab-system" aria-labelledby="lab-system-title">
-      <div class="lab-heading platform-zone-heading">
-        <div><span class="eyebrow">Operating zone 01</span><h1 id="lab-system-title">Develop the reusable system</h1><p>Create and isolate-test one definition at a time. A definition becomes available to Agent Application and Experimental Research only after it is explicitly saved in the versioned Registry.</p></div>
-        <button class="button primary" type="button" data-open-workspace="registry">Open Registry</button>
-      </div>
-      <div class="zone-rule" role="note"><strong>Definition boundary</strong><span>Agents, capabilities, reports, dashboards, scenarios and workflows are reusable definitions. Run outputs are not definitions and cannot silently enter the Registry.</span></div>
-      <div class="registry-summary" id="system-definition-summary"><div><strong>—</strong><span>Loading saved definitions</span></div></div>
-      <section class="definition-lifecycle" aria-label="Definition lifecycle">
-        <span>1 · Author draft</span><b>→</b><span>2 · Isolated fixture test</span><b>→</b><span>3 · Save candidate</span><b>→</b><span>4 · Validate</span><b>→</b><strong>5 · Load into application or experiment</strong>
-      </section>
       <div class="system-object-grid" id="system-object-grid">
-        <article class="system-object-card partial"><span>AgentBlueprint</span><h2>Agents</h2><p>Describe, compile and isolate-test governed analytical workers. Existing canonical roles can be indexed now; promoting a new Studio draft into a canonical Registry candidate requires the approved development gateway.</p><button class="text-button" type="button" data-open-workspace="agent">Open Agent Studio</button><small>Draft promotion · PLATFORM-P11/P12</small></article>
-        <article class="system-object-card ready"><span>CapabilityDefinition</span><h2>Capabilities</h2><p>Inspect registered typed operations and their canonical handlers. A dedicated Capability Studio follows the same lifecycle.</p><button class="text-button" type="button" data-open-registry-kind="capability">Inspect capabilities</button></article>
-        <article class="system-object-card ready"><span>ReportTemplate · DashboardPackage · ScenarioDefinition</span><h2>Presentation and scenarios</h2><p>Review the reusable definitions that shape reports, dashboards and controlled scenario work.</p><button class="text-button" type="button" data-open-registry-kind="report">Open definitions</button></article>
-        <article class="system-object-card partial"><span>Portfolio source binding</span><h2>Portfolios</h2><p>The current builder saves reviewed browser drafts. First-class Registry-backed portfolio versions arrive with Mandate Lab.</p><button class="text-button" type="button" data-open-workspace="portfolio">Open Portfolio Builder</button><small>Dependency · PLATFORM-P9</small></article>
-        <article class="system-object-card future"><span>MandateVersion</span><h2>Mandates</h2><p>Professional rules, covenants and knowledge-graph mappings will become reusable context for agents and experiments.</p><small>Planned · PLATFORM-P9 Mandate Lab</small></article>
-        <article class="system-object-card future"><span>WorkflowDefinition</span><h2>Workflows</h2><p>Compose saved agents into versioned graphs with explicit contracts, review points and authority.</p><button class="text-button" type="button" data-open-workspace="graph">Open current graph preview</button><small>Executable composition · PLATFORM-P14</small></article>
-        <article class="system-object-card future"><span>ProviderAdapter</span><h2>Providers and connectors</h2><p>Govern MCP, API, database and other integrations without granting raw access to every agent.</p><small>Planned · PLATFORM-P15</small></article>
-        <article class="system-object-card future"><span>EvaluationSuite</span><h2>Evaluation</h2><p>Define normal, failure, adversarial and historical-replay gates for versions before research comparison.</p><button class="text-button" type="button" data-open-registry-kind="evaluation">Inspect evaluations</button></article>
+        <article class="system-object-card partial"><span>AgentBlueprint</span><h2 id="lab-system-title">Agent Studio</h2><p>Design and test agents.</p><div><button class="text-button" type="button" data-open-studio="agent">Open Studio</button><button class="text-button" type="button" data-open-registry-kind="agent">Registry</button></div></article>
+        <article class="system-object-card ready"><span>CapabilityDefinition</span><h2>Capability Studio</h2><p>Build typed operations.</p><div><button class="text-button" type="button" data-open-studio="capability">Open Studio</button><button class="text-button" type="button" data-open-registry-kind="capability">Registry</button></div></article>
+        <article class="system-object-card ready"><span>ScenarioDefinition</span><h2>Scenario Studio</h2><p>Build and lifecycle scenarios.</p><div><button class="text-button" type="button" data-open-studio="scenario">Open Studio</button><button class="text-button" type="button" data-open-registry-kind="scenario">Registry</button></div></article>
+        <article class="system-object-card ready"><span>DashboardPackage</span><h2>Dashboard Studio</h2><p>Compose persistent monitoring views.</p><div><button class="text-button" type="button" data-open-studio="dashboard">Open Studio</button><button class="text-button" type="button" data-open-registry-kind="dashboard">Registry</button></div></article>
+        <article class="system-object-card ready"><span>ReportTemplate</span><h2>Report Studio</h2><p>Design Markdown-first reports.</p><div><button class="text-button" type="button" data-open-studio="report">Open Studio</button><button class="text-button" type="button" data-open-registry-kind="report">Registry</button></div></article>
+        <article class="system-object-card partial"><span>PortfolioVersion + MandateVersion</span><h2>Portfolio & Mandate Studio</h2><p>Model holdings, rules and covenants.</p><div><button class="text-button" type="button" data-open-studio="portfolio_mandate">Open Studio</button><button class="text-button" type="button" data-open-workspace="portfolio">Current builder</button></div><small>PLATFORM-P9</small></article>
+        <article class="system-object-card future"><span>AgentGraphDefinition + WorkflowDefinition</span><h2>Workflow Studio</h2><p>Compose agents and review points.</p><div><button class="text-button" type="button" data-open-studio="workflow">Open Studio</button><button class="text-button" type="button" data-open-workspace="graph">Graph preview</button></div><small>PLATFORM-P14</small></article>
+        <article class="system-object-card future"><span>ProviderAdapter</span><h2>Provider & Connector Studio</h2><p>Build governed integrations.</p><button class="text-button" type="button" data-open-studio="provider_connector">Open Studio</button><small>PLATFORM-P15</small></article>
       </div>
-      <section class="lab-panel terminology-panel"><div class="panel-heading"><div><span class="panel-label">Shared language</span><h2>Definitions are reusable; artifacts are retained work products</h2></div></div><div id="platform-terminology" class="terminology-grid"></div></section>
+    </section>
+
+    <section class="lab-page" id="lab-studio" aria-label="System object studio">
+      <div class="studio-toolbar">
+        <button class="text-button" type="button" data-open-workspace="system">← Objects</button>
+        <select id="studio-profile-select" aria-label="Studio"></select>
+        <span id="studio-availability"></span>
+        <button class="text-button" type="button" data-open-workspace="registry">Registry</button>
+      </div>
+      <div class="studio-workbench">
+        <section class="studio-card">
+          <span>Build</span>
+          <label class="field"><span>Name</span><input id="studio-object-name" placeholder="Object name"></label>
+          <label class="field"><span>Object</span><textarea id="studio-object-brief" rows="5" placeholder="Describe what the object is and how it should behave."></textarea></label>
+          <label class="field"><span>Companion capabilities</span><textarea id="studio-capability-brief" rows="5" placeholder="Describe how agents create, validate, modify, lifecycle or apply it."></textarea></label>
+          <button class="button primary" id="studio-prepare-brief" type="button">Prepare Codex brief</button>
+        </section>
+        <section class="studio-card">
+          <span>Apply</span>
+          <label class="field"><span>Saved object</span><select id="studio-saved-object"></select></label>
+          <label class="field"><span>Agent</span><select id="studio-agent"></select></label>
+          <label class="field"><span>Fixture</span><select id="studio-fixture"></select></label>
+          <label class="field"><span>Portfolio</span><select id="studio-portfolio"></select></label>
+          <label class="field"><span>Test</span><textarea id="studio-test-brief" rows="5" placeholder="What should the agent do to this object?"></textarea></label>
+          <button class="button primary" id="studio-prepare-application" type="button">Open application test</button>
+        </section>
+        <aside class="studio-codex-panel">
+          <div><span>Studio–Codex</span><b>PLATFORM-P12</b></div>
+          <pre id="studio-codex-brief">Prepare a build brief.</pre>
+          <button class="button ghost" id="studio-copy-brief" type="button" disabled>Copy brief</button>
+          <button class="button primary" type="button" disabled>Start Codex session</button>
+        </aside>
+      </div>
+    </section>
+
+    <section class="lab-page" id="lab-dictionary" aria-label="Shared language dictionary">
+      <div class="dictionary-toolbar"><input id="dictionary-search" type="search" placeholder="Search shared language"><span id="dictionary-count">0</span></div>
+      <div class="dictionary-list" id="dictionary-list"></div>
     </section>
 
     <section class="lab-page" id="lab-application" aria-labelledby="lab-application-title">

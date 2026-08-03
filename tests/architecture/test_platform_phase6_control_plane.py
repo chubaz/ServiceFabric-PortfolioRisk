@@ -57,15 +57,18 @@ def test_due_diligence_reuses_decision_repository_and_has_dedicated_workspace() 
     assert "The output is a candidate proposal revision for review." in javascript
 
 
-def test_unified_application_separates_development_application_and_research() -> None:
+def test_unified_application_separates_system_development_and_research() -> None:
     server = read("apps/portfolio-risk-workbench/labs/duckdb_server.py")
     html = read("apps/portfolio-risk-workbench/labs/index.html")
     javascript = read("apps/portfolio-risk-workbench/labs/labs.js")
     architecture = read("docs/architecture/platform-operating-zones.md")
-    for zone in ("system", "application", "research"):
+    for zone in ("system", "research"):
         assert f'data-zone="{zone}"' in html
+    assert 'data-zone="application"' not in html
     assert 'id="lab-system"' in html
+    assert 'id="lab-studio"' in html
     assert 'id="lab-application"' in html
+    assert 'id="lab-dictionary"' in html
     assert 'id="lab-experiments"' in html
     assert "/api/platform/workspaces" in server
     assert "_require_experiment_registry_assets" in server
@@ -76,13 +79,42 @@ def test_unified_application_separates_development_application_and_research() ->
     assert "Artifact retention is explicit and does not promote an object" in architecture
 
 
+def test_system_overview_is_a_minimal_object_launcher() -> None:
+    html = read("apps/portfolio-risk-workbench/labs/index.html")
+    overview = html.split('<section class="lab-page active" id="lab-system"', 1)[1].split(
+        '<section class="lab-page" id="lab-studio"', 1
+    )[0]
+    assert overview.count('data-open-studio=') == 8
+    assert "<h1" not in overview
+    assert "definition-lifecycle" not in overview
+    assert "registry-summary" not in overview
+    assert "platform-terminology" not in overview
+    assert 'id="dictionary-search"' in html
+    assert 'id="dictionary-list"' in html
+
+
+def test_studios_pair_objects_with_companion_capabilities_and_safe_codex_handoff() -> None:
+    server = read("apps/portfolio-risk-workbench/labs/duckdb_server.py")
+    html = read("apps/portfolio-risk-workbench/labs/index.html")
+    javascript = read("apps/portfolio-risk-workbench/labs/labs.js")
+    for studio in (
+        "capability", "scenario", "dashboard", "report", "portfolio_mandate",
+        "workflow", "provider_connector", "agent",
+    ):
+        assert f'"studio_id": "{studio}"' in server
+    assert "Companion capabilities" in html
+    assert '<button class="button primary" type="button" disabled>Start Codex session</button>' in html
+    assert "Do not publish, merge or remove the worktree" in javascript
+    assert "function prepareStudioApplication" in javascript
+
+
 def test_future_zone_dependencies_are_visible_and_non_executable() -> None:
     html = read("apps/portfolio-risk-workbench/labs/index.html")
     architecture = read("docs/architecture/platform-operating-zones.md")
     for phase in ("PLATFORM-P7", "PLATFORM-P8", "PLATFORM-P9", "PLATFORM-P14", "PLATFORM-P15"):
         assert phase in architecture
-    assert "PLATFORM-P9 Mandate Lab" in html
-    assert "Executable composition · PLATFORM-P14" in html
+    assert "PLATFORM-P9" in html
+    assert "PLATFORM-P14" in html
     assert "fractioned_human\" disabled" in html
     assert "parallel_headless\" disabled" in html
 

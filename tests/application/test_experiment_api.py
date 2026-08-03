@@ -201,10 +201,13 @@ def test_platform_workspace_projection_separates_definitions_and_artifacts(
 ) -> None:
     workflow_identity(tmp_path, monkeypatch)
     payload = duckdb_server.platform_workspaces()
-    assert [zone["zone_id"] for zone in payload["zones"]] == [
-        "system", "application", "research"
-    ]
+    assert [zone["zone_id"] for zone in payload["zones"]] == ["system", "research"]
+    assert [phase["phase_id"] for phase in payload["development_phases"]] == ["build", "apply"]
+    assert {profile["studio_id"] for profile in payload["studio_profiles"]} >= {
+        "agent", "capability", "dashboard", "report", "scenario", "workflow"
+    }
     assert payload["terminology"]["artifact"].startswith("A run work product")
+    assert "companion_capability" in payload["terminology"]
     assert payload["saved_counts"]["workflow"] == 1
     assert payload["saved_definitions"][0]["experiment_eligible"] is True
     assert {item["phase"] for item in payload["future_dependencies"]} >= {
