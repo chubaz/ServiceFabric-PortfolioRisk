@@ -238,6 +238,114 @@ def test_missing_committed_event_stream_cannot_fall_back_to_snapshot(
         LocalRegistryStore(store.root).get(identity)
 
 
+def test_valid_replacement_projection_cannot_escape_catalogue_anchor(
+    tmp_path: Path,
+) -> None:
+    store = LocalRegistryStore(tmp_path / "registry")
+    identity = projection().identity
+    store.index(projection(), actor="tester")
+    store.transition(
+        identity,
+        LifecycleState.VALIDATED,
+        actor="reviewer",
+        rationale="Contract and source checks passed.",
+    )
+    changed_source = projection().source.model_copy(
+        update={"definition_digest": "e" * 64}
+    )
+    changed_compatibility = projection().compatibility.model_copy(
+        update={"evaluated_source_digest": "e" * 64}
+    )
+    replacement = projection().model_copy(
+        update={
+            "summary": "A validly encoded but unauthorized replacement projection.",
+            "source": changed_source,
+            "compatibility": changed_compatibility,
+        }
+    )
+    projection_path = store._projection_path(identity)  # noqa: SLF001
+    projection_path.chmod(0o600)
+    projection_path.write_text(
+        replacement.model_dump_json(indent=2) + "\n", encoding="utf-8"
+    )
+    store._path(identity).unlink()  # noqa: SLF001 - remove derived snapshot only
+
+    with pytest.raises(RegistryConflict, match="projection.*catalogue anchor"):
+        LocalRegistryStore(store.root).get(identity)
+
+
+def test_interrupted_transition_remains_available_and_exact_retry_recovers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = LocalRegistryStore(tmp_path / "registry")
+    identity = projection().identity
+    store.index(projection(), actor="tester")
+
+    def fail_catalog_commit(entries: dict[str, dict[str, str]]) -> None:
+        raise OSError("injected catalogue commit failure")
+
+    monkeypatch.setattr(store, "_write_catalog", fail_catalog_commit)
+    with pytest.raises(OSError, match="injected catalogue commit failure"):
+        store.transition(
+            identity,
+            LifecycleState.VALIDATED,
+            actor="reviewer",
+            rationale="Contract and source checks passed.",
+        )
+
+    restarted = LocalRegistryStore(store.root)
+    assert restarted.get(identity).state is LifecycleState.CANDIDATE
+    assert restarted.list()[0].state is LifecycleState.CANDIDATE
+    with pytest.raises(RegistryConflict, match="retried exactly"):
+        restarted.transition(
+            identity,
+            LifecycleState.VALIDATED,
+            actor="different-reviewer",
+            rationale="Contract and source checks passed.",
+        )
+
+    recovered = restarted.transition(
+        identity,
+        LifecycleState.VALIDATED,
+        actor="reviewer",
+        rationale="Contract and source checks passed.",
+    )
+    assert recovered.state is LifecycleState.VALIDATED
+    assert len(recovered.receipts) == 2
+
+
+def test_transition_retry_is_idempotent_when_catalogue_commit_completed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = LocalRegistryStore(tmp_path / "registry")
+    identity = projection().identity
+    store.index(projection(), actor="tester")
+    original_write_catalog = store._write_catalog  # noqa: SLF001 - fault injection
+
+    def commit_then_report_failure(entries: dict[str, dict[str, str]]) -> None:
+        original_write_catalog(entries)
+        raise OSError("injected post-commit reporting failure")
+
+    monkeypatch.setattr(store, "_write_catalog", commit_then_report_failure)
+    with pytest.raises(OSError, match="post-commit reporting failure"):
+        store.transition(
+            identity,
+            LifecycleState.VALIDATED,
+            actor="reviewer",
+            rationale="Contract and source checks passed.",
+        )
+
+    restarted = LocalRegistryStore(store.root)
+    recovered = restarted.transition(
+        identity,
+        LifecycleState.VALIDATED,
+        actor="reviewer",
+        rationale="Contract and source checks passed.",
+    )
+    assert recovered.state is LifecycleState.VALIDATED
+    assert len(recovered.receipts) == 2
+
+
 def test_deprecation_requires_replacement_reference(tmp_path: Path) -> None:
     store = LocalRegistryStore(tmp_path / "registry")
     identity = projection().identity

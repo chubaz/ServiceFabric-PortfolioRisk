@@ -48,7 +48,7 @@ a clean worktree.
 ## Tests
 
 - `make verify-platform-phase1 DAY0_VENV=.../state/venvs/thesis-sprint` — PASS,
-  38 focused tests plus environment, repository, package and diff gates.
+  41 focused tests plus environment, repository, package and diff gates.
 - `make test-application test-architecture DAY0_VENV=.../state/venvs/thesis-sprint`
   — PASS, 104 application tests and 105 architecture tests.
 - Browser verification at `http://127.0.0.1:8767/?workspace=registry` — PASS:
@@ -92,6 +92,14 @@ event and anchor filenames must be exactly contiguous; each receipt digest is
 checked against both a read-only per-event anchor and the atomically committed
 catalogue head; and partial files from an injected bootstrap write failure stay
 uncommitted and invisible until a complete retry commits the whole catalogue.
+The next clean review found that the projection itself still needed an
+independent binding; the committed catalogue now also anchors the exact
+canonical serialization digest of every projection, so a validly recomputed
+same-identity replacement fails closed even without its derived snapshot.
+Reads expose only the receipt prefix named by that committed catalogue, while
+an exact durable trailing receipt from an interrupted transition is adopted by
+an identical retry. A retry is also idempotent when the catalogue commit
+completed but the caller received a post-commit failure.
 
 The API no longer returns an absolute host registry path. The next P1-05 review
 must assess a new exact commit; the earlier BLOCKED candidate cannot be accepted.

@@ -179,6 +179,12 @@ class LocalRegistryStore:
         ).encode("utf-8")
         return hashlib.sha256(payload).hexdigest()
 
+    @staticmethod
+    def _projection_digest(projection: RegistryProjection) -> str:
+        return hashlib.sha256(
+            projection.model_dump_json().encode("utf-8")
+        ).hexdigest()
+
     def _read_catalog(self) -> dict[str, dict[str, str]]:
         if not self.catalog_path.exists():
             return {}
@@ -200,15 +206,25 @@ class LocalRegistryStore:
             if (
                 not isinstance(reference, str)
                 or not isinstance(entry, dict)
-                or set(entry) != {"key", "head_receipt_digest"}
+                or set(entry) != {
+                    "key",
+                    "head_receipt_digest",
+                    "projection_digest",
+                }
                 or not isinstance(entry["key"], str)
                 or not isinstance(entry["head_receipt_digest"], str)
+                or not isinstance(entry["projection_digest"], str)
                 or len(entry["key"]) != 64
                 or any(character not in "0123456789abcdef" for character in entry["key"])
                 or len(entry["head_receipt_digest"]) != 64
                 or any(
                     character not in "0123456789abcdef"
                     for character in entry["head_receipt_digest"]
+                )
+                or len(entry["projection_digest"]) != 64
+                or any(
+                    character not in "0123456789abcdef"
+                    for character in entry["projection_digest"]
                 )
             ):
                 raise RegistryConflict("registry catalogue entry is invalid")
@@ -251,6 +267,7 @@ class LocalRegistryStore:
             updated[identity.reference] = {
                 "key": self._key(identity),
                 "head_receipt_digest": document.receipts[-1].receipt_digest,
+                "projection_digest": self._projection_digest(document.projection),
             }
         self._write_catalog(updated)
 
@@ -313,6 +330,42 @@ class LocalRegistryStore:
             anchor_path = anchors_path / f"{receipt.sequence:06d}.sha256"
             if not anchor_path.exists():
                 self._write_immutable_text(anchor_path, f"{receipt.receipt_digest}\n")
+
+    def _committed_document(
+        self,
+        reconstructed: RegistryDocument,
+        entry: dict[str, str],
+    ) -> RegistryDocument:
+        """Select the catalogue-committed prefix from a durable event stream."""
+
+        if self._projection_digest(reconstructed.projection) != entry["projection_digest"]:
+            raise RegistryConflict(
+                "registry projection does not match its catalogue anchor"
+            )
+        committed_index = next(
+            (
+                index
+                for index, receipt in enumerate(reconstructed.receipts)
+                if receipt.receipt_digest == entry["head_receipt_digest"]
+            ),
+            None,
+        )
+        if committed_index is None:
+            raise RegistryConflict(
+                "registry lifecycle stream does not contain its committed catalogue head"
+            )
+        committed = RegistryDocument(
+            projection=reconstructed.projection,
+            receipts=reconstructed.receipts[: committed_index + 1],
+        )
+        snapshot_path = self._path(reconstructed.projection.identity)
+        if snapshot_path.exists():
+            snapshot = self._read_path(snapshot_path)
+            if snapshot not in (committed, reconstructed):
+                raise RegistryConflict(
+                    "registry snapshot does not match its lifecycle event stream"
+                )
+        return committed
 
     def _write(self, path: Path, document: RegistryDocument) -> None:
         self._ensure_safe_root()
@@ -459,15 +512,7 @@ class LocalRegistryStore:
                 raise ValueError("registry record may not be a symbolic link")
             reconstructed = self._reconstruct(identity)
             if reconstructed is not None:
-                if reconstructed.receipts[-1].receipt_digest != entry["head_receipt_digest"]:
-                    raise RegistryConflict(
-                        "registry lifecycle head does not match its catalogue anchor"
-                    )
-                if path.exists() and self._read_path(path) != reconstructed:
-                    raise RegistryConflict(
-                        "registry snapshot does not match its lifecycle event stream"
-                    )
-                return reconstructed
+                return self._committed_document(reconstructed, entry)
             raise RegistryConflict("committed registry lifecycle event stream is missing")
 
     def list(
@@ -490,16 +535,7 @@ class LocalRegistryStore:
                 document = self._reconstruct(projection.identity)
                 if document is None:
                     raise RegistryConflict("registry projection could not be reconstructed")
-                if document.receipts[-1].receipt_digest != entry["head_receipt_digest"]:
-                    raise RegistryConflict(
-                        "registry lifecycle head does not match its catalogue anchor"
-                    )
-                snapshot_path = self.records_root / f"{entry['key']}.json"
-                if snapshot_path.exists() and self._read_path(snapshot_path) != document:
-                    raise RegistryConflict(
-                        "registry snapshot does not match its lifecycle event stream"
-                    )
-                documents.append(document)
+                documents.append(self._committed_document(document, entry))
         needle = (query or "").strip().casefold()
         selected = [
             item
@@ -537,6 +573,20 @@ class LocalRegistryStore:
         with self._lock, self._mutation_lock():
             current = self.get(identity)
             self._materialize_event_stream(current)
+            if current.state is to_state:
+                receipt = current.receipts[-1]
+                same_completed_request = (
+                    receipt.actor == actor
+                    and receipt.rationale == rationale
+                    and receipt.replacement_reference == replacement_reference
+                    and (
+                        occurred_at is None
+                        or receipt.occurred_at
+                        == occurred_at.astimezone(timezone.utc)
+                    )
+                )
+                if same_completed_request:
+                    return current
             if expected_revision is not None and expected_revision != current.receipts[-1].receipt_digest:
                 raise RegistryConflict("registry item changed after it was reviewed")
             if to_state not in LIFECYCLE_TRANSITIONS[current.state]:
@@ -552,28 +602,57 @@ class LocalRegistryStore:
                     raise RegistryConflict(
                         "publication requires a compatible source observation"
                     )
-            receipt = LifecycleReceipt.create(
-                registry_reference=identity.reference,
-                sequence=len(current.receipts) + 1,
-                from_state=current.state,
-                to_state=to_state,
-                actor=actor,
-                rationale=rationale,
-                replacement_reference=replacement_reference,
-                occurred_at=occurred_at or datetime.now(timezone.utc),
-                prior_receipt_digest=current.receipts[-1].receipt_digest,
-            )
-            updated = RegistryDocument(
-                projection=current.projection,
-                receipts=(*current.receipts, receipt),
-            )
-            self._write_immutable(
-                self._events_path(identity) / f"{receipt.sequence:06d}.json", receipt
-            )
-            self._write_immutable_text(
-                self._anchors_path(identity) / f"{receipt.sequence:06d}.sha256",
-                f"{receipt.receipt_digest}\n",
-            )
+            durable = self._reconstruct(identity)
+            if durable is None:  # pragma: no cover - get() already proved it exists
+                raise RegistryConflict("committed registry lifecycle event stream is missing")
+            trailing = durable.receipts[len(current.receipts) :]
+            if trailing:
+                if len(trailing) != 1:
+                    raise RegistryConflict(
+                        "registry contains more than one uncommitted lifecycle receipt"
+                    )
+                receipt = trailing[0]
+                same_request = (
+                    receipt.from_state is current.state
+                    and receipt.to_state is to_state
+                    and receipt.actor == actor
+                    and receipt.rationale == rationale
+                    and receipt.replacement_reference == replacement_reference
+                    and (
+                        occurred_at is None
+                        or receipt.occurred_at
+                        == occurred_at.astimezone(timezone.utc)
+                    )
+                )
+                if not same_request:
+                    raise RegistryConflict(
+                        "an interrupted lifecycle transition must be retried exactly"
+                    )
+                updated = durable
+            else:
+                receipt = LifecycleReceipt.create(
+                    registry_reference=identity.reference,
+                    sequence=len(current.receipts) + 1,
+                    from_state=current.state,
+                    to_state=to_state,
+                    actor=actor,
+                    rationale=rationale,
+                    replacement_reference=replacement_reference,
+                    occurred_at=occurred_at or datetime.now(timezone.utc),
+                    prior_receipt_digest=current.receipts[-1].receipt_digest,
+                )
+                updated = RegistryDocument(
+                    projection=current.projection,
+                    receipts=(*current.receipts, receipt),
+                )
+                self._write_immutable(
+                    self._events_path(identity) / f"{receipt.sequence:06d}.json",
+                    receipt,
+                )
+                self._write_immutable_text(
+                    self._anchors_path(identity) / f"{receipt.sequence:06d}.sha256",
+                    f"{receipt.receipt_digest}\n",
+                )
             self._write(self._path(identity), updated)
             self._commit_catalog((updated,))
             return updated
