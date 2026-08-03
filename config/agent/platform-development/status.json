@@ -1,5 +1,5 @@
 {
-  "current": "PLATFORM-P2",
+  "current": "PLATFORM-P3",
   "phase_0": "accepted",
   "baseline_commit": "21339db19357277ca9a9a1ca50107f1a884d7aeb",
   "phase_0_accepted_candidate_commit": "76651ea8a580832698e99e594581db9c12969dd4",
@@ -9,7 +9,10 @@
   "phase_2": "accepted",
   "phase_2_accepted_candidate_commit": "b8eacc67ca9344944631c425e133c639395df9cf",
   "phase_2_qa_commit": "3d1617a033104a91d8da48e5a50664dcb9f8ba09",
-  "active_wave": "complete",
+  "phase_3_baseline_commit": "5426cacee004817c17215ec8bff3747d5d00c2c2",
+  "phase_3": "in_progress",
+  "active_wave": "integration_implementation",
+  "verification_cadence": "focused_each_phase_full_cross_phase_every_three_phases_or_high_risk_boundary",
   "prior_thesis_state": "deferred",
   "development_profile_only": true,
   "external_effects": "disabled"

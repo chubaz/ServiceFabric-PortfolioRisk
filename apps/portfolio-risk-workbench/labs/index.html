@@ -35,6 +35,7 @@
       <button class="workspace-tab" type="button" data-workspace="graph">Agent graph</button>
       <button class="workspace-tab" type="button" data-workspace="registry">Registry</button>
       <button class="workspace-tab" type="button" data-workspace="artifacts">Artifacts</button>
+      <button class="workspace-tab" type="button" data-workspace="experiments">Experiments</button>
       <button class="workspace-tab" type="button" data-workspace="cycle">Simulated cycle</button>
       <button class="workspace-tab" type="button" data-workspace="full">Full experiment</button>
     </nav>
@@ -709,6 +710,58 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
         </section>
         <aside class="lab-panel registry-detail" id="artifact-detail" aria-live="polite">
           <div class="empty-state">Select an artifact to inspect its files, provenance, rights and lifecycle.</div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="lab-page" id="lab-experiments" aria-labelledby="lab-experiments-title">
+      <div class="lab-heading registry-heading">
+        <div><span class="eyebrow">Isolated research control plane</span><h1 id="lab-experiments-title">Experiment Workspace</h1><p>Bind immutable inputs and system definitions, choose how the work is presented, then admit it to an explicit resumable queue.</p></div>
+        <div class="registry-heading-actions"><span class="stage-status" id="experiment-status">Loading</span><button class="button primary" id="experiment-refresh" type="button">Refresh</button></div>
+      </div>
+      <div class="experiment-boundary-grid" role="note">
+        <div><b>System assets</b><span>Versioned definitions are referenced, never copied.</span></div>
+        <div><b>Experiment overlays</b><span>Local changes must be explicit and digest-bound.</span></div>
+        <div><b>Run outputs</b><span>Receipts and generated files belong to runs and artifacts.</span></div>
+        <div><b>Promotion</b><span>Nothing becomes reusable without separate review.</span></div>
+      </div>
+      <div class="registry-summary" id="experiment-summary" aria-live="polite"></div>
+
+      <details class="lab-panel experiment-create" open>
+        <summary>Create an isolated experiment</summary>
+        <form id="experiment-create-form">
+          <div class="experiment-form-grid">
+            <label class="field"><span>Name</span><input id="experiment-name" value="Daily portfolio risk review" required></label>
+            <label class="field"><span>Mode</span><select id="experiment-mode"><option value="interactive_foreground">Interactive foreground</option><option value="background_headless">Background / headless</option><option value="evaluation_only">Evaluation only · no agent calls</option></select></label>
+            <label class="field"><span>Start</span><input id="experiment-start" type="date" value="2024-01-02" required></label>
+            <label class="field"><span>End</span><input id="experiment-end" type="date" value="2024-01-05" required></label>
+            <label class="field"><span>Data truth</span><select id="experiment-truth"><option value="licensed_real" selected>Licensed real</option><option value="reviewed_synthetic">Reviewed synthetic</option><option value="simulated_intraday">Simulated intraday</option><option value="public_real">Public real · unavailable</option><option value="mixed">Mixed · unavailable</option></select></label>
+            <label class="field"><span>Workflow / evaluation</span><select id="experiment-system-asset" required></select></label>
+            <label class="field"><span>Portfolio reference</span><select id="experiment-portfolio" required></select></label>
+            <label class="field"><span>Mandate version</span><input id="experiment-mandate" value="mandate:research-default@v1" required></label>
+            <label class="field"><span>Snapshot policy</span><input id="experiment-snapshot-policy" value="snapshot-policy:point-in-time-available-at@v1" required></label>
+            <label class="field"><span>Data revision</span><input id="experiment-data-revision" readonly required></label>
+            <label class="field"><span>Maximum model calls</span><input id="experiment-model-budget" type="number" min="0" max="10000" value="12"></label>
+            <label class="field"><span>Maximum cost</span><div class="input-with-unit"><input id="experiment-cost-budget" type="number" min="0" step="0.01" value="2.00"><b>USD</b></div></label>
+            <label class="field experiment-wide"><span>Purpose</span><textarea id="experiment-purpose" rows="2">Produce an evidence-backed daily risk review across a bounded point-in-time replay.</textarea></label>
+            <label class="field experiment-wide"><span>Hypothesis</span><textarea id="experiment-hypothesis" rows="2">The selected workflow produces concise, reviewable findings without look-ahead or external effects.</textarea></label>
+          </div>
+          <div class="action-row"><button class="button primary" type="submit">Create immutable draft</button><span class="action-hint">Creation stores metadata outside Git. It does not run the workflow.</span></div>
+        </form>
+      </details>
+
+      <div class="experiment-workspace-grid">
+        <section class="lab-panel">
+          <div class="panel-heading"><div><span class="panel-label">Definitions</span><h2>Experiments</h2></div><span class="truth-chip" id="experiment-result-count">0</span></div>
+          <div class="registry-list" id="experiment-list"><div class="empty-state">No experiments yet.</div></div>
+        </section>
+        <section class="lab-panel experiment-detail" id="experiment-detail" aria-live="polite"><div class="empty-state">Select an experiment to inspect its bindings, lifecycle and queue controls.</div></section>
+        <aside class="lab-panel">
+          <div class="panel-heading"><div><span class="panel-label">Bounded controller</span><h2>Queue</h2></div><span class="truth-chip">No scheduler daemon</span></div>
+          <div id="experiment-queue"><div class="empty-state">No queued work.</div></div>
+          <div class="panel-heading experiment-set-heading"><div><span class="panel-label">Batch comparison</span><h2>Experiment sets</h2></div></div>
+          <button class="button ghost btn-block" id="experiment-create-set" type="button">Group all experiments for comparison</button>
+          <div id="experiment-sets"><div class="empty-state">No sets yet.</div></div>
         </aside>
       </div>
     </section>

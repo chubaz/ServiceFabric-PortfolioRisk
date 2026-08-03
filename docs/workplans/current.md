@@ -1,26 +1,24 @@
 # Current Workplan
 
-- ID: PLATFORM-P2
-- Title: Artifact repository and retained runs
-- Status: accepted
+- ID: PLATFORM-P3
+- Title: Experiment workspace and bounded queue
+- Status: in progress
 - Namespace: platform-development
-- Integration branch: integration/platform-artifact-repository
-- Workplan: docs/workplans/platform-development/phase-2-artifact-repository.md
-- Baseline commit: 9440bbaeb3f43f04ff259dbde0eb2824b7f9c6f1
+- Integration branch: integration/platform-experiment-workspace
+- Workplan: docs/workplans/platform-development/phase-3-experiment-workspace.md
+- Baseline commit: 5426cacee004817c17215ec8bff3747d5d00c2c2
 - Phase 1 accepted candidate: a68ef6fce9d39f5341fa8675c093db2eba95aed6
-- Verification: make verify-platform-phase2
-- Accepted candidate: b8eacc67ca9344944631c425e133c639395df9cf
-- Clean-worktree QA: 3d1617a033104a91d8da48e5a50664dcb9f8ba09
+- Verification: make verify-platform-phase3
 
-Phase 2 adds a governed, development-only repository for generated artifacts
-and retained runs. It reuses canonical artifact references and immutable
-content-addressed storage, adds retention and deletion policy as metadata, and
-keeps all mutable bytes outside Git.
+Phase 3 adds immutable ExperimentDefinition and ExperimentSet contracts,
+external restart-safe lifecycle and queue metadata, explicit foreground,
+headless, and evaluation-only modes, budgets, idempotent admission, and an
+Experiment Workspace over canonical source and registry references.
 
-The visible increment is an Artifact Repository workspace that can browse,
-inspect, verify, download, archive, restore, and govern deletion of retained
-run outputs. Every file belongs to an immutable digest manifest and discloses
-its data-truth, rights, retention, run, provenance, and publication boundary.
+The visible increment creates and reviews isolated experiments, advances their
+lifecycle, admits ready work to a bounded queue, pauses and resumes explicit
+local controller state, and groups experiments for comparison. Admission does
+not start a worker or model call.
 
 The earlier Thesis Sprint is closed as `THESIS-DEFERRED` in
 `docs/workplans/thesis-sprint/deferred.md`. Days 1–3 remain accepted and the Day
@@ -40,8 +38,15 @@ Phase 1 was accepted after independent adversarial R10 review of exact candidate
 baseline. It does not introduce experiment scheduling, production publication,
 Studio–Codex execution, or any financial effect.
 
-Phase 2 is accepted at exact candidate
+Phase 2 remains accepted locally at exact candidate
 `b8eacc67ca9344944631c425e133c639395df9cf` after clean-worktree acceptance
 review `3d1617a033104a91d8da48e5a50664dcb9f8ba09`. The governed repository,
 explicit legacy-run admission, lifecycle APIs, Artifact Repository workspace,
-and safety regressions passed. Phase 3 has not started in this workstream.
+and safety regressions passed. GitHub publication remains blocked by local
+authentication, so Phase 3 is deliberately stacked on the recorded Phase 2
+closure head rather than an unreviewed branch state.
+
+Testing uses fast focused suites during each phase and a bounded phase gate at
+candidate time. The exhaustive cross-phase clean-room suite runs every three
+phases or immediately when a high-risk execution, financial-effect, data-rights,
+or compatibility boundary changes.
