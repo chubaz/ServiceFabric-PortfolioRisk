@@ -1,9 +1,9 @@
 # Phase 1 independent QA
 
 - Task: P1-05
-- Current review: R7
-- Reviewed candidate: `6eed7cae7499c76afa1fe03ac455414b3e7d859c`
-- Review branch: `review/platform-p1-independent-qa-r7`
+- Current review: R8
+- Reviewed candidate: `9ed110dbbb7d8c6cc76c288ebdc06494eeb9ffd0`
+- Review branch: `review/platform-p1-independent-qa-r8`
 - Accepted Phase 0 baseline: `21339db19357277ca9a9a1ca50107f1a884d7aeb`
 - Pinned ServiceFabric gitlink: `7632b61d94a966346f95eb6c5bb2a5ea27f3bc14`
 - Current verdict: **BLOCKED**
@@ -917,6 +917,270 @@ receipts to the exact retry intent. A fresh immutable candidate must reject both
 changed-actor paths, reject changed direct-index rationale, preserve zero batch
 visibility, and still accept the exact original retry without duplicating a
 receipt.
+
+Rollback remains documentation-only for this QA lane. All probe registries were
+temporary and non-authoritative. Canonical definitions, the accepted Phase 0
+baseline, and the read-only ServiceFabric pin remain unchanged.
+
+## R8 independent review
+
+- Exact candidate: `9ed110dbbb7d8c6cc76c288ebdc06494eeb9ffd0`
+- Review worktree: `phase1-independent-qa-r8`
+- Verdict: **BLOCKED**
+- R5, R6, and R7 history above: preserved and unchanged in meaning
+
+### R8 executive result
+
+R8 closes the direct changed-actor and changed-rationale reproductions from
+R7-B1. When the original single index supplied an explicit timestamp, a retry
+supplying a different explicit timestamp is also rejected. Every rejected
+single retry leaves zero catalogue visibility, and the exact original retry
+converges with its original receipt. A changed batch actor is rejected with
+zero visibility, while the exact complete batch retry converges.
+
+The complete declared and cumulative matrix otherwise passes. Two related
+exactness defects still block acceptance:
+
+1. when the original index supplied an explicit timestamp, a retry that omits
+   `occurred_at` treats the omission as a wildcard and adopts the receipt; and
+2. an interrupted multi-item batch is not bound to its original membership, so
+   a same-actor subset retry can publish one item from the previously atomic
+   batch while leaving the other hidden.
+
+Both defects arise because recovery infers one pending operation from per-item
+receipts rather than recovering a durable operation-level intent. Candidate
+`9ed110d` therefore does not meet the Phase 1 exact-retry, batch-atomicity, and
+audit-integrity gates.
+
+### R8 scope and immutable baseline
+
+The review inspected the R7-to-R8 repair delta, current persistence logic and
+tests, preserved R5-R7 findings, source adapter, Registry API/workspace, and all
+governing Phase 1 materials. It verified:
+
+```text
+candidate HEAD         9ed110dbbb7d8c6cc76c288ebdc06494eeb9ffd0
+accepted Phase 0       21339db19357277ca9a9a1ca50107f1a884d7aeb
+ServiceFabric gitlink  7632b61d94a966346f95eb6c5bb2a5ea27f3bc14
+worktree branch        review/platform-p1-independent-qa-r8
+pre-handoff status     clean
+```
+
+No implementation, test, source definition, control-plane record, dependency,
+runtime data, financial effect, or vendor file was modified in this QA lane.
+
+### R7-B1 closure evidence
+
+The single-item probe created one event with no anchor or catalogue entry using
+actor `original`, rationale `original rationale`, and explicit timestamp T1.
+It restarted from disk and exercised each mismatch before the exact retry:
+
+```text
+single_changed_actor=REJECTED visibility=0
+single_changed_rationale=REJECTED visibility=0
+single_changed_explicit_timestamp(T2)=REJECTED visibility=0
+single_exact_retry(T1)=candidate/1 original_receipt_preserved=True
+```
+
+The two-item probe interrupted the second item between event and anchor writes.
+The changed actor was rejected without adding an anchor, snapshot, or catalogue
+visibility; the complete exact retry then indexed both original receipts:
+
+```text
+batch_changed_actor=REJECTED visibility=0
+batch_exact_retry=2 original_receipts_preserved=True
+```
+
+`index_many()` exposes neither custom rationale nor explicit timestamp; it
+always supplies the fixed bootstrap rationale and `occurred_at=None`. Direct
+single-item tests therefore carry the independently variable rationale and
+timestamp coverage. The two defects below concern omission semantics and the
+batch request boundary, which the new per-item comparison does not represent.
+
+### R8-B1 — omitted timestamp adopts an explicitly timed receipt
+
+The recovery predicate at
+`packages/risk_registry/src/risk_registry/store.py:457-465` checks timestamp
+equality only when the retry provides `occurred_at`. If the retry omits the
+field, line 462 makes the timestamp predicate true even though the original
+request explicitly supplied T1.
+
+The independent probe interrupted that original T1 request before its anchor,
+restarted, then made the otherwise identical retry without a timestamp:
+
+```text
+single_omitted_original_explicit_timestamp_accepted=True
+state=candidate
+committed_time=2026-08-03T12:00:00+00:00
+```
+
+The retry is not identical: one command supplied a governed timestamp and the
+other did not. The store nevertheless publishes the old receipt. The same
+wildcard convention exists for interrupted transition recovery, but R8 directly
+proves the initial-index path required by this review.
+
+**Required repair outcome:** persist whether the original operation supplied a
+timestamp, or canonicalize the request into a complete durable intent before
+writing any projection or receipt. An omitted retry must match only an original
+omission under the chosen contract; it must not wildcard an explicit value.
+Add both explicit-to-omitted and omitted-to-explicit tests as well as unequal
+explicit timestamps.
+
+### R8-B2 — subset retry breaks original batch atomicity
+
+`index_many()` at `store.py:694-730` converts only the current call to a tuple.
+It does not persist or recover the identity set of the interrupted operation.
+Each `_index_locked()` call validates actor, fixed rationale, and the individual
+receipt, so a new request containing only one original item looks exact at the
+item level.
+
+The independent probe interrupted a two-item batch on item two after its event
+became durable. It then retried only item one with the original actor:
+
+```text
+batch_subset_retry_accepted=True
+visible=1
+original_batch_size=2
+retry_size=1
+```
+
+Before this call, both items were correctly invisible. After it, item one was
+catalogue-visible while item two remained an uncommitted tail. A supposedly
+atomic bootstrap can therefore be split by changing only retry membership.
+
+**Required repair outcome:** persist an immutable pending-operation record that
+binds operation kind, actor, normalized rationale, timestamp semantics, ordered
+or canonicalized identity set, and exact source observations before writing any
+item. Recovery must compare the entire request with that record. Subset,
+superset, duplicate, changed-order if order is material, changed actor, changed
+rationale, and changed timestamp retries must not alter visibility; the exact
+original batch must still converge without duplicate receipts.
+
+### Cumulative adversarial matrix
+
+#### R5/R6 persistence and recovery closures — PASS
+
+Independent fault injection reconfirmed:
+
+```text
+R6-B1 transition: committed_prefix=candidate/1 exact_retry=validated/2
+R6-B1 item-two batch: fresh list=0; exact complete retry=2
+R6-B2 index: head_advanced=False exact_transition_retry=validated/2
+R6-B2 index_many: head_advanced=False exact_transition_retry=validated/2
+catalogue post-commit retry=validated/2 idempotent=True
+atomic staging: final_exists=False temporary_files=0
+```
+
+The focused suite also passes pre-catalogue interruption recovery, catalogue
+post-commit idempotence, projection-write batch failure with zero visibility,
+preflight conflicts, snapshot reconstruction and mismatch, event/anchor
+continuity, lifecycle chains, transition graph, terminal state, publication
+eligibility, stale revision, and unrelated comparison rejection.
+
+#### Tamper and filename integrity — PASS
+
+Valid replacement projections remain bound by the catalogue projection digest.
+Validly recomputed receipts are rejected by their immutable anchors; altered or
+missing committed anchors, missing streams, and filename gaps fail closed.
+Additional catalogue probes returned:
+
+```text
+catalog_digest=REJECTED RegistryConflict
+catalog_head=REJECTED RegistryConflict
+```
+
+The first altered an entry without its envelope digest. The second recomputed
+the envelope digest around a nonexistent lifecycle head and was rejected because
+the stream did not contain that committed head.
+
+#### Path and symlink safety — PASS
+
+Independent probes rejected all tested indirections:
+
+```text
+root/parent=ValueError  lock=OSError
+catalog=ValueError      record=ValueError      projection=ValueError
+event_file=ValueError   anchor_file=RegistryConflict
+records_dir=ValueError  event_dir=ValueError    anchor_dir=ValueError
+```
+
+No tested path wrote through a symlink or escaped the configured registry root.
+
+#### Source non-duplication, provenance, and relationships — PASS
+
+```text
+records=44 unique_references=44 kinds=7
+agent=4 capability=29 evaluation=1 report=3
+dashboard=1 scenario=3 workflow=3
+forbidden_recursive_keys=[]
+repository_commit=9ed110dbbb7d8c6cc76c288ebdc06494eeb9ffd0
+adapter_digest_exact=True
+relationships=36 all_resolved_exact=True
+```
+
+Compatible projections bind their evaluated source digest to the exact
+definition digest. Scenario and workflow projections remain metadata-only, and
+comparison remains limited to versions of one stable identity.
+
+#### API, UI governance, and effect boundaries — PASS
+
+The exact R8 application exercised in process returned:
+
+```text
+page=200 catalogue=200 records=44
+preview_no_write=True bootstrap=200
+transition=200 validated stale_transition=409 unrelated_compare=409
+absolute_path_exposed=False registry_root_key=False
+kind_specific_effect_fields=0
+```
+
+Static and application assertions retain explicit bootstrap consequences and
+confirmation, server-supplied transitions, rationale and expected-revision
+review controls, source truth/drift, local-development publication language,
+and no model, provider, broker, order, trade, hedge, rebalance, optimization,
+portfolio mutation, deployment, external publication, or other financial
+effect control.
+
+### R8 automated verification
+
+```bash
+PIP_NO_INDEX=1 make verify-platform-phase1 \
+  BOOTSTRAP_VENV=/private/tmp/platform-p1-r6-qa.Ff4OMP/venv \
+  DAY0_VENV=/Users/lorenzocc/Developer/servicefabric-lab/state/venvs/thesis-sprint
+```
+
+Result: **PASS** — environment, repository, exact ServiceFabric pin, package,
+diff, and `45 passed in 3.32s`.
+
+```bash
+PIP_NO_INDEX=1 make test-application test-architecture \
+  DAY0_VENV=/Users/lorenzocc/Developer/servicefabric-lab/state/venvs/thesis-sprint
+```
+
+Result: **PASS** — `104 passed in 17.64s` for application tests and
+`105 passed in 1.52s` for architecture tests.
+
+A named cumulative rerun of recovery, staging, batch, tamper, source, API,
+comparison, stale-review, and workspace cases passed `25` tests in `2.35s`.
+`git diff --check` passed before this handoff update.
+
+### R8 browser limitation
+
+The in-app browser and localhost-bind limitation preserved in R5-R7 remains.
+R8 used the exact FastAPI application through an in-process client, static
+interaction-contract assertions, and the full application and architecture
+suites. It does not claim a new independent live-browser session. This
+limitation is not the reason for the verdict.
+
+### R8 acceptance decision and next action
+
+**Do not accept or merge candidate
+`9ed110dbbb7d8c6cc76c288ebdc06494eeb9ffd0`.** Keep PLATFORM-P1 in progress
+and independent QA blocked. Recovery must bind every initial write to one
+immutable operation-level intent rather than infer intent independently from
+each receipt. A fresh immutable candidate must reject timestamp omission and
+all changed batch memberships without adding visibility, then accept the exact
+original request with the original receipts.
 
 Rollback remains documentation-only for this QA lane. All probe registries were
 temporary and non-authoritative. Canonical definitions, the accepted Phase 0
