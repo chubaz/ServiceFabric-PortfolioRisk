@@ -347,9 +347,7 @@ def discover_registry_projections(
                 asset_id=scenario["scenario_id"],
                 version=None,
                 display_name=scenario["label"],
-                summary="Reviewed deterministic Workbench scenario: "
-                + ", ".join(f"{target} {shock}" for target, shock in scenario["shocks"])
-                + ".",
+                summary="Reviewed deterministic Workbench scenario definition for local effect-free analysis.",
                 source_reference=_source_path(scenario_file, "SCENARIO_CATALOGUE"),
                 source_file=scenario_file,
                 source_namespace="portfolio-risk.workbench-scenario",
@@ -378,7 +376,7 @@ def discover_registry_projections(
                 asset_id=treatment.architecture_id,
                 version=None,
                 display_name=labels[treatment.architecture_id],
-                summary=f"Accepted Day 3 treatment with {treatment.model_calls} fixed model calls and {len(treatment.role_ids)} ordered roles.",
+                summary="Accepted thesis-scoped architecture treatment for effect-free historical replay.",
                 source_reference=_source_path(workflow_file, "definitions"),
                 source_file=workflow_file,
                 source_namespace="portfolio-risk.thesis-day3-treatment",

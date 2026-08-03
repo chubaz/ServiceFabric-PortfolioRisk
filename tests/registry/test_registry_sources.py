@@ -60,7 +60,7 @@ def test_relationships_resolve_to_exact_registry_revisions() -> None:
     references = {item.identity.reference for item in items}
     relationships = [edge for item in items for edge in item.relationships]
     assert relationships
-    assert all(edge.resolution in {"resolved", "unavailable"} for edge in relationships)
+    assert all(edge.resolution == "resolved" for edge in relationships)
     assert all(
         edge.target_reference in references
         for edge in relationships
@@ -75,3 +75,29 @@ def test_only_reviewed_role_and_capability_contracts_are_canonical() -> None:
     candidate = {item.identity.kind.value for item in items if not item.source.canonical}
     assert canonical == {"agent", "capability"}
     assert candidate == {"evaluation", "report", "dashboard", "scenario", "workflow"}
+
+
+def test_projection_schema_does_not_copy_kind_specific_definition_fields() -> None:
+    forbidden = {
+        "input_contracts",
+        "output_contracts",
+        "capability_ids",
+        "allowed_effects",
+        "shocks",
+        "all_snapshot_positions",
+        "architecture_ids",
+        "maximum_authorized_model_calls",
+        "effects",
+        "role_ids",
+        "model_calls",
+    }
+
+    def keys(value: object) -> set[str]:
+        if isinstance(value, dict):
+            return set(value) | set().union(*(keys(item) for item in value.values()))
+        if isinstance(value, (list, tuple)):
+            return set().union(*(keys(item) for item in value), set())
+        return set()
+
+    for item in discover_registry_projections():
+        assert forbidden.isdisjoint(keys(item.model_dump(mode="json")))

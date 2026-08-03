@@ -331,7 +331,7 @@
     },
     {
       "path": "labs/registry_sources.py",
-      "sha256": "c2c292cba27a960a123e846efd06375b3d940c987fbcd6f4748d1b0e80b218de"
+      "sha256": "6d9956e9a2c32814cdab7b6e86aea7602beec6b189c340a8e0ffe859ef14341e"
     },
     {
       "path": "labs/start_live_data.sh",
