@@ -209,7 +209,7 @@
     riskAgentTemplates: null,
     agentBlueprint: null,
     agentCompile: null,
-    agentRunDataMode: "synthetic_fixture",
+    agentRunDataMode: "synthetic_behavior_sample",
     agentRunExecutionMode: "deterministic",
     agentInputPreview: null,
     agentRuns: [],
@@ -1925,7 +1925,7 @@
     $$("[data-agent-data-mode]").forEach((button) => button.classList.toggle("active", button.dataset.agentDataMode === mode));
     $$("[data-agent-run-mode-panel]").forEach((panel) => panel.classList.toggle("hidden", panel.dataset.agentRunModePanel !== mode));
     const real = mode === "real_duckdb";
-    $("#agent-run-mode-badge").textContent = real ? "New run · Licensed point-in-time data" : "New run · Synthetic behavior fixture";
+    $("#agent-run-mode-badge").textContent = real ? "New run · Licensed point-in-time data" : "New run · Synthetic behavior sample";
     $("#agent-run-mode-badge").className = `run-mode-identity ${real ? "real" : "synthetic"}`;
     $("#agent-input-preview-status").textContent = "Preview not loaded";
     $("#agent-input-json").textContent = "{}";
@@ -1946,7 +1946,7 @@
     labState.agentInputPreview = preview;
     const provenance = preview.provenance || {};
     const real = provenance.data_mode === "real_duckdb";
-    $("#agent-input-preview-status").textContent = provenance.label || (real ? "Licensed historical input" : "Synthetic behavior fixture");
+    $("#agent-input-preview-status").textContent = provenance.label || (real ? "Licensed historical input" : "Synthetic behavior sample");
     $("#agent-input-json").textContent = JSON.stringify(preview.context, null, 2);
     const chips = [
       `<span class="run-provenance-chip ${real ? "real" : "warning"}">${escapeHtml(provenance.label || provenance.data_mode)}</span>`,
@@ -2105,11 +2105,11 @@
       status_label: waiting ? "Awaiting human review" : uniqueLimitations.length ? "Completed with limitations" : "Review ready",
       tone: waiting ? "review" : uniqueLimitations.length ? "limited" : "complete",
       outcome_sought: outcomeSought,
-      premise: `Requested outcome: ${outcomeSought}. Data basis: ${real ? "point-in-time CRSP/Compustat records from local DuckDB" : `the named ${meta.scenario || "test"} synthetic fixture`}.`,
+      premise: `Requested outcome: ${outcomeSought}. Data basis: ${real ? "point-in-time CRSP/Compustat records from local DuckDB" : `the code-generated ${meta.scenario || "test"} behavior sample`}.`,
       portfolio: input.portfolio_name || input.portfolio_id || "Supplied portfolio",
       as_of: input.as_of_date || meta.as_of || "Not specified",
-      data_basis: real ? "Point-in-time CRSP/Compustat records from local DuckDB" : `Named synthetic fixture: ${meta.scenario || "test"}`,
-      execution_basis: meta.execution_mode === "live_llm" ? `Live OpenAI interpretation · ${meta.execution_model || "configured model"}` : "Deterministic LangGraph interpretation · no LLM call",
+      data_basis: real ? "Point-in-time CRSP/Compustat records from local DuckDB" : `Code-generated synthetic behavior sample: ${meta.scenario || "test"}`,
+      execution_basis: meta.execution_mode === "live_llm" ? `OpenAI model-backed interpretation · ${meta.execution_model || "configured model"}` : "Deterministic LangGraph interpretation · no LLM call",
       executive_conclusion: output.narrative || "No final narrative was produced.",
       observations: [
         { label: "Daily return", value: runPercentage(input.daily_return, 2), note: "Available point-in-time portfolio signal" },
@@ -2180,7 +2180,7 @@
     const output = contents["output.json"] || {};
     const activity = contents["activity.json"] || [];
     const real = manifest.data_mode === "real_duckdb" || provenance.data_mode === "real_duckdb";
-    $("#agent-run-mode-badge").textContent = real ? "Saved run · Licensed historical data" : "Saved run · Synthetic behavior fixture";
+    $("#agent-run-mode-badge").textContent = real ? "Saved run · Licensed historical data" : "Saved run · Synthetic behavior sample";
     $("#agent-run-mode-badge").className = `run-mode-identity ${real ? "real" : "synthetic"}`;
     const presentation = output.presentation || buildRunPresentation(input, output, { ...manifest, purpose: blueprint.purpose }, provenance);
     $("#agent-run-chat").innerHTML = `
@@ -2206,7 +2206,7 @@
   function renderAgentRunRepository() {
     $("#agent-run-repository").innerHTML = labState.agentRuns.length ? labState.agentRuns.map((run) => `
       <button class="run-repository-item ${labState.selectedAgentRunId === run.run_id ? "active" : ""}" type="button" data-agent-run-id="${escapeHtml(run.run_id)}">
-        <b class="${run.data_mode === "real_duckdb" ? "real" : "synthetic"}">${run.data_mode === "real_duckdb" ? "Licensed historical" : "Synthetic fixture"}</b>
+        <b class="${run.data_mode === "real_duckdb" ? "real" : "synthetic"}">${run.data_mode === "real_duckdb" ? "Licensed historical" : run.data_mode === "synthetic_behavior_sample" ? "Synthetic behavior sample" : "Legacy unversioned synthetic"}</b>
         <strong>${escapeHtml(run.agent_name)}</strong>
         <span>${escapeHtml(run.created_at)} · ${escapeHtml(run.status)}${run.execution_mode === "live_llm" ? ` · model call` : " · deterministic"}</span>
       </button>`).join("") : '<div class="empty-state">No saved agent runs.</div>';
@@ -2797,13 +2797,15 @@
     const market = snapshot.market || {};
     const candles = market.candles?.portfolio || [];
     if (labState.cycleDashboardPage === "market") {
-      $("#cycle-dashboard-view").innerHTML = `<section class="cycle-page-intro"><span>Live market tape</span><p>Each completed candle contains sixty deterministic pseudo-random second updates. The current candle grows until the simulated minute closes.</p></section>${cycleCandleChart(candles)}${cyclePositionTable(market.positions || [])}`;
+      $("#cycle-dashboard-view").innerHTML = `<section class="cycle-page-intro"><span>Simulated market tape</span><p>Each completed candle contains sixty deterministic pseudo-random second updates. The current candle grows until the simulated minute closes.</p></section>${cycleCandleChart(candles)}${cyclePositionTable(market.positions || [])}`;
       return;
     }
     if (labState.cycleDashboardPage === "risk") {
-      const decisions = snapshot.decisions || [];
+      const proposals = snapshot.decision_proposals || [];
+      const decisions = new Map((snapshot.decisions || []).map((item) => [item.proposal_id, item]));
+      const receipts = new Map((snapshot.consequence_receipts || []).map((item) => [item.proposal_id, item]));
       const history = snapshot.daily_history || [];
-      $("#cycle-dashboard-view").innerHTML = `${cycleMetricCards(snapshot)}<div class="cycle-risk-columns"><section><span>Decision queue</span>${decisions.length ? decisions.map((item) => `<article class="cycle-decision-card"><b>${escapeHtml(item.status)}</b><strong>${escapeHtml(item.finding)}</strong><small>${escapeHtml(cycleTimeLabel(item.as_of))}</small></article>`).join("") : '<div class="empty-state">No threshold has created a decision.</div>'}</section><section><span>Completed dates</span>${history.length ? history.map((item) => `<article class="cycle-history-row"><strong>${escapeHtml(item.date)}</strong><b class="${Number(item.return) < 0 ? "negative" : "positive"}">${runPercentage(item.return, 2)}</b><small>${escapeHtml(cycleMoney(item.close_nav))}</small></article>`).join("") : '<div class="empty-state">No simulated day has closed.</div>'}</section></div>`;
+      $("#cycle-dashboard-view").innerHTML = `${cycleMetricCards(snapshot)}<div class="cycle-risk-columns"><section><span>Decision proposals and resolutions</span>${proposals.length ? proposals.map((item) => { const decision = decisions.get(item.proposal_id); const receipt = receipts.get(item.proposal_id); return `<article class="cycle-decision-card"><b>${decision ? `resolved · ${escapeHtml(decision.outcome)}` : "awaiting human resolution"}</b><strong>${escapeHtml(item.finding)}</strong><small>${decision ? `Resolver ${escapeHtml(decision.resolver?.resolver_id || "unknown")} · ${escapeHtml(receipt?.consequence || "No consequence receipt")}` : escapeHtml(cycleTimeLabel(item.as_of))}</small></article>`; }).join("") : '<div class="empty-state">No threshold finding has created a decision proposal.</div>'}</section><section><span>Completed dates</span>${history.length ? history.map((item) => `<article class="cycle-history-row"><strong>${escapeHtml(item.date)}</strong><b class="${Number(item.return) < 0 ? "negative" : "positive"}">${runPercentage(item.return, 2)}</b><small>${escapeHtml(cycleMoney(item.close_nav))}</small></article>`).join("") : '<div class="empty-state">No simulated day has closed.</div>'}</section></div>`;
       return;
     }
     if (labState.cycleDashboardPage === "agents") {
@@ -2815,7 +2817,7 @@
   }
 
   function renderCycleReport(report = {}) {
-    $("#cycle-report-title").textContent = report.title || "Live portfolio risk review";
+    $("#cycle-report-title").textContent = report.title || "Simulated portfolio risk review";
     $("#cycle-report-status").textContent = report.status || "Waiting";
     $("#cycle-report-sections").innerHTML = (report.sections || []).map((section) => `<article class="cycle-report-section ${section.section_id === "executive_signal" ? "lead" : ""}"><span>${escapeHtml(section.title)}</span>${section.content ? `<p>${escapeHtml(section.content)}</p>` : ""}${section.items?.length ? `<ul>${section.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}</article>`).join("");
   }
@@ -2848,11 +2850,14 @@
     renderCycleDashboard(snapshot);
     renderCycleReport(snapshot.report);
     renderCycleAgents(snapshot);
-    const decision = (snapshot.decisions || []).find((item) => item.status === "pending");
-    $("#cycle-decision-panel").classList.toggle("hidden", !decision);
-    if (decision) {
-      $("#cycle-decision-panel").dataset.decisionId = decision.decision_id;
-      $("#cycle-decision-finding").textContent = decision.finding;
+    const resolvedProposalIds = new Set((snapshot.decisions || []).map((item) => item.proposal_id));
+    const proposal = (snapshot.decision_proposals || []).find((item) => !resolvedProposalIds.has(item.proposal_id));
+    $("#cycle-decision-panel").classList.toggle("hidden", !proposal);
+    if (proposal) {
+      $("#cycle-decision-panel").dataset.proposalId = proposal.proposal_id;
+      $("#cycle-decision-finding").textContent = proposal.finding;
+      $("#cycle-decision-question").textContent = proposal.question;
+      $("#cycle-decision-consequences").innerHTML = (proposal.options || []).map((option) => `<li><strong>${escapeHtml(option.label)}</strong> — ${escapeHtml(option.consequence)}</li>`).join("");
     }
   }
 
@@ -2917,11 +2922,11 @@
   }
 
   async function resolveCycleDecision(outcome) {
-    const decisionId = $("#cycle-decision-panel").dataset.decisionId;
-    if (!labState.cycleSessionId || !decisionId) return;
-    let snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}/decisions/${encodeURIComponent(decisionId)}`, {
+    const proposalId = $("#cycle-decision-panel").dataset.proposalId;
+    if (!labState.cycleSessionId || !proposalId) return;
+    let snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}/decision-proposals/${encodeURIComponent(proposalId)}/resolve`, {
       method: "POST",
-      body: JSON.stringify({ outcome }),
+      body: JSON.stringify({ outcome, resolver_id: "local-human-reviewer", resolver_type: "human" }),
     });
     if (outcome === "accepted") {
       snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}/control`, { method: "POST", body: JSON.stringify({ action: "start" }) });
@@ -3471,7 +3476,7 @@
     renderSavedAgents();
     renderBasicBuilder();
     setAgentBuilderMode("basic");
-    setAgentRunDataMode("synthetic_fixture");
+    setAgentRunDataMode("synthetic_behavior_sample");
     setAgentRunExecutionMode("deterministic");
     populateAgentRunPortfolios();
     populateCyclePortfolios();

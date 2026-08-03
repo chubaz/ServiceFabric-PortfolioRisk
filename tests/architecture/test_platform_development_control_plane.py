@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.thesis.check_lane_paths import validate_manifest
+from scripts.thesis.check_lane_paths import (
+    changed_paths,
+    validate_changes,
+    validate_manifest,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -68,6 +72,18 @@ def test_phase0_lane_manifest_freezes_non_overlapping_ownership() -> None:
         lane = manifest["lanes"][lane_name]
         assert lane["allowed_directories"] == []
         assert lane["allowed_files"] == [handoff]
+
+
+def test_visible_synthesis_commit_is_within_integration_lane_grant() -> None:
+    manifest = read_json("config/agent/platform-development/lanes.json")
+    integration = manifest["lanes"]["integration"]
+    assert "apps/portfolio-risk-workbench" in integration["allowed_directories"]
+    assert "tests/application" in integration["allowed_directories"]
+    changes = changed_paths(
+        "e3acab1252269066fa6818b24a84047d4ac38847",
+        "a0a4fb920291cf1f4fe52e651632bf75d0968a9b",
+    )
+    assert validate_changes(changes, integration) == []
 
 
 def test_every_phase0_task_has_a_bounded_instruction() -> None:

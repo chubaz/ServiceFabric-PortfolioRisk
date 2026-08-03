@@ -311,7 +311,7 @@
     },
     {
       "path": "labs/agent_studio.py",
-      "sha256": "923e93ad869c999d65f109f099207c550ce7a5ddcc4d6d625e5a211820146187"
+      "sha256": "ecddd87cc1e9cc2bf3f057184b44dbde3aa5b3c5e526b3c9a68c07aa00bc5a34"
     },
     {
       "path": "labs/app.js",
@@ -319,15 +319,15 @@
     },
     {
       "path": "labs/duckdb_server.py",
-      "sha256": "36dd57df60b54e1f4226b134779eb9238874a9a10ed8439208a3d8c661cb4821"
+      "sha256": "adee18d46b4d60e44f054cf13094fb07d6488b71a7d85b686facf7532cc1e43e"
     },
     {
       "path": "labs/index.html",
-      "sha256": "c0a99def4f840eacd45504ad30efd3791f35f68b775d5e5756dbb160bb73b175"
+      "sha256": "db3d8eec626de15f8bd4cc13f0d861cd2bd6acbd6ec83055ac969644bb51a3d4"
     },
     {
       "path": "labs/labs.js",
-      "sha256": "e28bc4182a8bcae7e7edfe0294fcba35abc7fa9953f80af271eafc1575350283"
+      "sha256": "4bb3b47c534fdb3b664876da0475e02733c370b8e8bdfb8f1963681c353de2a8"
     },
     {
       "path": "labs/start_live_data.sh",
@@ -335,11 +335,11 @@
     },
     {
       "path": "labs/styles.css",
-      "sha256": "26105d09c2db612160e77531e46e66d1397a3a03e783a53d4998e78022c74795"
+      "sha256": "a7c4a4616318093dfcf261f68e09f53c98b37776fa3cc6e514a9bb0794f4bdf1"
     },
     {
       "path": "labs/workflow_cycle_runtime.py",
-      "sha256": "0a7e2d7388145059eb3f40693ae24339e9a68c08bfb5670a46eedc0300c489b7"
+      "sha256": "359822a2050a86cd180762b3528ed5d0f9c1a9023a5c3bebaf6a4c066fa54f72"
     },
     {
       "path": "labs/DEVELOPMENT_ROADMAP.md",

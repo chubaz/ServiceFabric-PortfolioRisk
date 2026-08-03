@@ -44,6 +44,7 @@ from agent_studio import (
     run_output_pass,
     risk_agent_templates,
     runtime_status,
+    synthetic_behavior_provenance,
 )
 from workflow_cycle_runtime import workflow_cycle_manager
 
@@ -77,8 +78,8 @@ LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
             "authority": "Prototype constraints only · no mandate authority",
             "persistence": "Browser-local draft · not published",
         },
-        "agent.synthetic_fixture": {
-            "data": "Synthetic behavior fixture · exact input preview required",
+        "agent.synthetic_behavior_sample": {
+            "data": "Synthetic behavior sample · exact input preview required",
             "authority": "Findings and proposals only · effects none",
             "persistence": "Temporary local run · deletable · not published",
         },
@@ -327,7 +328,9 @@ class SqlOnlyPlan(BaseModel):
 
 
 class AgentInputPreviewRequest(BaseModel):
-    data_mode: Literal["synthetic_fixture", "real_duckdb"] = "synthetic_fixture"
+    data_mode: Literal["synthetic_behavior_sample", "real_duckdb"] = (
+        "synthetic_behavior_sample"
+    )
     scenario: Literal["routine", "concentration", "loss", "missing"] = "concentration"
     portfolio_id: str | None = Field(default=None, max_length=80)
     as_of: date | None = None
@@ -354,6 +357,8 @@ class WorkflowCycleControlRequest(BaseModel):
 
 class WorkflowCycleDecisionRequest(BaseModel):
     outcome: Literal["accepted", "investigate", "rejected"]
+    resolver_id: str = Field(default="local-human-reviewer", min_length=3, max_length=120)
+    resolver_type: Literal["human"] = "human"
 
 
 class WorkflowCycleAgentAttachRequest(BaseModel):
@@ -1180,16 +1185,9 @@ app = FastAPI(
 def prepare_agent_input(
     request: AgentInputPreviewRequest,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    if request.data_mode == "synthetic_fixture":
+    if request.data_mode == "synthetic_behavior_sample":
         context = _scenario_context(request.scenario)
-        return context, {
-            "data_mode": "synthetic_fixture",
-            "label": f"SYNTHETIC FIXTURE · {request.scenario}",
-            "fixture": request.scenario,
-            "licensed_data_used": False,
-            "point_in_time": False,
-            "warning": "Values are deliberately synthetic and must not be interpreted as historical observations.",
-        }
+        return context, synthetic_behavior_provenance(request.scenario)
 
     if not request.portfolio_id or not request.as_of:
         raise HTTPException(
@@ -1646,18 +1644,30 @@ def control_workflow_cycle_session(
         raise HTTPException(status_code=422, detail=str(error)) from error
 
 
-@app.post("/api/workflow-cycle/sessions/{session_id}/decisions/{decision_id}")
-def resolve_workflow_cycle_decision(
+@app.post(
+    "/api/workflow-cycle/sessions/{session_id}/decision-proposals/{proposal_id}/resolve"
+)
+def resolve_workflow_cycle_decision_proposal(
     session_id: str,
-    decision_id: str,
+    proposal_id: str,
     request: WorkflowCycleDecisionRequest,
 ) -> dict[str, Any]:
     try:
         session = workflow_cycle_manager.get(session_id)
-        session.resolve_decision(decision_id, request.outcome)
+        session.resolve_proposal(
+            proposal_id,
+            request.outcome,
+            resolver_id=request.resolver_id,
+            resolver_type=request.resolver_type,
+        )
         return session.snapshot()
     except KeyError as error:
-        raise HTTPException(status_code=404, detail="session or decision not found") from error
+        raise HTTPException(
+            status_code=404,
+            detail="session or decision proposal not found",
+        ) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 @app.post("/api/workflow-cycle/sessions/{session_id}/agents")

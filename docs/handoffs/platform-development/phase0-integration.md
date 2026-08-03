@@ -56,15 +56,28 @@ record `test_harness`, `human_approval: false`, the development profile,
 findings/proposals-only authority, no external effects, and the persistence
 class. UI copy no longer describes this as human approval or auto-clearance.
 
+The first independent QA review (`aa9ce2c`, preserved in integration as
+`96d610f`) returned **FAIL** and was not overridden. Its three bounded findings
+have been corrected for a fresh review:
+
+- a threshold crossing now creates an immutable decision proposal; an
+  identified human resolver creates a separate decision and a separate
+  consequence receipt, all with empty portfolio/external effects;
+- code-defined Agent scenarios are now `synthetic_behavior_sample` throughout
+  input preview, source context, run result, and saved manifest, with
+  `reviewed_fixture: false`;
+- the integration lane grant now explicitly includes the application and
+  application-test paths already assigned by P0-04, and an architecture test
+  validates the actual visible-synthesis commit against that grant.
+
 ## Verification evidence
 
 - Python compilation for the changed runtime modules: PASS.
 - `node --check apps/portfolio-risk-workbench/labs/labs.js`: PASS.
-- focused application and architecture tests: 10 passed.
-- `make verify-platform-phase0`: PASS, 23 tests.
-- `make test-application`: PASS, 93 tests.
-- `make test-architecture`: PASS, 99 tests after lifecycle-neutral regression
-  coverage was added.
+- focused application and architecture tests: 14 passed.
+- `make verify-platform-phase0`: PASS, 25 tests.
+- `make test-application`: PASS, 95 tests.
+- `make test-architecture`: PASS, 100 tests.
 - `make verify-thesis-current`: PASS after GitHub Actions exposed and the
   candidate corrected a squash-merge-era Day 1 lane-ancestry assertion. The
   historical regression suite still runs; obsolete specialist-range validation
@@ -73,8 +86,13 @@ class. UI copy no longer describes this as human approval or auto-clearance.
 - `git diff --check`: PASS.
 - fresh local service on port 8878: health, catalogue, portfolios, agent runs,
   and agent runtime endpoints returned successfully.
+- Agent input-preview API returned `synthetic_behavior_sample`,
+  `reviewed_fixture: false`, and a `synthetic://` source reference.
 - in-app browser desktop inspection: PASS.
 - 740px responsive inspection: four cells visible in a two-by-two grid.
+- amended Agent/cycle inspection: corrected truth values, simulated report
+  title, proposal label, consequence-aware resolution actions, and default-off
+  checkpoint verified.
 
 ## Unresolved decisions and latest safe point
 
@@ -113,6 +131,7 @@ saved local run is mutated by the increment.
 
 ## Next action
 
-Commit and push this integration candidate, then run P0-05 from an independent
-QA worktree. Move the active wave to acceptance only after the QA handoff is
-validated; do not mark the draft pull request ready before that gate.
+Commit and push the bounded correction, fast-forward the independent QA
+worktree, and run a fresh P0-05 review. Move the active wave to acceptance only
+after a new PASS handoff is validated; do not mark the draft pull request ready
+before that gate.

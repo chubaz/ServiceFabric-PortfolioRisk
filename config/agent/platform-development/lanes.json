@@ -19,11 +19,13 @@
       "branch": "integration/platform-development",
       "allowed_directories": [
         ".github",
+        "apps/portfolio-risk-workbench",
         "config/agent/platform-development",
         "docs/workplans/platform-development",
         "docs/handoffs/platform-development",
         "scripts/platform-development",
-        "tests/architecture"
+        "tests/architecture",
+        "tests/application"
       ],
       "allowed_files": [
         "AGENTS.md",
@@ -54,7 +56,7 @@
       ]
     },
     "independent-qa": {
-      "branch": "review/platform-p0-qa",
+      "branch": "review/platform-p0-qa-r2",
       "allowed_directories": [],
       "allowed_files": [
         "docs/handoffs/platform-development/phase0-independent-qa.md"

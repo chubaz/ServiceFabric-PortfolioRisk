@@ -253,7 +253,7 @@
 
             <section class="basic-agent-panel" data-basic-agent-panel="test">
               <div class="basic-step-heading"><span>05 · Test and save</span><h2>Is this version safe and useful on representative cases?</h2><p>A quick gate checks the contract, an ordinary case, a failure boundary, and an adversarial evidence case.</p></div>
-              <details class="basic-step-guide"><summary>Understand validation, testing and saved runs</summary><div><p><strong>Validate</strong> checks schema coherence, capability allow-lists, prompt variables, state, routing, output production and locked effects. It does not judge analytical usefulness.</p><p><strong>Representative test</strong> checks normal work. <strong>Failure boundary</strong> checks missing evidence and abstention or escalation. <strong>Adversarial test</strong> confirms untrusted content cannot alter governance. A quick pass supports iteration; historical replay and reviewer thresholds are still required for research certification.</p><p>The Run Review page distinguishes synthetic fixtures from real DuckDB data, freezes the exact input, records the work log and stores every output in a run-specific local folder.</p></div></details>
+              <details class="basic-step-guide"><summary>Understand validation, testing and saved runs</summary><div><p><strong>Validate</strong> checks schema coherence, capability allow-lists, prompt variables, state, routing, output production and locked effects. It does not judge analytical usefulness.</p><p><strong>Representative test</strong> checks normal work. <strong>Failure boundary</strong> checks missing evidence and abstention or escalation. <strong>Adversarial test</strong> confirms untrusted content cannot alter governance. A quick pass supports iteration; historical replay and reviewer thresholds are still required for research certification.</p><p>The Run Review page distinguishes code-generated behavior samples from real DuckDB data, freezes the exact input, records the work log and stores every output in a run-specific local folder.</p></div></details>
               <div class="basic-step-copilot"><label class="field"><span>Describe the safety and review behavior</span><textarea rows="3" data-basic-step-intent="test" placeholder="Require evidence for every material claim, abstain when issuer mapping is ambiguous, and always stop for human review."></textarea></label><button class="button ghost" type="button" data-generate-basic-step="test">Prepare governance with AI</button></div>
               <div class="basic-test-cases">
                 <div><i>1</i><span><strong>Representative</strong><small>Concentration breach with complete evidence</small></span><b data-basic-test-state="normal">Ready</b></div>
@@ -526,7 +526,7 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
         <div class="agent-output-view" id="agent-output-run">
           <header class="run-review-heading">
             <div><span class="panel-label">Agent Run Review</span><h2>Know the data. Watch the work. Keep every output.</h2><p>Each execution freezes its exact input and writes a separate, deletable run folder. The work log shows concise rationale, capability receipts, evidence critique and review boundaries—not private chain-of-thought.</p></div>
-            <div class="run-heading-actions"><span class="run-mode-identity synthetic" id="agent-run-mode-badge">Synthetic behavior fixture</span><button class="button ghost" id="open-cycle-from-agent" type="button">Test through simulated time</button></div>
+            <div class="run-heading-actions"><span class="run-mode-identity synthetic" id="agent-run-mode-badge">Synthetic behavior sample</span><button class="button ghost" id="open-cycle-from-agent" type="button">Test through simulated time</button></div>
           </header>
 
           <div class="run-context-lifecycle" aria-label="Run context lifecycle">
@@ -534,7 +534,7 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
           </div>
 
           <div class="run-mode-selector" role="group" aria-label="Agent test data source">
-            <button class="active synthetic" type="button" data-agent-data-mode="synthetic_fixture"><strong>Synthetic behavior fixture</strong><small>Deliberately invented values for controlled behavior tests; never empirical evidence.</small></button>
+            <button class="active synthetic" type="button" data-agent-data-mode="synthetic_behavior_sample"><strong>Synthetic behavior sample</strong><small>Code-generated values for controlled behavior tests; not a reviewed fixture or empirical evidence.</small></button>
             <button type="button" data-agent-data-mode="real_duckdb"><strong>Licensed historical data</strong><small>Real CRSP/Compustat records queried from local Parquet under point-in-time rules.</small></button>
           </div>
 
@@ -547,8 +547,8 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
 
           <section class="run-assignment-card">
             <div class="run-assignment-fields">
-              <div data-agent-run-mode-panel="synthetic_fixture">
-                <label class="field"><span>Named fixture</span><select id="agent-test-scenario"><option value="routine">Routine diversified day</option><option value="concentration" selected>Concentration breach</option><option value="loss">Daily loss breach</option><option value="missing">Missing evidence</option></select></label>
+              <div data-agent-run-mode-panel="synthetic_behavior_sample">
+                <label class="field"><span>Behavior scenario</span><select id="agent-test-scenario"><option value="routine">Routine diversified day</option><option value="concentration" selected>Concentration breach</option><option value="loss">Daily loss breach</option><option value="missing">Missing evidence</option></select></label>
               </div>
               <div class="hidden real-run-fields" data-agent-run-mode-panel="real_duckdb">
                 <label class="field"><span>Reviewed portfolio</span><select id="agent-real-portfolio"></select></label>
@@ -716,13 +716,13 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
         </div>
 
         <section class="cycle-report-panel">
-          <header><div><span>Agent report</span><strong id="cycle-report-title">Live portfolio risk review</strong></div><b id="cycle-report-status">Waiting</b></header>
+          <header><div><span>Agent report</span><strong id="cycle-report-title">Simulated portfolio risk review</strong></div><b id="cycle-report-status">Waiting</b></header>
           <div class="cycle-report-sections" id="cycle-report-sections"></div>
         </section>
 
         <section class="cycle-decision-panel hidden" id="cycle-decision-panel">
-          <div><span>Human decision</span><strong id="cycle-decision-finding"></strong><small>The clock is paused. No portfolio effect has been created.</small></div>
-          <div><button class="button primary" data-cycle-decision="accepted" type="button">Accept and resume</button><button class="button" data-cycle-decision="investigate" type="button">Open investigation</button><button class="button ghost" data-cycle-decision="rejected" type="button">Reject finding</button></div>
+          <div><span>Decision proposal · human resolution required</span><strong id="cycle-decision-finding"></strong><p id="cycle-decision-question"></p><small>The clock is paused. The finding is not a decision and no portfolio effect has been created.</small><ul id="cycle-decision-consequences"></ul></div>
+          <div><button class="button primary" data-cycle-decision="accepted" type="button">Accept proposal and resume</button><button class="button" data-cycle-decision="investigate" type="button">Mark for later investigation</button><button class="button ghost" data-cycle-decision="rejected" type="button">Reject proposal</button></div>
         </section>
       </section>
     </section>
