@@ -1,15 +1,15 @@
 # Phase 1 independent QA
 
 - Task: P1-05
-- Current review: R5
-- Reviewed candidate: `b483e4ea37170b3bff4b67f6a0436e5ad4a1c326`
-- Review branch: `review/platform-p1-independent-qa-r5`
+- Current review: R6
+- Reviewed candidate: `e9eab8dd704d4c04d90fff269118a4af21072db9`
+- Review branch: `review/platform-p1-independent-qa-r6`
 - Accepted Phase 0 baseline: `21339db19357277ca9a9a1ca50107f1a884d7aeb`
 - Pinned ServiceFabric gitlink: `7632b61d94a966346f95eb6c5bb2a5ea27f3bc14`
 - Current verdict: **BLOCKED**
 - Repair authority: integration only
 
-## Executive result
+## R5 executive result — preserved
 
 R5 passes every declared automated gate and closes the three narrower R4
 concerns that this review was explicitly asked to reproduce. Event filename
@@ -359,7 +359,7 @@ all application tests, and the integration handoff's prior live-browser result
 were reviewed, but they do not replace an independent live R5 browser session.
 This limitation is secondary to the two code blockers above.
 
-## Acceptance decision, rollback, and next action
+## R5 acceptance decision, rollback, and next action — preserved
 
 **Do not accept or merge candidate
 `b483e4ea37170b3bff4b67f6a0436e5ad4a1c326`.** Keep PLATFORM-P1 in progress
@@ -372,3 +372,288 @@ The candidate branch and failed probe evidence can remain for diagnosis.
 Temporary registries and the isolated bootstrap environment under
 `/private/tmp` are non-authoritative and disposable; the accepted Phase 0
 baseline and all canonical source definitions remain unchanged.
+
+## R6 independent review
+
+- Exact candidate: `e9eab8dd704d4c04d90fff269118a4af21072db9`
+- Review worktree: `phase1-independent-qa-r6`
+- Verdict: **BLOCKED**
+- R5 history above: preserved and unchanged in meaning
+
+### R6 executive result
+
+R6 successfully closes both exact R5 reproductions in their tested nominal
+paths. The catalogue now anchors the complete serialized projection digest, so
+a valid same-identity projection replacement is rejected by both `get()` and
+`list()` even when the derived snapshot is absent. A complete anchored trailing
+lifecycle receipt beyond the committed catalogue head remains hidden as a
+pending transition; the last committed state stays readable, and an exact
+transition retry adopts the tail without creating a duplicate receipt. A retry
+after a catalogue replacement whose caller observed an error is also
+idempotent.
+
+The declared gates and all earlier source, path, UI, API, comparison,
+provenance, non-duplication, and effect-boundary probes pass. Independent fault
+injection at additional required write boundaries nevertheless found two new
+release blockers:
+
+1. interruption after the event file becomes durable but before its integrity
+   anchor is installed makes the last committed asset unreadable and prevents
+   an exact retry; and
+2. after an interruption later in the same transition leaves one complete
+   anchored trailing receipt, ordinary idempotent `index()` or `index_many()`
+   silently commits that lifecycle receipt, bypassing the required exact
+   transition retry and its actor/intent check.
+
+The first defect also prevents retry of an interrupted multi-item bootstrap
+when item two stops between its event and anchor writes. Candidate `e9eab8d`
+therefore does not meet the Phase 1 atomicity, restart, idempotency, or governed
+lifecycle gates.
+
+### R6 scope and immutable baseline
+
+The R6 review re-read the governing Phase 1 task and audits, current integration
+handoff, complete preserved R5 handoff, R5-to-R6 repair diff, current store and
+tests, source adapters, API and Registry workspace behavior. It verified:
+
+```text
+candidate HEAD       e9eab8dd704d4c04d90fff269118a4af21072db9
+accepted Phase 0     21339db19357277ca9a9a1ca50107f1a884d7aeb
+ServiceFabric gitlink 7632b61d94a966346f95eb6c5bb2a5ea27f3bc14
+worktree branch      review/platform-p1-independent-qa-r6
+pre-handoff status   clean
+```
+
+No implementation, test, source definition, control-plane record, dependency,
+runtime data, financial effect, or vendor file was modified in this lane.
+
+### R6-B1 — event-to-anchor interruption loses committed availability
+
+`LocalRegistryStore.transition()` writes the next event at
+`packages/risk_registry/src/risk_registry/store.py:648-651`, then writes its
+separate anchor at lines `652-655`. `_reconstruct()` requires the number of
+anchors to equal the number of events before `_committed_document()` can select
+the older catalogue-committed prefix. Consequently, an interruption after the
+event installation but before the anchor installation blocks `get()`, `list()`,
+and the exact transition retry.
+
+The independent probe wrapped `_write_immutable`, let receipt sequence two
+complete its durable write, and then raised `OSError` before the anchor call.
+The expected last committed state was candidate with one receipt. The actual
+result was:
+
+```text
+after_event_before_anchor
+  fresh get: GET_BLOCKED RegistryConflict
+  registry lifecycle integrity anchor count does not match
+  exact retry: unavailable because get could not establish committed state
+```
+
+Control probes at the other meaningful boundaries behaved correctly:
+
+| Injected boundary | Fresh committed view | Exact retry | Receipt count |
+|---|---|---|---:|
+| Before event installation | `candidate` | converged to `validated` | 2 |
+| **After event, before anchor** | **blocked** | **blocked** | unavailable |
+| After anchor, before snapshot | `candidate` | converged to `validated` | 2 |
+| After snapshot, before catalogue | `candidate` | converged to `validated` | 2 |
+| After catalogue replacement | `validated` | idempotently returned `validated` | 2 |
+
+The same boundary was injected during the second item of `index_many()`. The
+committed catalogue remained empty, so atomic visibility was truthful, but the
+batch could not be retried:
+
+```text
+batch_event_anchor_failure RAISED second event installed before anchor
+batch_visible_after_event_anchor_failure 0
+batch_retry_after_event_anchor_failure BLOCKED RegistryConflict
+registry lifecycle integrity anchor count does not match
+```
+
+**Required repair outcome:** make event-plus-integrity evidence a recoverable
+commit unit. A partial event/anchor pair after any file open, write, flush,
+`fsync`, chmod, or directory sync failure must not hide the committed prefix.
+An identical index or transition retry must deterministically complete or
+discard only the uncommitted tail without accepting changed intent or creating
+another receipt. Add boundary tests before and after both event and anchor
+installation for single index, batch index, and every lifecycle transition.
+
+### R6-B2 — indexing silently commits an interrupted lifecycle transition
+
+After a transition fails before the catalogue update but after its event,
+anchor, and derived snapshot are durable, `_committed_document()` correctly
+returns only the prior committed prefix. However, `_index_locked()` at
+`store.py:443-450` reads the complete reconstructed stream and returns it when
+the source observation is unchanged. `index()` then passes that full document
+to `_commit_catalog()` at lines `424-432`; `index_many()` does the equivalent.
+Neither path proves or retries the pending transition intent.
+
+The explicit R6 probe created exactly this pending validated receipt, confirmed
+that the committed view was still candidate with one receipt, and then called
+the otherwise idempotent source-index operation before retrying transition:
+
+```text
+index
+  before=candidate 1
+  operation_returned=validated 2
+  after=validated 2
+  head_advanced=True
+
+index_many
+  before=candidate 1
+  operation_returned=validated 2
+  after=validated 2
+  head_advanced=True
+```
+
+Thus a bootstrap actor can complete a reviewer-authored lifecycle transition
+without presenting the exact transition command, actor, rationale, target,
+expected revision, or retry intent. This breaches separation between source
+indexing and governed lifecycle mutation even though the trailing receipt bytes
+themselves are valid.
+
+**Required repair outcome:** index and bootstrap may commit only an initial
+candidate receipt for a previously uncommitted source identity. For an existing
+catalogue entry they must compare against the catalogue-committed document, not
+adopt any trailing lifecycle receipts. Only `transition()` with an exact matching
+pending intent may advance the lifecycle head. Add direct `index()`,
+`index_many()`, API bootstrap, changed actor, changed rationale, changed target,
+and stale-revision tests while a pending tail exists.
+
+### R5 blocker closure evidence
+
+#### Exact projection anchoring — PASS
+
+R6 catalogue entries contain `projection_digest`, calculated over the exact
+serialized `RegistryProjection`. The R5 replacement procedure changed both the
+source definition and compatibility digests, removed only the derived snapshot,
+and restarted the store:
+
+```text
+projection_replacement_get=REJECTED RegistryConflict
+registry projection does not match its catalogue anchor
+projection_replacement_list=REJECTED RegistryConflict
+registry projection does not match its catalogue anchor
+```
+
+A coordinated replacement of the projection, receipt, and per-event anchor
+while leaving the committed catalogue unchanged was also rejected by the
+projection catalogue anchor. The prior local trust limitation remains: an
+operating-system owner able to rewrite every record plus the catalogue and its
+unkeyed self-digest is outside this local development store's integrity model.
+
+#### Complete trailing-receipt retry — PASS outside R6-B1/B2
+
+When the event and anchor were both durable, R6 exposed only the catalogue
+prefix, rejected a non-identical retry, accepted the identical transition retry,
+and retained exactly two receipts. When catalogue replacement completed before
+an injected reporting failure, the same retry returned the committed transition
+without appending receipt three.
+
+This closes R5-B2 for complete event/anchor pairs. It does not cover the event-
+only interruption in R6-B1 or the indexing bypass in R6-B2.
+
+### Earlier adversarial areas rechecked
+
+#### Lifecycle stream integrity — PASS
+
+```text
+filename_gap REJECTED RegistryConflict
+registry lifecycle event filenames must form a contiguous sequence
+missing_stream REJECTED RegistryConflict
+committed registry lifecycle event stream is missing
+recomputed_event REJECTED RegistryConflict
+registry lifecycle integrity anchor mismatch
+```
+
+Snapshot mismatch, receipt digest, chain, terminal-state, invalid shortcut, and
+stale expected-revision tests also remain green.
+
+#### Path and symlink safety — PASS
+
+Root, parent, lock, catalogue, event directory, anchor directory, event file,
+and anchor file symlinks were all independently rejected. No tested path wrote
+through a symlink or escaped its configured registry root.
+
+#### Source non-duplication and exact relationships — PASS
+
+```text
+records=44 kinds=7
+agent=4 capability=29 evaluation=1 report=3
+dashboard=1 scenario=3 workflow=3
+forbidden_projection_keys={}
+summary_leaks=[]
+nested_definition=REJECTED
+repository_commits=[e9eab8dd704d4c04d90fff269118a4af21072db9]
+adapter_digest_exact=True
+relationships=36 all_resolved_exact=True
+```
+
+The recursive probe found no copied grants, schemas, effects, shocks, workflow
+topology, model-call counts, prompts, routing, state schemas, or tool latches.
+Scenario and workflow summaries remain metadata-only.
+
+#### Comparison, UI/API governance, and effects — PASS
+
+The exact R6 ASGI application returned:
+
+```text
+page=200 catalogue=200 records=44
+preview_no_write=True bootstrap=200 indexed=44
+transition=200 validated
+stale_transition=409 unrelated_compare=409
+absolute_path_exposed=False registry_root_key=False
+kind_specific_effect_fields=0
+```
+
+The Registry workspace retains explicit indexing confirmation, bootstrap
+preview and consequence copy, server-provided allowed transitions, transition
+confirmation, rationale, expected revision, local-publication language, and no
+execution or financial-effect action. Registry routes introduce no model,
+provider, broker, order, trade, hedge, rebalance, optimization, portfolio
+mutation, deployment, or external publication authority.
+
+### R6 automated verification
+
+```bash
+PIP_NO_INDEX=1 make verify-platform-phase1 \
+  BOOTSTRAP_VENV=/private/tmp/platform-p1-r6-qa.Ff4OMP/venv \
+  DAY0_VENV=/Users/lorenzocc/Developer/servicefabric-lab/state/venvs/thesis-sprint
+```
+
+Result: **PASS** — environment, repository, exact ServiceFabric pin, package,
+diff, and `41 passed in 2.64s`.
+
+```bash
+PIP_NO_INDEX=1 make test-application test-architecture \
+  DAY0_VENV=/Users/lorenzocc/Developer/servicefabric-lab/state/venvs/thesis-sprint
+```
+
+Result: **PASS** — `104 passed in 18.61s` for application tests and
+`105 passed in 1.67s` for architecture tests.
+
+`git diff --check` passed before this R6 handoff update.
+
+### R6 browser limitation
+
+The browser environment and sandbox policy are unchanged from the preserved R5
+review: the in-app browser runtime had no available instance, localhost socket
+binding was denied, and the mandated escalation was rejected. R6 therefore
+repeated exact in-process ASGI, static interaction-contract, application, and
+architecture verification but does not claim a new independent live-browser
+session. The integration handoff's prior successful live browser evidence was
+reviewed. This limitation is secondary to R6-B1 and R6-B2.
+
+### R6 acceptance decision and next action
+
+**Do not accept or merge candidate
+`e9eab8dd704d4c04d90fff269118a4af21072db9`.** Keep PLATFORM-P1 in progress
+and independent QA blocked. Integration should repair R6-B1 and R6-B2 together,
+because both arise from the distinction between durable uncommitted tails and
+catalogue-committed state. A fresh immutable candidate must pass every boundary
+and cross-operation retry probe before Phase 1 can close.
+
+Rollback remains documentation-only for this QA lane. Temporary registries and
+the isolated bootstrap environment are non-authoritative; canonical source
+definitions, the accepted Phase 0 baseline, and the read-only ServiceFabric pin
+remain unchanged.
