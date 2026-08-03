@@ -8,7 +8,7 @@ SERVICEFABRIC_DOCTOR := $(BOOTSTRAP_VENV)/bin/servicefabric
 
 DAY0_VENV ?= $(CURDIR)/.venv-day0
 DAY0_PYTHON := $(DAY0_VENV)/bin/python
-DAY0_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src:$(CURDIR)/packages/risk_analytics/src
+DAY0_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src:$(CURDIR)/packages/risk_analytics/src:$(CURDIR)/packages/risk_registry/src
 DAY0_PYTEST := PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS)" $(DAY0_PYTHON) -m pytest
 HISTORICAL_JOURNEY_TESTS := $(filter-out tests/journeys/test_thesis%.py,$(wildcard tests/journeys/*.py))
 DAY1_VENV ?= $(CURDIR)/.venv-day1
@@ -365,7 +365,7 @@ ifeq ($(strip $(THESIS_VENV)),)
 override THESIS_VENV := $(CURDIR)/.venv-thesis
 endif
 THESIS_PYTHON := $(THESIS_VENV)/bin/python
-THESIS_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src:$(CURDIR)/packages/risk_analytics/src:$(CURDIR)/examples/portfolio-risk-thesis/src
+THESIS_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src:$(CURDIR)/packages/risk_analytics/src:$(CURDIR)/packages/risk_registry/src:$(CURDIR)/examples/portfolio-risk-thesis/src
 THESIS_PYTEST := PYTHONPATH="$(CURDIR):$(THESIS_PACKAGE_PATHS)" $(THESIS_PYTHON) -m pytest
 THESIS_STATE_ROOT := $(abspath $(CURDIR)/../../../state/thesis-sprint/integration)
 THESIS_DATA_ROOT ?= $(THESIS_STATE_ROOT)/data
@@ -658,3 +658,9 @@ verify-platform-phase0: preflight day0-env
 	$(DAY0_PYTEST) tests/architecture/test_platform_development_control_plane.py tests/architecture/test_thesis_sprint_control_plane.py -q
 	git diff --check
 	@echo "Platform development Phase 0 control plane: PASS"
+
+.PHONY: verify-platform-phase1
+verify-platform-phase1: preflight day0-env
+	$(DAY0_PYTEST) tests/architecture/test_platform_phase1_control_plane.py tests/registry tests/application/test_registry_api.py -q
+	git diff --check
+	@echo "Platform development Phase 1 registry kernel: PASS"

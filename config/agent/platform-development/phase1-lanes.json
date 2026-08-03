@@ -1,0 +1,62 @@
+{
+  "namespace": "platform-development-phase1",
+  "base_commit": "21339db19357277ca9a9a1ca50107f1a884d7aeb",
+  "integration_order": [
+    "registry-contracts",
+    "registry-ui",
+    "registry-sources",
+    "integration",
+    "independent-qa"
+  ],
+  "waves": {
+    "activation": ["integration"],
+    "parallel-audit": ["registry-contracts", "registry-ui", "registry-sources"],
+    "implementation": ["integration"],
+    "acceptance": ["independent-qa", "integration"]
+  },
+  "lanes": {
+    "integration": {
+      "branch": "integration/platform-registry-kernel",
+      "allowed_directories": [
+        ".github",
+        "apps/portfolio-risk-workbench",
+        "config/agent/platform-development",
+        "docs/workplans/platform-development",
+        "docs/handoffs/platform-development",
+        "packages/risk_registry",
+        "tests/architecture",
+        "tests/application",
+        "tests/registry"
+      ],
+      "allowed_files": ["AGENTS.md", "Makefile", "README.md", "docs/workplans/current.md"]
+    },
+    "registry-contracts": {
+      "branch": "feature/platform-p1-registry-contracts",
+      "allowed_directories": [],
+      "allowed_files": ["docs/handoffs/platform-development/phase1-contracts-persistence.md"]
+    },
+    "registry-ui": {
+      "branch": "feature/platform-p1-registry-ui",
+      "allowed_directories": [],
+      "allowed_files": ["docs/handoffs/platform-development/phase1-catalogue-ui.md"]
+    },
+    "registry-sources": {
+      "branch": "feature/platform-p1-registry-sources",
+      "allowed_directories": [],
+      "allowed_files": ["docs/handoffs/platform-development/phase1-source-migration.md"]
+    },
+    "independent-qa": {
+      "branch": "review/platform-p1-independent-qa",
+      "allowed_directories": [],
+      "allowed_files": ["docs/handoffs/platform-development/phase1-independent-qa.md"]
+    }
+  },
+  "frozen_directories": ["vendor/servicefabric"],
+  "rules": {
+    "specialist_may_merge": false,
+    "specialist_work_is_read_only_except_exact_handoff": true,
+    "shared_contract_owner": "integration",
+    "canonical_definitions_are_indexed_not_duplicated": true,
+    "generated_mutable_artifacts_are_external_to_git": true
+  }
+}

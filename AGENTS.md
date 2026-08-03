@@ -315,14 +315,14 @@ explicit human QA.
 
 ## Active platform development programme
 
-The current programme is `PLATFORM-P0` on
-`integration/platform-development`. Its authoritative workplan is
-`docs/workplans/platform-development/phase-0-baseline.md`, lifecycle state is
+The current programme is `PLATFORM-P1` on
+`integration/platform-registry-kernel`. Its authoritative workplan is
+`docs/workplans/platform-development/phase-1-registry-kernel.md`, lifecycle state is
 in `config/agent/platform-development/status.json`, and exact lane ownership is
-in `config/agent/platform-development/lanes.json`.
+in `config/agent/platform-development/phase1-lanes.json`.
 
-Phase 0 has one integration authority and three parallel read-only specialist
-audits: canonical contracts/decisions, storage/runtime, and UI/profile/policy.
+Phase 1 has one integration authority and three parallel read-only specialist
+audits: registry contracts/persistence, catalogue UI, and source migration.
 Specialists may write only their exact handoff file and stop without merging.
 Independent QA begins only after integration synthesis and likewise writes only
 its exact handoff. Shared contracts, application changes, tests, CI, status,
