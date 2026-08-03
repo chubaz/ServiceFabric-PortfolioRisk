@@ -20,7 +20,7 @@
       });
     }
   </script>
-  <link rel="stylesheet" href="./styles.css?v=11">
+  <link rel="stylesheet" href="./styles.css?v=12">
 </head>
 <body>
   <header class="app-header">
@@ -37,6 +37,7 @@
       <button class="workspace-tab" type="button" data-workspace="artifacts">Artifacts</button>
       <button class="workspace-tab" type="button" data-workspace="experiments">Experiments</button>
       <button class="workspace-tab" type="button" data-workspace="decisions">Decisions</button>
+      <button class="workspace-tab" type="button" data-workspace="decision-diligence">Due diligence</button>
       <button class="workspace-tab" type="button" data-workspace="cycle">Simulated cycle</button>
       <button class="workspace-tab" type="button" data-workspace="full">Full experiment</button>
     </nav>
@@ -783,6 +784,15 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
       </div>
     </section>
 
+    <section class="lab-page" id="lab-decision-diligence" aria-labelledby="lab-decision-diligence-title">
+      <div class="lab-heading diligence-lab-heading">
+        <div><span class="eyebrow">Decision due diligence</span><h1 id="lab-decision-diligence-title">Test the proposal before resolving it</h1><p>Inspect the decision basis, assemble an effect-free investigation, and retain a candidate revision without changing the original proposal.</p></div>
+        <div class="diligence-heading-actions"><span class="stage-status" id="diligence-status">Select a proposal</span><button class="button ghost" id="diligence-back" type="button">Back to Decision Review</button></div>
+      </div>
+      <div class="diligence-boundary" role="note"><strong>Human-only D1 review</strong><span>Temporary workflows inspect declared references only. They cannot resolve the proposal, resume the clock, publish a workflow, fetch new data, or create portfolio/external effects.</span></div>
+      <div id="diligence-workspace"><div class="empty-state">Open due diligence from a Decision Card.</div></div>
+    </section>
+
     <section class="lab-page" id="lab-cycle" aria-labelledby="lab-cycle-title">
       <div class="lab-heading cycle-lab-heading">
         <div><span class="eyebrow">Workflow Cycle Console</span><h1 id="lab-cycle-title">Watch agents work through simulated market time</h1><p>Real CRSP daily closes anchor a seeded synthetic intraday stream. Every position updates once per simulated second and is aggregated into one-minute candles.</p></div>
@@ -1437,6 +1447,6 @@ checkpoint store and server route are connected, selecting it returns BLOCKED.</
   </dialog>
 
   <script src="./app.js"></script>
-  <script src="./labs.js?v=12"></script>
+  <script src="./labs.js?v=13"></script>
 </body>
 </html>

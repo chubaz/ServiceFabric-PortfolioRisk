@@ -22,6 +22,25 @@
     23,
   );
 
+  function showToast(message, tone = "info") {
+    let region = $("#application-toast-region");
+    if (!region) {
+      region = document.createElement("div");
+      region.id = "application-toast-region";
+      region.className = "application-toast-region";
+      region.setAttribute("role", "status");
+      region.setAttribute("aria-live", "polite");
+      document.body.append(region);
+    }
+    const item = document.createElement("div");
+    item.className = `application-toast ${tone}`;
+    item.textContent = String(message);
+    region.replaceChildren(item);
+    window.setTimeout(() => {
+      if (item.isConnected) item.remove();
+    }, 4200);
+  }
+
   const storage = {
     get(key, fallback) {
       try {
@@ -275,6 +294,8 @@
     decisionRecords: [],
     selectedDecisionId: null,
     decisionLoading: false,
+    dueDiligenceData: null,
+    dueDiligenceLoading: false,
   };
 
   function canonicalCurrentPortfolio() {
@@ -339,9 +360,11 @@
     if (name === "artifacts") loadArtifactCatalogue();
     if (name === "experiments") loadExperimentWorkspace();
     if (name === "decisions") loadDecisionWorkspace();
+    if (name === "decision-diligence") loadDueDiligenceWorkspace();
     if (name === "cycle") populateCyclePortfolios();
     if (updateHistory) {
       const url = new URL(window.location.href);
+      if (name === "decision-diligence" && labState.selectedDecisionId) url.searchParams.set("proposal", labState.selectedDecisionId);
       if (url.searchParams.get("workspace") !== name) {
         url.searchParams.set("workspace", name);
         window.history.pushState({ workspace: name }, "", url);
@@ -3024,6 +3047,7 @@
         <article><span>Risk-environment relevance</span><p>${escapeHtml(proposal.risk_environment_relevance)}</p></article>
       </div>
       <section class="decision-option-grid">${(proposal.options || []).map((option) => `<article><strong>${escapeHtml(option.label)}</strong><p>${escapeHtml(option.consequence)}</p><small>${escapeHtml(option.workflow_effect.replaceAll("_", " "))} · effects none</small></article>`).join("")}</section>
+      <section class="decision-diligence-launch"><div><span>Need more evidence?</span><strong>Open a dedicated due-diligence workspace</strong><p>Inspect receipts, policy, artifacts and alternatives, then retain an additive candidate revision.</p></div><button class="button primary" type="button" data-open-due-diligence>Open due diligence</button></section>
       <details class="decision-evidence"><summary>Evidence, uncertainty and lifecycle</summary><div class="decision-context-grid"><article><span>Evidence</span><p>${escapeHtml((proposal.evidence_ids || []).join(", ") || "No direct evidence references")}</p></article><article><span>Uncertainty</span><p>${escapeHtml((proposal.uncertainties || []).join(" ") || "None declared")}</p></article><article><span>Missing information</span><p>${escapeHtml((proposal.missing_information || []).join(" ") || "None declared")}</p></article></div><ol>${(record.lifecycle || []).map((item) => `<li><strong>${escapeHtml(item.to_state.replaceAll("_", " "))}</strong> — ${escapeHtml(item.rationale)}</li>`).join("")}</ol></details>
       ${latestRevision ? `<section class="decision-context-revision"><span>Supplemental context revision</span><strong>${escapeHtml(latestRevision.generated_by_workflow)}</strong><ul>${latestRevision.supplemental_findings.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul><small>The immutable proposal was not rewritten.</small></section>` : ""}
       ${latestDecision ? `<section class="decision-last-resolution"><span>Latest human choice</span><strong>${escapeHtml(decisionOutcomeLabel(latestDecision.outcome))}</strong><p>${escapeHtml(latestDecision.rationale)}</p></section>` : ""}
@@ -3061,6 +3085,105 @@
       body: JSON.stringify({ outcome, resolver_id: resolverId, resolver_type: "human", rationale, idempotency_key: `decision-review-${Date.now()}`, expected_revision: record.revision }),
     });
     await loadDecisionWorkspace(record.proposal.proposal_id);
+  }
+
+  function diligenceGroupMarkup(group = {}) {
+    const items = group.items || [];
+    return `<details class="diligence-reference-group" open><summary><span>${escapeHtml(group.title || "References")}</span><b>${items.length}</b></summary><p>${escapeHtml(group.explanation || "")}</p><div>${items.length ? items.map((item) => `<article><header><strong>${escapeHtml(item.label || item.reference_id)}</strong><span>${escapeHtml(String(item.data_truth || "reference_only").replaceAll("_", " "))}</span></header><p>${escapeHtml(item.note || "")}</p>${item.workflow_effect ? `<small>${escapeHtml(item.workflow_effect.replaceAll("_", " "))} · effects none</small>` : `<small>${escapeHtml(item.status || "declared reference")}</small>`}</article>`).join("") : '<div class="diligence-empty-reference">Nothing is attached in this category. It remains unavailable rather than being inferred.</div>'}</div></details>`;
+  }
+
+  function diligenceRunMarkup(run = {}, evidenceById = new Map()) {
+    return `<details class="diligence-run-card" open><summary><div><span>Temporary workflow · ${escapeHtml(run.created_by || "human")}</span><strong>${escapeHtml(run.name || run.run_id)}</strong></div><b>${(run.steps || []).length} steps</b></summary><p>${escapeHtml(run.investigation_question || "")}</p><ol>${(run.steps || []).map((step) => { const evidence = evidenceById.get(step.output_evidence_ids?.[0]); return `<li><span>${escapeHtml(String(step.capability_id || "inspection").replace("decision.", "").replaceAll(".", " "))}</span><strong>${escapeHtml(evidence?.title || step.objective)}</strong><p>${escapeHtml(step.result_summary)}</p><small>${(step.input_reference_ids || []).length} input references · ${(step.output_evidence_ids || []).length} retained evidence · effects none</small></li>`; }).join("")}</ol><footer>Completed ${escapeHtml(formatRunDate(run.completed_at))} · temporary · not publishable · not a decision</footer></details>`;
+  }
+
+  function renderDueDiligenceWorkspace() {
+    const payload = labState.dueDiligenceData;
+    const root = $("#diligence-workspace");
+    if (!payload) {
+      root.innerHTML = '<div class="empty-state">Open due diligence from a Decision Card.</div>';
+      $("#diligence-status").textContent = "Select a proposal";
+      return;
+    }
+    const workspace = payload.workspace || {};
+    const proposal = payload.proposal || {};
+    const runs = payload.investigation_runs || [];
+    const supplemental = payload.supplemental_evidence || [];
+    const revisions = payload.proposal_revisions || [];
+    const latestRevision = revisions.at(-1);
+    const evidenceById = new Map(supplemental.map((item) => [item.evidence_id, item]));
+    $("#diligence-status").textContent = `${String(workspace.state || "unknown").replaceAll("_", " ")} · ${runs.length} run${runs.length === 1 ? "" : "s"}`;
+    root.innerHTML = `
+      <article class="diligence-proposal-hero"><div><span>Immutable proposal · version ${Number(proposal.version || 1)}</span><h2>${escapeHtml(proposal.question)}</h2><p>${escapeHtml(proposal.why_now)}</p></div><div><small>Current recommendation</small><strong>${escapeHtml(decisionOutcomeLabel(proposal.recommendation))}</strong>${latestRevision ? `<small>Latest candidate revision</small><strong>${escapeHtml(decisionOutcomeLabel(latestRevision.recommendation))}</strong>` : ""}</div></article>
+      <div class="diligence-main-grid">
+        <aside class="diligence-reference-ledger"><header><span>Decision basis</span><strong>What the proposal can actually use</strong></header>${(payload.reference_groups || []).map(diligenceGroupMarkup).join("")}</aside>
+        <main class="diligence-investigation-studio">
+          <header><span>Temporary investigation workflow</span><h2>Choose the checks this question needs</h2><p>Modules run in the order shown. Each inspects already eligible references and retains one explicit evidence item.</p></header>
+          <form id="diligence-run-form">
+            <div class="diligence-form-row"><label><span>Workflow name</span><input id="diligence-run-name" value="Decision evidence review" minlength="3" maxlength="160" required></label><label><span>Candidate recommendation</span><select id="diligence-candidate-recommendation">${(proposal.options || []).map((item) => `<option value="${escapeHtml(item.outcome)}" ${item.outcome === (latestRevision?.recommendation || proposal.recommendation) ? "selected" : ""}>${escapeHtml(item.label)}</option>`).join("")}</select></label></div>
+            <label class="diligence-question"><span>Question to test</span><textarea id="diligence-question" rows="3" minlength="5" maxlength="1200" required>Does the declared evidence and policy support the proposed recommendation, and what remains unresolved?</textarea></label>
+            <fieldset class="diligence-module-picker"><legend>Effect-free modules</legend>${(payload.modules || []).map((module, index) => `<label><input type="checkbox" name="diligence-module" value="${escapeHtml(module.capability_id)}" ${index < 4 ? "checked" : ""}><span><strong>${escapeHtml(module.label)}</strong><small>${escapeHtml(module.purpose)}</small></span><b>${index + 1}</b></label>`).join("")}</fieldset>
+            <div class="diligence-form-row"><label><span>Human reviewer ID</span><input id="diligence-actor-id" placeholder="reviewer.name" minlength="3" maxlength="120" required></label><div class="diligence-run-boundary"><strong>No decision is taken</strong><span>The output is a candidate proposal revision for review.</span></div></div>
+            <button class="button primary" type="submit" ${workspace.executable ? "" : "disabled"}>${workspace.executable ? "Run temporary investigation" : "Final proposal · inspection only"}</button>
+          </form>
+        </main>
+        <aside class="diligence-lineage"><header><span>Retained work</span><strong>Revisions and run lineage</strong></header>${latestRevision ? `<article class="diligence-revision-card"><span>Candidate revision ${latestRevision.revision_number}</span><strong>${escapeHtml(decisionOutcomeLabel(latestRevision.recommendation))}</strong><p>${escapeHtml(latestRevision.rationale)}</p><small>${(latestRevision.supplemental_evidence_ids || []).length} supplemental evidence items · base proposal unchanged</small></article>` : '<div class="diligence-empty-reference">No candidate revision yet. Run a temporary investigation to create one.</div>'}<details class="diligence-digest"><summary>Immutable lineage</summary><dl><dt>Base proposal</dt><dd>${escapeHtml(proposal.proposal_digest || "Unavailable")}</dd><dt>Current record</dt><dd>${escapeHtml(workspace.record_revision || "Unavailable")}</dd></dl></details></aside>
+      </div>
+      <section class="diligence-results"><header><div><span>Investigation history</span><h2>Evidence added without rewriting the proposal</h2></div><b>${supplemental.length} supplemental evidence item${supplemental.length === 1 ? "" : "s"}</b></header>${runs.length ? runs.slice().reverse().map((run) => diligenceRunMarkup(run, evidenceById)).join("") : '<div class="empty-state">No due-diligence workflow has run for this proposal.</div>'}</section>`;
+  }
+
+  async function loadDueDiligenceWorkspace(preferredId = null) {
+    if (labState.dueDiligenceLoading) return;
+    const urlProposal = new URLSearchParams(window.location.search).get("proposal");
+    const proposalId = preferredId || labState.selectedDecisionId || urlProposal;
+    if (!proposalId) {
+      labState.dueDiligenceData = null;
+      renderDueDiligenceWorkspace();
+      return;
+    }
+    labState.selectedDecisionId = proposalId;
+    labState.dueDiligenceLoading = true;
+    try {
+      labState.dueDiligenceData = await agentApi(`/api/decisions/${encodeURIComponent(proposalId)}/due-diligence`);
+      renderDueDiligenceWorkspace();
+    } catch (error) {
+      $("#diligence-status").textContent = "Unavailable";
+      $("#diligence-workspace").innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+    } finally {
+      labState.dueDiligenceLoading = false;
+    }
+  }
+
+  function openDecisionDueDiligence() {
+    if (!labState.selectedDecisionId) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("proposal", labState.selectedDecisionId);
+    window.history.replaceState({ workspace: "decision-diligence" }, "", url);
+    switchWorkspace("decision-diligence");
+  }
+
+  async function runDecisionDueDiligence(event) {
+    event.preventDefault();
+    const payload = labState.dueDiligenceData;
+    if (!payload?.workspace?.executable) return;
+    const actorId = $("#diligence-actor-id").value.trim();
+    const capabilityIds = $$('input[name="diligence-module"]:checked').map((item) => item.value);
+    if (actorId.length < 3) throw new Error("Enter the human reviewer ID.");
+    if (!capabilityIds.length) throw new Error("Select at least one effect-free investigation module.");
+    labState.dueDiligenceData = await agentApi(`/api/decisions/${encodeURIComponent(payload.workspace.proposal_id)}/due-diligence/runs`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: $("#diligence-run-name").value.trim(),
+        investigation_question: $("#diligence-question").value.trim(),
+        capability_ids: capabilityIds,
+        candidate_recommendation: $("#diligence-candidate-recommendation").value,
+        actor_id: actorId,
+        actor_type: "human",
+        idempotency_key: `due-diligence-${Date.now()}`,
+        expected_revision: payload.workspace.record_revision,
+      }),
+    });
+    renderDueDiligenceWorkspace();
+    showToast("Temporary investigation retained. The base proposal remains unchanged.", "success");
   }
 
   async function attachCycleAgent() {
@@ -3631,7 +3754,7 @@
     $$(".workspace-tab").forEach((button) => button.addEventListener("click", () => switchWorkspace(button.dataset.workspace)));
     window.addEventListener("popstate", () => {
       const workspace = new URLSearchParams(window.location.search).get("workspace") || "dataset";
-      if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "decisions", "cycle", "full"].includes(workspace)) switchWorkspace(workspace, false);
+      if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "decisions", "decision-diligence", "cycle", "full"].includes(workspace)) switchWorkspace(workspace, false);
     });
     $("#registry-refresh").addEventListener("click", loadRegistryCatalogue);
     $("#registry-index-all").addEventListener("click", () => indexAllRegistryDefinitions().catch((error) => { $("#registry-status").textContent = error.message; }));
@@ -3768,11 +3891,20 @@
       renderDecisionWorkspace();
     });
     $("#decision-detail-panel").addEventListener("click", (event) => {
+      const diligenceButton = event.target.closest("[data-open-due-diligence]");
+      if (diligenceButton) {
+        openDecisionDueDiligence();
+        return;
+      }
       const button = event.target.closest("[data-decision-outcome]");
       if (!button) return;
       event.preventDefault();
       resolveDecisionWorkspace(button.dataset.decisionOutcome).catch((error) => showToast(error.message, "error"));
     });
+    $("#diligence-workspace").addEventListener("submit", (event) => {
+      if (event.target.id === "diligence-run-form") runDecisionDueDiligence(event).catch((error) => showToast(error.message, "error"));
+    });
+    $("#diligence-back").addEventListener("click", () => switchWorkspace("decisions"));
     $("#cycle-attach-agent").addEventListener("click", () => attachCycleAgent().catch((error) => { $("#cycle-runtime-status").textContent = error.message; }));
     $("#open-cycle-from-agent").addEventListener("click", () => {
       const selectedPortfolio = $("#agent-real-portfolio").value;
@@ -4260,7 +4392,9 @@
     initializeLiveConnection();
     initializeAgentRuntime();
     const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
-    if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "decisions", "cycle", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace, false);
+    const requestedProposal = new URLSearchParams(window.location.search).get("proposal");
+    if (requestedProposal) labState.selectedDecisionId = requestedProposal;
+    if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "decisions", "decision-diligence", "cycle", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace, false);
   }
 
   initialize();

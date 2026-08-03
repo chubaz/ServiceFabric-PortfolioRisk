@@ -64,6 +64,7 @@ from experiment_workspace import (
 from decision_review import (
     catalogue_payload as decision_catalogue_payload,
     decision_store,
+    due_diligence_payload as decision_due_diligence_payload,
     record_payload as decision_record_payload,
 )
 from risk_artifacts import (
@@ -107,6 +108,8 @@ from risk_decisions import (
     DecisionConflict as DecisionReviewConflict,
     DecisionNotFound as DecisionReviewNotFound,
     DecisionOutcome,
+    DueDiligenceCapability,
+    run_due_diligence,
     resolve as resolve_decision_record,
 )
 
@@ -164,6 +167,11 @@ LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
             "data": "Immutable findings, proposals, evidence references and supplemental context revisions",
             "authority": "Human review only · D1 recommendation · portfolio and external effects prohibited",
             "persistence": "Persistent local Decision Repository · lifecycle and consequence receipts retained",
+        },
+        "decision-diligence": {
+            "data": "Declared proposal references · supplemental analysis is truth-labelled and point-in-time bound",
+            "authority": "Human-built temporary workflow · no decision, publication, portfolio or external effect",
+            "persistence": "Runs, step receipts, evidence and candidate revisions retained in the Decision Repository",
         },
         "artifacts": {
             "data": "Retained generated outputs · data truth disclosed per record",
@@ -453,6 +461,17 @@ class WorkflowCycleDecisionRequest(BaseModel):
 
 class DecisionResolveRequest(WorkflowCycleDecisionRequest):
     pass
+
+
+class DecisionDueDiligenceRunRequest(BaseModel):
+    name: str = Field(min_length=3, max_length=160)
+    investigation_question: str = Field(min_length=5, max_length=1200)
+    capability_ids: list[DueDiligenceCapability] = Field(min_length=1, max_length=5)
+    candidate_recommendation: Literal["investigate", "accept_and_monitor", "defer", "reject", "escalate"]
+    actor_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,119}$")
+    actor_type: Literal["human"] = "human"
+    idempotency_key: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,159}$")
+    expected_revision: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
 
 
 class WorkflowCycleAgentAttachRequest(BaseModel):
@@ -2597,6 +2616,40 @@ def resolve_persisted_decision(proposal_id: str, request: DecisionResolveRequest
                 expected_revision=request.expected_revision,
             )
         return decision_record_payload(record)
+    except DecisionReviewNotFound as error:
+        raise HTTPException(status_code=404, detail="decision proposal not found") from error
+    except DecisionReviewConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/api/decisions/{proposal_id}/due-diligence")
+def decision_due_diligence(proposal_id: str) -> dict[str, Any]:
+    try:
+        return decision_due_diligence_payload(decision_store().get(proposal_id))
+    except DecisionReviewNotFound as error:
+        raise HTTPException(status_code=404, detail="decision proposal not found") from error
+
+
+@app.post("/api/decisions/{proposal_id}/due-diligence/runs")
+def execute_decision_due_diligence(
+    proposal_id: str,
+    request: DecisionDueDiligenceRunRequest,
+) -> dict[str, Any]:
+    try:
+        session = workflow_cycle_manager.find_by_proposal(proposal_id)
+        store = session.decision_store if session is not None else decision_store()
+        record = run_due_diligence(
+            store,
+            proposal_id,
+            name=request.name,
+            investigation_question=request.investigation_question,
+            capability_ids=tuple(request.capability_ids),
+            candidate_recommendation=DecisionOutcome(request.candidate_recommendation),
+            actor_id=request.actor_id,
+            idempotency_key=request.idempotency_key,
+            expected_revision=request.expected_revision,
+        )
+        return decision_due_diligence_payload(record)
     except DecisionReviewNotFound as error:
         raise HTTPException(status_code=404, detail="decision proposal not found") from error
     except DecisionReviewConflict as error:

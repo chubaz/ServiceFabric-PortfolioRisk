@@ -315,23 +315,21 @@ explicit human QA.
 
 ## Active platform development programme
 
-The current programme is `PLATFORM-P5` on
-`integration/platform-decision-review`. Its authoritative workplan is
-`docs/workplans/platform-development/phase-5-decision-review.md` and
+The current programme is `PLATFORM-P6` on
+`integration/platform-decision-due-diligence`. Its authoritative workplan is
+`docs/workplans/platform-development/phase-6-decision-due-diligence.md` and
 lifecycle state is in `config/agent/platform-development/status.json`.
 
-Phase 5 adds a human-owned Decision Review lifecycle over canonical finding
-references. Finding, Decision Proposal, human resolution and any later action
-remain distinct. The five supported outcomes are Investigate, Accept & monitor,
-Defer, Reject and Escalate; every outcome has an explicit effect-free
-consequence receipt. A material proposal pauses the Workflow Cycle and never
-resumes it implicitly.
+Phase 6 adds a human due-diligence workspace over the accepted Phase 5 Decision
+Review lifecycle. The base proposal remains immutable. Temporary investigation
+workflows may contain only the five registered deterministic inspection modules
+declared by the workplan. Their step receipts, supplemental evidence and additive
+candidate proposal revisions remain in the existing external Decision
+Repository. A candidate revision is not a resolution and cannot resume a cycle.
 
-Decision records remain outside Git and proposals are immutable. Investigation
-may run only the fixed effect-free follow-up declared by the Phase 5 workplan;
-it produces a supplemental context revision and returns to human review. Phase
-5 has no non-human resolver, due-diligence workspace, portfolio mutation,
-broker, order, trade, hedge, rebalance, or external effect.
+Phase 6 has no non-human resolver, arbitrary SQL/Python/LLM workflow, registry
+publication, new empirical-data retrieval, portfolio mutation, broker, order,
+trade, hedge, rebalance, or external effect.
 
 Real, synthetic, fixture, simulated, missing, and unavailable data states must
 remain explicit at every application and API boundary. Studio–Codex controls remain

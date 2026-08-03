@@ -123,6 +123,9 @@ def resolve(store: LocalDecisionStore, proposal_id: str, outcome: DecisionOutcom
         resolutions=(*current.resolutions, resolution),
         consequences=(*current.consequences, consequence),
         context_revisions=revisions, follow_up_runs=runs,
+        supplemental_evidence=current.supplemental_evidence,
+        investigation_runs=current.investigation_runs,
+        proposal_revisions=current.proposal_revisions,
     )
     return store.replace(updated, expected_revision=expected_revision)
 

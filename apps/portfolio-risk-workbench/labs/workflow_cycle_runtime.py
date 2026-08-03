@@ -343,7 +343,12 @@ class SyntheticWorkflowSession:
             portfolio_relevance="The finding measures movement in total simulated portfolio NAV from the session open.",
             risk_environment_relevance="This synthetic intraday path contains no independent macro, meso, or issuer evidence.",
             evidence_ids=(finding["finding_id"],),
+            artifact_ids=(
+                f"artifact.dashboard.{self.session_id}.{day}",
+                f"artifact.report.{self.session_id}.{day}",
+            ),
             capability_receipt_ids=(f"capability.synthetic-nav.{self.session_id}.{day}",),
+            policy_ids=("risk.policy.human-decision-review.v1",),
             uncertainties=("The intraday path is a seeded workflow fixture, not empirical market evidence.",),
             missing_information=("Confirm whether the movement remains material at the next released observation.",),
             as_of=datetime.fromisoformat(observed_at), available_at=datetime.fromisoformat(observed_at),

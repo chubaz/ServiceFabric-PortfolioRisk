@@ -56,6 +56,22 @@ class DecisionState(StrEnum):
 FINAL_STATES = frozenset({DecisionState.RESOLVED, DecisionState.REJECTED, DecisionState.EXPIRED, DecisionState.SUPERSEDED})
 
 
+class DueDiligenceCapability(StrEnum):
+    EVIDENCE_COVERAGE = "decision.evidence.coverage.inspect"
+    CAPABILITY_RECEIPTS = "decision.capability.receipts.inspect"
+    POLICY_ALIGNMENT = "decision.policy.alignment.inspect"
+    ALTERNATIVES = "decision.alternatives.compare"
+    ARTIFACT_LINEAGE = "decision.artifacts.lineage.inspect"
+
+
+class EvidenceTruth(StrEnum):
+    REAL = "real"
+    SYNTHETIC = "synthetic"
+    MIXED = "mixed"
+    REFERENCE_ONLY = "reference_only"
+    UNAVAILABLE = "unavailable"
+
+
 class DecisionOption(FrozenModel):
     outcome: DecisionOutcome
     label: str = Field(min_length=2, max_length=80)
@@ -122,8 +138,10 @@ class DecisionProposal(FrozenModel):
     portfolio_relevance: str = Field(min_length=3, max_length=1000)
     risk_environment_relevance: str = Field(min_length=3, max_length=1000)
     evidence_ids: tuple[str, ...] = ()
+    artifact_ids: tuple[str, ...] = ()
     capability_receipt_ids: tuple[str, ...] = ()
     model_receipt_ids: tuple[str, ...] = ()
+    policy_ids: tuple[str, ...] = ()
     scenario_ids: tuple[str, ...] = ()
     counter_evidence: tuple[str, ...] = ()
     uncertainties: tuple[str, ...] = ()
@@ -153,7 +171,14 @@ class DecisionProposal(FrozenModel):
             raise ValueError("proposal evidence cannot become available after the as-of time")
         if self.expires_at <= self.created_at:
             raise ValueError("proposal expiry must follow creation")
-        for values in (self.evidence_ids, self.capability_receipt_ids, self.model_receipt_ids, self.scenario_ids):
+        for values in (
+            self.evidence_ids,
+            self.artifact_ids,
+            self.capability_receipt_ids,
+            self.model_receipt_ids,
+            self.policy_ids,
+            self.scenario_ids,
+        ):
             if values != tuple(sorted(set(values))):
                 raise ValueError("proposal references must be sorted and unique")
         expected = canonical_digest(self.model_dump(mode="json", exclude={"proposal_digest"}))
@@ -268,6 +293,140 @@ class DecisionFollowUpRun(FrozenModel):
     _completed = field_validator("completed_at")(_aware)
 
 
+class DecisionSupplementalEvidence(FrozenModel):
+    schema_version: Literal["portfolio-risk.decision-supplemental-evidence/v1"] = "portfolio-risk.decision-supplemental-evidence/v1"
+    evidence_id: str = Field(pattern=IDENTIFIER)
+    proposal_id: str = Field(pattern=IDENTIFIER)
+    source_type: Literal[
+        "coverage_analysis",
+        "capability_receipt_analysis",
+        "policy_analysis",
+        "alternative_analysis",
+        "artifact_lineage_analysis",
+    ]
+    title: str = Field(min_length=3, max_length=160)
+    finding: str = Field(min_length=5, max_length=1800)
+    source_reference_ids: tuple[str, ...] = ()
+    data_truth: EvidenceTruth
+    as_of: datetime
+    available_at: datetime
+    created_at: datetime
+    created_by: str = Field(pattern=IDENTIFIER)
+    effects: tuple[()] = ()
+    evidence_digest: str | None = Field(default=None, pattern=DIGEST)
+
+    _as_of = field_validator("as_of")(_aware)
+    _available = field_validator("available_at")(_aware)
+    _created = field_validator("created_at")(_aware)
+
+    @model_validator(mode="after")
+    def validate_and_bind(self) -> "DecisionSupplementalEvidence":
+        if self.available_at > self.as_of:
+            raise ValueError("supplemental evidence cannot be available after its as-of time")
+        if self.source_reference_ids != tuple(sorted(set(self.source_reference_ids))):
+            raise ValueError("supplemental evidence references must be sorted and unique")
+        expected = canonical_digest(self.model_dump(mode="json", exclude={"evidence_digest"}))
+        if self.evidence_digest is not None and self.evidence_digest != expected:
+            raise ValueError("evidence_digest does not match canonical content")
+        object.__setattr__(self, "evidence_digest", expected)
+        return self
+
+
+class DecisionInvestigationStep(FrozenModel):
+    schema_version: Literal["portfolio-risk.decision-investigation-step/v1"] = "portfolio-risk.decision-investigation-step/v1"
+    step_id: str = Field(pattern=IDENTIFIER)
+    capability_id: DueDiligenceCapability
+    objective: str = Field(min_length=3, max_length=600)
+    input_reference_ids: tuple[str, ...] = ()
+    result_summary: str = Field(min_length=5, max_length=1800)
+    output_evidence_ids: tuple[str, ...] = Field(min_length=1, max_length=5)
+    status: Literal["completed"] = "completed"
+    started_at: datetime
+    completed_at: datetime
+    effects: tuple[()] = ()
+
+    _started = field_validator("started_at")(_aware)
+    _completed = field_validator("completed_at")(_aware)
+
+    @model_validator(mode="after")
+    def validate_step(self) -> "DecisionInvestigationStep":
+        if self.completed_at < self.started_at:
+            raise ValueError("investigation step cannot complete before it starts")
+        for values in (self.input_reference_ids, self.output_evidence_ids):
+            if values != tuple(sorted(set(values))):
+                raise ValueError("investigation step references must be sorted and unique")
+        return self
+
+
+class DecisionInvestigationWorkflowRun(FrozenModel):
+    schema_version: Literal["portfolio-risk.decision-investigation-run/v1"] = "portfolio-risk.decision-investigation-run/v1"
+    run_id: str = Field(pattern=IDENTIFIER)
+    proposal_id: str = Field(pattern=IDENTIFIER)
+    base_proposal_digest: str = Field(pattern=DIGEST)
+    name: str = Field(min_length=3, max_length=160)
+    investigation_question: str = Field(min_length=5, max_length=1200)
+    created_by: str = Field(pattern=IDENTIFIER)
+    actor_type: Literal["human"] = "human"
+    candidate_recommendation: DecisionOutcome
+    idempotency_key: str = Field(pattern=IDENTIFIER)
+    steps: tuple[DecisionInvestigationStep, ...] = Field(min_length=1, max_length=5)
+    temporary: Literal[True] = True
+    registry_publication: Literal[False] = False
+    started_at: datetime
+    completed_at: datetime
+    effects: tuple[()] = ()
+    run_digest: str | None = Field(default=None, pattern=DIGEST)
+
+    _started = field_validator("started_at")(_aware)
+    _completed = field_validator("completed_at")(_aware)
+
+    @model_validator(mode="after")
+    def validate_and_bind(self) -> "DecisionInvestigationWorkflowRun":
+        capabilities = tuple(item.capability_id for item in self.steps)
+        if len(capabilities) != len(set(capabilities)):
+            raise ValueError("temporary investigation capabilities must be unique")
+        if self.completed_at < self.started_at:
+            raise ValueError("investigation workflow cannot complete before it starts")
+        expected = canonical_digest(self.model_dump(mode="json", exclude={"run_digest"}))
+        if self.run_digest is not None and self.run_digest != expected:
+            raise ValueError("run_digest does not match canonical content")
+        object.__setattr__(self, "run_digest", expected)
+        return self
+
+
+class DecisionProposalRevision(FrozenModel):
+    schema_version: Literal["portfolio-risk.decision-proposal-revision/v1"] = "portfolio-risk.decision-proposal-revision/v1"
+    revision_id: str = Field(pattern=IDENTIFIER)
+    proposal_id: str = Field(pattern=IDENTIFIER)
+    revision_number: int = Field(ge=2)
+    base_proposal_digest: str = Field(pattern=DIGEST)
+    based_on_context_digest: str = Field(pattern=DIGEST)
+    recommendation: DecisionOutcome
+    rationale: str = Field(min_length=5, max_length=2400)
+    supplemental_evidence_ids: tuple[str, ...] = Field(min_length=1)
+    alternatives_considered: tuple[DecisionOutcome, ...]
+    unresolved_questions: tuple[str, ...] = ()
+    created_by: str = Field(pattern=IDENTIFIER)
+    workflow_run_id: str = Field(pattern=IDENTIFIER)
+    created_at: datetime
+    effects: tuple[()] = ()
+    revision_digest: str | None = Field(default=None, pattern=DIGEST)
+
+    _created = field_validator("created_at")(_aware)
+
+    @model_validator(mode="after")
+    def validate_and_bind(self) -> "DecisionProposalRevision":
+        if self.supplemental_evidence_ids != tuple(sorted(set(self.supplemental_evidence_ids))):
+            raise ValueError("proposal revision evidence references must be sorted and unique")
+        if self.alternatives_considered != tuple(DecisionOutcome):
+            raise ValueError("proposal revision must compare all five canonical alternatives")
+        expected = canonical_digest(self.model_dump(mode="json", exclude={"revision_digest"}))
+        if self.revision_digest is not None and self.revision_digest != expected:
+            raise ValueError("revision_digest does not match canonical content")
+        object.__setattr__(self, "revision_digest", expected)
+        return self
+
+
 class DecisionRecord(FrozenModel):
     schema_version: Literal["portfolio-risk.decision-record/v1"] = "portfolio-risk.decision-record/v1"
     proposal: DecisionProposal
@@ -276,6 +435,9 @@ class DecisionRecord(FrozenModel):
     consequences: tuple[DecisionConsequenceReceipt, ...] = ()
     context_revisions: tuple[DecisionContextRevision, ...] = ()
     follow_up_runs: tuple[DecisionFollowUpRun, ...] = ()
+    supplemental_evidence: tuple[DecisionSupplementalEvidence, ...] = ()
+    investigation_runs: tuple[DecisionInvestigationWorkflowRun, ...] = ()
+    proposal_revisions: tuple[DecisionProposalRevision, ...] = ()
     record_revision: str | None = Field(default=None, pattern=DIGEST)
 
     @property
@@ -295,6 +457,28 @@ class DecisionRecord(FrozenModel):
                 raise ValueError("lifecycle state chain is invalid")
             prior = item.receipt_digest
             prior_state = item.to_state
+        evidence_ids = tuple(item.evidence_id for item in self.supplemental_evidence)
+        if len(evidence_ids) != len(set(evidence_ids)):
+            raise ValueError("supplemental evidence identities must be unique")
+        run_ids = tuple(item.run_id for item in self.investigation_runs)
+        if len(run_ids) != len(set(run_ids)):
+            raise ValueError("investigation run identities must be unique")
+        expected_revision_numbers = tuple(range(2, len(self.proposal_revisions) + 2))
+        if tuple(item.revision_number for item in self.proposal_revisions) != expected_revision_numbers:
+            raise ValueError("proposal revision numbers must be contiguous and begin at two")
+        for run in self.investigation_runs:
+            if run.proposal_id != self.proposal.proposal_id or run.base_proposal_digest != self.proposal.proposal_digest:
+                raise ValueError("investigation run is not bound to the immutable proposal")
+            for step in run.steps:
+                if not set(step.output_evidence_ids).issubset(evidence_ids):
+                    raise ValueError("investigation step references unknown supplemental evidence")
+        for revision in self.proposal_revisions:
+            if revision.proposal_id != self.proposal.proposal_id or revision.base_proposal_digest != self.proposal.proposal_digest:
+                raise ValueError("proposal revision is not bound to the immutable proposal")
+            if revision.workflow_run_id not in run_ids:
+                raise ValueError("proposal revision references an unknown investigation run")
+            if not set(revision.supplemental_evidence_ids).issubset(evidence_ids):
+                raise ValueError("proposal revision references unknown supplemental evidence")
         expected = canonical_digest(self.model_dump(mode="json", exclude={"record_revision"}))
         if self.record_revision is not None and self.record_revision != expected:
             raise ValueError("record_revision does not match canonical content")
