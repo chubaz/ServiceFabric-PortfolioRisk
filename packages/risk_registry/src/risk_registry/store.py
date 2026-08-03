@@ -42,6 +42,7 @@ class LocalRegistryStore:
         self.projections_root = self.root / "projections"
         self.events_root = self.root / "events"
         self.anchors_root = self.root / "anchors"
+        self.pending_root = self.root / "pending"
         self.catalog_path = self.root / "catalog.json"
         self._lock = threading.RLock()
 
@@ -75,6 +76,7 @@ class LocalRegistryStore:
             self.projections_root,
             self.events_root,
             self.anchors_root,
+            self.pending_root,
         ):
             directory.mkdir(mode=0o700, parents=True, exist_ok=True)
             if directory.is_symlink():
@@ -258,6 +260,125 @@ class LocalRegistryStore:
             }
         self._write_catalog(updated)
 
+    @staticmethod
+    def _pending_intent_digest(value: dict[str, object]) -> str:
+        payload = json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def _read_pending_intents(self) -> list[dict[str, object]]:
+        if not self.pending_root.exists():
+            return []
+        if self.pending_root.is_symlink():
+            raise ValueError("registry pending-intent directory may not be a symbolic link")
+        intents: list[dict[str, object]] = []
+        for path in sorted(self.pending_root.glob("*.json")):
+            if path.is_symlink():
+                raise ValueError("registry pending intent may not be a symbolic link")
+            try:
+                value = json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError) as error:
+                raise RegistryConflict("registry pending intent is not readable") from error
+            if not isinstance(value, dict):
+                raise RegistryConflict("registry pending intent is invalid")
+            digest = value.get("digest")
+            intent = {key: item for key, item in value.items() if key != "digest"}
+            references = intent.get("references")
+            if (
+                set(intent)
+                != {
+                    "schema_version",
+                    "mode",
+                    "references",
+                    "actor",
+                    "rationale",
+                    "occurred_at",
+                }
+                or intent.get("schema_version") != "risk-registry-index-intent/v1"
+                or intent.get("mode") not in {"single", "batch"}
+                or not isinstance(references, list)
+                or not references
+                or any(not isinstance(reference, str) for reference in references)
+                or references != sorted(set(references))
+                or not isinstance(intent.get("actor"), str)
+                or not isinstance(intent.get("rationale"), str)
+                or (
+                    intent.get("occurred_at") is not None
+                    and not isinstance(intent.get("occurred_at"), str)
+                )
+                or not isinstance(digest, str)
+                or digest != self._pending_intent_digest(intent)
+                or path.name != f"{digest}.json"
+            ):
+                raise RegistryConflict("registry pending intent integrity verification failed")
+            intents.append(value)
+        return intents
+
+    def _prepare_index_intent(
+        self,
+        projections: tuple[RegistryProjection, ...],
+        *,
+        mode: str,
+        actor: str,
+        rationale: str,
+        occurred_at: datetime | None,
+    ) -> None:
+        references = sorted(item.identity.reference for item in projections)
+        catalog = self._read_catalog()
+        if all(reference in catalog for reference in references):
+            return
+        timestamp = (
+            occurred_at.astimezone(timezone.utc).isoformat()
+            if occurred_at is not None
+            else None
+        )
+        intent: dict[str, object] = {
+            "schema_version": "risk-registry-index-intent/v1",
+            "mode": mode,
+            "references": references,
+            "actor": actor,
+            "rationale": rationale,
+            "occurred_at": timestamp,
+        }
+        requested = set(references)
+        active: list[dict[str, object]] = []
+        for candidate in self._read_pending_intents():
+            candidate_references = set(candidate["references"])  # type: ignore[arg-type]
+            if all(reference in catalog for reference in candidate_references):
+                continue
+            if requested & candidate_references:
+                active.append(candidate)
+        if active:
+            expected = {**intent, "digest": self._pending_intent_digest(intent)}
+            if len(active) != 1 or active[0] != expected:
+                raise RegistryConflict(
+                    "an interrupted index operation must be retried with its exact source set and intent"
+                )
+            return
+        for projection in projections:
+            events_path = self._events_path(projection.identity)
+            if events_path.is_symlink():
+                raise ValueError("registry events directory is not a safe contained path")
+            if (
+                projection.identity.reference not in catalog
+                and (
+                    self._projection_path(projection.identity).exists()
+                    or events_path.exists()
+                )
+            ):
+                raise RegistryConflict(
+                    "uncommitted registry data has no matching pending operation intent"
+                )
+        digest = self._pending_intent_digest(intent)
+        value = {**intent, "digest": digest}
+        self._write_exclusive_bytes(
+            self.pending_root / f"{digest}.json",
+            (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8"),
+        )
+
     def _reconstruct(self, identity: RegistryIdentity) -> RegistryDocument | None:
         projection_path = self._projection_path(identity)
         if not projection_path.exists():
@@ -423,6 +544,13 @@ class LocalRegistryStore:
         occurred_at: datetime | None = None,
     ) -> RegistryDocument:
         with self._lock, self._mutation_lock():
+            self._prepare_index_intent(
+                (projection,),
+                mode="single",
+                actor=actor,
+                rationale=rationale,
+                occurred_at=occurred_at,
+            )
             document = self._index_locked(
                 projection,
                 actor=actor,
@@ -695,6 +823,7 @@ class LocalRegistryStore:
         self, projections: Iterable[RegistryProjection], *, actor: str
     ) -> tuple[list[RegistryDocument], list[str]]:
         requested = tuple(projections)
+        rationale = "Indexed as part of one prevalidated source bootstrap."
         if len({item.identity.reference for item in requested}) != len(requested):
             return [], ["bootstrap request contains duplicate identities"]
         with self._lock, self._mutation_lock():
@@ -718,11 +847,18 @@ class LocalRegistryStore:
                     )
             if conflicts:
                 return [], conflicts
+            self._prepare_index_intent(
+                requested,
+                mode="batch",
+                actor=actor,
+                rationale=rationale,
+                occurred_at=None,
+            )
             indexed = [
                 self._index_locked(
                     projection,
                     actor=actor,
-                    rationale="Indexed as part of one prevalidated source bootstrap.",
+                    rationale=rationale,
                     occurred_at=None,
                 )
                 for projection in requested

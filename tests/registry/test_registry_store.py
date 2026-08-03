@@ -395,11 +395,51 @@ def test_index_recovers_when_initial_event_is_durable_before_its_anchor(
     assert store.list() == []
 
     restarted = LocalRegistryStore(store.root)
-    with pytest.raises(RegistryConflict, match="retried exactly"):
+    with pytest.raises(RegistryConflict, match="exact source set and intent"):
         restarted.index(projection(), actor="different-indexer")
     recovered = restarted.index(projection(), actor="tester")
     assert recovered.state is LifecycleState.CANDIDATE
     assert len(restarted.list()) == 1
+
+
+def test_interrupted_explicit_timestamp_index_requires_exact_timestamp_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = LocalRegistryStore(tmp_path / "registry")
+
+    def fail_anchor_write(path: Path, value: str) -> None:
+        raise OSError("injected anchor write failure")
+
+    monkeypatch.setattr(store, "_write_immutable_text", fail_anchor_write)
+    with pytest.raises(OSError, match="anchor write failure"):
+        store.index(
+            projection(),
+            actor="tester",
+            rationale="Explicitly timed index.",
+            occurred_at=NOW,
+        )
+
+    restarted = LocalRegistryStore(store.root)
+    with pytest.raises(RegistryConflict, match="exact source set and intent"):
+        restarted.index(
+            projection(),
+            actor="tester",
+            rationale="Explicitly timed index.",
+        )
+    with pytest.raises(RegistryConflict, match="exact source set and intent"):
+        restarted.index(
+            projection(),
+            actor="tester",
+            rationale="Changed rationale.",
+            occurred_at=NOW,
+        )
+    recovered = restarted.index(
+        projection(),
+        actor="tester",
+        rationale="Explicitly timed index.",
+        occurred_at=NOW,
+    )
+    assert recovered.receipts[0].occurred_at == NOW
 
 
 def test_missing_committed_receipt_anchor_fails_closed(tmp_path: Path) -> None:
@@ -569,7 +609,10 @@ def test_bootstrap_write_failure_exposes_no_partial_catalogue(
 
     assert store.list() == []
     monkeypatch.setattr(store, "_write_immutable", original_write)
-    with pytest.raises(RegistryConflict, match="retried exactly"):
+    with pytest.raises(RegistryConflict, match="exact source set and intent"):
+        store.index_many((requested[0],), actor="bootstrap-reviewer")
+    assert store.list() == []
+    with pytest.raises(RegistryConflict, match="exact source set and intent"):
         store.index_many(requested, actor="different-bootstrap-reviewer")
     indexed, conflicts = store.index_many(requested, actor="bootstrap-reviewer")
     assert conflicts == []
