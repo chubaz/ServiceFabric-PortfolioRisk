@@ -1,25 +1,21 @@
 # Current Workplan
 
-- ID: PLATFORM-P3
-- Title: Experiment workspace and bounded queue
+- ID: PLATFORM-P4
+- Title: Markdown report composer
 - Status: accepted
 - Namespace: platform-development
-- Integration branch: integration/platform-experiment-workspace
-- Workplan: docs/workplans/platform-development/phase-3-experiment-workspace.md
-- Baseline commit: 5426cacee004817c17215ec8bff3747d5d00c2c2
+- Integration branch: integration/platform-report-composer
+- Workplan: docs/workplans/platform-development/phase-4-markdown-report-composer.md
+- Baseline commit: 19ccf123bd210eae1763f1fd5a332cfd3cb44d72
 - Phase 1 accepted candidate: a68ef6fce9d39f5341fa8675c093db2eba95aed6
-- Verification: make verify-platform-phase3
-- Accepted candidate: 63530a08040f0976e68d310072a27a809943f15d
+- Verification: make verify-platform-phase4
+- Accepted candidate: 7b20ae45be093b3aec1cddc4fb0b05c1194738aa
 
-Phase 3 adds immutable ExperimentDefinition and ExperimentSet contracts,
-external restart-safe lifecycle and queue metadata, explicit foreground,
-headless, and evaluation-only modes, budgets, idempotent admission, and an
-Experiment Workspace over canonical source and registry references.
-
-The visible increment creates and reviews isolated experiments, advances their
-lifecycle, admits ready work to a bounded queue, pauses and resumes explicit
-local controller state, and groups experiments for comparison. Admission does
-not start a worker or model call.
+Phase 4 makes concise Markdown the primary analytical report surface. It adds
+typed section plans and revisions, evidence, repetition, length and completeness
+checks, deterministic safe HTML rendering, and digest-bound chart/table
+attachments. Agent Run Review persists and displays this report envelope while
+retaining the underlying model and capability receipts.
 
 The earlier Thesis Sprint is closed as `THESIS-DEFERRED` in
 `docs/workplans/thesis-sprint/deferred.md`. Days 1–3 remain accepted and the Day
@@ -53,6 +49,16 @@ phases or immediately when a high-risk execution, financial-effect, data-rights,
 or compatibility boundary changes.
 
 Phase 3 is accepted locally at exact implementation candidate
-`63530a08040f0976e68d310072a27a809943f15d`. The focused contract, persistence,
-API, architecture, launcher, JavaScript, and browser interaction checks passed.
-The next phase has not started.
+`63530a08040f0976e68d310072a27a809943f15d`, with closure commit
+`19ccf123bd210eae1763f1fd5a332cfd3cb44d72`. Phase 4 starts from that exact
+baseline. Focused tests run during the phase; the next exhaustive cross-phase
+suite remains scheduled after Phase 5 unless a high-risk boundary changes.
+
+Phase 4 is accepted at exact implementation candidate
+`7b20ae45be093b3aec1cddc4fb0b05c1194738aa`. The focused gate passed 14 tests
+covering contracts, section revision, report validation, safe rendering, API,
+Agent Studio, artifact admission and control-plane boundaries. A deterministic
+synthetic browser run produced nine sections, 100% evidence coverage, no
+repeated section pairs, no length warnings, 14 persisted files, an open human
+review checkpoint and no console errors. The exhaustive suite remains deferred
+to the planned post-Phase-5 checkpoint.

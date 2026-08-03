@@ -89,6 +89,15 @@ from risk_experiments import (
     TemporalWindow,
     canonical_digest,
 )
+from risk_reports import (
+    MarkdownReport,
+    compose_daily_risk_report,
+    default_daily_risk_plan,
+    render_report,
+    report_markdown,
+    validate_report,
+    with_rendered_html,
+)
 
 
 SQL_AGENT_MODEL = "gpt-5.6-luna"
@@ -386,6 +395,21 @@ class AgentInputPreviewRequest(BaseModel):
         min_length=1,
         max_length=4,
     )
+
+
+class ReportComposeRequest(BaseModel):
+    report_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,159}$")
+    presentation: dict[str, Any]
+    evidence_ids: list[str] = Field(default_factory=list, max_length=500)
+
+
+class ReportValidationRequest(BaseModel):
+    report: MarkdownReport
+    available_evidence_ids: list[str] = Field(default_factory=list, max_length=500)
+
+
+class ReportRenderRequest(BaseModel):
+    report: MarkdownReport
 
 
 class WorkflowCycleCreateRequest(BaseModel):
@@ -2408,6 +2432,46 @@ def create_experiment_set(request: ExperimentSetCreateRequest) -> dict[str, Any]
 @app.get("/api/agents/runtime")
 def agent_runtime() -> dict[str, Any]:
     return runtime_status()
+
+
+@app.post("/api/report-composer/plan")
+def report_composer_plan() -> dict[str, Any]:
+    return default_daily_risk_plan().model_dump(mode="json")
+
+
+@app.post("/api/report-composer/compose")
+def report_composer_compose(request: ReportComposeRequest) -> dict[str, Any]:
+    report = compose_daily_risk_report(
+        request.presentation,
+        report_id=request.report_id,
+        evidence_ids=request.evidence_ids,
+    )
+    report = with_rendered_html(report)
+    validation = validate_report(
+        report,
+        available_evidence_ids=request.evidence_ids,
+    )
+    return {
+        "report": report.model_dump(mode="json"),
+        "validation": validation.model_dump(mode="json"),
+        "markdown": report_markdown(report),
+    }
+
+
+@app.post("/api/report-composer/validate")
+def report_composer_validate(request: ReportValidationRequest) -> dict[str, Any]:
+    return validate_report(
+        request.report,
+        available_evidence_ids=request.available_evidence_ids,
+    ).model_dump(mode="json")
+
+
+@app.post("/api/report-composer/render")
+def report_composer_render(request: ReportRenderRequest) -> dict[str, Any]:
+    return {
+        "renderer_version": request.report.renderer_version,
+        "safe_html": render_report(request.report),
+    }
 
 
 @app.post("/api/workflow-cycle/sessions")

@@ -18,6 +18,12 @@ from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+from risk_reports import (
+    compose_daily_risk_report,
+    report_markdown,
+    validate_report,
+    with_rendered_html,
+)
 
 
 COMPILER_VERSION = "agent-blueprint-compiler/0.4.0"
@@ -2931,30 +2937,54 @@ def draft(state: AgentState) -> AgentState:
             ),
         }}
     issue = context.get("issue", "No risk exception was supplied.")
+    drawdown = context.get("maximum_drawdown", context.get("drawdown"))
+    downside = []
+    if context.get("expected_shortfall_95") is not None:
+        downside.append(
+            f"95% expected shortfall is {{_percentage(context.get('expected_shortfall_95'))}}"
+        )
+    if drawdown is not None:
+        downside.append(f"Maximum observed drawdown is {{_percentage(drawdown)}}")
+    downside_summary = (
+        "; ".join(downside) + "."
+        if downside
+        else "Complete tail-risk statistics were not available for this run."
+    )
     narrative = (
-        f"The priced sleeve's 95% expected shortfall is "
-        f"{{_percentage(context.get('expected_shortfall_95'))}}, against a maximum observed "
-        f"drawdown of {{_percentage(context.get('maximum_drawdown'))}}. Its largest valued position is "
+        f"The largest valued position is "
         f"{{_percentage(context.get('largest_weight'), decimals=1)}} of NAV, making concentration "
-        "the principal review question."
+        f"the principal review question. {{downside_summary}}"
+    )
+    changed_items = []
+    if context.get("daily_return") is not None:
+        changed_items.append(f"Latest daily return: {{_percentage(context.get('daily_return'))}}.")
+    if context.get("annualized_volatility") is not None:
+        changed_items.append(
+            f"Annualized volatility: {{_percentage(context.get('annualized_volatility'))}}."
+        )
+    risk_measures = []
+    if context.get("var_95") is not None:
+        risk_measures.append(f"95% historical VaR is {{_percentage(context.get('var_95'))}}")
+    if context.get("expected_shortfall_95") is not None:
+        risk_measures.append(
+            f"95% expected shortfall is {{_percentage(context.get('expected_shortfall_95'))}}"
+        )
+    risk_interpretation = (
+        "; ".join(risk_measures) + "."
+        if risk_measures
+        else "No complete tail-risk statistic was available; interpretation remains concentration-led."
     )
     report_sections = [
         {{"section_id": "executive_signal", "title": "Executive signal", "content": narrative}},
         {{
             "section_id": "what_changed",
             "title": "What changed",
-            "items": [
-                f"Latest daily return: {{_percentage(context.get('daily_return'))}}.",
-                f"Annualized volatility: {{_percentage(context.get('annualized_volatility'))}}.",
-            ],
+            "items": changed_items,
         }},
         {{
             "section_id": "risk_interpretation",
             "title": "Risk interpretation",
-            "content": (
-                f"Historical VaR is {{_percentage(context.get('var_95'))}} and losses beyond "
-                f"that threshold averaged {{_percentage(context.get('expected_shortfall_95'))}}."
-            ),
+            "content": risk_interpretation,
         }},
         {{
             "section_id": "exposure_and_mandate",
@@ -4057,56 +4087,49 @@ def _run_presentation(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _review_brief(result: dict[str, Any]) -> str:
-    presentation = result["presentation"]
-    lines = [
-        f"# {result['agent_name']} — Review Brief",
-        "",
-        f"**{presentation['status_label']}**",
-        "",
-        f"## {presentation['title']}",
-        "",
-        presentation["premise"],
-        "",
-        f"- Portfolio: {presentation['portfolio']}",
-        f"- As of: {presentation['as_of']}",
-        f"- Data basis: {presentation['data_basis']}",
-        "",
-        "## Executive conclusion",
-        "",
-        presentation["executive_conclusion"],
-        "",
-        "## Key observations",
-        "",
-    ]
-    for observation in presentation["observations"]:
-        lines.append(
-            f"- **{observation['label']}: {observation['value']}** — {observation['note']}"
+def _report_evidence(result: dict[str, Any]) -> tuple[tuple[str, ...], dict[str, tuple[str, ...]]]:
+    """Retain only evidence identifiers already present in run inputs or receipts."""
+
+    state = result.get("final_state", {})
+    context = state.get("overall_context") or result.get("input_context", {})
+    evidence: set[str] = set()
+    for field in ("portfolio_capability_input", "metric_pack_input"):
+        item = context.get(field) or {}
+        if item.get("evidence_id"):
+            evidence.add(str(item["evidence_id"]))
+    for call in state.get("capability_results", []):
+        evidence.update(
+            str(item)
+            for item in call.get("receipt", {}).get("evidence_ids", [])
+            if item
         )
-    lines.extend(["", "## Material findings", ""])
-    lines.extend(f"- {finding}" for finding in presentation["findings"])
-    lines.extend(["", "## Limitations", ""])
-    lines.extend(
-        [f"- {limitation}" for limitation in presentation["limitations"]]
-        or ["- No additional limitations were recorded."]
+    finding_evidence: dict[str, tuple[str, ...]] = {}
+    for finding in (state.get("model_output") or {}).get("material_findings", []):
+        claim = str(finding.get("claim") or "").strip()
+        ids = tuple(sorted(set(str(item) for item in finding.get("evidence_ids", []) if item)))
+        if claim:
+            finding_evidence[claim] = ids
+            evidence.update(ids)
+    return tuple(sorted(evidence)), finding_evidence
+
+
+def _compose_run_report(result: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    evidence, finding_evidence = _report_evidence(result)
+    report = compose_daily_risk_report(
+        result["presentation"],
+        report_id=f"report:{result['run_id']}",
+        evidence_ids=evidence,
+        finding_evidence=finding_evidence,
     )
-    lines.extend(["", "## Recommended review steps", ""])
-    lines.extend(
-        f"{index}. {step}"
-        for index, step in enumerate(presentation["next_steps"], start=1)
-    )
-    lines.extend(
-        [
-            "",
-            "## Decision boundary",
-            "",
-            presentation["review_boundary"],
-            "",
-            "Effects: none.",
-            "",
-        ]
-    )
-    return "\n".join(lines)
+    report = with_rendered_html(report)
+    validation = validate_report(report, available_evidence_ids=evidence)
+    return report.model_dump(mode="json"), validation.model_dump(mode="json")
+
+
+def _review_brief(result: dict[str, Any]) -> str:
+    from risk_reports import MarkdownReport
+
+    return report_markdown(MarkdownReport.model_validate(result["report"]))
 
 
 def _persist_run(result: dict[str, Any]) -> dict[str, Any]:
@@ -4117,6 +4140,8 @@ def _persist_run(result: dict[str, Any]) -> dict[str, Any]:
         "narrative": result.get("final_state", {}).get("narrative"),
         "critique": result.get("final_state", {}).get("critique"),
         "presentation": result.get("presentation"),
+        "report": result.get("report"),
+        "report_validation": result.get("report_validation"),
         "research_plan": result.get("final_state", {}).get("research_plan"),
         "capability_results": result.get("final_state", {}).get(
             "capability_results", []
@@ -4148,6 +4173,8 @@ def _persist_run(result: dict[str, Any]) -> dict[str, Any]:
             }
         ),
         "review-brief.md": _review_brief(result),
+        "review-brief.html": str(result.get("report", {}).get("rendered_html", "")),
+        "report.json": _json_text(result.get("report", {})),
         "transcript.md": _run_transcript(result),
     }
     files = []
@@ -4237,6 +4264,18 @@ def load_agent_run(run_id: str) -> dict[str, Any]:
                 contents[name] = text
         else:
             contents[name] = text
+    # Never trust persisted HTML. Re-validate the typed envelope and render it
+    # again with the current deterministic safe renderer before returning it.
+    if isinstance(contents.get("report.json"), dict):
+        from risk_reports import MarkdownReport, with_rendered_html
+
+        report = with_rendered_html(MarkdownReport.model_validate(contents["report.json"]))
+        contents["report.json"] = report.model_dump(mode="json")
+        output = contents.get("output.json")
+        if isinstance(output, dict):
+            output["report"] = contents["report.json"]
+            if isinstance(output.get("presentation"), dict):
+                output["presentation"]["report"] = contents["report.json"]
     return {"manifest": manifest, "contents": contents}
 
 
@@ -4364,6 +4403,9 @@ def run_blueprint(request: RunRequest) -> dict[str, Any]:
         "graph": compiled["graph"],
     }
     result["presentation"] = _run_presentation(result)
+    result["report"], result["report_validation"] = _compose_run_report(result)
+    result["presentation"]["report"] = result["report"]
+    result["presentation"]["report_validation"] = result["report_validation"]
     result["activity"] = _run_activity(result)
     result["run"] = _persist_run(result) if request.persist_run else None
     return result

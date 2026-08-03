@@ -2166,14 +2166,24 @@
     const nextSteps = (presentation.next_steps || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
     const review = presentation.review || output.review || {};
     const reviewLabel = review.approved ? "Isolated checkpoint released" : "Human review required";
+    const report = presentation.report || output.report || null;
+    const reportValidation = presentation.report_validation || output.report_validation || null;
+    const trustedReport = report?.renderer_version === "portfolio-risk.safe-markdown/v1" && typeof report?.rendered_html === "string";
+    const reportNavigation = trustedReport ? `<nav class="report-section-nav" aria-label="Report sections">${(report.sections || []).map((section, index) => `<a href="#report-${escapeHtml(section.section_id)}"><span>${index + 1}</span>${escapeHtml(section.title)}</a>`).join("")}</nav>` : "";
+    const reportChecks = reportValidation ? `<div class="report-validation ${reportValidation.valid ? "valid" : "attention"}">
+      <strong>${reportValidation.valid ? "Report checks passed" : "Review checks need attention"}</strong>
+      <span>${Math.round(Number(reportValidation.evidence_coverage || 0) * 100)}% evidence coverage</span>
+      <span>${(reportValidation.repetition_pairs || []).length} repeated section pair${(reportValidation.repetition_pairs || []).length === 1 ? "" : "s"}</span>
+      <span>${(reportValidation.length_violations || []).length} length warning${(reportValidation.length_violations || []).length === 1 ? "" : "s"}</span>
+    </div>` : "";
     const sections = presentation.report_sections || output.model_output?.report_sections || [];
     const sectionMarkup = sections.length ? `<div class="run-report-sections">${sections.map((section) => `<section class="${section.section_id === "executive_signal" ? "lead" : ""}"><span>${escapeHtml(section.title)}</span>${section.content ? `<p>${escapeHtml(section.content)}</p>` : ""}${section.items?.length ? `<ul>${section.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}</section>`).join("")}</div>` : "";
     return `<article class="run-outcome-card ${escapeHtml(presentation.tone || "limited")}">
       <header class="run-outcome-masthead"><div><span>Agent result</span><h3>${escapeHtml(presentation.title)}</h3></div><b>${escapeHtml(presentation.status_label)}</b></header>
       <p class="run-outcome-premise">${escapeHtml(presentation.premise)}</p>
-      ${sections.length ? sectionMarkup : `<section class="run-outcome-conclusion"><span>Executive conclusion</span><p>${escapeHtml(presentation.executive_conclusion)}</p></section>`}
+      ${trustedReport ? `${reportChecks}${reportNavigation}<div class="run-report-document">${report.rendered_html}</div>` : sections.length ? sectionMarkup : `<section class="run-outcome-conclusion"><span>Executive conclusion</span><p>${escapeHtml(presentation.executive_conclusion)}</p></section>`}
       <div class="run-outcome-metrics">${observations}</div>
-      ${sections.length ? `<details class="run-condensed-evidence"><summary>Additional execution and evidence limitations</summary><ul>${limitations}</ul></details>` : `<div class="run-outcome-columns">
+      ${trustedReport || sections.length ? `<details class="run-condensed-evidence"><summary>Additional execution and evidence limitations</summary><ul>${limitations}</ul></details>` : `<div class="run-outcome-columns">
         <section><span>Material findings</span><ul>${findings}</ul></section>
         <section><span>Important limitations</span><ul>${limitations}</ul></section>
       </div>
