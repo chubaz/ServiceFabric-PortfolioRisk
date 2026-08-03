@@ -1,9 +1,9 @@
 # Phase 1 independent QA
 
 - Task: P1-05
-- Current review: R8
-- Reviewed candidate: `9ed110dbbb7d8c6cc76c288ebdc06494eeb9ffd0`
-- Review branch: `review/platform-p1-independent-qa-r8`
+- Current review: R9
+- Reviewed candidate: `ae30a75da4c453cec9841154ec56356ec17c80de`
+- Review branch: `review/platform-p1-independent-qa-r9`
 - Accepted Phase 0 baseline: `21339db19357277ca9a9a1ca50107f1a884d7aeb`
 - Pinned ServiceFabric gitlink: `7632b61d94a966346f95eb6c5bb2a5ea27f3bc14`
 - Current verdict: **BLOCKED**
@@ -922,6 +922,7 @@ Rollback remains documentation-only for this QA lane. All probe registries were
 temporary and non-authoritative. Canonical definitions, the accepted Phase 0
 baseline, and the read-only ServiceFabric pin remain unchanged.
 
+
 ## R8 independent review
 
 - Exact candidate: `9ed110dbbb7d8c6cc76c288ebdc06494eeb9ffd0`
@@ -1181,6 +1182,270 @@ immutable operation-level intent rather than infer intent independently from
 each receipt. A fresh immutable candidate must reject timestamp omission and
 all changed batch memberships without adding visibility, then accept the exact
 original request with the original receipts.
+
+Rollback remains documentation-only for this QA lane. All probe registries were
+temporary and non-authoritative. Canonical definitions, the accepted Phase 0
+baseline, and the read-only ServiceFabric pin remain unchanged.
+
+## R9 independent review
+
+- Exact candidate: `ae30a75da4c453cec9841154ec56356ec17c80de`
+- Review worktree: `phase1-independent-qa-r9`
+- Verdict: **BLOCKED**
+- R5 through R8 history above: preserved and unchanged in meaning
+
+### R9 executive result
+
+R9 closes both exact R8 blockers with an immutable pending-operation journal.
+The journal distinguishes timestamp omission from an explicit value, binds the
+single-versus-batch mode, and binds a canonical complete reference set. Changed
+actor, rationale, timestamp, subset, superset, and cross-mode retries all fail
+without visibility. A reordered complete batch is correctly equivalent to the
+same canonical set, and exact original retries preserve their receipts.
+
+Crash-before-intent, crash-after-intent, missing active intent, tampered active
+intent, valid stale completed intent, atomic staging, and all cumulative gates
+also behave correctly. One release blocker remains: the journal records only
+registry references, not the semantic source observations assigned to those
+references. After a crash immediately after the journal write but before any
+projection write, an otherwise matching retry can substitute a different valid
+projection with the same identity and publish it.
+
+Candidate `ae30a75` therefore does not yet meet exact-retry, immutable-source,
+or audit-integrity requirements.
+
+### R9 scope and immutable baseline
+
+The review inspected the R8-to-R9 journal delta, persistence code and tests,
+all preserved findings, source adapter, Registry API/workspace, and governing
+Phase 1 materials. It verified:
+
+```text
+candidate HEAD         ae30a75da4c453cec9841154ec56356ec17c80de
+accepted Phase 0       21339db19357277ca9a9a1ca50107f1a884d7aeb
+ServiceFabric gitlink  7632b61d94a966346f95eb6c5bb2a5ea27f3bc14
+worktree branch        review/platform-p1-independent-qa-r9
+pre-handoff status     clean
+```
+
+No implementation, test, source definition, control-plane record, dependency,
+runtime data, financial effect, or vendor file was modified in this QA lane.
+
+### R8-B1/B2 closure evidence
+
+#### Single-item intent and timestamp presence — PASS
+
+The probe interrupted an index with actor `actor`, rationale `timed rationale`,
+and explicit T1. Every changed request was independently rejected, and each
+rejection left the catalogue empty before the exact retry:
+
+```text
+single_omitted_T1=REJECTED visibility=0
+single_changed_T2=REJECTED visibility=0
+single_changed_actor=REJECTED visibility=0
+single_changed_rationale=REJECTED visibility=0
+single_exact_retry=candidate/1 original_receipt=True
+```
+
+This closes the R8 `None`-as-wildcard defect for initial indexing.
+
+#### Batch set and operation mode — PASS
+
+The probe interrupted a two-item batch between the second event and anchor
+writes. It then exercised changed membership and both cross-mode directions:
+
+```text
+batch_subset=REJECTED visibility=0
+batch_superset=REJECTED visibility=0
+single_to_batch=REJECTED visibility=0
+batch_to_single=REJECTED visibility=0
+batch_reordered_full_set=ACCEPTED canonical_set_match=True visible=2
+batch_exact_retry=2 original_receipts=True
+```
+
+The journal sorts and deduplicates references, so order is intentionally not
+part of batch meaning. Mode, exact set, actor, fixed batch rationale, and
+timestamp-presence semantics are part of the operation meaning.
+
+### Pending-intent lifecycle and integrity
+
+#### Crash boundaries — PASS
+
+Failure before the pending-intent link left no journal, projection, event, or
+catalogue visibility; the original retry created the journal and candidate.
+Failure after the journal link but before `_index_locked()` left one complete
+journal and no source data; the original retry converged:
+
+```text
+crash_before_intent: visibility=0 journal=0 exact_retry=candidate/1
+crash_after_intent:  visibility=0 journal=1 exact_retry=candidate/1
+```
+
+The same atomic staging primitive used for projections, events, and anchors is
+used for the journal, so a pre-link staging failure leaves no partial final
+file.
+
+#### Missing, tampered, and stale intents — PASS
+
+Deleting the active journal after an event became durable caused the retry to
+fail with `uncommitted registry data has no matching pending operation intent`.
+Changing the actor bytes without changing the journal digest caused integrity
+verification to fail. Both cases retained zero visibility:
+
+```text
+missing_active_intent=REJECTED visibility=0
+tampered_active_intent=REJECTED visibility=0
+```
+
+A completed journal remains mode `0400`, does not affect committed reads or
+idempotent rediscovery, and does not block a disjoint new index. Two completed
+operations produced two immutable stale journals and two visible records. This
+is acceptable append-only local history; cleanup or compaction is not required
+for Phase 1 correctness.
+
+Pending-directory and pending-file symlinks are independently rejected.
+
+### R9-B1 — journal does not bind the semantic source observation
+
+`_prepare_index_intent()` at
+`packages/risk_registry/src/risk_registry/store.py:329-345` records only the
+sorted `identity.reference` strings, mode, actor, rationale, and timestamp. It
+does not include the projection digest or a normalized semantic-observation
+digest. If the process fails after lines 375-380 install that journal but before
+`_index_locked()` writes a projection, no other durable record identifies which
+projection the original actor intended to index.
+
+The independent probe forced exactly that boundary. The original request used
+one valid projection, then failed immediately after the journal was installed.
+The retry kept the same reference, actor, rationale, mode, and timestamp
+semantics but supplied another valid projection with a different summary,
+source digest, definition digest, compatibility digest, and semantic meaning:
+
+```text
+journal_only_changed_source_accepted=True
+committed_summary='Changed source.'
+committed_definition_digest=ffffffff...
+```
+
+The retry passed journal comparison because the identity reference was
+unchanged, then wrote and catalogued the substituted projection. This bypasses
+the store's normal changed-source conflict protection precisely where the
+journal is the only durable evidence.
+
+**Required repair outcome:** bind every requested reference to a deterministic
+semantic-observation digest in the immutable journal before any projection or
+receipt write. The digest should match the store's deliberate idempotency
+semantics: discovery time, repository commit, and raw containing-file digest may
+be excluded where `_same_source_observation()` excludes them, while exact
+definition, adapter, compatibility, identity, summary, lineage, relationships,
+contract, tags, and canonicality remain bound. Single and batch retries must
+reject any changed mapping with zero visibility. Add journal-only crash tests
+for a changed definition, changed metadata, changed adapter, swapped batch
+mapping, and exact benign rediscovery fields.
+
+### Cumulative adversarial matrix
+
+#### Persistence, retry, and lifecycle — PASS outside R9-B1
+
+R5/R6/R7/R8 closures remain green:
+
+```text
+event-before-anchor committed prefix=candidate/1; exact retry=validated/2
+item-two batch failure fresh visibility=0; exact complete retry=2
+pending transition + index: head_advanced=False; exact retry=validated/2
+pending transition + index_many: head_advanced=False; exact retry=validated/2
+catalogue pre-commit retry=validated/2
+catalogue post-commit reporting retry=validated/2, receipts=2
+atomic staging final_exists=False temporary_files=0
+```
+
+Snapshot reconstruction/mismatch, receipt digest and chain, transition graph,
+terminal-state, publication eligibility, stale revision, bootstrap preflight
+conflict, duplicate request, and second-projection write failure checks pass.
+
+#### Tamper, continuity, and path safety — PASS
+
+Projection replacement, recomputed receipt replacement, altered/missing anchor,
+filename gap, missing event stream, catalogue digest, and catalogue-head probes
+all fail closed. Root, parent, lock, catalogue, record, projection, event file,
+anchor file, pending file, records directory, event directory, anchor directory,
+and pending directory indirections are rejected. No tested path wrote through a
+symlink or escaped the configured registry root.
+
+#### Source non-duplication, provenance, and relationships — PASS
+
+```text
+records=44 unique_references=44 kinds=7
+agent=4 capability=29 evaluation=1 report=3
+dashboard=1 scenario=3 workflow=3
+forbidden_recursive_keys=[]
+repository_commit=ae30a75da4c453cec9841154ec56356ec17c80de
+adapter_digest_exact=True
+relationships=36 all_resolved_exact=True
+```
+
+Compatible projections remain tied to their exact definition digest, scenario
+and workflow projections remain metadata-only, and version comparison rejects
+unrelated stable identities.
+
+#### API, UI governance, and no-effect boundary — PASS
+
+The exact R9 application exercised in process returned:
+
+```text
+page=200 catalogue=200 records=44
+preview_no_write=True bootstrap=200 transition=200 validated
+stale_transition=409 unrelated_compare=409
+absolute_path_exposed=False registry_root_key=False
+kind_specific_effect_fields=0
+```
+
+Static and application tests preserve confirmation and consequence copy,
+server-provided transitions, rationale and revision review controls, source
+truth/drift, local-development publication language, and no model, provider,
+broker, order, trade, hedge, rebalance, optimization, portfolio mutation,
+deployment, external publication, or other financial-effect control.
+
+### R9 automated verification
+
+```bash
+PIP_NO_INDEX=1 make verify-platform-phase1 \
+  BOOTSTRAP_VENV=/private/tmp/platform-p1-r6-qa.Ff4OMP/venv \
+  DAY0_VENV=/Users/lorenzocc/Developer/servicefabric-lab/state/venvs/thesis-sprint
+```
+
+Result: **PASS** — environment, repository, exact ServiceFabric pin, package,
+diff, and `46 passed in 2.90s`.
+
+```bash
+PIP_NO_INDEX=1 make test-application test-architecture \
+  DAY0_VENV=/Users/lorenzocc/Developer/servicefabric-lab/state/venvs/thesis-sprint
+```
+
+Result: **PASS** — `104 passed in 17.29s` for application tests and
+`105 passed in 1.49s` for architecture tests.
+
+A named cumulative rerun of recovery, intent, staging, batch, tamper, source,
+API, comparison, stale-review, and workspace cases passed `26` tests in
+`2.28s`. `git diff --check` passed before this handoff update.
+
+### R9 browser limitation
+
+The in-app browser and localhost-bind limitation preserved in R5-R8 remains.
+R9 used the exact FastAPI application through an in-process client, static
+interaction-contract assertions, and the full application and architecture
+suites. It does not claim a new independent live-browser session. This
+limitation is not the reason for the verdict.
+
+### R9 acceptance decision and next action
+
+**Do not accept or merge candidate
+`ae30a75da4c453cec9841154ec56356ec17c80de`.** Keep PLATFORM-P1 in progress
+and independent QA blocked. Extend the journal from a reference set to an exact
+reference-to-semantic-observation mapping. A fresh immutable candidate must
+reject changed single and batch projections after a journal-only crash without
+creating visibility, while preserving benign rediscovery semantics and exact
+original recovery.
 
 Rollback remains documentation-only for this QA lane. All probe registries were
 temporary and non-authoritative. Canonical definitions, the accepted Phase 0
