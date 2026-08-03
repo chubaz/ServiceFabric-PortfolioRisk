@@ -4133,6 +4133,10 @@ def _review_brief(result: dict[str, Any]) -> str:
 
 
 def _persist_run(result: dict[str, Any]) -> dict[str, Any]:
+    if not result.get("report"):
+        report, validation = _compose_run_report(result)
+        result["report"] = report
+        result["report_validation"] = validation
     directory = RUN_ROOT / result["run_id"]
     directory.mkdir(parents=True, exist_ok=False)
     output = {

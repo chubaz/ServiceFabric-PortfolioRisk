@@ -8,7 +8,7 @@ SERVICEFABRIC_DOCTOR := $(BOOTSTRAP_VENV)/bin/servicefabric
 
 DAY0_VENV ?= $(CURDIR)/.venv-day0
 DAY0_PYTHON := $(DAY0_VENV)/bin/python
-DAY0_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src:$(CURDIR)/packages/risk_analytics/src:$(CURDIR)/packages/risk_registry/src:$(CURDIR)/packages/risk_artifacts/src:$(CURDIR)/packages/risk_experiments/src:$(CURDIR)/packages/risk_reports/src
+DAY0_PACKAGE_PATHS := $(CURDIR)/packages/risk_domain/src:$(CURDIR)/packages/risk_planning/src:$(CURDIR)/packages/risk_data/src:$(CURDIR)/packages/risk_capabilities/src:$(CURDIR)/packages/risk_agents/src:$(CURDIR)/packages/risk_analytics/src:$(CURDIR)/packages/risk_registry/src:$(CURDIR)/packages/risk_artifacts/src:$(CURDIR)/packages/risk_experiments/src:$(CURDIR)/packages/risk_reports/src:$(CURDIR)/packages/risk_decisions/src
 DAY0_PYTEST := PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS)" $(DAY0_PYTHON) -m pytest
 HISTORICAL_JOURNEY_TESTS := $(filter-out tests/journeys/test_thesis%.py,$(wildcard tests/journeys/*.py))
 DAY1_VENV ?= $(CURDIR)/.venv-day1
@@ -683,3 +683,15 @@ verify-platform-phase4: day0-env
 	$(DAY0_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
 	git diff --check
 	@echo "Platform development Phase 4 Markdown report composer: PASS"
+
+.PHONY: verify-platform-phase5
+verify-platform-phase5: day0-env
+	$(DAY0_PYTEST) tests/architecture/test_platform_phase5_control_plane.py tests/decisions tests/application/test_decision_review_api.py tests/application/test_labs_runtime.py -q
+	$(DAY0_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+	git diff --check
+	@echo "Platform development Phase 5 Decision Review: PASS"
+
+.PHONY: verify-platform-phase5-cross-phase
+verify-platform-phase5-cross-phase: verify-day0 verify-platform-phase3 verify-platform-phase4 verify-platform-phase5
+	git diff --check
+	@echo "Platform development Phases 3-5 cross-phase checkpoint: PASS"

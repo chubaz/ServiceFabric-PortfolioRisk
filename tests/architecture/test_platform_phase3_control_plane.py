@@ -13,7 +13,7 @@ def read(relative: str) -> str:
 
 def test_phase3_is_stacked_on_recorded_phase2_closure() -> None:
     status = json.loads(read("config/agent/platform-development/status.json"))
-    assert status["current"] == "PLATFORM-P3"
+    assert int(status["current"].removeprefix("PLATFORM-P")) >= 3
     assert status["phase_2"] == "accepted"
     assert status["phase_2_accepted_candidate_commit"] == "b8eacc67ca9344944631c425e133c639395df9cf"
     assert status["phase_2_qa_commit"] == "3d1617a033104a91d8da48e5a50664dcb9f8ba09"

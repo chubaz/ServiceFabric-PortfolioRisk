@@ -1,21 +1,22 @@
 # Current Workplan
 
-- ID: PLATFORM-P4
-- Title: Markdown report composer
+- ID: PLATFORM-P5
+- Title: Decision Review v1
 - Status: accepted
 - Namespace: platform-development
-- Integration branch: integration/platform-report-composer
-- Workplan: docs/workplans/platform-development/phase-4-markdown-report-composer.md
-- Baseline commit: 19ccf123bd210eae1763f1fd5a332cfd3cb44d72
+- Integration branch: integration/platform-decision-review
+- Workplan: docs/workplans/platform-development/phase-5-decision-review.md
+- Baseline commit: 8ec4ed5501d5a322439237be4207068c96347fca
 - Phase 1 accepted candidate: a68ef6fce9d39f5341fa8675c093db2eba95aed6
-- Verification: make verify-platform-phase4
-- Accepted candidate: 7b20ae45be093b3aec1cddc4fb0b05c1194738aa
+- Verification: make verify-platform-phase5
+- Cross-phase checkpoint: make verify-platform-phase5-cross-phase
+- Accepted candidate: 57e6a397231c8a1327fba4c6856edd2373f45e80
 
-Phase 4 makes concise Markdown the primary analytical report surface. It adds
-typed section plans and revisions, evidence, repetition, length and completeness
-checks, deterministic safe HTML rendering, and digest-bound chart/table
-attachments. Agent Run Review persists and displays this report envelope while
-retaining the underlying model and capability receipts.
+Phase 5 makes material decision proposals a typed, persisted, human-owned
+lifecycle. The Workflow Cycle pauses for one of five explicit reviewer outcomes,
+each with a consequence preview and empty financial/external effects. A bounded
+investigation creates supplemental decision context without rewriting the
+proposal.
 
 The earlier Thesis Sprint is closed as `THESIS-DEFERRED` in
 `docs/workplans/thesis-sprint/deferred.md`. Days 1–3 remain accepted and the Day
@@ -62,3 +63,19 @@ synthetic browser run produced nine sections, 100% evidence coverage, no
 repeated section pairs, no length warnings, 14 persisted files, an open human
 review checkpoint and no console errors. The exhaustive suite remains deferred
 to the planned post-Phase-5 checkpoint.
+
+Phase 5 starts from the exact Phase 4 closure
+`8ec4ed5501d5a322439237be4207068c96347fca`. It owns Decision Review v1 only;
+the Phase 6 due-diligence workspace, non-human resolvers and financial effects
+remain out of scope. The scheduled cross-phase clean-room suite runs at Phase 5
+acceptance.
+
+Phase 5 is accepted at exact implementation candidate
+`57e6a397231c8a1327fba4c6856edd2373f45e80`. The focused gate passed 28 tests.
+The post-Phase-5 checkpoint passed the complete Day 0 architecture, domain,
+planning, data, capability, agent, application, integration and historical
+journey suites, then re-ran the Phase 3, 4 and 5 gates. The browser qualification
+paused a real-daily-anchor/synthetic-intraday cycle at a 1.02% loss, created one
+effect-free context revision through Investigate, resolved it through Accept &
+monitor, kept manual resume separate, showed no console errors and produced no
+narrow-layout overflow.

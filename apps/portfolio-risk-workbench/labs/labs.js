@@ -272,6 +272,9 @@
     experimentOptions: null,
     selectedExperimentId: null,
     experimentLoading: false,
+    decisionRecords: [],
+    selectedDecisionId: null,
+    decisionLoading: false,
   };
 
   function canonicalCurrentPortfolio() {
@@ -335,6 +338,7 @@
     if (name === "registry") loadRegistryCatalogue();
     if (name === "artifacts") loadArtifactCatalogue();
     if (name === "experiments") loadExperimentWorkspace();
+    if (name === "decisions") loadDecisionWorkspace();
     if (name === "cycle") populateCyclePortfolios();
     if (updateHistory) {
       const url = new URL(window.location.href);
@@ -2838,10 +2842,10 @@
     if (labState.cycleDashboardPage === "risk") {
       const findings = new Map((snapshot.findings || []).map((item) => [item.finding_id, item]));
       const proposals = snapshot.decision_proposals || [];
-      const decisions = new Map((snapshot.decisions || []).map((item) => [item.proposal_id, item]));
-      const receipts = new Map((snapshot.consequence_receipts || []).map((item) => [item.proposal_id, item]));
+      const decisions = new Map([...(snapshot.decisions || [])].reverse().map((item) => [item.proposal_id, item]));
+      const receipts = new Map([...(snapshot.consequence_receipts || [])].reverse().map((item) => [item.proposal_id, item]));
       const history = snapshot.daily_history || [];
-      $("#cycle-dashboard-view").innerHTML = `${cycleMetricCards(snapshot)}<div class="cycle-risk-columns"><section><span>Decision proposals and resolutions</span>${proposals.length ? proposals.map((item) => { const finding = findings.get(item.finding_id); const decision = decisions.get(item.proposal_id); const receipt = receipts.get(item.proposal_id); return `<article class="cycle-decision-card"><b>${decision ? `resolved · ${escapeHtml(decision.outcome)}` : "awaiting human resolution"}</b><strong>${escapeHtml(finding?.summary || `Finding ${item.finding_id}`)}</strong><small>${decision ? `Resolver ${escapeHtml(decision.resolver?.resolver_id || "unknown")} · ${escapeHtml(receipt?.consequence || "No consequence receipt")}` : escapeHtml(cycleTimeLabel(item.as_of))}</small></article>`; }).join("") : '<div class="empty-state">No threshold finding has created a decision proposal.</div>'}</section><section><span>Completed dates</span>${history.length ? history.map((item) => `<article class="cycle-history-row"><strong>${escapeHtml(item.date)}</strong><b class="${Number(item.return) < 0 ? "negative" : "positive"}">${runPercentage(item.return, 2)}</b><small>${escapeHtml(cycleMoney(item.close_nav))}</small></article>`).join("") : '<div class="empty-state">No simulated day has closed.</div>'}</section></div>`;
+      $("#cycle-dashboard-view").innerHTML = `${cycleMetricCards(snapshot)}<div class="cycle-risk-columns"><section><span>Decision proposals and resolutions</span>${proposals.length ? proposals.map((item) => { const finding = findings.get(item.finding_id); const decision = decisions.get(item.proposal_id); const receipt = receipts.get(item.proposal_id); const state = String(item.status || "awaiting_review").replaceAll("_", " "); return `<article class="cycle-decision-card"><b>${escapeHtml(state)}${decision ? ` · ${escapeHtml(decision.outcome)}` : ""}</b><strong>${escapeHtml(finding?.summary || `Finding ${item.finding_id}`)}</strong><small>${decision ? `Resolver ${escapeHtml(decision.resolver?.resolver_id || "unknown")} · ${escapeHtml(receipt?.consequence || "No consequence receipt")}` : escapeHtml(cycleTimeLabel(item.as_of))}</small></article>`; }).join("") : '<div class="empty-state">No threshold finding has created a decision proposal.</div>'}</section><section><span>Completed dates</span>${history.length ? history.map((item) => `<article class="cycle-history-row"><strong>${escapeHtml(item.date)}</strong><b class="${Number(item.return) < 0 ? "negative" : "positive"}">${runPercentage(item.return, 2)}</b><small>${escapeHtml(cycleMoney(item.close_nav))}</small></article>`).join("") : '<div class="empty-state">No simulated day has closed.</div>'}</section></div>`;
       return;
     }
     if (labState.cycleDashboardPage === "agents") {
@@ -2886,8 +2890,7 @@
     renderCycleDashboard(snapshot);
     renderCycleReport(snapshot.report);
     renderCycleAgents(snapshot);
-    const resolvedProposalIds = new Set((snapshot.decisions || []).map((item) => item.proposal_id));
-    const proposal = (snapshot.decision_proposals || []).find((item) => !resolvedProposalIds.has(item.proposal_id));
+    const proposal = (snapshot.decision_proposals || []).find((item) => !["resolved", "rejected", "expired", "superseded"].includes(item.status));
     const finding = (snapshot.findings || []).find((item) => item.finding_id === proposal?.finding_id);
     $("#cycle-decision-panel").classList.toggle("hidden", !proposal);
     if (proposal) {
@@ -2895,6 +2898,7 @@
       $("#cycle-decision-finding").textContent = finding?.summary || `Finding ${proposal.finding_id}`;
       $("#cycle-decision-question").textContent = proposal.question;
       $("#cycle-decision-consequences").innerHTML = (proposal.options || []).map((option) => `<li><strong>${escapeHtml(option.label)}</strong> — ${escapeHtml(option.consequence)}</li>`).join("");
+      $("#cycle-decision-panel").dataset.recordRevision = proposal.record_revision || "";
     }
   }
 
@@ -2962,17 +2966,101 @@
     const proposalId = $("#cycle-decision-panel").dataset.proposalId;
     if (!labState.cycleSessionId || !proposalId) return;
     const resolverId = $("#cycle-decision-resolver").value.trim();
+    const rationale = $("#cycle-decision-rationale").value.trim();
     if (resolverId.length < 3) {
       showToast("Enter a resolver ID before recording the decision.", "error");
       $("#cycle-decision-resolver").focus();
       return;
     }
+    if (rationale.length < 3) {
+      showToast("Explain briefly why you chose this outcome.", "error");
+      $("#cycle-decision-rationale").focus();
+      return;
+    }
     const snapshot = await agentApi(`/api/workflow-cycle/sessions/${encodeURIComponent(labState.cycleSessionId)}/decision-proposals/${encodeURIComponent(proposalId)}/resolve`, {
       method: "POST",
-      body: JSON.stringify({ outcome, resolver_id: resolverId, resolver_type: "human" }),
+      body: JSON.stringify({
+        outcome, resolver_id: resolverId, resolver_type: "human", rationale,
+        idempotency_key: `cycle-review-${Date.now()}`,
+        expected_revision: $("#cycle-decision-panel").dataset.recordRevision,
+      }),
     });
-    $("#cycle-decision-resolver").value = "";
+    $("#cycle-decision-rationale").value = "";
     renderCycleSnapshot(snapshot);
+    if (labState.activeWorkspace === "decisions") loadDecisionWorkspace();
+  }
+
+  function decisionOutcomeLabel(value) {
+    return ({ investigate: "Investigate", accept_and_monitor: "Accept & monitor", defer: "Defer", reject: "Reject", escalate: "Escalate" })[value] || String(value || "").replaceAll("_", " ");
+  }
+
+  function selectedDecisionRecord() {
+    return labState.decisionRecords.find((item) => item.proposal?.proposal_id === labState.selectedDecisionId) || null;
+  }
+
+  function renderDecisionWorkspace() {
+    const records = labState.decisionRecords || [];
+    $("#decision-catalogue-status").textContent = `${records.length} proposal${records.length === 1 ? "" : "s"}`;
+    $("#decision-card-list").innerHTML = records.length ? records.map((record) => {
+      const proposal = record.proposal || {};
+      const selected = proposal.proposal_id === labState.selectedDecisionId;
+      return `<button class="decision-list-card ${selected ? "active" : ""}" type="button" data-decision-id="${escapeHtml(proposal.proposal_id)}"><span>${escapeHtml(String(record.state || "unknown").replaceAll("_", " "))}</span><strong>${escapeHtml(proposal.question || "Decision proposal")}</strong><small>${escapeHtml(proposal.why_now || "No timing premise supplied.")}</small></button>`;
+    }).join("") : '<div class="empty-state">No proposals have been created. Run a simulated cycle until a threshold pauses it.</div>';
+    const record = selectedDecisionRecord();
+    if (!record) {
+      $("#decision-detail-panel").innerHTML = '<div class="empty-state">Select a Decision Card to inspect its evidence and consequences.</div>';
+      return;
+    }
+    const proposal = record.proposal || {};
+    const finalState = ["resolved", "rejected", "expired", "superseded"].includes(record.state);
+    const recommendation = decisionOutcomeLabel(proposal.recommendation);
+    const latestDecision = (record.decisions || []).at(-1);
+    const latestRevision = (record.context_revisions || []).at(-1);
+    $("#decision-detail-panel").innerHTML = `
+      <article class="decision-hero"><div><span>${escapeHtml(String(record.state).replaceAll("_", " "))} · D1 · human only</span><h2>${escapeHtml(proposal.question)}</h2><p>${escapeHtml(proposal.why_now)}</p></div><b>Recommended: ${escapeHtml(recommendation)}</b></article>
+      <div class="decision-context-grid">
+        <article><span>Portfolio relevance</span><p>${escapeHtml(proposal.portfolio_relevance)}</p></article>
+        <article><span>Mandate relevance</span><p>${escapeHtml(proposal.mandate_relevance)}</p></article>
+        <article><span>Risk-environment relevance</span><p>${escapeHtml(proposal.risk_environment_relevance)}</p></article>
+      </div>
+      <section class="decision-option-grid">${(proposal.options || []).map((option) => `<article><strong>${escapeHtml(option.label)}</strong><p>${escapeHtml(option.consequence)}</p><small>${escapeHtml(option.workflow_effect.replaceAll("_", " "))} · effects none</small></article>`).join("")}</section>
+      <details class="decision-evidence"><summary>Evidence, uncertainty and lifecycle</summary><div class="decision-context-grid"><article><span>Evidence</span><p>${escapeHtml((proposal.evidence_ids || []).join(", ") || "No direct evidence references")}</p></article><article><span>Uncertainty</span><p>${escapeHtml((proposal.uncertainties || []).join(" ") || "None declared")}</p></article><article><span>Missing information</span><p>${escapeHtml((proposal.missing_information || []).join(" ") || "None declared")}</p></article></div><ol>${(record.lifecycle || []).map((item) => `<li><strong>${escapeHtml(item.to_state.replaceAll("_", " "))}</strong> — ${escapeHtml(item.rationale)}</li>`).join("")}</ol></details>
+      ${latestRevision ? `<section class="decision-context-revision"><span>Supplemental context revision</span><strong>${escapeHtml(latestRevision.generated_by_workflow)}</strong><ul>${latestRevision.supplemental_findings.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul><small>The immutable proposal was not rewritten.</small></section>` : ""}
+      ${latestDecision ? `<section class="decision-last-resolution"><span>Latest human choice</span><strong>${escapeHtml(decisionOutcomeLabel(latestDecision.outcome))}</strong><p>${escapeHtml(latestDecision.rationale)}</p></section>` : ""}
+      ${finalState ? '<div class="decision-final-note">This proposal is final. Its finding, evidence, decision and consequence remain separately inspectable.</div>' : `<form id="decision-resolution-form" class="decision-resolution-form"><label><span>Reviewer ID</span><input id="decision-reviewer-id" placeholder="Enter your reviewer ID" minlength="3" required></label><label><span>Reason for the choice</span><textarea id="decision-review-rationale" rows="3" required placeholder="What evidence or uncertainty determines your choice?"></textarea></label><div>${(proposal.options || []).map((option) => `<button class="button ${option.outcome === "accept_and_monitor" ? "primary" : ""}" type="submit" data-decision-outcome="${escapeHtml(option.outcome)}">${escapeHtml(option.label)}</button>`).join("")}</div></form>`}`;
+  }
+
+  async function loadDecisionWorkspace(preferredId = null) {
+    if (labState.decisionLoading) return;
+    labState.decisionLoading = true;
+    try {
+      const payload = await agentApi("/api/decisions");
+      labState.decisionRecords = payload.records || [];
+      if (preferredId) labState.selectedDecisionId = preferredId;
+      if (!selectedDecisionRecord()) labState.selectedDecisionId = labState.decisionRecords[0]?.proposal?.proposal_id || null;
+      renderDecisionWorkspace();
+    } catch (error) {
+      $("#decision-catalogue-status").textContent = "Unavailable";
+      $("#decision-detail-panel").innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+    } finally {
+      labState.decisionLoading = false;
+    }
+  }
+
+  async function resolveDecisionWorkspace(outcome) {
+    const record = selectedDecisionRecord();
+    if (!record) return;
+    const resolverId = $("#decision-reviewer-id").value.trim();
+    const rationale = $("#decision-review-rationale").value.trim();
+    if (resolverId.length < 3 || rationale.length < 3) {
+      showToast("Enter a reviewer ID and a short reason.", "error");
+      return;
+    }
+    await agentApi(`/api/decisions/${encodeURIComponent(record.proposal.proposal_id)}/resolve`, {
+      method: "POST",
+      body: JSON.stringify({ outcome, resolver_id: resolverId, resolver_type: "human", rationale, idempotency_key: `decision-review-${Date.now()}`, expected_revision: record.revision }),
+    });
+    await loadDecisionWorkspace(record.proposal.proposal_id);
   }
 
   async function attachCycleAgent() {
@@ -3543,7 +3631,7 @@
     $$(".workspace-tab").forEach((button) => button.addEventListener("click", () => switchWorkspace(button.dataset.workspace)));
     window.addEventListener("popstate", () => {
       const workspace = new URLSearchParams(window.location.search).get("workspace") || "dataset";
-      if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "cycle", "full"].includes(workspace)) switchWorkspace(workspace, false);
+      if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "decisions", "cycle", "full"].includes(workspace)) switchWorkspace(workspace, false);
     });
     $("#registry-refresh").addEventListener("click", loadRegistryCatalogue);
     $("#registry-index-all").addEventListener("click", () => indexAllRegistryDefinitions().catch((error) => { $("#registry-status").textContent = error.message; }));
@@ -3667,6 +3755,23 @@
     $("#cycle-decision-panel").addEventListener("click", (event) => {
       const button = event.target.closest("[data-cycle-decision]");
       if (button) resolveCycleDecision(button.dataset.cycleDecision).catch((error) => { $("#cycle-runtime-status").textContent = error.message; });
+    });
+    $("#cycle-open-decision-review").addEventListener("click", () => {
+      labState.selectedDecisionId = $("#cycle-decision-panel").dataset.proposalId || null;
+      switchWorkspace("decisions");
+    });
+    $("#decision-refresh").addEventListener("click", () => loadDecisionWorkspace());
+    $("#decision-card-list").addEventListener("click", (event) => {
+      const card = event.target.closest("[data-decision-id]");
+      if (!card) return;
+      labState.selectedDecisionId = card.dataset.decisionId;
+      renderDecisionWorkspace();
+    });
+    $("#decision-detail-panel").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-decision-outcome]");
+      if (!button) return;
+      event.preventDefault();
+      resolveDecisionWorkspace(button.dataset.decisionOutcome).catch((error) => showToast(error.message, "error"));
     });
     $("#cycle-attach-agent").addEventListener("click", () => attachCycleAgent().catch((error) => { $("#cycle-runtime-status").textContent = error.message; }));
     $("#open-cycle-from-agent").addEventListener("click", () => {
@@ -4155,7 +4260,7 @@
     initializeLiveConnection();
     initializeAgentRuntime();
     const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
-    if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "cycle", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace, false);
+    if (["dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "decisions", "cycle", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace, false);
   }
 
   initialize();

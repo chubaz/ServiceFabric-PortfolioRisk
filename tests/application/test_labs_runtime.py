@@ -229,7 +229,10 @@ def test_cycle_keeps_finding_proposal_decision_and_consequence_distinct() -> Non
     assert finding["finding_id"] == proposal["finding_id"]
     assert finding["effects"] == []
     assert proposal["artifact_type"] == "decision_proposal"
-    assert proposal["status"] == "awaiting_human_resolution"
+    assert proposal["status"] == "awaiting_review"
+    assert [item["outcome"] for item in proposal["options"]] == [
+        "investigate", "accept_and_monitor", "defer", "reject", "escalate"
+    ]
     assert "decision_id" not in proposal
     assert proposal["effects"] == []
     assert session.status == "paused_for_review"
@@ -239,10 +242,16 @@ def test_cycle_keeps_finding_proposal_decision_and_consequence_distinct() -> Non
         "investigate",
         resolver_id="qa-human-reviewer",
         resolver_type="human",
+        rationale="Review the evidence coverage before making a final choice.",
+        idempotency_key="qa-investigate-1",
+        expected_revision=proposal["record_revision"],
     )
     resolved = session.snapshot()
     assert resolved["findings"][0] == frozen_finding
-    assert resolved["decision_proposals"][0] == frozen_proposal
+    immutable_fields = set(frozen_proposal) - {"status", "record_revision"}
+    assert {key: resolved["decision_proposals"][0][key] for key in immutable_fields} == {
+        key: frozen_proposal[key] for key in immutable_fields
+    }
     assert len(resolved["decisions"]) == 1
     decision = resolved["decisions"][0]
     assert decision["artifact_type"] == "decision"
@@ -255,20 +264,24 @@ def test_cycle_keeps_finding_proposal_decision_and_consequence_distinct() -> Non
     receipt = resolved["consequence_receipts"][0]
     assert receipt["artifact_type"] == "decision_consequence_receipt"
     assert receipt["decision_id"] == decision["decision_id"]
-    assert receipt["workflow_effect"] == "workflow_remains_paused"
+    assert receipt["workflow_effect"] == "effect_free_investigation_then_review"
     assert receipt["portfolio_effects"] == []
     assert receipt["external_effects"] == []
+    assert session.status == "paused_for_review"
+    assert resolved["decision_proposals"][0]["status"] == "awaiting_review"
+    assert resolved["context_revisions"][0]["effects"] == []
+    assert resolved["decision_follow_up_runs"][0]["workflow_id"] == "decision.investigate.effect-free.v1"
+
+    revised = resolved["decision_proposals"][0]
+    session.resolve_proposal(
+        proposal["proposal_id"], "accept_and_monitor",
+        resolver_id="qa-human-reviewer", resolver_type="human",
+        rationale="The supplemental context supports continued monitoring.",
+        idempotency_key="qa-accept-2", expected_revision=revised["record_revision"],
+    )
+    final = session.snapshot()
+    assert final["decision_proposals"][0]["status"] == "resolved"
     assert session.status == "paused"
-    assert "no investigation workspace is opened automatically" in receipt[
-        "consequence"
-    ]
-    with pytest.raises(ValueError, match="already been resolved"):
-        session.resolve_proposal(
-            proposal["proposal_id"],
-            "accepted",
-            resolver_id="qa-human-reviewer",
-            resolver_type="human",
-        )
 
 
 def test_cycle_ui_requires_resolver_identity_and_separate_manual_resume() -> None:
@@ -276,10 +289,13 @@ def test_cycle_ui_requires_resolver_identity_and_separate_manual_resume() -> Non
     javascript = (LABS_ROOT / "labs.js").read_text(encoding="utf-8")
     server = (LABS_ROOT / "duckdb_server.py").read_text(encoding="utf-8")
     assert 'id="cycle-decision-resolver"' in html
+    assert 'id="cycle-decision-rationale"' in html
     assert "Enter your reviewer ID" in html
     assert "Accept proposal and resume" not in html
     assert "local-human-reviewer" not in javascript
     assert 'resolver_id: str = Field(min_length=3' in server
+    for outcome in ("investigate", "accept_and_monitor", "defer", "reject", "escalate"):
+        assert f'data-cycle-decision="{outcome}"' in html
     resolve_body = javascript.split("async function resolveCycleDecision", 1)[1].split(
         "function", 1
     )[0]

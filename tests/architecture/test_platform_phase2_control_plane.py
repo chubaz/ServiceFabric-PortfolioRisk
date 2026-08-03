@@ -15,7 +15,7 @@ def _json(relative: str) -> dict:
 
 def test_phase2_starts_from_the_accepted_phase1_merge() -> None:
     status = _json("config/agent/platform-development/status.json")
-    assert status["current"] == "PLATFORM-P2"
+    assert int(status["current"].removeprefix("PLATFORM-P")) >= 2
     assert status["phase_0"] == "accepted"
     assert status["phase_1"] == "accepted"
     assert status["phase_2"] in {"in_progress", "accepted"}
@@ -34,7 +34,8 @@ def test_phase2_starts_from_the_accepted_phase1_merge() -> None:
         assert status["phase_2_qa_commit"] == (
             "3d1617a033104a91d8da48e5a50664dcb9f8ba09"
         )
-        assert status["active_wave"] == "complete"
+        if status["current"] == "PLATFORM-P2":
+            assert status["active_wave"] == "complete"
 
 
 def test_phase2_lanes_are_bounded_and_vendor_is_frozen() -> None:

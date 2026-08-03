@@ -19,7 +19,7 @@ def read_json(relative: str) -> dict:
 
 def test_phase0_acceptance_is_preserved_under_the_active_platform_pointer() -> None:
     status = read_json("config/agent/platform-development/status.json")
-    assert status["current"] == "PLATFORM-P2"
+    assert int(status["current"].removeprefix("PLATFORM-P")) >= 2
     assert status["phase_0"] == "accepted"
     assert status["phase_1"] == "accepted"
     assert status["phase_2"] in {"in_progress", "accepted"}
@@ -30,10 +30,10 @@ def test_phase0_acceptance_is_preserved_under_the_active_platform_pointer() -> N
     assert status["development_profile_only"] is True
     assert status["external_effects"] == "disabled"
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
-    assert "ID: PLATFORM-P2" in current
+    assert f"ID: {status['current']}" in current
     assert "Namespace: platform-development" in current
-    assert "integration/platform-artifact-repository" in current
-    assert "make verify-platform-phase2" in current
+    assert "Integration branch: integration/platform-" in current
+    assert "Verification: make verify-platform-phase" in current
     assert "does not reopen or reinterpret" in current
     assert "Phase 0 is accepted" in current
 
@@ -108,7 +108,8 @@ def test_every_phase0_task_has_a_bounded_instruction() -> None:
 def test_active_agent_instructions_preserve_profile_and_effect_boundaries() -> None:
     instructions = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     assert "Active platform development programme" in instructions
-    assert "PLATFORM-P2" in instructions
+    status = read_json("config/agent/platform-development/status.json")
+    assert status["current"] in instructions
     assert "Real, synthetic, fixture, simulated, missing, and" in instructions
     assert "Studio–Codex controls remain\ndevelopment-only" in instructions
     assert "external effects remain disabled" in instructions
