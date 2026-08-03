@@ -1,12 +1,12 @@
 # Phase 1 independent QA
 
 - Task: P1-05
-- Current review: R9
-- Reviewed candidate: `ae30a75da4c453cec9841154ec56356ec17c80de`
-- Review branch: `review/platform-p1-independent-qa-r9`
+- Current review: R10
+- Reviewed candidate: `a68ef6fce9d39f5341fa8675c093db2eba95aed6`
+- Review branch: `review/platform-p1-independent-qa-r10`
 - Accepted Phase 0 baseline: `21339db19357277ca9a9a1ca50107f1a884d7aeb`
 - Pinned ServiceFabric gitlink: `7632b61d94a966346f95eb6c5bb2a5ea27f3bc14`
-- Current verdict: **BLOCKED**
+- Current verdict: **PASS — ACCEPT**
 - Repair authority: integration only
 
 ## R5 executive result — preserved
@@ -1450,3 +1450,276 @@ original recovery.
 Rollback remains documentation-only for this QA lane. All probe registries were
 temporary and non-authoritative. Canonical definitions, the accepted Phase 0
 baseline, and the read-only ServiceFabric pin remain unchanged.
+
+## R10 independent review
+
+- Exact candidate: `a68ef6fce9d39f5341fa8675c093db2eba95aed6`
+- Review worktree: `phase1-independent-qa-r10`
+- Verdict: **PASS — ACCEPT**
+- R5 through R9 BLOCKED history above: preserved and unchanged in meaning
+
+### R10 executive result
+
+R10 closes the final R9 blocker and passes the complete cumulative Phase 1
+adversarial, regression, source-truth, application, architecture, UI, API, and
+no-effect review. The pending-operation journal now binds each registry
+reference to the same normalized semantic source observation used by ordinary
+idempotency checks. A journal-only crash cannot be recovered with a changed
+summary, definition, compatibility evaluation, adapter, relationship, lineage,
+or batch observation mapping. The exact original observation recovers, while
+only explicitly normalized discovery metadata remains safely idempotent.
+
+No release-blocking issue remains on exact candidate `a68ef6f`. The candidate
+satisfies the Phase 1 exit gates and is accepted for integration. This review
+does not merge it or perform any Phase 2 work.
+
+### R10 scope and immutable baseline
+
+The review inspected the R9-to-R10 diff, full current persistence logic and
+tests, all specialist audits and preserved QA history, the Phase 1 plan and
+independent-review brief, accepted Phase 0 boundaries, source adapter, Registry
+API, and Registry workspace. It verified:
+
+```text
+candidate HEAD         a68ef6fce9d39f5341fa8675c093db2eba95aed6
+accepted Phase 0       21339db19357277ca9a9a1ca50107f1a884d7aeb
+ServiceFabric gitlink  7632b61d94a966346f95eb6c5bb2a5ea27f3bc14
+worktree branch        review/platform-p1-independent-qa-r10
+pre-handoff status     clean
+```
+
+The implementation remains an index over bounded projections and exact source
+pointers, not another source of canonical agent, capability, evaluation,
+report, dashboard, scenario, or workflow definitions. Mutable data remains
+outside Git, lifecycle receipts remain append-only, and local registry
+publication grants no deployment, external-publication, or financial-effect
+authority.
+
+No implementation, test, source definition, control-plane record, dependency,
+runtime data, financial effect, or vendor file was modified in this QA lane.
+
+### R9 blocker closure — semantic observation binding
+
+The review forced failure immediately after the journal was installed and
+before any projection bytes were published. It then retried the same registry
+identity, actor, rationale, mode, and timestamp semantics with independent
+valid semantic substitutions:
+
+```text
+changed_summary_definition=REJECTED visibility=0
+changed_adapter=REJECTED visibility=0
+changed_relationships_and_lineage=REJECTED visibility=0
+changed_batch_observation_mapping=REJECTED visibility=0
+```
+
+After each rejected single substitution, the exact original projection
+recovered as `candidate/1` with the original observation. After the rejected
+batch mapping change, the exact original batch recovered both observations.
+
+`_source_observation_digest()` and `_same_source_observation()` use one shared
+normalization. The journal maps every sorted reference to that digest before the
+first projection write. The mapping binds identity, display metadata, summary,
+definition digest, native version, canonicality, adapter, compatibility,
+provenance semantics, lineage, source contract, relationships, and tags.
+
+### Volatile metadata normalization — PASS
+
+The intentionally volatile fields are discovery time, repository checkout, and
+the raw containing-file digest. A journal-only retry changing only those three
+fields produced the same normalized digest and was accepted. This matches
+ordinary registry rediscovery semantics:
+
+```text
+volatile_only_retry=ACCEPTED
+normalized_digest_equal=True
+state=candidate/1
+```
+
+Adding a changed summary to the same volatile drift changed the normalized
+digest and was rejected with zero visibility. The normalization therefore does
+not create a general metadata bypass; it excludes only fields deliberately
+classified as scan or containing-file noise.
+
+### Operation journal, batch atomicity, and restart behavior
+
+#### Intent fields and mode — PASS
+
+An interrupted explicitly timed single index rejected all non-identical
+requests and retained zero visibility before exact recovery:
+
+```text
+changed_actor=REJECTED
+changed_rationale=REJECTED
+omitted_timestamp=REJECTED
+changed_timestamp=REJECTED
+exact_retry=candidate/1 original_receipt=True
+```
+
+An interrupted new two-item batch rejected subset, changed actor, and
+batch-to-single retries. The reversed full set matched the canonical source set
+and recovered both items. Missing and byte-tampered active journals failed
+closed. Completed journals remain read-only, do not obstruct committed reads or
+idempotent rediscovery, and do not block a disjoint operation.
+
+#### Mixed committed and new batch — PASS
+
+The probe first committed item one, journaled a batch containing that item and a
+new item two, then failed before item two. Only item one remained visible.
+Retries using the committed subset, new subset, a superset, or single-index mode
+were rejected without changing visibility. The reordered exact full set
+recovered item two and returned both records:
+
+```text
+mixed_committed_subset=REJECTED visible_only_existing=True
+mixed_new_subset=REJECTED visible_only_existing=True
+mixed_superset=REJECTED visible_only_existing=True
+mixed_single_cross_mode=REJECTED visible_only_existing=True
+mixed_exact_reordered_full_set=ACCEPTED visible=2
+```
+
+This confirms the active operation is checked before the all-requested-items-
+already-committed shortcut, closing both partial and mixed-batch bypasses.
+
+#### Crash boundary matrix — PASS
+
+The complete lifecycle transition boundary matrix returned:
+
+| Injected boundary | Fresh committed state | Exact retry |
+|---|---|---|
+| Before event installation | `candidate/1` | `validated/2` |
+| Event durable, before anchor | `candidate/1` | `validated/2` |
+| Anchor durable, before snapshot | `candidate/1` | `validated/2` |
+| Snapshot durable, before catalogue | `candidate/1` | `validated/2` |
+| Catalogue durable, caller sees failure | `validated/2` | `validated/2` |
+
+For a complete uncommitted transition tail, both ordinary `index()` and
+`index_many()` returned the catalogue-committed `candidate/1` prefix and did not
+advance the head. The exact transition retry then returned `validated/2`.
+
+Journal failure before its atomic link left no journal or source bytes; exact
+retry started cleanly. Failure after the journal link but before projection
+publication retained one valid journal and recovered exactly. An injected
+staging `fsync` failure left neither a partial final file nor a temporary file.
+
+### Cumulative integrity and safety matrix
+
+#### Immutable source and lifecycle evidence — PASS
+
+Independent adversarial probes reconfirmed:
+
+```text
+projection substitution without snapshot=REJECTED RegistryConflict
+valid recomputed receipt without snapshot=REJECTED RegistryConflict
+event filename gap=REJECTED RegistryConflict
+catalogue envelope digest change=REJECTED RegistryConflict
+catalogue head substitution with recomputed envelope=REJECTED RegistryConflict
+missing committed event stream=REJECTED RegistryConflict
+missing/altered committed anchor=REJECTED RegistryConflict
+```
+
+Snapshot mismatch, receipt self-digest, append-only chain, transition graph,
+terminal state, publication eligibility, stale expected revision, unrelated
+comparison, duplicate bootstrap identity, preflight conflict, and second-item
+write-failure tests remain green. Batch failures never expose a newly requested
+partial set through the catalogue.
+
+#### Path and symlink safety — PASS
+
+Root and parent indirection, lock, catalogue, record, projection, event file,
+anchor file, pending-intent file, records directory, event directory, anchor
+directory, and pending directory symlinks were rejected. No tested mutation
+wrote through a symlink or escaped the configured registry root.
+
+### Source, provenance, comparison, UI, and effect boundaries
+
+#### Source non-duplication and exact provenance — PASS
+
+```text
+records=44 unique_references=44 kinds=7
+agent=4 capability=29 evaluation=1 report=3
+dashboard=1 scenario=3 workflow=3
+forbidden_recursive_keys=[] summary_leaks=[]
+repository_commit=a68ef6fce9d39f5341fa8675c093db2eba95aed6
+adapter_digest_exact=True
+relationships=36 all_resolved_exact=True
+```
+
+Compatible projections bind their compatibility evaluation to the exact
+definition digest. All relationships target exact discovered revisions.
+Scenario and workflow projections remain metadata-only; no grants, schemas,
+effects, shocks, prompts, routing, topology, state schema, or tool latches are
+copied into the registry. Comparison remains limited to versions of one stable
+identity.
+
+#### Exact application and no-effect boundary — PASS
+
+The exact R10 application exercised in process returned:
+
+```text
+page=200 catalogue=200 records=44
+preview_no_write=True bootstrap=200 transition=200 validated
+stale_transition=409 unrelated_compare=409
+absolute_path_exposed=False registry_root_key=False
+kind_specific_effect_fields=0
+```
+
+The Registry workspace retains explicit preview and indexing confirmation,
+truthful consequence copy, discovered-versus-indexed state, canonical source,
+compatibility, provenance, lineage, comparison, server-provided transitions,
+rationale, expected revision, source drift, and local-development publication
+language. It exposes no model, provider, broker, order, trade, hedge, rebalance,
+optimization, portfolio mutation, deployment, external publication, or other
+financial-effect action.
+
+### R10 automated verification
+
+```bash
+PIP_NO_INDEX=1 make verify-platform-phase1 \
+  BOOTSTRAP_VENV=/private/tmp/platform-p1-r6-qa.Ff4OMP/venv \
+  DAY0_VENV=/Users/lorenzocc/Developer/servicefabric-lab/state/venvs/thesis-sprint
+```
+
+Result: **PASS** — environment, repository, exact ServiceFabric pin, package,
+diff, and `48 passed in 3.02s`.
+
+```bash
+PIP_NO_INDEX=1 make test-application test-architecture \
+  DAY0_VENV=/Users/lorenzocc/Developer/servicefabric-lab/state/venvs/thesis-sprint
+```
+
+Result: **PASS** — `104 passed in 18.55s` for application tests and
+`105 passed in 1.73s` for architecture tests.
+
+A named cumulative rerun of recovery, journal semantics, staging, mixed and new
+batches, tamper, source, API, comparison, stale-review, and workspace cases
+passed `28` tests in `2.63s`. `git diff --check` passed before this handoff
+update.
+
+### R10 review limitation and bounded residual risks
+
+The in-app browser and localhost-bind limitation preserved in R5-R9 remains.
+R10 exercised the exact FastAPI application through an in-process client,
+static interaction-contract assertions, and the complete application and
+architecture suites. The integration handoff's successful live-browser
+evidence was reviewed; R10 does not claim a separate live-browser session.
+
+The local store's digest and read-only-file controls detect accidental and
+partial corruption but are not a cryptographic defense against an operating-
+system owner who rewrites every mutually consistent file. Completed journal
+records are append-only and uncompacted. Both are disclosed local-development
+boundaries, not Phase 1 release blockers.
+
+### R10 acceptance decision
+
+**Accept exact candidate
+`a68ef6fce9d39f5341fa8675c093db2eba95aed6` for Phase 1 integration.**
+Integration may merge only that immutable candidate together with this QA
+record, run the final merge gate, and record the resulting accepted Phase 1
+commit. Any implementation or test change requires another independent review.
+
+The accepted scope is the Phase 1 local-development registry kernel and
+catalogue only. This verdict grants no authority for Phase 2 artifacts, runtime
+execution, production publication, external adapters, or financial effects.
+All QA registries were temporary and non-authoritative; canonical definitions,
+the accepted Phase 0 baseline, and the read-only ServiceFabric pin remain
+unchanged.
