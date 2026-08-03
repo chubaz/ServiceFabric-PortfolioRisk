@@ -315,21 +315,27 @@ explicit human QA.
 
 ## Active platform development programme
 
-The current programme is `PLATFORM-P4` on
-`integration/platform-report-composer`. Its authoritative workplan is
-`docs/workplans/platform-development/phase-4-markdown-report-composer.md` and
+The current programme is `PLATFORM-P5` on
+`integration/platform-decision-review`. Its authoritative workplan is
+`docs/workplans/platform-development/phase-5-decision-review.md` and
 lifecycle state is in `config/agent/platform-development/status.json`.
 
-Phase 4 adds a Markdown-first composition layer over existing analytical and
-agent outputs. It owns section plans, immutable section revisions, validation,
-and deterministic safe rendering. It does not own or recalculate risk metrics.
-Model text is always treated as untrusted; raw HTML, JavaScript, URLs, and event
-handlers are escaped. Charts and tables enter reports only as digest-bound
-references to registered artifacts.
+Phase 5 adds a human-owned Decision Review lifecycle over canonical finding
+references. Finding, Decision Proposal, human resolution and any later action
+remain distinct. The five supported outcomes are Investigate, Accept & monitor,
+Defer, Reject and Escalate; every outcome has an explicit effect-free
+consequence receipt. A material proposal pauses the Workflow Cycle and never
+resumes it implicitly.
 
-Reports remain review artifacts. Missing evidence is disclosed rather than
-invented, publication remains a later governed action, and no report can create
-a portfolio, broker, trade, hedge, rebalance, or other external effect.
+Decision records remain outside Git and proposals are immutable. Investigation
+may run only the fixed effect-free follow-up declared by the Phase 5 workplan;
+it produces a supplemental context revision and returns to human review. Phase
+5 has no non-human resolver, due-diligence workspace, portfolio mutation,
+broker, order, trade, hedge, rebalance, or external effect.
+
+Real, synthetic, fixture, simulated, missing, and unavailable data states must
+remain explicit at every application and API boundary. Studio–Codex controls remain
+development-only, and external effects remain disabled throughout this programme.
 
 ## Completion report
 

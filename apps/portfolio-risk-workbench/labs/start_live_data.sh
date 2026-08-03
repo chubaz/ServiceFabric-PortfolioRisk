@@ -26,7 +26,7 @@ if [[ ! -x "$python_runtime" ]]; then
 fi
 server_port="${1:-8766}"
 repository_root="$(git -C "$prototype_dir" rev-parse --show-toplevel)"
-package_paths="$repository_root/packages/risk_domain/src:$repository_root/packages/risk_planning/src:$repository_root/packages/risk_data/src:$repository_root/packages/risk_capabilities/src:$repository_root/packages/risk_agents/src:$repository_root/packages/risk_analytics/src:$repository_root/packages/risk_registry/src:$repository_root/packages/risk_artifacts/src:$repository_root/packages/risk_experiments/src:$repository_root/packages/risk_reports/src"
+package_paths="$repository_root/packages/risk_domain/src:$repository_root/packages/risk_planning/src:$repository_root/packages/risk_data/src:$repository_root/packages/risk_capabilities/src:$repository_root/packages/risk_agents/src:$repository_root/packages/risk_analytics/src:$repository_root/packages/risk_registry/src:$repository_root/packages/risk_artifacts/src:$repository_root/packages/risk_experiments/src:$repository_root/packages/risk_reports/src:$repository_root/packages/risk_decisions/src"
 
 PYTHONPATH="$repository_root:$package_paths${PYTHONPATH:+:$PYTHONPATH}" \
   exec "$python_runtime" "$prototype_dir/duckdb_server.py" --port "$server_port"

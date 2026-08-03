@@ -36,6 +36,7 @@
       <button class="workspace-tab" type="button" data-workspace="registry">Registry</button>
       <button class="workspace-tab" type="button" data-workspace="artifacts">Artifacts</button>
       <button class="workspace-tab" type="button" data-workspace="experiments">Experiments</button>
+      <button class="workspace-tab" type="button" data-workspace="decisions">Decisions</button>
       <button class="workspace-tab" type="button" data-workspace="cycle">Simulated cycle</button>
       <button class="workspace-tab" type="button" data-workspace="full">Full experiment</button>
     </nav>
@@ -766,6 +767,22 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
       </div>
     </section>
 
+    <section class="lab-page" id="lab-decisions" aria-labelledby="lab-decisions-title">
+      <div class="lab-heading decision-lab-heading">
+        <div><span class="eyebrow">Decision Review</span><h1 id="lab-decisions-title">Resolve the question, not the finding</h1><p>Every card separates evidence, recommendation, human resolution, and consequence.</p></div>
+        <span class="stage-status" id="decision-catalogue-status">Loading</span>
+      </div>
+      <div class="decision-review-layout">
+        <aside class="decision-list-panel">
+          <header><span>Decision proposals</span><button class="button ghost" id="decision-refresh" type="button">Refresh</button></header>
+          <div id="decision-card-list"><div class="empty-state">No proposals have been created.</div></div>
+        </aside>
+        <main class="decision-detail-panel" id="decision-detail-panel">
+          <div class="empty-state">Run the simulated Workflow Cycle until it pauses, then select its Decision Card here.</div>
+        </main>
+      </div>
+    </section>
+
     <section class="lab-page" id="lab-cycle" aria-labelledby="lab-cycle-title">
       <div class="lab-heading cycle-lab-heading">
         <div><span class="eyebrow">Workflow Cycle Console</span><h1 id="lab-cycle-title">Watch agents work through simulated market time</h1><p>Real CRSP daily closes anchor a seeded synthetic intraday stream. Every position updates once per simulated second and is aggregated into one-minute candles.</p></div>
@@ -831,7 +848,7 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
 
         <section class="cycle-decision-panel hidden" id="cycle-decision-panel">
           <div><span>Decision proposal · human resolution required</span><strong id="cycle-decision-finding"></strong><p id="cycle-decision-question"></p><small>The clock is paused. The finding is not a decision and no portfolio effect has been created.</small><ul id="cycle-decision-consequences"></ul></div>
-          <div><label class="cycle-resolver-field" for="cycle-decision-resolver"><span>Resolver ID</span><input id="cycle-decision-resolver" type="text" autocomplete="off" placeholder="Enter your reviewer ID" /></label><button class="button primary" data-cycle-decision="accepted" type="button">Accept proposal</button><button class="button" data-cycle-decision="investigate" type="button">Mark for later investigation</button><button class="button ghost" data-cycle-decision="rejected" type="button">Reject proposal</button></div>
+          <div class="cycle-decision-controls"><label class="cycle-resolver-field" for="cycle-decision-resolver"><span>Resolver ID</span><input id="cycle-decision-resolver" type="text" autocomplete="off" placeholder="Enter your reviewer ID" /></label><label class="cycle-resolver-field" for="cycle-decision-rationale"><span>Reason for this choice</span><textarea id="cycle-decision-rationale" rows="3" placeholder="State the evidence or uncertainty that determines your choice"></textarea></label><div class="cycle-decision-actions"><button class="button" data-cycle-decision="investigate" type="button">Investigate</button><button class="button primary" data-cycle-decision="accept_and_monitor" type="button">Accept &amp; monitor</button><button class="button" data-cycle-decision="defer" type="button">Defer</button><button class="button ghost" data-cycle-decision="reject" type="button">Reject</button><button class="button ghost" data-cycle-decision="escalate" type="button">Escalate</button></div><button class="button ghost" id="cycle-open-decision-review" type="button">Open full Decision Review</button></div>
         </section>
       </section>
     </section>

@@ -15,7 +15,7 @@ def _json(relative: str) -> dict:
 
 def test_phase1_is_active_from_the_accepted_phase0_merge() -> None:
     status = _json("config/agent/platform-development/status.json")
-    assert status["current"] in {"PLATFORM-P1", "PLATFORM-P2"}
+    assert int(status["current"].removeprefix("PLATFORM-P")) >= 1
     assert status["phase_0"] == "accepted"
     assert status["phase_1"] in {"in_progress", "accepted"}
     assert status["baseline_commit"] == (

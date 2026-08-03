@@ -36,8 +36,8 @@ def test_thesis_day3_is_complete_and_day4_is_honestly_deferred() -> None:
     }
     assert read_json("config/agent/day23/status.json")["current"] == "D23-COMPLETE"
     current = (ROOT / "docs/workplans/current.md").read_text(encoding="utf-8")
-    assert "ID: PLATFORM-P2" in current
-    assert "Status: in progress" in current
+    assert "ID: PLATFORM-P" in current
+    assert "Status:" in current
     assert "Phase 0 is accepted" in current
     assert "thesis-sprint/deferred.md" in current
     assert "Days 1–3 remain accepted" in current

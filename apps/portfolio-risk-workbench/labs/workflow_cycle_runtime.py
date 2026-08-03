@@ -5,11 +5,24 @@ from __future__ import annotations
 import hashlib
 import math
 import random
+import tempfile
 import threading
 import time
 from collections import deque
 from datetime import date, datetime, time as wall_time, timedelta, timezone
+from pathlib import Path
 from typing import Any
+
+from risk_decisions import (
+    DecisionOutcome,
+    DecisionProposal,
+    DecisionState,
+    LocalDecisionStore,
+    admit_proposal,
+    canonical_digest,
+    resolve,
+)
+from decision_review import decision_store
 
 
 MARKET_OPEN = wall_time(9, 30)
@@ -31,7 +44,7 @@ def _pct(value: float) -> str:
 class SyntheticWorkflowSession:
     """One replay session with sealed real closes and released synthetic ticks."""
 
-    def __init__(self, session_id: str, configuration: dict[str, Any]) -> None:
+    def __init__(self, session_id: str, configuration: dict[str, Any], *, decision_store: LocalDecisionStore | None = None) -> None:
         self.session_id = session_id
         self.configuration = configuration
         self.lock = threading.RLock()
@@ -61,6 +74,15 @@ class SyntheticWorkflowSession:
         self.decision_proposals: list[dict[str, Any]] = []
         self.decisions: list[dict[str, Any]] = []
         self.consequence_receipts: list[dict[str, Any]] = []
+        self.context_revisions: list[dict[str, Any]] = []
+        self.follow_up_runs: list[dict[str, Any]] = []
+        self._temporary_decision_root = None
+        if decision_store is None:
+            self._temporary_decision_root = tempfile.TemporaryDirectory(
+                prefix="portfolio-risk-decisions-", dir=Path(tempfile.gettempdir()).resolve()
+            )
+            decision_store = LocalDecisionStore(self._temporary_decision_root.name)
+        self.decision_store = decision_store
         self.daily_history: list[dict[str, Any]] = []
         self.dashboard_version = 1
         self.dashboard_pages = [
@@ -307,34 +329,30 @@ class SyntheticWorkflowSession:
             },
             "effects": [],
         }
-        proposal = {
-            "proposal_id": f"proposal-{day}-{len(self.decision_proposals) + 1}",
-            "artifact_type": "decision_proposal",
-            "finding_id": finding["finding_id"],
-            "as_of": observed_at,
-            "status": "awaiting_human_resolution",
-            "kind": "intraday_loss_review",
-            "question": "Should this proposal be accepted, marked for investigation, or rejected?",
-            "options": [
-                {
-                    "outcome": "accepted",
-                    "label": "Accept proposal",
-                    "consequence": "The workflow may be resumed manually; no portfolio state changes.",
-                },
-                {
-                    "outcome": "investigate",
-                    "label": "Mark for investigation",
-                    "consequence": "The workflow remains paused; no investigation workspace is opened automatically.",
-                },
-                {
-                    "outcome": "rejected",
-                    "label": "Reject proposal",
-                    "consequence": "The workflow remains paused; the analytical finding remains in the evidence record.",
-                },
-            ],
-            "human_review_required": True,
-            "effects": [],
-        }
+        created_at = datetime.now(timezone.utc)
+        finding_digest = canonical_digest(finding)
+        proposal_model = DecisionProposal(
+            proposal_id=f"proposal-{self.session_id}-{day}-{len(self.decision_proposals) + 1}",
+            finding_id=finding["finding_id"], finding_digest=finding_digest,
+            question="How should the human reviewer resolve this material synthetic intraday-loss finding?",
+            why_now=finding["summary"],
+            proposing_agent_id="risk.agent.daily-portfolio-risk-reviewer",
+            proposing_workflow_id="risk.workflow.synthetic-cycle-review",
+            recommendation=DecisionOutcome.INVESTIGATE,
+            mandate_relevance=f"The configured policy requires human review when the daily loss exceeds {_pct(threshold)}.",
+            portfolio_relevance="The finding measures movement in total simulated portfolio NAV from the session open.",
+            risk_environment_relevance="This synthetic intraday path contains no independent macro, meso, or issuer evidence.",
+            evidence_ids=(finding["finding_id"],),
+            capability_receipt_ids=(f"capability.synthetic-nav.{self.session_id}.{day}",),
+            uncertainties=("The intraday path is a seeded workflow fixture, not empirical market evidence.",),
+            missing_information=("Confirm whether the movement remains material at the next released observation.",),
+            as_of=datetime.fromisoformat(observed_at), available_at=datetime.fromisoformat(observed_at),
+            created_at=created_at, expires_at=created_at + timedelta(hours=4),
+            downstream_workflow_preview="Investigate runs one registered effect-free evidence review. Accept or reject permits only a separate manual clock resume.",
+        )
+        record = self.decision_store.create(admit_proposal(proposal_model))
+        proposal = proposal_model.model_dump(mode="json")
+        proposal.update({"artifact_type": "decision_proposal", "status": record.state.value, "kind": "intraday_loss_review", "record_revision": record.record_revision})
         self.findings.append(finding)
         self.decision_proposals.append(proposal)
         self.running = False
@@ -485,11 +503,12 @@ class SyntheticWorkflowSession:
         with self.lock:
             if self.status == "complete":
                 return
-            resolved = {item["proposal_id"] for item in self.decisions}
-            if any(
-                item["proposal_id"] not in resolved
+            blocked = any(
+                self.decision_store.get(item["proposal_id"]).state
+                not in {DecisionState.RESOLVED, DecisionState.REJECTED}
                 for item in self.decision_proposals
-            ):
+            )
+            if blocked:
                 self.running = False
                 self.status = "paused_for_review"
                 return
@@ -527,6 +546,9 @@ class SyntheticWorkflowSession:
         *,
         resolver_id: str,
         resolver_type: str,
+        rationale: str,
+        idempotency_key: str,
+        expected_revision: str,
     ) -> None:
         with self.lock:
             proposal = next(
@@ -539,52 +561,42 @@ class SyntheticWorkflowSession:
             )
             if not proposal:
                 raise KeyError(proposal_id)
-            if any(item["proposal_id"] == proposal_id for item in self.decisions):
-                raise ValueError("decision proposal has already been resolved")
-            option = next(
-                (item for item in proposal["options"] if item["outcome"] == outcome),
-                None,
+            if resolver_type != "human":
+                raise ValueError("Phase 5 permits human resolvers only")
+            record = resolve(
+                self.decision_store, proposal_id, DecisionOutcome(outcome),
+                resolver_id=resolver_id, rationale=rationale,
+                idempotency_key=idempotency_key, expected_revision=expected_revision,
             )
-            if not option:
-                raise ValueError("unsupported decision outcome")
-            decided_at = datetime.now(timezone.utc).isoformat()
-            decision = {
-                "decision_id": f"decision-{len(self.decisions) + 1}",
-                "artifact_type": "decision",
-                "proposal_id": proposal_id,
-                "finding_id": proposal["finding_id"],
-                "outcome": outcome,
-                "resolver": {
-                    "resolver_id": resolver_id,
-                    "resolver_type": resolver_type,
-                },
-                "decided_at": decided_at,
-                "authority": "human_review",
-                "effects": [],
-            }
-            receipt = {
-                "receipt_id": f"consequence-{len(self.consequence_receipts) + 1}",
-                "artifact_type": "decision_consequence_receipt",
-                "decision_id": decision["decision_id"],
-                "proposal_id": proposal_id,
-                "recorded_at": decided_at,
-                "consequence": option["consequence"],
-                "workflow_effect": (
-                    "manual_resume_permitted"
-                    if outcome == "accepted"
-                    else "workflow_remains_paused"
-                ),
-                "portfolio_effects": [],
-                "external_effects": [],
-            }
-            self.decisions.append(decision)
-            self.consequence_receipts.append(receipt)
-            self.status = "paused"
+            self._sync_decision_record(record)
+            self.status = "paused_for_review" if record.state not in {DecisionState.RESOLVED, DecisionState.REJECTED} else "paused"
+            decision = self.decisions[-1]
+            receipt = self.consequence_receipts[-1]
             self._record_event(
                 "review",
                 "Human decision recorded",
                 f"{decision['decision_id']} resolved {proposal_id} as {outcome}. {receipt['consequence']}",
             )
+
+    def _sync_decision_record(self, record) -> None:  # type: ignore[no-untyped-def]
+        proposal = record.proposal.model_dump(mode="json")
+        proposal.update({"artifact_type": "decision_proposal", "status": record.state.value, "record_revision": record.record_revision, "kind": "intraday_loss_review"})
+        self.decision_proposals = [item for item in self.decision_proposals if item["proposal_id"] != record.proposal.proposal_id]
+        self.decision_proposals.append(proposal)
+        self.decisions = [item for item in self.decisions if item["proposal_id"] != record.proposal.proposal_id]
+        for item in record.resolutions:
+            value = item.model_dump(mode="json")
+            value.update({"artifact_type": "decision", "finding_id": record.proposal.finding_id, "resolver": {"resolver_id": item.resolver_id, "resolver_type": item.resolver_type}, "authority": "human_review"})
+            self.decisions.append(value)
+        self.consequence_receipts = [item for item in self.consequence_receipts if item["proposal_id"] != record.proposal.proposal_id]
+        for item in record.consequences:
+            value = item.model_dump(mode="json")
+            value["artifact_type"] = "decision_consequence_receipt"
+            self.consequence_receipts.append(value)
+        self.context_revisions = [item for item in self.context_revisions if item["proposal_id"] != record.proposal.proposal_id]
+        self.context_revisions.extend(item.model_dump(mode="json") for item in record.context_revisions)
+        self.follow_up_runs = [item for item in self.follow_up_runs if item["proposal_id"] != record.proposal.proposal_id]
+        self.follow_up_runs.extend(item.model_dump(mode="json") for item in record.follow_up_runs)
 
     def attach_agent(self, page_id: str, agent_id: str) -> None:
         with self.lock:
@@ -655,6 +667,8 @@ class SyntheticWorkflowSession:
                 "consequence_receipts": list(
                     reversed(self.consequence_receipts[-20:])
                 ),
+                "context_revisions": list(reversed(self.context_revisions[-20:])),
+                "decision_follow_up_runs": list(reversed(self.follow_up_runs[-20:])),
                 "daily_history": self.daily_history,
                 "meta_capabilities": [
                     "meta.synthetic_intraday.generate",
@@ -668,19 +682,23 @@ class SyntheticWorkflowSession:
     def close(self) -> None:
         self._stop_event.set()
         self.running = False
+        if self._temporary_decision_root is not None:
+            self._temporary_decision_root.cleanup()
 
 
 class WorkflowCycleManager:
-    def __init__(self) -> None:
+    def __init__(self, decision_store_factory=None) -> None:  # type: ignore[no-untyped-def]
         self.lock = threading.RLock()
         self.sessions: dict[str, SyntheticWorkflowSession] = {}
+        self.decision_store_factory = decision_store_factory
 
     def create(self, configuration: dict[str, Any]) -> SyntheticWorkflowSession:
         digest = hashlib.sha256(
             f"{configuration['portfolio_id']}:{configuration['seed']}:{time.time_ns()}".encode()
         ).hexdigest()[:10]
         session_id = f"cycle-{digest}"
-        session = SyntheticWorkflowSession(session_id, configuration)
+        store = self.decision_store_factory() if self.decision_store_factory else None
+        session = SyntheticWorkflowSession(session_id, configuration, decision_store=store)
         with self.lock:
             self.sessions[session_id] = session
         return session
@@ -699,5 +717,17 @@ class WorkflowCycleManager:
             raise KeyError(session_id)
         session.close()
 
+    def find_by_proposal(self, proposal_id: str) -> SyntheticWorkflowSession | None:
+        with self.lock:
+            sessions = tuple(self.sessions.values())
+        return next(
+            (
+                session
+                for session in sessions
+                if any(item["proposal_id"] == proposal_id for item in session.decision_proposals)
+            ),
+            None,
+        )
 
-workflow_cycle_manager = WorkflowCycleManager()
+
+workflow_cycle_manager = WorkflowCycleManager(decision_store)

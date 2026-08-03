@@ -13,7 +13,7 @@ def read(relative: str) -> str:
 
 def test_phase4_is_active_on_exact_phase3_closure() -> None:
     status = json.loads(read("config/agent/platform-development/status.json"))
-    assert status["current"] == "PLATFORM-P4"
+    assert int(status["current"].removeprefix("PLATFORM-P")) >= 4
     assert status["phase_3"] == "accepted"
     assert status["phase_4"] in {"in_progress", "accepted"}
     assert status["phase_4_baseline_commit"] == "19ccf123bd210eae1763f1fd5a332cfd3cb44d72"

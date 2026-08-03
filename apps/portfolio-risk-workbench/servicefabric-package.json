@@ -311,7 +311,7 @@
     },
     {
       "path": "labs/agent_studio.py",
-      "sha256": "74776380ff35f0a0cf67cc5919d72b65c86a79448ccdfd4ffbfe80b9ee037074"
+      "sha256": "85a3506126d622b872b7c2204f9a3b808d7c125a2f42c0b10621750bef649823"
     },
     {
       "path": "labs/artifact_repository.py",
@@ -323,7 +323,11 @@
     },
     {
       "path": "labs/duckdb_server.py",
-      "sha256": "4c5d278311742d19e795769753f29a7acbec0b2ce2e23d2baa08b5f05cc62355"
+      "sha256": "e3c364cd4c05e11e2e50ff5798765f4234f00626c5eee4a2c298c52e5387c3a4"
+    },
+    {
+      "path": "labs/decision_review.py",
+      "sha256": "8c655ed1bf663ee3d7a757148c52c397a0d5dda0ddda171065a1254e9b555ec4"
     },
     {
       "path": "labs/experiment_workspace.py",
@@ -331,11 +335,11 @@
     },
     {
       "path": "labs/index.html",
-      "sha256": "9b69c4b339e87af8561e401c78404e6a8cda3daa2c9c836a0361931fcfd1438d"
+      "sha256": "cb4d30ca61790473818fcab2b8bbe8dbbcea12b9e45df1a6a07381764c994166"
     },
     {
       "path": "labs/labs.js",
-      "sha256": "1413a3bcec4c80544487646151a5538c7ab4e7e0ac9887234e86f0a6098fa2fd"
+      "sha256": "8a3287a19dcdeb1c3534eb690df537b032c526b315b0d822b43e9e4f85894731"
     },
     {
       "path": "labs/registry_sources.py",
@@ -343,15 +347,15 @@
     },
     {
       "path": "labs/start_live_data.sh",
-      "sha256": "513c6f419c2ccf157668117cab5c704daa818ba0615a22df568e98d86ededde0"
+      "sha256": "16eba58bb5fc2cc0c0d5f01fa5797d9c7becd8919ee7ce6702cf7aaee3ecb504"
     },
     {
       "path": "labs/styles.css",
-      "sha256": "87dcd765fa98ece3f66c4d1c16560c1569f5f278a8bf9137deb5041f1f34dfa1"
+      "sha256": "b159fa4db7f52c4a61d23306fda46ec2aadb40520f9e8c9067571badc4ac0326"
     },
     {
       "path": "labs/workflow_cycle_runtime.py",
-      "sha256": "877a0416e5147f0849de67e4798c89a984c1760ec380363d08999ebd9f557ffa"
+      "sha256": "f50768f62a113e73562d0a36033bc08e5325068bfdaf143527aab2a2e3a49fcf"
     },
     {
       "path": "labs/DEVELOPMENT_ROADMAP.md",

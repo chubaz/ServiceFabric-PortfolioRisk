@@ -61,6 +61,11 @@ from experiment_workspace import (
     record_payload as experiment_record_payload,
     set_payload as experiment_set_payload,
 )
+from decision_review import (
+    catalogue_payload as decision_catalogue_payload,
+    decision_store,
+    record_payload as decision_record_payload,
+)
 from risk_artifacts import (
     ArtifactConflict,
     ArtifactLifecycleState,
@@ -97,6 +102,12 @@ from risk_reports import (
     report_markdown,
     validate_report,
     with_rendered_html,
+)
+from risk_decisions import (
+    DecisionConflict as DecisionReviewConflict,
+    DecisionNotFound as DecisionReviewNotFound,
+    DecisionOutcome,
+    resolve as resolve_decision_record,
 )
 
 
@@ -148,6 +159,11 @@ LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
             "data": "Existing definitions · indexed metadata points to canonical sources",
             "authority": "Local lifecycle review only · no financial effects",
             "persistence": "Persistent local development registry · not production publication",
+        },
+        "decisions": {
+            "data": "Immutable findings, proposals, evidence references and supplemental context revisions",
+            "authority": "Human review only · D1 recommendation · portfolio and external effects prohibited",
+            "persistence": "Persistent local Decision Repository · lifecycle and consequence receipts retained",
         },
         "artifacts": {
             "data": "Retained generated outputs · data truth disclosed per record",
@@ -427,9 +443,16 @@ class WorkflowCycleControlRequest(BaseModel):
 
 
 class WorkflowCycleDecisionRequest(BaseModel):
-    outcome: Literal["accepted", "investigate", "rejected"]
+    outcome: Literal["investigate", "accept_and_monitor", "defer", "reject", "escalate"]
     resolver_id: str = Field(min_length=3, max_length=120)
     resolver_type: Literal["human"] = "human"
+    rationale: str = Field(min_length=3, max_length=2000)
+    idempotency_key: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,159}$")
+    expected_revision: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class DecisionResolveRequest(WorkflowCycleDecisionRequest):
+    pass
 
 
 class WorkflowCycleAgentAttachRequest(BaseModel):
@@ -2527,6 +2550,9 @@ def resolve_workflow_cycle_decision_proposal(
             request.outcome,
             resolver_id=request.resolver_id,
             resolver_type=request.resolver_type,
+            rationale=request.rationale,
+            idempotency_key=request.idempotency_key,
+            expected_revision=request.expected_revision,
         )
         return session.snapshot()
     except KeyError as error:
@@ -2536,6 +2562,45 @@ def resolve_workflow_cycle_decision_proposal(
         ) from error
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.get("/api/decisions")
+def decision_catalogue() -> dict[str, Any]:
+    return decision_catalogue_payload()
+
+
+@app.get("/api/decisions/{proposal_id}")
+def decision_record(proposal_id: str) -> dict[str, Any]:
+    try:
+        return decision_record_payload(decision_store().get(proposal_id))
+    except DecisionReviewNotFound as error:
+        raise HTTPException(status_code=404, detail="decision proposal not found") from error
+
+
+@app.post("/api/decisions/{proposal_id}/resolve")
+def resolve_persisted_decision(proposal_id: str, request: DecisionResolveRequest) -> dict[str, Any]:
+    try:
+        session = workflow_cycle_manager.find_by_proposal(proposal_id)
+        if session is not None:
+            session.resolve_proposal(
+                proposal_id, request.outcome, resolver_id=request.resolver_id,
+                resolver_type=request.resolver_type, rationale=request.rationale,
+                idempotency_key=request.idempotency_key,
+                expected_revision=request.expected_revision,
+            )
+            record = session.decision_store.get(proposal_id)
+        else:
+            record = resolve_decision_record(
+                decision_store(), proposal_id, DecisionOutcome(request.outcome),
+                resolver_id=request.resolver_id, rationale=request.rationale,
+                idempotency_key=request.idempotency_key,
+                expected_revision=request.expected_revision,
+            )
+        return decision_record_payload(record)
+    except DecisionReviewNotFound as error:
+        raise HTTPException(status_code=404, detail="decision proposal not found") from error
+    except DecisionReviewConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @app.post("/api/workflow-cycle/sessions/{session_id}/agents")
