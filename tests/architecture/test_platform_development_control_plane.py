@@ -104,3 +104,18 @@ def test_phase0_verification_target_is_deterministic_and_network_free() -> None:
     assert "git diff --check" in gate
     for forbidden in ("OPENAI_API_KEY", "curl ", "submit_order", "execute_trade"):
         assert forbidden not in gate
+
+
+def test_historical_day1_gate_is_lifecycle_neutral() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    day1_gate = makefile.split(".PHONY: verify-day1", maxsplit=1)[1].split(
+        ".PHONY: demo-day1-headless", maxsplit=1
+    )[0]
+    workflow = (ROOT / ".github/workflows/day1-preparation.yml").read_text(
+        encoding="utf-8"
+    )
+    assert 'grep -q "^- ID: D1-"' in day1_gate
+    assert 'grep -q "^- ID: D1-"' in workflow
+    assert "a later programme owns the active pointer" in day1_gate
+    assert "a later programme owns the active pointer" in workflow
+    assert "THESIS-" not in day1_gate

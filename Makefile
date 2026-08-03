@@ -243,7 +243,7 @@ verify-day1-current: day1-env
 
 .PHONY: verify-day1
 verify-day1: verify-wave-1c test-day1-journeys
-	if grep -q "^- ID: THESIS-" docs/workplans/current.md; then echo "Day 1 historical lifecycle is covered by regression tests; Thesis Sprint owns the active pointer"; else $(DAY1_PYTHON) scripts/day1/check_preparation.py; fi
+	if grep -q "^- ID: D1-" docs/workplans/current.md; then $(DAY1_PYTHON) scripts/day1/check_preparation.py; else echo "Day 1 historical lifecycle is covered by regression tests; a later programme owns the active pointer"; fi
 	$(DAY1_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
 	git diff --check
 	@echo "Day 1 verification: PASS"
