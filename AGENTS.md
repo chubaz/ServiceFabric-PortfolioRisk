@@ -315,22 +315,21 @@ explicit human QA.
 
 ## Active platform development programme
 
-The current programme is `PLATFORM-P3` on
-`integration/platform-experiment-workspace`. Its authoritative workplan is
-`docs/workplans/platform-development/phase-3-experiment-workspace.md` and
+The current programme is `PLATFORM-P4` on
+`integration/platform-report-composer`. Its authoritative workplan is
+`docs/workplans/platform-development/phase-4-markdown-report-composer.md` and
 lifecycle state is in `config/agent/platform-development/status.json`.
 
-Phase 3 adds a first-class experiment control plane over existing canonical
-definitions. Immutable experiment meaning, mutable lifecycle/queue receipts,
-run outputs, and published assets remain separate. Source and system assets are
-referenced by exact version and digest; experiment-local overlays are explicit.
-Mutable experiment state remains outside Git.
+Phase 4 adds a Markdown-first composition layer over existing analytical and
+agent outputs. It owns section plans, immutable section revisions, validation,
+and deterministic safe rendering. It does not own or recalculate risk metrics.
+Model text is always treated as untrusted; raw HTML, JavaScript, URLs, and event
+handlers are escaped. Charts and tables enter reports only as digest-bound
+references to registered artifacts.
 
-The local queue is a bounded, restart-safe metadata controller, not a scheduler
-daemon or production worker. Queue admission never starts an agent, workflow,
-model call, SQL query, or portfolio effect. Evaluation-only mode cannot request
-workflow execution. External effects remain disabled and Phase 4 report or
-decision-lifecycle work is prohibited in this workstream.
+Reports remain review artifacts. Missing evidence is disclosed rather than
+invented, publication remains a later governed action, and no report can create
+a portfolio, broker, trade, hedge, rebalance, or other external effect.
 
 ## Completion report
 

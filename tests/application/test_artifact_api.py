@@ -84,7 +84,7 @@ def test_explicit_admission_catalogue_detail_preview_and_archive(
     assert catalogue["summary"] == {
         "retained_runs": 1,
         "artifacts": 1,
-        "files": 12,
+        "files": len(EXPECTED_FILES),
         "total_size_bytes": admitted["manifest"]["total_size_bytes"],
         "need_attention": 0,
     }

@@ -26,7 +26,7 @@ from .models import (
 
 
 ADAPTER_ID = "portfolio-risk.legacy-agent-run-adapter"
-ADAPTER_REVISION = "1.0.0"
+ADAPTER_REVISION = "1.1.0"
 RUN_ID_PATTERN = re.compile(r"run-[0-9]{8}T[0-9]{6}(?:Z|\+0000)-[a-f0-9]{8}")
 EXPECTED_FILES = (
     "activity.json",
@@ -42,6 +42,10 @@ EXPECTED_FILES = (
     "review.json",
     "transcript.md",
 )
+CURRENT_EXPECTED_FILES = tuple(
+    sorted((*EXPECTED_FILES, "report.json", "review-brief.html"))
+)
+SUPPORTED_INVENTORIES = (EXPECTED_FILES, CURRENT_EXPECTED_FILES)
 ROLE_BY_NAME = {
     "activity.json": "activity_log",
     "blueprint.json": "agent_blueprint_input",
@@ -52,6 +56,8 @@ ROLE_BY_NAME = {
     "model-executions.json": "model_receipts",
     "output.json": "structured_output",
     "research-plan.json": "research_plan",
+    "report.json": "report_envelope",
+    "review-brief.html": "safe_rendered_report",
     "review-brief.md": "rendered_report",
     "review.json": "review_receipt",
     "transcript.md": "run_transcript",
@@ -62,6 +68,8 @@ PREVIEWABLE_SYNTHETIC = {
     "blueprint.json",
     "output.json",
     "research-plan.json",
+    "report.json",
+    "review-brief.html",
     "review.json",
     "review-brief.md",
     "transcript.md",
@@ -118,7 +126,7 @@ def _observation_identity(
     source_digest = _digest(contents["manifest.json"])
     inventory_digest = _digest(
         json.dumps(
-            [(name, len(contents[name]), _digest(contents[name])) for name in EXPECTED_FILES],
+            [(name, len(contents[name]), _digest(contents[name])) for name in sorted(contents)],
             separators=(",", ":"),
         ).encode("utf-8")
     )
@@ -184,13 +192,14 @@ def _observe(root: Path, run_id: str) -> tuple[dict[str, Any], dict[str, bytes],
             observed.st_size,
             observed.st_mtime_ns,
         )
-    if tuple(sorted(names)) != EXPECTED_FILES:
+    inventory = tuple(sorted(names))
+    if inventory not in SUPPORTED_INVENTORIES:
         raise LegacyRunInvalid("source_inventory_mismatch")
-    contents = {name: _read_regular(directory / name) for name in EXPECTED_FILES}
+    contents = {name: _read_regular(directory / name) for name in inventory}
     final_names = tuple(sorted(child.name for child in directory.iterdir()))
-    if final_names != EXPECTED_FILES:
+    if final_names != inventory:
         raise LegacyRunInvalid("source_changed_during_observation")
-    for name in EXPECTED_FILES:
+    for name in inventory:
         observed = (directory / name).lstat()
         final_signature = (
             observed.st_dev,
@@ -214,7 +223,7 @@ def _observe(root: Path, run_id: str) -> tuple[dict[str, Any], dict[str, bytes],
         for item in declared
         if isinstance(item, dict) and isinstance(item.get("name"), str)
     }
-    if set(declared_by_name) != set(EXPECTED_FILES):
+    if set(declared_by_name) != set(inventory):
         raise LegacyRunInvalid("manifest_inventory_mismatch")
     warnings: list[str] = []
     for name, content in contents.items():
@@ -303,7 +312,7 @@ def compile_legacy_run(
         raise LegacyRunInvalid("source_changed_since_preview")
     real = source.get("data_mode") == "real_duckdb"
     files = []
-    for name in EXPECTED_FILES:
+    for name in sorted(contents):
         sensitive = real and name in {
             "input.json",
             "activity.json",
@@ -314,7 +323,13 @@ def compile_legacy_run(
             file_manifest(
                 path=name,
                 content=contents[name],
-                media_type="text/markdown" if name.endswith(".md") else "application/json",
+                media_type=(
+                    "text/markdown"
+                    if name.endswith(".md")
+                    else "text/html"
+                    if name.endswith(".html")
+                    else "application/json"
+                ),
                 role=ROLE_BY_NAME[name],
                 preview_mode=(
                     PreviewMode.ESCAPED_TEXT
