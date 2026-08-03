@@ -335,11 +335,11 @@
     },
     {
       "path": "labs/index.html",
-      "sha256": "d61f1978c1764c98bfa1a22389ffc98624021fafff559904466d142655fb5713"
+      "sha256": "1ba9b27f287aab6c5fd88c0fda6b26d782535ec4a049002201430f88c39ba0d6"
     },
     {
       "path": "labs/labs.js",
-      "sha256": "0b2c8c5a983f92aa12a095c0b4feafd03b2b777d7be7a0669f5e4ff6998a2bdd"
+      "sha256": "d9d9f776d86270df9105fd0ed3fb9da3c8cea4d5f40c501a4f5ce6e46f8b5093"
     },
     {
       "path": "labs/registry_sources.py",
@@ -351,7 +351,7 @@
     },
     {
       "path": "labs/styles.css",
-      "sha256": "2e1ed2dff5b3cbe587a817b2f88eda314585d86ddd922c9e5fd774d22350be60"
+      "sha256": "98acc6b331c0e60b092980f410c66f679839e0f9278afa3d3fd32a2f9b6922b2"
     },
     {
       "path": "labs/workflow_cycle_runtime.py",

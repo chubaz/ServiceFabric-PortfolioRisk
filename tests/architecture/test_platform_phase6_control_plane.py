@@ -85,12 +85,36 @@ def test_system_overview_is_a_minimal_object_launcher() -> None:
         '<section class="lab-page" id="lab-studio"', 1
     )[0]
     assert overview.count('data-open-studio=') == 8
+    assert overview.count('role="button"') == 8
+    assert overview.count('tabindex="0"') == 8
     assert "<h1" not in overview
     assert "definition-lifecycle" not in overview
     assert "registry-summary" not in overview
     assert "platform-terminology" not in overview
     assert 'id="dictionary-search"' in html
     assert 'id="dictionary-list"' in html
+
+
+def test_secondary_development_tools_live_under_one_workbench_tab() -> None:
+    html = read("apps/portfolio-risk-workbench/labs/index.html")
+    javascript = read("apps/portfolio-risk-workbench/labs/labs.js")
+    system_tabs = [
+        line for line in html.splitlines()
+        if 'class="workspace-tab' in line and 'data-zone="system"' in line
+    ]
+    assert len(system_tabs) == 3
+    assert "Overview" in system_tabs[0]
+    assert "Studios" in system_tabs[1]
+    assert "Workbench" in system_tabs[2]
+    assert 'id="workbench-sidebar"' in html
+    assert html.count("data-workbench-workspace=") == 10
+    for workspace in (
+        "dictionary", "portfolio", "agent", "graph", "dataset", "decisions",
+        "decision-diligence", "cycle",
+    ):
+        assert f'data-workbench-workspace="{workspace}"' in html
+    assert "const workbenchWorkspaces" in javascript
+    assert 'classList.toggle("workbench-mode", inWorkbench)' in javascript
 
 
 def test_studios_pair_objects_with_companion_capabilities_and_safe_codex_handoff() -> None:

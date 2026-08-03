@@ -64,6 +64,8 @@ System Development owns singular object construction and its controlled applicat
 
 Each Studio treats the reusable definition and its necessary companion capabilities as one development concern. A Dashboard Studio may therefore build both a `DashboardPackage` and the typed capabilities that validate, render or update it. This does not fuse their identities: each remains separately versioned, reviewable and least-privileged. Agent and Capability Studios add companion capabilities only for lifecycle or native framework gaps.
 
+The System Development header exposes only Overview, Studios and Workbench. Overview is a centred grid of directly clickable object cards. Workbench keeps application testing, Registry, Dictionary and the existing specialist utilities behind one persistent sidebar; this changes navigation only and preserves the underlying workspace routes and contracts.
+
 The current Registry remains an index over canonical sources rather than their replacement. Git remains authoritative for reviewed code and declarative definitions. Registry metadata adds discovery, immutable identity, lifecycle, compatibility, provenance and relationships. Evaluation authoring is deliberately deferred until the thesis evaluation methodology is agreed.
 
 ### 3.2 Save gate

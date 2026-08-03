@@ -335,11 +335,17 @@
     research: "experiments",
   };
 
+  const workbenchWorkspaces = new Set([
+    "application", "dictionary", "registry", "portfolio", "agent", "graph",
+    "dataset", "decisions", "decision-diligence", "cycle",
+  ]);
+
   function normalizedZone(zone) {
     return zone === "application" ? "system" : zone;
   }
 
   function workspaceSupportsZone(name, zone) {
+    if (zone === "system" && workbenchWorkspaces.has(name)) return true;
     return Boolean($(`.workspace-tab[data-workspace="${name}"][data-zone="${zone}"]`));
   }
 
@@ -389,11 +395,23 @@
     }
     labState.activeWorkspace = name;
     const full = name === "full";
+    const inWorkbench = labState.activeZone === "system" && workbenchWorkspaces.has(name);
     $("#lab-workspace").classList.toggle("hidden", full);
+    $("#lab-workspace").classList.toggle("workbench-mode", inWorkbench);
     $("#full-experiment-workspace").classList.toggle("hidden", !full);
+    $("#workbench-sidebar").classList.toggle("hidden", !inWorkbench);
+    document.body.classList.toggle("workbench-open", inWorkbench);
     $$(".lab-page").forEach((page) => page.classList.toggle("active", page.id === `lab-${name}`));
     $$(".workspace-tab").forEach((button) => {
-      const active = button.dataset.workspace === name && button.dataset.zone === labState.activeZone;
+      const active = button.dataset.zone === labState.activeZone && (
+        button.dataset.workspace === name || (button.hasAttribute("data-workbench-root") && inWorkbench)
+      );
+      button.classList.toggle("active", active);
+      if (active) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
+    });
+    $$("[data-workbench-workspace]").forEach((button) => {
+      const active = button.dataset.workbenchWorkspace === name;
       button.classList.toggle("active", active);
       if (active) button.setAttribute("aria-current", "page");
       else button.removeAttribute("aria-current");
@@ -3996,8 +4014,16 @@
   function bind() {
     $$(".operating-zone-tab").forEach((button) => button.addEventListener("click", () => switchZone(button.dataset.zone)));
     $$(".workspace-tab").forEach((button) => button.addEventListener("click", () => switchWorkspace(button.dataset.workspace, true, button.dataset.zone)));
+    $$('[data-workbench-workspace]').forEach((button) => button.addEventListener("click", () => switchWorkspace(button.dataset.workbenchWorkspace, true, "system")));
     $$('[data-open-workspace]').forEach((button) => button.addEventListener("click", () => switchWorkspace(button.dataset.openWorkspace)));
-    $$('[data-open-studio]').forEach((button) => button.addEventListener("click", () => openStudio(button.dataset.openStudio)));
+    $$('[data-open-studio]').forEach((control) => {
+      control.addEventListener("click", () => openStudio(control.dataset.openStudio));
+      control.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        openStudio(control.dataset.openStudio);
+      });
+    });
     $$('[data-open-registry-kind]').forEach((button) => button.addEventListener("click", () => {
       switchWorkspace("registry", true, "system");
       $("#registry-kind-filter").value = button.dataset.openRegistryKind;

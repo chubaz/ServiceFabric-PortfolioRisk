@@ -20,7 +20,7 @@
       });
     }
   </script>
-  <link rel="stylesheet" href="./styles.css?v=13">
+  <link rel="stylesheet" href="./styles.css?v=14">
 </head>
 <body>
   <header class="app-header">
@@ -36,17 +36,7 @@
       <nav class="workspace-switcher" aria-label="Workspaces in the selected operating zone">
         <button class="workspace-tab active" type="button" data-zone="system" data-workspace="system">Overview</button>
         <button class="workspace-tab" type="button" data-zone="system" data-workspace="studio">Studios</button>
-        <button class="workspace-tab" type="button" data-zone="system" data-workspace="application">Application testing</button>
-        <button class="workspace-tab" type="button" data-zone="system" data-workspace="dictionary">Dictionary</button>
-        <button class="workspace-tab" type="button" data-zone="system" data-workspace="registry">Registry</button>
-        <button class="workspace-tab" type="button" data-zone="system" data-workspace="portfolio">Portfolio</button>
-        <button class="workspace-tab" type="button" data-zone="system" data-workspace="agent">Agent Studio</button>
-        <button class="workspace-tab" type="button" data-zone="system" data-workspace="graph">Agent graph</button>
-
-        <button class="workspace-tab" type="button" data-zone="system" data-workspace="dataset">Data utility</button>
-        <button class="workspace-tab" type="button" data-zone="system" data-workspace="decisions">Decisions</button>
-        <button class="workspace-tab" type="button" data-zone="system" data-workspace="decision-diligence">Due diligence</button>
-        <button class="workspace-tab" type="button" data-zone="system" data-workspace="cycle">Workflow cycle</button>
+        <button class="workspace-tab" type="button" data-zone="system" data-workspace="application" data-workbench-root>Workbench</button>
 
         <button class="workspace-tab hidden" type="button" data-zone="research" data-workspace="experiments">Experiments</button>
         <button class="workspace-tab hidden" type="button" data-zone="research" data-workspace="artifacts">Artifacts</button>
@@ -66,17 +56,30 @@
     <div><span>Persistence</span><strong id="truth-persistence">Not yet established</strong></div>
   </section>
 
+  <aside class="workbench-sidebar hidden" id="workbench-sidebar" aria-label="Workbench navigation">
+    <button type="button" data-workbench-workspace="application" data-workspace="application"><span>01</span>Application test</button>
+    <button type="button" data-workbench-workspace="dictionary" data-workspace="dictionary"><span>02</span>Dictionary</button>
+    <button type="button" data-workbench-workspace="registry" data-workspace="registry"><span>03</span>Registry</button>
+    <button type="button" data-workbench-workspace="portfolio" data-workspace="portfolio"><span>04</span>Portfolio</button>
+    <button type="button" data-workbench-workspace="agent" data-workspace="agent"><span>05</span>Agent Studio</button>
+    <button type="button" data-workbench-workspace="graph" data-workspace="graph"><span>06</span>Agent graph</button>
+    <button type="button" data-workbench-workspace="dataset" data-workspace="dataset"><span>07</span>Data utility</button>
+    <button type="button" data-workbench-workspace="decisions" data-workspace="decisions"><span>08</span>Decisions</button>
+    <button type="button" data-workbench-workspace="decision-diligence" data-workspace="decision-diligence"><span>09</span>Due diligence</button>
+    <button type="button" data-workbench-workspace="cycle" data-workspace="cycle"><span>10</span>Workflow cycle</button>
+  </aside>
+
   <main class="lab-workspace" id="lab-workspace">
     <section class="lab-page active" id="lab-system" aria-labelledby="lab-system-title">
       <div class="system-object-grid" id="system-object-grid">
-        <article class="system-object-card partial"><span>AgentBlueprint</span><h2 id="lab-system-title">Agent Studio</h2><p>Design and test agents.</p><div><button class="text-button" type="button" data-open-studio="agent">Open Studio</button><button class="text-button" type="button" data-open-registry-kind="agent">Registry</button></div></article>
-        <article class="system-object-card ready"><span>CapabilityDefinition</span><h2>Capability Studio</h2><p>Build typed operations.</p><div><button class="text-button" type="button" data-open-studio="capability">Open Studio</button><button class="text-button" type="button" data-open-registry-kind="capability">Registry</button></div></article>
-        <article class="system-object-card ready"><span>ScenarioDefinition</span><h2>Scenario Studio</h2><p>Build and lifecycle scenarios.</p><div><button class="text-button" type="button" data-open-studio="scenario">Open Studio</button><button class="text-button" type="button" data-open-registry-kind="scenario">Registry</button></div></article>
-        <article class="system-object-card ready"><span>DashboardPackage</span><h2>Dashboard Studio</h2><p>Compose persistent monitoring views.</p><div><button class="text-button" type="button" data-open-studio="dashboard">Open Studio</button><button class="text-button" type="button" data-open-registry-kind="dashboard">Registry</button></div></article>
-        <article class="system-object-card ready"><span>ReportTemplate</span><h2>Report Studio</h2><p>Design Markdown-first reports.</p><div><button class="text-button" type="button" data-open-studio="report">Open Studio</button><button class="text-button" type="button" data-open-registry-kind="report">Registry</button></div></article>
-        <article class="system-object-card partial"><span>PortfolioVersion + MandateVersion</span><h2>Portfolio & Mandate Studio</h2><p>Model holdings, rules and covenants.</p><div><button class="text-button" type="button" data-open-studio="portfolio_mandate">Open Studio</button><button class="text-button" type="button" data-open-workspace="portfolio">Current builder</button></div><small>PLATFORM-P9</small></article>
-        <article class="system-object-card future"><span>AgentGraphDefinition + WorkflowDefinition</span><h2>Workflow Studio</h2><p>Compose agents and review points.</p><div><button class="text-button" type="button" data-open-studio="workflow">Open Studio</button><button class="text-button" type="button" data-open-workspace="graph">Graph preview</button></div><small>PLATFORM-P14</small></article>
-        <article class="system-object-card future"><span>ProviderAdapter</span><h2>Provider & Connector Studio</h2><p>Build governed integrations.</p><button class="text-button" type="button" data-open-studio="provider_connector">Open Studio</button><small>PLATFORM-P15</small></article>
+        <article class="system-object-card partial" role="button" tabindex="0" data-open-studio="agent" aria-label="Open Agent Studio"><span>AgentBlueprint</span><h2 id="lab-system-title">Agent Studio</h2><p>Design and test agents.</p><small>Available now</small></article>
+        <article class="system-object-card ready" role="button" tabindex="0" data-open-studio="capability" aria-label="Open Capability Studio"><span>CapabilityDefinition</span><h2>Capability Studio</h2><p>Build typed operations.</p><small>Available now</small></article>
+        <article class="system-object-card ready" role="button" tabindex="0" data-open-studio="scenario" aria-label="Open Scenario Studio"><span>ScenarioDefinition</span><h2>Scenario Studio</h2><p>Build and lifecycle scenarios.</p><small>Available now</small></article>
+        <article class="system-object-card ready" role="button" tabindex="0" data-open-studio="dashboard" aria-label="Open Dashboard Studio"><span>DashboardPackage</span><h2>Dashboard Studio</h2><p>Compose persistent monitoring views.</p><small>Available now</small></article>
+        <article class="system-object-card ready" role="button" tabindex="0" data-open-studio="report" aria-label="Open Report Studio"><span>ReportTemplate</span><h2>Report Studio</h2><p>Design Markdown-first reports.</p><small>Available now</small></article>
+        <article class="system-object-card partial" role="button" tabindex="0" data-open-studio="portfolio_mandate" aria-label="Open Portfolio and Mandate Studio"><span>PortfolioVersion + MandateVersion</span><h2>Portfolio &amp; Mandate Studio</h2><p>Model holdings, rules and covenants.</p><small>PLATFORM-P9</small></article>
+        <article class="system-object-card future" role="button" tabindex="0" data-open-studio="workflow" aria-label="Open Workflow Studio"><span>AgentGraphDefinition + WorkflowDefinition</span><h2>Workflow Studio</h2><p>Compose agents and review points.</p><small>PLATFORM-P14</small></article>
+        <article class="system-object-card future" role="button" tabindex="0" data-open-studio="provider_connector" aria-label="Open Provider and Connector Studio"><span>ProviderAdapter</span><h2>Provider &amp; Connector Studio</h2><p>Build governed integrations.</p><small>PLATFORM-P15</small></article>
       </div>
     </section>
 
@@ -1544,6 +1547,6 @@ checkpoint store and server route are connected, selecting it returns BLOCKED.</
   </dialog>
 
   <script src="./app.js"></script>
-  <script src="./labs.js?v=14"></script>
+  <script src="./labs.js?v=15"></script>
 </body>
 </html>

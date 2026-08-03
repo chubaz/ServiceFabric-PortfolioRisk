@@ -118,7 +118,9 @@ areas without replacing the accepted Phase 6 stores or decision contracts:
 2. **Experimental Research** for persistent experiment composition, queueing and
    comparison.
 
-The System Development overview is a minimal launcher of eight object Studios.
+The System Development overview is a centred launcher of eight directly
+clickable object Studios. Secondary utilities are consolidated behind one
+Workbench tab and persistent sidebar rather than occupying the header.
 Each Studio treats its reusable definition and any necessary companion
 capabilities as one development concern, then hands a saved version to the Apply
 phase. Shared terminology lives in a separate searchable Dictionary. Evaluation
