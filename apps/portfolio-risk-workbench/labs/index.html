@@ -34,6 +34,7 @@
       <button class="workspace-tab" type="button" data-workspace="agent">Agent</button>
       <button class="workspace-tab" type="button" data-workspace="graph">Agent graph</button>
       <button class="workspace-tab" type="button" data-workspace="registry">Registry</button>
+      <button class="workspace-tab" type="button" data-workspace="artifacts">Artifacts</button>
       <button class="workspace-tab" type="button" data-workspace="cycle">Simulated cycle</button>
       <button class="workspace-tab" type="button" data-workspace="full">Full experiment</button>
     </nav>
@@ -679,6 +680,35 @@ Maintain readable contrast and keyboard-safe structure</textarea></label>
         </section>
         <aside class="lab-panel registry-detail" id="registry-detail" aria-live="polite">
           <div class="empty-state">Select a definition to inspect its source and lifecycle.</div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="lab-page" id="lab-artifacts" aria-labelledby="lab-artifacts-title">
+      <div class="lab-heading registry-heading">
+        <div><span class="eyebrow">Governed local outputs</span><h1 id="lab-artifacts-title">Artifact Repository</h1><p>Browse retained runs, verify immutable files, and review retention or deletion consequences.</p></div>
+        <div class="registry-heading-actions"><span class="stage-status" id="artifact-status">Loading</span><button class="button primary" id="artifact-refresh" type="button">Refresh repository</button></div>
+      </div>
+      <div class="registry-boundary" role="note">Retained files are immutable, content-addressed local outputs. The repository records provenance and policy around them; it does not define or execute the agent, workflow, data, or experiment that produced them.</div>
+      <div class="registry-summary" id="artifact-summary" aria-live="polite"></div>
+      <section class="artifact-admission lab-panel hidden" id="artifact-admission" aria-label="Temporary run admission">
+        <div class="panel-heading"><div><span class="panel-label">Temporary Agent Lab runs</span><h2>Review before retaining</h2></div><span class="truth-chip" id="artifact-candidate-count">0 candidates</span></div>
+        <div id="artifact-candidates"></div>
+      </section>
+      <section class="registry-toolbar lab-panel" aria-label="Artifact filters">
+        <label class="field"><span>Search</span><input id="artifact-search" type="search" placeholder="Run, artifact or producing agent"></label>
+        <label class="field"><span>View</span><select id="artifact-view-filter"><option value="active">Active</option><option value="archived">Archived</option><option value="recovery">Recovery</option><option value="all">All records</option></select></label>
+        <label class="field"><span>Truth</span><select id="artifact-truth-filter"><option value="">All data truth</option><option value="licensed_real">Licensed real</option><option value="synthetic_sample">Synthetic sample</option><option value="reviewed_synthetic">Reviewed synthetic</option><option value="simulated">Simulated</option></select></label>
+        <label class="field"><span>Retention</span><select id="artifact-retention-filter"><option value="">All retention</option><option value="run_retained">Run-retained</option><option value="experiment_evidence">Experiment evidence</option><option value="evidence_locked">Evidence-locked</option><option value="published">Published</option></select></label>
+        <button class="button ghost" id="artifact-clear-filters" type="button">Clear</button>
+      </section>
+      <div class="registry-layout artifact-layout">
+        <section class="lab-panel registry-catalogue" aria-label="Retained artifacts">
+          <div class="panel-heading"><div><span class="panel-label">Retained runs and outputs</span><h2>Repository</h2></div><span class="truth-chip" id="artifact-result-count">0 results</span></div>
+          <div class="registry-list" id="artifact-list"><div class="empty-state">Loading retained outputs.</div></div>
+        </section>
+        <aside class="lab-panel registry-detail" id="artifact-detail" aria-live="polite">
+          <div class="empty-state">Select an artifact to inspect its files, provenance, rights and lifecycle.</div>
         </aside>
       </div>
     </section>

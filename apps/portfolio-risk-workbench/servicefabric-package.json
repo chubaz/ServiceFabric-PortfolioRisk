@@ -314,20 +314,24 @@
       "sha256": "ecddd87cc1e9cc2bf3f057184b44dbde3aa5b3c5e526b3c9a68c07aa00bc5a34"
     },
     {
+      "path": "labs/artifact_repository.py",
+      "sha256": "6f656a2d8d90f50b91725feb39a5411bc9577b108d2568629921d465f4f8190d"
+    },
+    {
       "path": "labs/app.js",
       "sha256": "a1c90b2af2c460af3cdfc04ca4afa8b046321decb378c163c97d7637fd93f56e"
     },
     {
       "path": "labs/duckdb_server.py",
-      "sha256": "63b43c1c74b4b339b91f5016858f720dab7902cb7251ed22cc9995d763e3b71a"
+      "sha256": "835e3aef0e91afcee4014bd41a9314450653c1aef80e55d085e80b0401d7c297"
     },
     {
       "path": "labs/index.html",
-      "sha256": "86d5b7c4397fbf83abdc5201ab713d69c7f983b06f1b4bed66cb2a3038a1af79"
+      "sha256": "7b48772d907f0ff1bd98cc607ba20d02712c04da7962ce2af91e462a2fe2a731"
     },
     {
       "path": "labs/labs.js",
-      "sha256": "84ea0f6d2ad0c233aa481c0a43a98e6bbef7cc91b5524717d2022a63da8e600c"
+      "sha256": "db2940819009b6d09aec77f26ee97e0bbebf1a7714994e508812982dee14285f"
     },
     {
       "path": "labs/registry_sources.py",
@@ -339,7 +343,7 @@
     },
     {
       "path": "labs/styles.css",
-      "sha256": "71ee5e63448fa28162ab3c260a11a8fa93056fdff775fd5b5574a9a02e66ad33"
+      "sha256": "afd080f0de38caf54e69713cb5a729482d4a859af7a4bce809835f704a0c2779"
     },
     {
       "path": "labs/workflow_cycle_runtime.py",

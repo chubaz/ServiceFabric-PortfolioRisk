@@ -18,7 +18,7 @@ from typing import Any, Literal
 import duckdb
 import uvicorn
 import yaml
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -28,12 +28,12 @@ from agent_studio import (
     BlueprintPlanRequest,
     CompileRequest,
     OutputPassRunRequest,
+    RUN_ROOT,
     RunRequest,
     SectionPlanRequest,
     advise_blueprint,
     capability_platform_manifest,
     compile_blueprint,
-    delete_agent_run,
     _keychain_key,
     _scenario_context,
     list_agent_runs,
@@ -52,6 +52,15 @@ from registry_sources import (
     discovered_payload,
     document_payload,
     registry_store,
+)
+from artifact_repository import artifact_store, catalogue_payload, record_payload
+from risk_artifacts import (
+    ArtifactConflict,
+    ArtifactLifecycleState,
+    ArtifactNotFound,
+    LegacyRunInvalid,
+    compile_legacy_run,
+    preview_legacy_run,
 )
 from risk_registry import (
     AssetKind,
@@ -110,6 +119,11 @@ LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
             "data": "Existing definitions · indexed metadata points to canonical sources",
             "authority": "Local lifecycle review only · no financial effects",
             "persistence": "Persistent local development registry · not production publication",
+        },
+        "artifacts": {
+            "data": "Retained generated outputs · data truth disclosed per record",
+            "authority": "Browse and govern local artifacts only · execution and external effects prohibited",
+            "persistence": "Content-addressed local repository · outside Git · not production publication",
         },
         "cycle": {
             "data": "Mixed · licensed daily anchors + simulated seeded intraday",
@@ -398,6 +412,22 @@ class RegistryTransitionRequest(BaseModel):
 class RegistryCompareRequest(BaseModel):
     left: RegistryIdentity
     right: RegistryIdentity
+
+
+class ArtifactTransitionRequest(BaseModel):
+    actor: str = Field(default="local.developer", min_length=3, max_length=128)
+    rationale: str = Field(min_length=3, max_length=1000)
+    expected_revision: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class ArtifactDeletionRequest(ArtifactTransitionRequest):
+    confirmation_token: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class ArtifactAdmissionRequest(BaseModel):
+    run_id: str = Field(min_length=3, max_length=160)
+    confirmation_token: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    actor: str = Field(default="local.developer", min_length=3, max_length=128)
 
 
 def json_safe(value: Any) -> Any:
@@ -1855,6 +1885,188 @@ def compare_registry_items(request: RegistryCompareRequest) -> dict[str, Any]:
     }
 
 
+def _artifact_error(error: Exception) -> HTTPException:
+    if isinstance(error, ArtifactNotFound):
+        return HTTPException(status_code=404, detail="artifact or file not found")
+    return HTTPException(status_code=409, detail=str(error))
+
+
+@app.get("/api/artifacts/catalogue")
+def artifact_catalogue(include_deleted: bool = False) -> dict[str, Any]:
+    try:
+        return catalogue_payload(include_deleted=include_deleted)
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.get("/api/artifacts/{artifact_id}")
+def artifact_detail(artifact_id: str) -> dict[str, Any]:
+    try:
+        store = artifact_store()
+        record = store.get(artifact_id)
+        payload = record_payload(record)
+        payload["verification"] = store.verify(artifact_id).model_dump(mode="json")
+        if record.state in {ArtifactLifecycleState.ACTIVE, ArtifactLifecycleState.ARCHIVED}:
+            payload["deletion_preview"] = store.deletion_preview(artifact_id).model_dump(mode="json")
+        elif record.state == ArtifactLifecycleState.TOMBSTONED:
+            payload["deletion_preview"] = store.deletion_preview(
+                artifact_id, finalize=True
+            ).model_dump(mode="json")
+        else:
+            payload["deletion_preview"] = None
+        return payload
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/artifacts/{artifact_id}/verify")
+def verify_artifact(artifact_id: str) -> dict[str, Any]:
+    try:
+        return artifact_store().verify(artifact_id).model_dump(mode="json")
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.get("/api/artifacts/{artifact_id}/files/{file_id}/preview")
+def preview_artifact_file(artifact_id: str, file_id: str) -> dict[str, Any]:
+    try:
+        record = artifact_store().get(artifact_id)
+        item = next((value for value in record.manifest.files if value.file_id == file_id), None)
+        if item is None:
+            raise ArtifactNotFound(file_id)
+        content, _media_type = artifact_store().open_file(artifact_id, item.path)
+        if len(content) > 250_000:
+            raise ArtifactConflict("file is too large for bounded browser preview")
+        return {
+            "artifact_id": artifact_id,
+            "file_id": file_id,
+            "logical_name": item.path,
+            "rendering": "escaped_text_only",
+            "text": content.decode("utf-8", errors="replace"),
+        }
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.get("/api/artifacts/{artifact_id}/files/{file_id}/download")
+def download_artifact_file(artifact_id: str, file_id: str) -> Response:
+    try:
+        record = artifact_store().get(artifact_id)
+        item = next((value for value in record.manifest.files if value.file_id == file_id), None)
+        if item is None:
+            raise ArtifactNotFound(file_id)
+        content, media_type = artifact_store().open_file(artifact_id, item.path, download=True)
+        safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", Path(item.path).name)[:120]
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_name}"',
+                "X-Content-Type-Options": "nosniff",
+                "Content-Security-Policy": "default-src 'none'",
+            },
+        )
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/artifacts/{artifact_id}/archive")
+def archive_artifact(artifact_id: str, request: ArtifactTransitionRequest) -> dict[str, Any]:
+    try:
+        record = artifact_store().transition(
+            artifact_id,
+            to_state=ArtifactLifecycleState.ARCHIVED,
+            actor=request.actor,
+            rationale=request.rationale,
+            expected_revision=request.expected_revision,
+        )
+        return record_payload(record)
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/artifacts/{artifact_id}/restore")
+def restore_artifact(artifact_id: str, request: ArtifactTransitionRequest) -> dict[str, Any]:
+    try:
+        store = artifact_store()
+        current = store.get(artifact_id)
+        if current.state == ArtifactLifecycleState.TOMBSTONED:
+            record = store.restore_tombstone(
+                artifact_id,
+                actor=request.actor,
+                rationale=request.rationale,
+                expected_revision=request.expected_revision,
+            )
+        else:
+            record = store.transition(
+                artifact_id,
+                to_state=ArtifactLifecycleState.ACTIVE,
+                actor=request.actor,
+                rationale=request.rationale,
+                expected_revision=request.expected_revision,
+            )
+        return record_payload(record)
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/artifacts/{artifact_id}/tombstone")
+def tombstone_artifact(artifact_id: str, request: ArtifactDeletionRequest) -> dict[str, Any]:
+    try:
+        record = artifact_store().tombstone(
+            artifact_id,
+            confirmation_token=request.confirmation_token,
+            expected_revision=request.expected_revision,
+            actor=request.actor,
+            rationale=request.rationale,
+        )
+        return record_payload(record)
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/artifacts/{artifact_id}/finalize")
+def finalize_artifact_deletion(artifact_id: str, request: ArtifactDeletionRequest) -> dict[str, Any]:
+    try:
+        record = artifact_store().finalize_delete(
+            artifact_id,
+            confirmation_token=request.confirmation_token,
+            expected_revision=request.expected_revision,
+            actor=request.actor,
+            rationale=request.rationale,
+        )
+        return record_payload(record)
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.get("/api/artifacts/admission/{run_id}/preview")
+def preview_artifact_admission(run_id: str) -> dict[str, Any]:
+    return preview_legacy_run(RUN_ROOT, run_id).payload()
+
+
+@app.post("/api/artifacts/admission")
+def admit_artifact_run(request: ArtifactAdmissionRequest) -> dict[str, Any]:
+    try:
+        manifest, files = compile_legacy_run(
+            RUN_ROOT,
+            request.run_id,
+            confirmation_token=request.confirmation_token,
+        )
+        record = artifact_store().admit(
+            manifest,
+            files,
+            actor=request.actor,
+            rationale="Explicitly admitted a validated Agent Lab run after preview.",
+        )
+        verification = artifact_store().verify(record.manifest.artifact_id)
+        if not verification.valid:
+            raise ArtifactConflict("admitted run failed repository integrity verification")
+        return record_payload(record)
+    except (ArtifactConflict, ArtifactNotFound, LegacyRunInvalid, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
 @app.get("/api/agents/runtime")
 def agent_runtime() -> dict[str, Any]:
     return runtime_status()
@@ -2061,12 +2273,13 @@ def agent_run_detail(run_id: str) -> dict[str, Any]:
 
 @app.delete("/api/agents/runs/{run_id}")
 def remove_agent_run(run_id: str) -> dict[str, Any]:
-    try:
-        return delete_agent_run(run_id)
-    except FileNotFoundError as error:
-        raise HTTPException(status_code=404, detail="agent run not found") from error
-    except ValueError as error:
-        raise HTTPException(status_code=422, detail=str(error)) from error
+    raise HTTPException(
+        status_code=409,
+        detail=(
+            "Immediate run-folder deletion is disabled. Review and explicitly admit the "
+            "run in the Artifact Repository, then use its recoverable deletion lifecycle."
+        ),
+    )
 
 
 @app.post("/api/agents/output-pass")

@@ -667,6 +667,6 @@ verify-platform-phase1: preflight day0-env
 
 .PHONY: verify-platform-phase2
 verify-platform-phase2: preflight day0-env
-	$(DAY0_PYTEST) tests/architecture/test_platform_phase2_control_plane.py -q
+	$(DAY0_PYTEST) tests/architecture/test_platform_phase2_control_plane.py tests/artifacts tests/application/test_artifact_api.py -q
 	git diff --check
-	@echo "Platform development Phase 2 activation: PASS"
+	@echo "Platform development Phase 2 artifact repository: PASS"
