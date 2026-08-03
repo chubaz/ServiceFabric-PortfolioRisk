@@ -1,6 +1,7 @@
 # PLATFORM-P5 — Decision Review v1
 
-- Status: in progress
+- Status: accepted
+- Accepted candidate: `57e6a397231c8a1327fba4c6856edd2373f45e80`
 - Integration branch: `integration/platform-decision-review`
 - Baseline: `8ec4ed5501d5a322439237be4207068c96347fca`
 - Roadmap: `apps/portfolio-risk-workbench/labs/DEVELOPMENT_ROADMAP.md`
@@ -91,3 +92,22 @@ the scheduled cross-phase clean-room checkpoint for Phases 3–5.
 - no automatic clock resume, workflow scheduling or notification integration;
 - no portfolio, order, broker, trade, hedge, rebalance or mutation effect;
 - no new data connector, LLM call, metric calculation or risk model.
+
+## Acceptance evidence
+
+- Focused gate: 28 tests passed after final idempotency and lifecycle-chain
+  hardening.
+- Cross-phase checkpoint: Day 0 architecture (124), domain/contracts (29),
+  planning (22), data (83), capabilities (18), agents (15), application (115),
+  integration (15), and historical journeys (8) passed; Phase 3 (15), Phase 4
+  (14), and the then-current Phase 5 gate (27) also passed.
+- Browser: a real-daily-anchor/synthetic-intraday cycle paused at a 1.02% loss;
+  all five choices were visible; Investigate created one supplemental context
+  revision; Accept & monitor finalized the proposal while leaving clock resume
+  manual and effects empty.
+- UI: no error/warning console messages; 705px viewport had one-column layout,
+  no horizontal overflow, and a visible Decision detail panel.
+- Deviation: the cross-phase suite exposed stale earlier-phase pointer tests;
+  they now preserve historical acceptance while allowing a later active phase.
+- Adjacent defect fixed: legacy Agent Run persistence now composes its required
+  Phase 4 report envelope when an older caller does not supply one.

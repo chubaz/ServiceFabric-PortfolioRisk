@@ -2,7 +2,7 @@
 
 - ID: PLATFORM-P5
 - Title: Decision Review v1
-- Status: in progress
+- Status: accepted
 - Namespace: platform-development
 - Integration branch: integration/platform-decision-review
 - Workplan: docs/workplans/platform-development/phase-5-decision-review.md
@@ -10,6 +10,7 @@
 - Phase 1 accepted candidate: a68ef6fce9d39f5341fa8675c093db2eba95aed6
 - Verification: make verify-platform-phase5
 - Cross-phase checkpoint: make verify-platform-phase5-cross-phase
+- Accepted candidate: 57e6a397231c8a1327fba4c6856edd2373f45e80
 
 Phase 5 makes material decision proposals a typed, persisted, human-owned
 lifecycle. The Workflow Cycle pauses for one of five explicit reviewer outcomes,
@@ -68,3 +69,13 @@ Phase 5 starts from the exact Phase 4 closure
 the Phase 6 due-diligence workspace, non-human resolvers and financial effects
 remain out of scope. The scheduled cross-phase clean-room suite runs at Phase 5
 acceptance.
+
+Phase 5 is accepted at exact implementation candidate
+`57e6a397231c8a1327fba4c6856edd2373f45e80`. The focused gate passed 28 tests.
+The post-Phase-5 checkpoint passed the complete Day 0 architecture, domain,
+planning, data, capability, agent, application, integration and historical
+journey suites, then re-ran the Phase 3, 4 and 5 gates. The browser qualification
+paused a real-daily-anchor/synthetic-intraday cycle at a 1.02% loss, created one
+effect-free context revision through Investigate, resolved it through Accept &
+monitor, kept manual resume separate, showed no console errors and produced no
+narrow-layout overflow.
