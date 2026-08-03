@@ -395,6 +395,8 @@ def test_index_recovers_when_initial_event_is_durable_before_its_anchor(
     assert store.list() == []
 
     restarted = LocalRegistryStore(store.root)
+    with pytest.raises(RegistryConflict, match="retried exactly"):
+        restarted.index(projection(), actor="different-indexer")
     recovered = restarted.index(projection(), actor="tester")
     assert recovered.state is LifecycleState.CANDIDATE
     assert len(restarted.list()) == 1
@@ -567,6 +569,8 @@ def test_bootstrap_write_failure_exposes_no_partial_catalogue(
 
     assert store.list() == []
     monkeypatch.setattr(store, "_write_immutable", original_write)
+    with pytest.raises(RegistryConflict, match="retried exactly"):
+        store.index_many(requested, actor="different-bootstrap-reviewer")
     indexed, conflicts = store.index_many(requested, actor="bootstrap-reviewer")
     assert conflicts == []
     assert len(indexed) == 2

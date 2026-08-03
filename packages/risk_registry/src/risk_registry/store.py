@@ -453,6 +453,21 @@ class LocalRegistryStore:
                 f"{projection.identity.reference} already exists with a different source observation"
             )
         if reconstructed is not None:
+            receipt = reconstructed.receipts[-1]
+            same_pending_request = (
+                len(reconstructed.receipts) == 1
+                and receipt.actor == actor
+                and receipt.rationale == rationale
+                and (
+                    occurred_at is None
+                    or receipt.occurred_at
+                    == occurred_at.astimezone(timezone.utc)
+                )
+            )
+            if not same_pending_request:
+                raise RegistryConflict(
+                    "an interrupted initial index must be retried exactly"
+                )
             self._materialize_event_stream(reconstructed)
             if path.exists() and self._read_path(path) != reconstructed:
                 raise RegistryConflict("registry snapshot does not match its lifecycle event stream")
