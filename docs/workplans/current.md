@@ -2,13 +2,15 @@
 
 - ID: PLATFORM-P2
 - Title: Artifact repository and retained runs
-- Status: in progress
+- Status: accepted
 - Namespace: platform-development
 - Integration branch: integration/platform-artifact-repository
 - Workplan: docs/workplans/platform-development/phase-2-artifact-repository.md
 - Baseline commit: 9440bbaeb3f43f04ff259dbde0eb2824b7f9c6f1
 - Phase 1 accepted candidate: a68ef6fce9d39f5341fa8675c093db2eba95aed6
 - Verification: make verify-platform-phase2
+- Accepted candidate: b8eacc67ca9344944631c425e133c639395df9cf
+- Clean-worktree QA: 3d1617a033104a91d8da48e5a50664dcb9f8ba09
 
 Phase 2 adds a governed, development-only repository for generated artifacts
 and retained runs. It reuses canonical artifact references and immutable
@@ -37,3 +39,9 @@ Phase 1 was accepted after independent adversarial R10 review of exact candidate
 `9440bbaeb3f43f04ff259dbde0eb2824b7f9c6f1`. Phase 2 starts from that immutable
 baseline. It does not introduce experiment scheduling, production publication,
 Studio–Codex execution, or any financial effect.
+
+Phase 2 is accepted at exact candidate
+`b8eacc67ca9344944631c425e133c639395df9cf` after clean-worktree acceptance
+review `3d1617a033104a91d8da48e5a50664dcb9f8ba09`. The governed repository,
+explicit legacy-run admission, lifecycle APIs, Artifact Repository workspace,
+and safety regressions passed. Phase 3 has not started in this workstream.

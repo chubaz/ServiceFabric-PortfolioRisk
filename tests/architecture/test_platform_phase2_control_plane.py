@@ -27,6 +27,14 @@ def test_phase2_starts_from_the_accepted_phase1_merge() -> None:
     )
     assert status["development_profile_only"] is True
     assert status["external_effects"] == "disabled"
+    if status["phase_2"] == "accepted":
+        assert status["phase_2_accepted_candidate_commit"] == (
+            "b8eacc67ca9344944631c425e133c639395df9cf"
+        )
+        assert status["phase_2_qa_commit"] == (
+            "3d1617a033104a91d8da48e5a50664dcb9f8ba09"
+        )
+        assert status["active_wave"] == "complete"
 
 
 def test_phase2_lanes_are_bounded_and_vendor_is_frozen() -> None:
@@ -87,3 +95,12 @@ def test_phase2_gate_is_deterministic_and_effect_free() -> None:
         "rebalance_portfolio",
     ):
         assert forbidden not in gate
+
+
+def test_phase2_acceptance_record_names_the_exact_reviewed_candidate() -> None:
+    handoff = (
+        ROOT / "docs/handoffs/platform-development/phase2-independent-qa.md"
+    ).read_text(encoding="utf-8")
+    assert "b8eacc67ca9344944631c425e133c639395df9cf" in handoff
+    assert "Verdict: PASS" in handoff
+    assert "1897d30" in handoff

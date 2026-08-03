@@ -1,6 +1,8 @@
 # PLATFORM-P2 — artifact repository and retained runs
 
-- Status: active
+- Status: accepted
+- Accepted candidate: `b8eacc67ca9344944631c425e133c639395df9cf`
+- Clean-worktree QA: `3d1617a033104a91d8da48e5a50664dcb9f8ba09`
 - Integration branch: `integration/platform-artifact-repository`
 - Baseline: `9440bbaeb3f43f04ff259dbde0eb2824b7f9c6f1`
 - Roadmap: `apps/portfolio-risk-workbench/labs/DEVELOPMENT_ROADMAP.md`
