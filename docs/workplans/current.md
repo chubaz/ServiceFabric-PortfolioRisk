@@ -2,13 +2,14 @@
 
 - ID: PLATFORM-P4
 - Title: Markdown report composer
-- Status: in progress
+- Status: accepted
 - Namespace: platform-development
 - Integration branch: integration/platform-report-composer
 - Workplan: docs/workplans/platform-development/phase-4-markdown-report-composer.md
 - Baseline commit: 19ccf123bd210eae1763f1fd5a332cfd3cb44d72
 - Phase 1 accepted candidate: a68ef6fce9d39f5341fa8675c093db2eba95aed6
 - Verification: make verify-platform-phase4
+- Accepted candidate: 7b20ae45be093b3aec1cddc4fb0b05c1194738aa
 
 Phase 4 makes concise Markdown the primary analytical report surface. It adds
 typed section plans and revisions, evidence, repetition, length and completeness
@@ -52,3 +53,12 @@ Phase 3 is accepted locally at exact implementation candidate
 `19ccf123bd210eae1763f1fd5a332cfd3cb44d72`. Phase 4 starts from that exact
 baseline. Focused tests run during the phase; the next exhaustive cross-phase
 suite remains scheduled after Phase 5 unless a high-risk boundary changes.
+
+Phase 4 is accepted at exact implementation candidate
+`7b20ae45be093b3aec1cddc4fb0b05c1194738aa`. The focused gate passed 14 tests
+covering contracts, section revision, report validation, safe rendering, API,
+Agent Studio, artifact admission and control-plane boundaries. A deterministic
+synthetic browser run produced nine sections, 100% evidence coverage, no
+repeated section pairs, no length warnings, 14 persisted files, an open human
+review checkpoint and no console errors. The exhaustive suite remains deferred
+to the planned post-Phase-5 checkpoint.

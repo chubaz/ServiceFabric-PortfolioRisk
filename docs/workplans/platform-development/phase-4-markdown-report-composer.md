@@ -1,6 +1,7 @@
 # PLATFORM-P4 — Markdown report composer
 
-- Status: in progress
+- Status: accepted
+- Accepted candidate: `7b20ae45be093b3aec1cddc4fb0b05c1194738aa`
 - Integration branch: `integration/platform-report-composer`
 - Baseline: `19ccf123bd210eae1763f1fd5a332cfd3cb44d72`
 - Roadmap: `apps/portfolio-risk-workbench/labs/DEVELOPMENT_ROADMAP.md`
