@@ -48,7 +48,7 @@ a clean worktree.
 ## Tests
 
 - `make verify-platform-phase1 DAY0_VENV=.../state/venvs/thesis-sprint` — PASS,
-  46 focused tests plus environment, repository, package and diff gates.
+  45 focused tests plus environment, repository, package and diff gates.
 - `make test-application test-architecture DAY0_VENV=.../state/venvs/thesis-sprint`
   — PASS, 104 application tests and 105 architecture tests.
 - Browser verification at `http://127.0.0.1:8767/?workspace=registry` — PASS:
