@@ -1,9 +1,9 @@
 # Phase 1 independent QA
 
 - Task: P1-05
-- Current review: R6
-- Reviewed candidate: `e9eab8dd704d4c04d90fff269118a4af21072db9`
-- Review branch: `review/platform-p1-independent-qa-r6`
+- Current review: R7
+- Reviewed candidate: `6eed7cae7499c76afa1fe03ac455414b3e7d859c`
+- Review branch: `review/platform-p1-independent-qa-r7`
 - Accepted Phase 0 baseline: `21339db19357277ca9a9a1ca50107f1a884d7aeb`
 - Pinned ServiceFabric gitlink: `7632b61d94a966346f95eb6c5bb2a5ea27f3bc14`
 - Current verdict: **BLOCKED**
@@ -657,3 +657,267 @@ Rollback remains documentation-only for this QA lane. Temporary registries and
 the isolated bootstrap environment are non-authoritative; canonical source
 definitions, the accepted Phase 0 baseline, and the read-only ServiceFabric pin
 remain unchanged.
+
+## R7 independent review
+
+- Exact candidate: `6eed7cae7499c76afa1fe03ac455414b3e7d859c`
+- Review worktree: `phase1-independent-qa-r7`
+- Verdict: **BLOCKED**
+- R5 and R6 history above: preserved and unchanged in meaning
+
+### R7 executive result
+
+R7 closes both exact R6 failure reproductions. A transition interrupted after
+its event is durable but before its anchor remains readable at the
+catalogue-committed prefix and its exact retry installs the missing anchor.
+The same boundary on item two of `index_many()` leaves zero catalogue-visible
+items and an exact batch retry converges. Ordinary `index()` and `index_many()`
+also no longer adopt a valid uncommitted transition tail: both return the prior
+committed lifecycle state, after which the exact transition retry succeeds.
+Immutable staging fails without leaving a partial final file.
+
+All declared gates and the cumulative projection, receipt, anchor, catalogue,
+filename, restart, batch, path, source, provenance, relationship, comparison,
+API, UI, and effect-boundary probes pass. A changed-intent recovery probe for
+the initial uncatalogued receipt nevertheless finds one release blocker:
+
+1. after initial `index()` or `index_many()` fails between event and anchor
+   installation, a different actor can retry and commit the original actor's
+   durable receipt; direct `index()` also accepts a different rationale.
+
+The committed audit record therefore says the original actor completed an
+indexing operation that a different actor actually resumed. This violates the
+R6 requirement that an uncommitted tail be completed only by an identical retry
+without accepting changed intent. Candidate `6eed7ca` does not yet satisfy the
+Phase 1 restart, idempotency, or audit-integrity gates.
+
+### R7 scope and immutable baseline
+
+The review inspected the exact R6-to-R7 repair delta, current store and tests,
+preserved R5/R6 findings, source adapter, Registry API and workspace, and the
+governing Phase 1 workplan and audits. It verified:
+
+```text
+candidate HEAD         6eed7cae7499c76afa1fe03ac455414b3e7d859c
+accepted Phase 0       21339db19357277ca9a9a1ca50107f1a884d7aeb
+ServiceFabric gitlink  7632b61d94a966346f95eb6c5bb2a5ea27f3bc14
+worktree branch        review/platform-p1-independent-qa-r7
+pre-handoff status     clean
+```
+
+No implementation, test, source definition, control-plane record, dependency,
+runtime data, financial effect, or vendor file was modified in this lane.
+
+### R7-B1 — changed-intent initial indexing retry is accepted
+
+When a canonical source has a reconstructed receipt stream but no catalogue
+entry, `_index_locked()` at
+`packages/risk_registry/src/risk_registry/store.py:455-462` materializes the
+stream and returns it solely when the source observation matches. It receives
+`actor`, `rationale`, and `occurred_at`, but does not compare them with the
+durable initial receipt. `index()` then commits that receipt to the catalogue;
+`index_many()` follows the same path.
+
+The independent probe interrupted initial indexing immediately after the event
+write by failing the anchor write. It then restarted the store and deliberately
+retried with a different actor and, for direct indexing, a different rationale:
+
+```text
+changed index retry accepted=True
+committed receipt actor=original-indexer
+committed receipt rationale=original rationale
+
+changed index_many retry accepted=True
+committed batch receipt actor=original-bootstrap
+```
+
+The new actor is not represented in the committed receipt, while the old actor
+is represented as having completed an operation that never returned and whose
+publication was completed by another principal. This is not a harmless
+idempotent source rediscovery: before catalogue commit there is no public item,
+and the durable receipt is the audit evidence for who proposed that item.
+
+**Required repair outcome:** an uncatalogued durable initial receipt must be
+completed only by the exact matching indexing intent. At minimum, direct
+`index()` must compare actor, rationale, occurrence semantics, source
+observation, and receipt purpose; batch bootstrap must compare actor, its fixed
+rationale, source set, and receipt purpose. A changed-intent caller must not
+publish the old receipt. Add single-item, second-item batch, and API bootstrap
+tests that attempt a changed actor and changed rationale before the exact retry.
+The exact original retry must still converge without a duplicate receipt.
+
+### Exact R6 blocker closure evidence
+
+#### R6-B1 event-before-anchor interruption — PASS for exact retries
+
+The transition probe allowed receipt sequence two to become durable, failed
+before its anchor write, restarted from disk, read the committed state through
+both `get()` and `list()`, and then retried exactly:
+
+```text
+fresh_get=candidate/1
+fresh_list=1 candidate
+durable_files=2 events / 1 anchor
+exact_retry=validated/2
+```
+
+The item-two batch probe left both projections and events on disk but no
+catalogue entries. Fresh `list()` returned zero, both fresh `get()` calls
+returned `RegistryNotFound`, and the exact retry indexed both items:
+
+```text
+fresh_list=0
+fresh_get=RegistryNotFound/RegistryNotFound
+exact_retry=2
+conflicts=0
+```
+
+This closes the R6 event-to-anchor availability defect for identical requests.
+R7-B1 is the separate changed-intent gap in the initial indexing path.
+
+#### R6-B2 indexing a pending transition — PASS
+
+For both operations, the probe created a complete anchored validated receipt,
+failed before catalogue replacement, confirmed the committed candidate prefix,
+called indexing with a different bootstrap actor, and then performed the exact
+transition retry:
+
+```text
+index:
+  before=candidate/1 returned=candidate/1 after=candidate/1
+  head_advanced=False exact_transition_retry=validated/2
+
+index_many:
+  before=candidate/1 returned=candidate/1 after=candidate/1
+  head_advanced=False exact_transition_retry=validated/2
+```
+
+Source indexing therefore cannot adopt an existing item's uncommitted lifecycle
+tail. Transition intent remains checked at `store.py:627-642`.
+
+#### Atomic immutable staging — PASS
+
+An injected file `fsync` failure occurred while staging bytes, before the
+exclusive link to the authoritative name. The final path did not exist and the
+temporary directory was empty afterward:
+
+```text
+atomic staging: final_exists=False temporary_files=0
+```
+
+The final immutable name is installed only after complete bytes have been
+flushed and synced.
+
+### Cumulative adversarial matrix
+
+#### Integrity, continuity, restart, and batch behavior — PASS outside R7-B1
+
+Independent replacements and corruptions produced:
+
+```text
+projection=REJECTED RegistryConflict: projection does not match catalogue anchor
+receipt=REJECTED RegistryConflict: lifecycle integrity anchor mismatch
+anchor=REJECTED RegistryConflict: lifecycle integrity anchor mismatch
+catalog_digest=REJECTED RegistryConflict: catalogue integrity verification failed
+catalog_head=REJECTED RegistryConflict: stream does not contain committed head
+filename_gap=REJECTED RegistryConflict: filenames must form a contiguous sequence
+missing_stream=REJECTED RegistryConflict: committed event stream is missing
+```
+
+The focused retry tests also passed for failure before catalogue commit and
+failure reported after catalogue replacement. Exact retry retained two
+receipts in each case. A preflight conflict and an injected second-projection
+write failure both left the batch catalogue unchanged; an identical retry of
+the write failure indexed both items. Snapshot replay mismatch, receipt digest,
+chain, transition graph, terminal-state, publication eligibility, and stale
+expected-revision tests remain green.
+
+#### Path and symlink safety — PASS
+
+Independent probes rejected each tested indirection without writing through it:
+
+```text
+root=ValueError        parent=ValueError       lock=OSError
+catalog=ValueError     record=ValueError       projection=ValueError
+event_file=ValueError  anchor_file=RegistryConflict
+records_dir=ValueError event_dir=ValueError    anchor_dir=ValueError
+```
+
+#### Source non-duplication and exact provenance — PASS
+
+```text
+records=44 kinds=7 unique_references=44
+agent=4 capability=29 evaluation=1 report=3
+dashboard=1 scenario=3 workflow=3
+forbidden_recursive_keys=[] summary_leaks=[]
+repository_commits=[6eed7cae7499c76afa1fe03ac455414b3e7d859c]
+adapter_digest_exact=True
+relationships=36 all_resolved_exact=True
+```
+
+Every resolved relationship targets one of the exact 44 references, compatible
+projections bind their evaluated source digest to their exact definition
+digest, and unrelated stable identities remain non-comparable.
+
+#### API, UI governance, and effect boundaries — PASS
+
+An exact in-process application session returned:
+
+```text
+page=200 catalogue=200 records=44
+preview_no_write=True bootstrap=200
+transition=200 validated stale_transition=409 unrelated_compare=409
+absolute_path_exposed=False registry_root_key=False
+kind_specific_effect_fields=0
+```
+
+Static and application tests confirm explicit bootstrap consequence and
+confirmation copy, server-supplied allowed transitions, transition rationale,
+expected revision, source drift, local-development publication language, and no
+model, provider, broker, order, trade, hedge, rebalance, optimization, portfolio
+mutation, deployment, external publication, or other financial-effect control.
+
+### R7 automated verification
+
+```bash
+PIP_NO_INDEX=1 make verify-platform-phase1 \
+  BOOTSTRAP_VENV=/private/tmp/platform-p1-r6-qa.Ff4OMP/venv \
+  DAY0_VENV=/Users/lorenzocc/Developer/servicefabric-lab/state/venvs/thesis-sprint
+```
+
+Result: **PASS** — environment, repository, exact ServiceFabric pin, package,
+diff, and `45 passed in 2.53s`.
+
+```bash
+PIP_NO_INDEX=1 make test-application test-architecture \
+  DAY0_VENV=/Users/lorenzocc/Developer/servicefabric-lab/state/venvs/thesis-sprint
+```
+
+Result: **PASS** — `104 passed in 17.64s` for application tests and
+`105 passed in 1.50s` for architecture tests.
+
+A focused named rerun of catalogue retry, batch atomicity, tamper, continuity,
+source, API, comparison, stale-review, and workspace tests passed `22` tests in
+`2.19s`. `git diff --check` passed before this handoff update.
+
+### R7 browser limitation
+
+The in-app browser and localhost-bind limitation recorded in R5/R6 remains.
+R7 used the exact FastAPI application through an in-process client, plus static
+interaction-contract and full application/architecture tests; it does not claim
+a new independent live-browser session. This limitation is not the reason for
+the R7 verdict.
+
+### R7 acceptance decision and next action
+
+**Do not accept or merge candidate
+`6eed7cae7499c76afa1fe03ac455414b3e7d859c`.** Keep PLATFORM-P1 in progress
+and independent QA blocked until indexing recovery binds uncatalogued durable
+receipts to the exact retry intent. A fresh immutable candidate must reject both
+changed-actor paths, reject changed direct-index rationale, preserve zero batch
+visibility, and still accept the exact original retry without duplicating a
+receipt.
+
+Rollback remains documentation-only for this QA lane. All probe registries were
+temporary and non-authoritative. Canonical definitions, the accepted Phase 0
+baseline, and the read-only ServiceFabric pin remain unchanged.
