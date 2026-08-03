@@ -134,6 +134,25 @@ def test_studios_pair_objects_with_companion_capabilities_and_safe_codex_handoff
     assert "function renderRiskAnalysisPackage" in javascript
 
 
+def test_risk_analysis_package_apply_surface_exposes_truth_receipts_and_saved_runs() -> None:
+    server = read("apps/portfolio-risk-workbench/labs/duckdb_server.py")
+    javascript = read("apps/portfolio-risk-workbench/labs/labs.js")
+    css = read("apps/portfolio-risk-workbench/labs/styles.css")
+
+    assert '@app.post("/api/studios/risk-analysis/runs")' in server
+    assert '@app.get("/api/studios/risk-analysis/runs")' in server
+    assert '@app.get("/api/studios/risk-analysis/runs/{run_id}")' in server
+    assert '@app.delete("/api/studios/risk-analysis/runs/{run_id}")' in server
+    assert 'id="risk-package-fixture"' in javascript
+    assert "Reviewed synthetic fixture" in javascript
+    assert "Licensed real · bindings not validated" in javascript
+    assert "function runRiskAnalysisPackage" in javascript
+    assert "function renderRiskAnalysisPackageRun" in javascript
+    assert "function deleteRiskAnalysisPackageRun" in javascript
+    assert "Capability receipts" in javascript
+    assert ".risk-package-runner" in css
+
+
 def test_future_zone_dependencies_are_visible_and_non_executable() -> None:
     html = read("apps/portfolio-risk-workbench/labs/index.html")
     architecture = read("docs/architecture/platform-operating-zones.md")

@@ -323,7 +323,7 @@
     },
     {
       "path": "labs/duckdb_server.py",
-      "sha256": "5a9a946fca9d27daa76f95dafb2b50635bd7152bffba6960bf176789d8730034"
+      "sha256": "889a34b983350ee182447cb1d3c64e7c579d9d8e2d32aef092be39012e138c35"
     },
     {
       "path": "labs/decision_review.py",
@@ -339,11 +339,15 @@
     },
     {
       "path": "labs/labs.js",
-      "sha256": "c5d4352037f266bb53ee7253502ec868e812c2eab9d9f321b312ae7c8644c45e"
+      "sha256": "a2e7bcdb2569a5071d8947ef443485f676b0dfd6c68d4daccd9339b5dd5daca3"
     },
     {
       "path": "labs/registry_sources.py",
       "sha256": "e76f51e4b567bc321e84cedb056c2d78d602590aa696ceff388b19a0be232b6c"
+    },
+    {
+      "path": "labs/risk_analysis_package_runtime.py",
+      "sha256": "4a76ccd840b018562f74fc8f442b9c1c924f427ee8dd64747e7d7ca323ba95b6"
     },
     {
       "path": "labs/start_live_data.sh",
@@ -351,7 +355,7 @@
     },
     {
       "path": "labs/styles.css",
-      "sha256": "6954f885b2902218ce8b9894f5f8866087c6ee11aa5e8bee34b6d6361aaf8a53"
+      "sha256": "d635f11eb2332defa5be4179a10db2f539fa384d6cae1fadfb1dc56b1e271525"
     },
     {
       "path": "labs/workflow_cycle_runtime.py",

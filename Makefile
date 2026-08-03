@@ -705,7 +705,7 @@ verify-platform-phase6: day0-env
 
 .PHONY: verify-studio-foundation-s1
 verify-studio-foundation-s1: day0-env
-	$(DAY0_PYTEST) tests/analytics/test_analysis_packages.py tests/registry/test_registry_sources.py tests/registry/test_registry_store.py tests/application/test_registry_api.py tests/application/test_experiment_api.py tests/architecture/test_platform_phase6_control_plane.py -q
+	$(DAY0_PYTEST) tests/analytics/test_analysis_packages.py tests/registry/test_registry_sources.py tests/registry/test_registry_store.py tests/application/test_registry_api.py tests/application/test_experiment_api.py tests/application/test_risk_analysis_package_runtime.py tests/architecture/test_platform_phase6_control_plane.py -q
 	$(DAY0_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
 	git diff --check
 	@echo "Studio foundation S1 Risk Analysis Package: PASS"

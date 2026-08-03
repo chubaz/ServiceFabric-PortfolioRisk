@@ -67,6 +67,13 @@ from decision_review import (
     due_diligence_payload as decision_due_diligence_payload,
     record_payload as decision_record_payload,
 )
+from risk_analysis_package_runtime import (
+    PackageRunRequest,
+    delete_package_run as delete_risk_analysis_package_run,
+    execute_package as execute_risk_analysis_package,
+    list_package_runs as list_risk_analysis_package_runs,
+    load_package_run as load_risk_analysis_package_run,
+)
 from risk_artifacts import (
     ArtifactConflict,
     ArtifactLifecycleState,
@@ -3125,6 +3132,47 @@ def run_agent_output_pass(request: OutputPassRunRequest) -> dict[str, Any]:
             status_code=422,
             detail=f"Structured output pass failed: {safe_type}: {error}",
         ) from error
+
+
+@app.post("/api/studios/risk-analysis/runs")
+def run_risk_analysis_package(request: PackageRunRequest) -> dict[str, Any]:
+    try:
+        return execute_risk_analysis_package(request)
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except Exception as error:
+        safe_type = re.sub(r"[^A-Za-z0-9_-]", "_", type(error).__name__)[:64]
+        raise HTTPException(
+            status_code=502,
+            detail=f"Risk Analysis Package execution failed: {safe_type}",
+        ) from error
+
+
+@app.get("/api/studios/risk-analysis/runs")
+def risk_analysis_package_runs() -> dict[str, Any]:
+    return {"runs": list_risk_analysis_package_runs()}
+
+
+@app.get("/api/studios/risk-analysis/runs/{run_id}")
+def risk_analysis_package_run(run_id: str) -> dict[str, Any]:
+    try:
+        return load_risk_analysis_package_run(run_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="risk analysis package run not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.delete("/api/studios/risk-analysis/runs/{run_id}")
+def remove_risk_analysis_package_run(run_id: str) -> dict[str, Any]:
+    try:
+        return delete_risk_analysis_package_run(run_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="risk analysis package run not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 app.mount("/", StaticFiles(directory=PROTOTYPE_ROOT, html=True), name="prototype")

@@ -3357,8 +3357,136 @@
         <div class="risk-package-row"><strong>Publication gate</strong><p>Deterministic validation plus one representative human-reviewed dossier.</p><small>${definition.publication_validation.fixture_cases.map((item) => escapeHtml(item.replaceAll("_", " "))).join(" · ")}</small></div>
         <div class="risk-package-row"><strong>Supplemental expansion</strong><p>An agent may add analysis without mutating the stable package core.</p><small>Successful additions become revision proposals</small></div>
       </article>
-    </div>`;
+    </div>
+    <section class="risk-package-runner" aria-label="Apply package to an isolated fixture">
+      <header><div><span>Apply</span><b>Isolated package run</b></div><small>Effect-free · human review required</small></header>
+      <div class="risk-package-run-controls">
+        <label><span>Data</span><select id="risk-package-fixture"><option value="reviewed_synthetic">Reviewed synthetic fixture</option><option disabled>Licensed real · bindings not validated</option><option disabled>Generated simulation · future slice</option></select></label>
+        <label><span>Narrative</span><select id="risk-package-narrative-mode"><option value="deterministic_preview">Deterministic preview · no LLM</option><option value="live_llm">Live LLM · explicit call</option></select></label>
+        <label><span>Model</span><select id="risk-package-model"><option value="gpt-5.6-terra">GPT-5.6 Terra</option><option value="gpt-5.6-sol">GPT-5.6 Sol</option><option value="gpt-5.4">GPT-5.4</option></select></label>
+        <button class="button primary" id="risk-package-run" type="button">Run isolated fixture</button>
+      </div>
+      <div class="risk-package-run-history">
+        <select id="risk-package-recent-runs" aria-label="Recent Risk Analysis Package runs"><option value="">No saved runs</option></select>
+        <button class="button" id="risk-package-open-run" type="button" disabled>Open run</button>
+        <button class="button" id="risk-package-delete-run" type="button" disabled>Delete run</button>
+        <span id="risk-package-run-status">Ready</span>
+      </div>
+      <div class="risk-package-run-review hidden" id="risk-package-run-review" aria-live="polite"></div>
+    </section>`;
     $("#studio-risk-package-index")?.addEventListener("click", () => indexRiskAnalysisPackage().catch((error) => showToast(error.message, "error")));
+    $("#risk-package-run")?.addEventListener("click", () => runRiskAnalysisPackage().catch((error) => {
+      $("#risk-package-run-status").textContent = error.message;
+      showToast(error.message, "error");
+    }));
+    $("#risk-package-open-run")?.addEventListener("click", () => openRiskAnalysisPackageRun().catch((error) => showToast(error.message, "error")));
+    $("#risk-package-delete-run")?.addEventListener("click", () => deleteRiskAnalysisPackageRun().catch((error) => showToast(error.message, "error")));
+    loadRiskAnalysisPackageRuns().catch((error) => {
+      $("#risk-package-run-status").textContent = `Run repository unavailable · ${error.message}`;
+    });
+  }
+
+  function riskPackageRunLabel(run) {
+    const created = run.created_at ? new Date(run.created_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : run.run_id;
+    return `${created} · ${run.narrative_mode === "live_llm" ? "live LLM" : "deterministic"} · ${run.finding_count || 0} findings`;
+  }
+
+  async function loadRiskAnalysisPackageRuns(selectedRunId = "") {
+    const select = $("#risk-package-recent-runs");
+    if (!select) return;
+    const response = await agentApi("/api/studios/risk-analysis/runs");
+    const runs = response.runs || [];
+    select.innerHTML = runs.length
+      ? runs.map((run) => `<option value="${escapeHtml(run.run_id)}">${escapeHtml(riskPackageRunLabel(run))}</option>`).join("")
+      : '<option value="">No saved runs</option>';
+    if (selectedRunId && runs.some((run) => run.run_id === selectedRunId)) select.value = selectedRunId;
+    $("#risk-package-open-run").disabled = !runs.length;
+    $("#risk-package-delete-run").disabled = !runs.length;
+  }
+
+  async function runRiskAnalysisPackage() {
+    const button = $("#risk-package-run");
+    const status = $("#risk-package-run-status");
+    button.disabled = true;
+    status.textContent = $("#risk-package-narrative-mode").value === "live_llm"
+      ? "Running capabilities and one explicit LLM narrative pass…"
+      : "Running capabilities…";
+    try {
+      const result = await agentApi("/api/studios/risk-analysis/runs", {
+        method: "POST",
+        body: JSON.stringify({
+          fixture_id: $("#risk-package-fixture").value,
+          narrative_mode: $("#risk-package-narrative-mode").value,
+          model: $("#risk-package-model").value,
+        }),
+      });
+      renderRiskAnalysisPackageRun(result);
+      await loadRiskAnalysisPackageRuns(result.manifest.run_id);
+      status.textContent = `Completed · ${result.manifest.capability_call_count} capability calls · ${result.manifest.finding_count} findings`;
+      showToast("Risk Analysis Package run completed and saved.", "success");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function openRiskAnalysisPackageRun() {
+    const runId = $("#risk-package-recent-runs")?.value;
+    if (!runId) return;
+    $("#risk-package-run-status").textContent = "Loading saved run…";
+    const result = await agentApi(`/api/studios/risk-analysis/runs/${encodeURIComponent(runId)}`);
+    renderRiskAnalysisPackageRun(result);
+    $("#risk-package-run-status").textContent = `Loaded ${runId}`;
+  }
+
+  async function deleteRiskAnalysisPackageRun() {
+    const runId = $("#risk-package-recent-runs")?.value;
+    if (!runId || !window.confirm(`Delete isolated run ${runId}?\n\nIts dedicated local folder and saved output files will be permanently removed.`)) return;
+    await agentApi(`/api/studios/risk-analysis/runs/${encodeURIComponent(runId)}`, { method: "DELETE" });
+    $("#risk-package-run-review")?.classList.add("hidden");
+    $("#risk-package-run-status").textContent = `Deleted ${runId} · not recoverable`;
+    await loadRiskAnalysisPackageRuns();
+    showToast("Isolated run folder deleted.", "success");
+  }
+
+  function renderRiskAnalysisPackageRun(result) {
+    const review = $("#risk-package-run-review");
+    if (!review) return;
+    const manifest = result.manifest || {};
+    const contents = result.contents || {};
+    const input = contents["input.json"] || {};
+    const fixture = input.fixture || {};
+    const snapshot = fixture.snapshot || {};
+    const packet = fixture.evidence_packet || {};
+    const receipts = contents["capability-receipts.json"] || [];
+    const modelReceipt = contents["model-receipt.json"] || {};
+    const validation = contents["report-validation.json"] || {};
+    const report = contents["report.json"] || {};
+    const positions = snapshot.positions || [];
+    const warnings = packet.warnings || [];
+    const providerLabel = modelReceipt.provider === "none"
+      ? "No LLM · deterministic narrative"
+      : `${modelReceipt.model || "OpenAI model"} · ${Number(modelReceipt.input_tokens || 0).toLocaleString()} in / ${Number(modelReceipt.output_tokens || 0).toLocaleString()} out`;
+    review.classList.remove("hidden");
+    review.innerHTML = `<div class="risk-run-heading">
+      <div><span>Reviewed synthetic</span><b>${escapeHtml(report.title || "Analysis dossier")}</b><small>${escapeHtml(manifest.run_id || "")}</small></div>
+      <div><strong>${manifest.status === "completed" ? "Validated" : "Review validation"}</strong><small>${escapeHtml(providerLabel)}</small></div>
+    </div>
+    <div class="risk-run-facts">
+      <span><b>${Number(manifest.capability_call_count || 0)}</b> actual capability calls</span>
+      <span><b>${Number(manifest.finding_count || 0)}</b> admitted findings</span>
+      <span><b>${positions.length}</b> named holdings</span>
+      <span><b>${Number(packet.observation_count || 0).toLocaleString()}</b> return observations</span>
+    </div>
+    <div class="risk-run-layout">
+      <article class="risk-run-dossier"><header><span>Outcome</span><b>Evidence-backed dossier</b></header><p class="risk-run-premise">${escapeHtml(report.outcome_sought || "")}</p><div class="risk-run-report">${report.rendered_html || "<p>No rendered report.</p>"}</div></article>
+      <aside class="risk-run-evidence">
+        <section><header><span>Input</span><b>Frozen context</b></header><dl><div><dt>As of</dt><dd>${escapeHtml(packet.as_of || snapshot.as_of || "—")}</dd></div><div><dt>Fixture</dt><dd>Reviewed deterministic synthetic data</dd></div>${positions.map((position) => `<div><dt>${escapeHtml(position.instrument_id)}</dt><dd>${money(position.market_value)}</dd></div>`).join("")}</dl></section>
+        <section><header><span>Execution</span><b>Capability receipts</b></header><div class="risk-run-receipts">${receipts.map((receipt) => `<div><i>${receipt.sequence}</i><span><strong>${escapeHtml(receipt.role_id.replaceAll("_", " "))}</strong><small>${escapeHtml(receipt.resolved_implementation)} · ${Number(receipt.elapsed_ms || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} ms · ${escapeHtml(receipt.status)}</small></span></div>`).join("")}</div></section>
+        <section><header><span>Validation</span><b>${validation.valid ? "Passed" : "Needs review"}</b></header><p>${validation.valid ? "Schema, evidence references and report plan reconcile." : escapeHtml((validation.errors || []).join(" · ") || "Inspect validation receipt.")}</p>${warnings.length ? `<small>${warnings.map(escapeHtml).join(" · ")}</small>` : ""}</section>
+        <section><header><span>Files</span><b>${(manifest.files || []).length} saved</b></header><div class="risk-run-files">${(manifest.files || []).map((file) => `<span><b>${escapeHtml(file.name)}</b><small>${Number(file.bytes || 0).toLocaleString()} B</small></span>`).join("")}</div><p class="risk-run-folder">${escapeHtml(manifest.folder || "")}</p></section>
+      </aside>
+    </div>`;
+    review.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   async function indexRiskAnalysisPackage() {
