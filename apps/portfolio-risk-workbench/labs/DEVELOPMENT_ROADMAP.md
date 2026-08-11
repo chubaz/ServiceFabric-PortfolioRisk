@@ -1,9 +1,16 @@
 # ServiceFabric Labs — architecture and phased development roadmap
 
-- Status: maintained architecture and development skeleton
-- Updated: 2026-08-03
+- Status: historical roadmap; superseded for active thesis scope by ADR-0009
+- Updated: 2026-08-11
 - Scope: ServiceFabric PortfolioRisk research and development application
 - Current authority: planning only; this file does not enable live orders, broker connectivity, or portfolio effects
+
+> Incubator notice: references in this roadmap to Report, Dashboard, visual
+> presentation artifacts, and Investment Thesis describe preserved post-thesis
+> ideas. They are not active experiment objects, Registry discovery targets, or
+> thesis-run dependencies. The active object decision is recorded in
+> `docs/architecture/adr/0009-defer-user-facing-objects.md` and
+> `config/incubator/post-thesis-user-facing-objects.yaml`.
 
 ## 1. Purpose
 

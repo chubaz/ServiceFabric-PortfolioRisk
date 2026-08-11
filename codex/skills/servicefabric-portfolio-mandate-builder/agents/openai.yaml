@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Portfolio Mandate"
+  short_description: "Build governed mandate and policy candidates"
+  default_prompt: "Use $servicefabric-portfolio-mandate-builder to implement an approved MandateVersion and RiskPolicySet candidate."

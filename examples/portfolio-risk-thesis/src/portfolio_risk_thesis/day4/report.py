@@ -1164,6 +1164,13 @@ def _dashboard_html(payload: Mapping[str, Any]) -> str:
     }}));
     controls[id].addEventListener("change",render);
   }}
+  if (contexts.length) {{
+    const initial=contexts[0];
+    for (const id of ["portfolio","window","review-date"])
+      controls[id].value=field[id](initial);
+    const initialResults=results(initial);
+    if (initialResults.length) controls.architecture.value=architecture(initialResults[0]);
+  }}
   const show = (id,value) => {{
     document.getElementById(id).textContent =
       typeof value === "string" ? value : JSON.stringify(value ?? "not available",null,2);

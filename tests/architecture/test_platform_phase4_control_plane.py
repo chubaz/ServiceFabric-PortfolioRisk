@@ -36,13 +36,15 @@ def test_report_layer_is_separate_safe_and_attachment_bound() -> None:
         assert forbidden not in renderer
 
 
-def test_run_review_persists_typed_markdown_and_safe_html() -> None:
+def test_legacy_run_review_remains_safe_while_new_runs_exclude_presentation() -> None:
     studio = read("apps/portfolio-risk-workbench/labs/agent_studio.py")
     javascript = read("apps/portfolio-risk-workbench/labs/labs.js")
+    # ADR-0009 defers new reports and dashboards from the active thesis
+    # apparatus, while preserving a safe reader for historical run artefacts.
     assert '"report.json"' in studio
-    assert '"review-brief.md"' in studio
-    assert '"review-brief.html"' in studio
     assert "Never trust persisted HTML" in studio
+    assert "New agent\n# runs do not invoke this path or persist presentation files." in studio
+    assert '"presentation_artifacts": []' in studio
     assert "portfolio-risk.safe-markdown/v1" in javascript
     assert "report-section-nav" in javascript
     assert "report-validation" in javascript

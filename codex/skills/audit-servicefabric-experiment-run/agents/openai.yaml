@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Experiment Run"
+  short_description: "Audit and compare complete retained experiment runs"
+  default_prompt: "Use $audit-servicefabric-experiment-run to verify and compare complete retained experiment-run evidence."

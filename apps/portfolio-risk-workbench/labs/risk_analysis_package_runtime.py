@@ -15,7 +15,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from agent_studio import RUN_ROOT, _keychain_key
+from agent_studio import COST_OPTIMIZED_LLM_MODEL, RUN_ROOT, _keychain_key
 from risk_analytics import (
     AnalysisEvidence,
     AnalysisHorizon,
@@ -31,24 +31,12 @@ from risk_capabilities import (
     EvidenceReference,
     ExposureSummaryRequest,
     HistoricalTailRiskRequest,
-    ReportRequest,
     ReturnsRequest,
     ScenarioRequest,
     VolatilityRequest,
 )
 from risk_domain import CashBalance, MarketObservation, PortfolioSnapshot, Position
 from risk_domain.digests import sha256_digest
-from risk_reports import (
-    MarkdownReport,
-    ReportPlan,
-    ReportSection,
-    ReportSectionPlan,
-    ReportSeverity,
-    SectionStatus,
-    report_markdown,
-    validate_report,
-    with_rendered_html,
-)
 
 
 DEFAULT_RUN_ROOT = (RUN_ROOT.parent / "risk-analysis-package-runs").resolve()
@@ -70,9 +58,7 @@ class PackageRunRequest(FrozenModel):
     narrative_mode: Literal["deterministic_preview", "live_llm"] = (
         "deterministic_preview"
     )
-    model: Literal["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6", "gpt-5.4"] = (
-        "gpt-5.6-terra"
-    )
+    model: Literal["gpt-5.6-luna"] = COST_OPTIMIZED_LLM_MODEL
 
 
 class CapabilityReceipt(FrozenModel):
@@ -343,7 +329,7 @@ def _live_narrative(
     started = time.perf_counter()
     client = OpenAI(api_key=str(api_key))
     response = client.responses.create(
-        model=model,
+        model=COST_OPTIMIZED_LLM_MODEL,
         store=False,
         tools=[],
         input=[
@@ -377,7 +363,7 @@ def _live_narrative(
                 }],
             },
         ],
-        text={"format": {"type": "json_schema", "name": "risk_analysis_dossier", "strict": True, "schema": _strict_schema(NarrativeAgentOutput)}},
+        text={"format": {"type": "json_schema", "name": "risk_analysis_architecture_output", "strict": True, "schema": _strict_schema(NarrativeAgentOutput)}},
         max_output_tokens=1800,
     )
     output = NarrativeAgentOutput.model_validate(json.loads(response.output_text))
@@ -442,8 +428,7 @@ def execute_package(request: PackageRunRequest) -> dict[str, Any]:
     contribution = _invoke(receipts, "attribute_return", "risk.contribution.summarize", ContributionSummaryRequest(analysis_id="daily-downside:contribution", snapshot_id=snapshot.snapshot_id, values=contribution_values, portfolio_return=Decimal("-0.0023"), horizon=horizon, sample_period=sample_period, evidence=evidence_tuple, limitations=common_limitations))
     shocks = tuple(ScenarioShock(instrument_id=item.instrument_id, percentage_shock=Decimal("-0.10")) for item in snapshot.positions)
     scenario = _invoke(receipts, "evaluate_scenario", "risk.scenario.evaluate", ScenarioRequest(analysis_id="daily-downside:scenario", portfolio=snapshot, shocks=shocks, horizon=AnalysisHorizon(label="instantaneous", periods=1), evidence=evidence_tuple, limitations=("The reviewed scenario is linear, descriptive and effect-free.",)))
-    rendered_tail = _invoke(receipts, "render_evidence", "risk.report.render", ReportRequest(analysis_id="daily-downside:tail-report", title="Historical tail-risk evidence", result=tail_es))
-    results = {"snapshot": snapshot, "returns": returns, "volatility": volatility, "drawdown": drawdown, "tail_risk": tail_es, "tail_var_receipt_result": tail_var, "exposure": exposure, "contribution": contribution, "scenario": scenario, "rendered_tail": rendered_tail}
+    results = {"snapshot": snapshot, "returns": returns, "volatility": volatility, "drawdown": drawdown, "tail_risk": tail_es, "tail_var_receipt_result": tail_var, "exposure": exposure, "contribution": contribution, "scenario": scenario}
     candidates = _deterministic_findings(results)
     packet = {
         "data_truth": "reviewed_synthetic",
@@ -460,28 +445,47 @@ def execute_package(request: PackageRunRequest) -> dict[str, Any]:
     if request.narrative_mode == "live_llm":
         narrative, model_receipt = _live_narrative(candidates=candidates, packet=packet, model=request.model)
     else:
-        narrative = _deterministic_narrative(candidates, tuple(item.section_id for item in package.dossier_sections))
-    report_sections = tuple(
-        ReportSection(section_id=item.section_id, title=item.title, markdown=item.markdown, evidence_ids=item.evidence_ids, severity=ReportSeverity.MATERIAL if item.value.portfolio_materiality >= 4 else ReportSeverity.NOTABLE, status=SectionStatus.COMPLETED)
-        for item in narrative.sections
-    ) or (
-        ReportSection(section_id="no_material_finding", title="No material finding", markdown="No candidate finding met the package's decision-value or research-value admission gate.", evidence_ids=(), status=SectionStatus.COMPLETED),
-    )
-    plan_sections = tuple(
-        ReportSectionPlan(section_id=item.section_id, title=item.title, purpose=item.question, max_words=item.max_words, required=False, evidence_required=True)
-        for item in package.dossier_sections
-        if item.section_id in {section.section_id for section in report_sections}
-    ) or (
-        ReportSectionPlan(section_id="no_material_finding", title="No material finding", purpose="Record that silence was selected by the value gate.", max_words=40, required=False, evidence_required=False),
-    )
-    plan = ReportPlan(plan_id="risk-analysis.daily-downside.plan", report_type="risk-analysis-dossier", version=package.version, sections=plan_sections)
+        narrative = _deterministic_narrative(candidates, tuple(item.section_id for item in package.output_fields))
     created_at_dt = datetime.now(UTC).replace(microsecond=0)
     digest = hashlib.sha256(
         f"{snapshot.digest}:{created_at_dt.isoformat()}:{request.narrative_mode}:{time.time_ns()}".encode()
     ).hexdigest()[:8]
     run_id = f"rap-run-{created_at_dt.strftime('%Y%m%dT%H%M%SZ')}-{digest}"
-    report = with_rendered_html(MarkdownReport(report_id=f"report:{run_id}", report_type="risk-analysis-dossier", title="Daily Portfolio Downside Risk — Analysis Dossier", as_of=snapshot.as_of.isoformat(), outcome_sought=package.risk_question, plan_id=plan.plan_id, plan_digest=str(plan.plan_digest), sections=report_sections, warnings=tuple(packet["warnings"]), limitations=common_limitations))
-    validation = validate_report(report, available_evidence_ids=(evidence.evidence_id,), plan=plan)
+    available_evidence_ids = {evidence.evidence_id}
+    output_errors = [
+        f"{item.section_id} references unavailable evidence"
+        for item in narrative.sections
+        if not set(item.evidence_ids).issubset(available_evidence_ids)
+    ]
+    architecture_output = {
+        "schema_version": "portfolio-risk.architecture-output/v1",
+        "output_id": f"architecture-output:{run_id}",
+        "run_id": run_id,
+        "package_id": package.package_id,
+        "package_version": package.version,
+        "as_of": snapshot.as_of.isoformat(),
+        "data_truth": "reviewed_synthetic",
+        "assessment": {
+            "no_material_finding": narrative.no_material_finding,
+            "finding_count": len(narrative.sections),
+        },
+        "findings": [item.model_dump(mode="json") for item in narrative.sections],
+        "omitted_output_fields": list(narrative.omitted_section_ids),
+        "metrics": packet["metrics"],
+        "top_exposure": packet["top_exposure"],
+        "scenario": packet["scenario"],
+        "evidence_ids": packet["evidence_ids"],
+        "warnings": packet["warnings"],
+        "limitations": list(common_limitations),
+        "effects": [],
+    }
+    validation = {
+        "schema_version": "portfolio-risk.architecture-output-validation/v1",
+        "valid": not output_errors,
+        "errors": output_errors,
+        "available_evidence_ids": sorted(available_evidence_ids),
+        "checked_finding_count": len(narrative.sections),
+    }
     directory = _safe_run_directory(run_id)
     directory.mkdir(parents=True, exist_ok=False)
     payloads: dict[str, Any] = {
@@ -490,16 +494,12 @@ def execute_package(request: PackageRunRequest) -> dict[str, Any]:
         "capability-receipts.json": [item.model_dump(mode="json") for item in receipts],
         "analysis-results.json": {key: value.model_dump(mode="json") for key, value in results.items()},
         "candidate-findings.json": [item.model_dump(mode="json") for item in candidates],
-        "narrative-output.json": narrative.model_dump(mode="json"),
+        "architecture-output.json": architecture_output,
+        "output-validation.json": validation,
         "model-receipt.json": model_receipt or {"provider": "none", "input_tokens": 0, "output_tokens": 0, "reason": "deterministic preview selected"},
-        "report-plan.json": plan.model_dump(mode="json"),
-        "report.json": report.model_dump(mode="json"),
-        "report-validation.json": validation.model_dump(mode="json"),
     }
     for name, payload in payloads.items():
         (directory / name).write_text(_json_text(payload), encoding="utf-8")
-    (directory / "dossier.md").write_text(report_markdown(report), encoding="utf-8")
-    (directory / "dossier.html").write_text(report.rendered_html, encoding="utf-8")
     files = tuple(
         {"name": path.name, "bytes": path.stat().st_size, "kind": path.suffix.removeprefix(".")}
         for path in sorted(directory.iterdir())
@@ -510,7 +510,7 @@ def execute_package(request: PackageRunRequest) -> dict[str, Any]:
         "package_id": package.package_id,
         "package_version": package.version,
         "created_at": created_at_dt.isoformat(),
-        "status": "completed" if validation.valid else "completed_with_validation_warning",
+        "status": "completed" if validation["valid"] else "completed_with_validation_warning",
         "data_truth": "reviewed_synthetic",
         "narrative_mode": request.narrative_mode,
         "model": model_receipt.get("model") if model_receipt else None,
@@ -563,7 +563,11 @@ def load_package_run(run_id: str) -> dict[str, Any]:
                 contents[name] = raw
         else:
             contents[name] = raw
+    # Historical pre-incubator runs remain readable without making their
+    # presentation files part of new executions.
     if isinstance(contents.get("report.json"), dict):
+        from risk_reports import MarkdownReport, with_rendered_html
+
         report = with_rendered_html(MarkdownReport.model_validate(contents["report.json"]))
         contents["report.json"] = report.model_dump(mode="json")
         contents["dossier.html"] = report.rendered_html

@@ -56,6 +56,9 @@ substitutions or supplemental analysis without changing the package contract.
 - No live LLM call is implied by the agent-backed role declaration. The Apply
   runner defaults to deterministic narration and requires an explicit live-LLM
   selection before making a provider call.
+- Every enabled Studio LLM route is pinned at the server boundary to GPT-5.6
+  Luna, the lowest-cost approved model; client-supplied model overrides are
+  rejected.
 - No Studio–Codex process, worktree or merge is started from the browser.
 - No arbitrary SQL, provider access or financial effect is granted.
 - A Registry candidate is saved metadata, not a published or executed package.

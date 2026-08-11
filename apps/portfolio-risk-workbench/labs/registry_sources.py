@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ast
 import hashlib
-import inspect
 import json
 import os
 import subprocess
@@ -26,16 +25,11 @@ if str(THESIS_SOURCE_ROOT) not in sys.path:
 
 from portfolio_risk_thesis.day3.treatments import definitions as day3_definitions  # noqa: E402
 from portfolio_risk_thesis.day4.manifest import load_day4_manifest  # noqa: E402
-from portfolio_risk_thesis.day4.report import (  # noqa: E402
-    render_dashboard as render_day4_dashboard,
-    render_preliminary_results,
-)
 from risk_agents.roles import ACTIVE_AGENT_ROLE_IDS, AGENT_ROLES  # noqa: E402
-from risk_analytics.monitoring_reports import render_monitoring_report  # noqa: E402
-from risk_analytics.reports import render_report  # noqa: E402
 from risk_analytics.analysis_packages import RISK_ANALYSIS_PACKAGES  # noqa: E402
 from risk_capabilities import CAPABILITY_DESCRIPTORS  # noqa: E402
 from risk_capabilities.registry import DEFAULT_CAPABILITY_REGISTRY  # noqa: E402
+from risk_experiments import load_synthetic_mandate_fixture  # noqa: E402
 from risk_registry import (  # noqa: E402
     LIFECYCLE_TRANSITIONS,
     AssetKind,
@@ -54,6 +48,7 @@ DEFAULT_REGISTRY_ROOT = Path(
         Path.home() / ".servicefabric-portfolio-risk" / "registry-v1",
     )
 ).expanduser()
+INCUBATOR_CAPABILITY_IDS = {"risk.report.render", "monitoring.report.render"}
 ADAPTER_ID = "portfolio-risk.registry-source-adapter/v1"
 ADAPTER_DIGEST = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 
@@ -214,6 +209,7 @@ def discover_registry_projections(
                 relationships=(
                     ("uses_capability", capability_id)
                     for capability_id in role.allowed_capability_ids
+                    if capability_id not in INCUBATOR_CAPABILITY_IDS
                 ),
                 compatibility_status="compatible",
                 discovered_at=observed_at,
@@ -223,6 +219,8 @@ def discover_registry_projections(
     capability_file = "packages/risk_capabilities/src/risk_capabilities/catalog.py"
     runtime_ids = set(DEFAULT_CAPABILITY_REGISTRY.capability_ids)
     for descriptor in CAPABILITY_DESCRIPTORS:
+        if descriptor.capability_id in INCUBATOR_CAPABILITY_IDS:
+            continue
         value = descriptor.model_dump(mode="json")
         available = descriptor.capability_id in runtime_ids
         projections.append(
@@ -276,6 +274,67 @@ def discover_registry_projections(
             )
         )
 
+    mandate_root = REPOSITORY_ROOT / "data" / "fixtures" / "synthetic" / "mandates"
+    for mandate_path in sorted(mandate_root.glob("*.json")):
+        mandate, policy = load_synthetic_mandate_fixture(mandate_path)
+        relative = str(mandate_path.relative_to(REPOSITORY_ROOT))
+
+        def native_capability(reference: str) -> str:
+            return reference.split(":", 2)[2].split("@", 1)[0]
+
+        projections.append(
+            _projection(
+                kind=AssetKind.MANDATE,
+                asset_id=mandate.object_id,
+                version=mandate.version,
+                native_version=mandate.version,
+                display_name=mandate.name,
+                summary=mandate.objective,
+                source_reference=relative,
+                source_file=relative,
+                source_namespace=mandate.namespace,
+                source_contract="risk_experiments.MandateVersion",
+                source_value=mandate.model_dump(mode="json"),
+                source_type="reviewed_synthetic_json",
+                canonical=True,
+                tags=("reviewed-synthetic", "reference-informed", "design-time", "effect-free"),
+                relationships=(
+                    ("uses_capability", native_capability(item.capability_reference))
+                    for item in mandate.capability_requirements
+                ),
+                compatibility_status="compatible",
+                discovered_at=observed_at,
+            )
+        )
+        projections.append(
+            _projection(
+                kind=AssetKind.RISK_POLICY,
+                asset_id=policy.object_id,
+                version=policy.version,
+                native_version=policy.version,
+                display_name=policy.name,
+                summary=f"Reviewed machine-evaluable policy for {mandate.name}.",
+                source_reference=relative,
+                source_file=relative,
+                source_namespace=policy.namespace,
+                source_contract="risk_experiments.RiskPolicySet",
+                source_value=policy.model_dump(mode="json"),
+                source_type="reviewed_synthetic_json",
+                canonical=True,
+                tags=("reviewed-synthetic", "mandate-derived", "design-time", "effect-free"),
+                relationships=tuple(
+                    sorted(
+                        {("governed_by_mandate", mandate.object_id)}
+                        | {
+                        ("uses_capability", native_capability(item.capability_reference))
+                        for item in policy.rules
+                        }
+                    )
+                ),
+                compatibility_status="compatible",
+                discovered_at=observed_at,
+            )
+        )
     evaluation_file = "examples/portfolio-risk-thesis/experiments/day4_fixture.yaml"
     manifest = load_day4_manifest(REPOSITORY_ROOT / evaluation_file)
     manifest_value = manifest.model_dump(mode="json")
@@ -303,74 +362,6 @@ def discover_registry_projections(
             discovered_at=observed_at,
         )
     )
-
-    renderer_sources = (
-        (
-            AssetKind.REPORT,
-            "risk_analytics.reports.render_report",
-            "Risk Analytics Report Renderer",
-            "Deterministic Markdown and semantic HTML renderer for one reviewed analytics result.",
-            render_report,
-            "packages/risk_analytics/src/risk_analytics/reports.py",
-            "RiskReport",
-        ),
-        (
-            AssetKind.REPORT,
-            "risk_analytics.monitoring_reports.render_monitoring_report",
-            "Monitoring Report Renderer",
-            "Deterministic monitoring and replay report renderer for human review.",
-            render_monitoring_report,
-            "packages/risk_analytics/src/risk_analytics/monitoring_reports.py",
-            "MonitoringReport",
-        ),
-        (
-            AssetKind.REPORT,
-            "portfolio_risk_thesis.day4.report.render_preliminary_results",
-            "Day 4 Preliminary Results Renderer",
-            "Cautious aggregate Markdown renderer for the thesis Day 4 evaluation.",
-            render_preliminary_results,
-            "examples/portfolio-risk-thesis/src/portfolio_risk_thesis/day4/report.py",
-            "Markdown",
-        ),
-        (
-            AssetKind.DASHBOARD,
-            "portfolio_risk_thesis.day4.report.render_dashboard",
-            "Day 4 Offline Dashboard Renderer",
-            "Thesis-scoped self-contained local HTML renderer for completed synthetic-fixture evaluation data.",
-            render_day4_dashboard,
-            "examples/portfolio-risk-thesis/src/portfolio_risk_thesis/day4/report.py",
-            "Offline HTML",
-        ),
-    )
-    for kind, asset_id, name, summary, renderer, source_file, output in renderer_sources:
-        source_value = {
-            "symbol": asset_id,
-            "signature": str(inspect.signature(renderer)),
-            "source": inspect.getsource(renderer),
-        }
-        projections.append(
-            _projection(
-                kind=kind,
-                asset_id=asset_id,
-                version=None,
-                display_name=name,
-                summary=summary,
-                source_reference=_source_path(source_file, renderer.__name__),
-                source_file=source_file,
-                source_namespace=(
-                    "portfolio-risk.thesis-day4-dashboard-renderer"
-                    if kind is AssetKind.DASHBOARD
-                    else "portfolio-risk.report-renderer"
-                ),
-                source_contract="python.callable.renderer",
-                source_value=source_value,
-                source_type="python_renderer",
-                canonical=False,
-                tags=("renderer", "deterministic", "human-review"),
-                compatibility_status="compatible",
-                discovered_at=observed_at,
-            )
-        )
 
     scenario_file = "apps/portfolio-risk-workbench/analysis_service.py"
     for scenario in _literal_assignment(REPOSITORY_ROOT / scenario_file, "SCENARIO_CATALOGUE"):
@@ -434,6 +425,7 @@ def discover_registry_projections(
         "uses_capability": AssetKind.CAPABILITY,
         "uses_agent": AssetKind.AGENT,
         "evaluates_workflow": AssetKind.WORKFLOW,
+        "governed_by_mandate": AssetKind.MANDATE,
     }
     resolved_projections: list[RegistryProjection] = []
     for projection in projections:
@@ -468,7 +460,10 @@ def discover_registry_projections(
     if len(identities) != len(set(identities)):
         raise ValueError("source discovery produced duplicate registry identities")
     if len(projections) != 45:
-        raise ValueError(f"reviewed source adapter set must produce 45 projections, got {len(projections)}")
+        raise ValueError(
+            "active thesis source adapter set must produce 45 projections "
+            f"after incubator exclusions, got {len(projections)}"
+        )
     return sorted(projections, key=lambda item: item.identity.reference)
 
 

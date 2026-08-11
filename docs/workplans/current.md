@@ -1,5 +1,23 @@
 # Current Workplan
 
+- Active bounded development: first historical research experiment
+- Prototype readiness: docs/thesis/prototype-readiness.md
+- Prototype tutorial: docs/tutorials/thesis-experiment-v0/README.md
+- Critical-path decision: development samples and automated software tests are not research runs and are hidden from the research interface.
+- Interface language: Data, Portfolio rules, Methods, Results, and Saved results. Internal framework terms remain developer-only.
+- Active-object decision: Report, Dashboard and Investment Thesis are deferred to `config/incubator/post-thesis-user-facing-objects.yaml`; thesis runs retain structured outputs only.
+- Active-object archive status: complete; active Studio/Registry/Application discovery excludes the deferred objects, presentation capabilities are unavailable to new Capability Studio work, and historical implementations remain readable.
+- Inherited P7 workplan: docs/workplans/platform-development/phase-7-fixture-context.md
+- P9-P11 tutorial: docs/tutorials/p9-p11/README.md
+- P9 status: implemented; execution blocked by unbound market observations and unqualified A1 processing chain
+- P10 status: implemented; awaiting independently reviewed four-state labels
+- P11 status: implemented; matrix compiled, execution inherits P9 blockers
+- Methodology decision: accepted for apparatus calibration only
+- Methodology record: docs/thesis/methodology-acceptance-calibration-pilot.md
+- P7 verification: make verify-platform-phase7
+- P7 local Registry admission: complete; scientific design and object set validated
+- P7 live qualification: Ready; resolved digest displayed; no browser errors
+
 - ID: PLATFORM-P6
 - Title: Decision due-diligence workspace
 - Status: accepted
@@ -10,7 +28,13 @@
 - Phase 1 accepted candidate: a68ef6fce9d39f5341fa8675c093db2eba95aed6
 - Verification: make verify-platform-phase6
 - Accepted candidate: 5669055bbc6aea205cf3e0eb4867a949daaa5154
-- Active post-acceptance Studio sub-cycle: docs/workplans/platform-development/studio-foundation-1-risk-analysis-package.md
+- Closed bounded Studio sub-cycle: docs/workplans/platform-development/studio-foundation-4-experiment-run-audit.md
+- Locally completed pre-Fixture definition cycle: docs/workplans/platform-development/studio-foundation-5-experiment-object-model.md
+- Completed bounded scientific batch: docs/workplans/platform-development/studio-foundation-5-1-scientific-identity-pack.md
+- Pending pre-P7 acceptance: review the candidate scientific content and register one exact experiment-object set
+- S5 engineering qualification: docs/handoffs/platform-development/studio-foundation-s5-qualification.md
+- Aggregate qualification gate: make verify-studio-foundation-s5-qualification
+- Active Agent/graph behaviour roadmap: docs/workplans/platform-development/agent-behaviour-evolution.md
 
 Phase 6 adds a dedicated human due-diligence workspace over the accepted Phase 5
 decision lifecycle. It exposes the proposal's evidence, artifacts, capability

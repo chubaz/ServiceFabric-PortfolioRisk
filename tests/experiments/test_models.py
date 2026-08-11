@@ -60,6 +60,19 @@ def test_definition_is_digest_bound_and_effect_free() -> None:
     assert value.system_assets[0].reference == "workflow:risk:daily-review@1.0.0"
 
 
+def test_pre_s5_definition_digest_remains_readable_without_rewriting() -> None:
+    current = definition()
+    payload = current.model_dump(mode="json", exclude={"definition_digest"})
+    payload.pop("scientific_design", None)
+    payload.pop("object_set", None)
+    legacy_digest = canonical_digest(payload)
+    payload["definition_digest"] = legacy_digest
+    restored = ExperimentDefinition.model_validate(payload)
+    assert restored.definition_digest == legacy_digest
+    assert restored.scientific_design is None
+    assert restored.object_set is None
+
+
 def test_definition_requires_temporal_order_and_canonical_bindings() -> None:
     with pytest.raises(ValidationError):
         TemporalWindow(start_date=date(2025, 1, 2), end_date=date(2025, 1, 1))

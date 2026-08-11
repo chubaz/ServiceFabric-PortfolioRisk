@@ -40,7 +40,17 @@ def record_payload(record: ArtifactRecord) -> dict[str, Any]:
 def catalogue_payload(*, include_deleted: bool = False) -> dict[str, Any]:
     store = artifact_store()
     records = list(store.list(include_deleted=include_deleted))
-    candidates = [candidate.payload() for candidate in discover_legacy_runs(RUN_ROOT)]
+    retained_run_ids = {
+        record.manifest.run_id
+        for record in records
+        if record.manifest.run_id is not None
+        and record.state.value != "deleted"
+    }
+    candidates = [
+        candidate.payload()
+        for candidate in discover_legacy_runs(RUN_ROOT)
+        if candidate.run_id not in retained_run_ids
+    ]
     need_attention = sum(
         record.state.value in {"tombstoned", "deleted"}
         or record.manifest.rights_policy_id == ""

@@ -709,3 +709,82 @@ verify-studio-foundation-s1: day0-env
 	$(DAY0_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
 	git diff --check
 	@echo "Studio foundation S1 Risk Analysis Package: PASS"
+
+.PHONY: verify-studio-foundation-s2
+verify-studio-foundation-s2:
+	PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS):$(CURDIR)/apps/portfolio-risk-workbench/labs" $(PYTHON) -m pytest tests/application/test_capability_studio.py tests/architecture/test_capability_studio_control_plane.py -q
+	$(PYTHON) -m py_compile apps/portfolio-risk-workbench/labs/capability_studio.py apps/portfolio-risk-workbench/labs/duckdb_server.py
+	node --check apps/portfolio-risk-workbench/labs/labs.js
+	$(PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+	git diff --check
+	@echo "Studio foundation S2 Capability Studio: PASS"
+
+.PHONY: verify-studio-foundation-s3
+verify-studio-foundation-s3:
+	PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS):$(CURDIR)/apps/portfolio-risk-workbench/labs" $(PYTHON) -m pytest tests/application/test_agent_studio.py tests/application/test_studio_codex.py -q
+	$(PYTHON) -m py_compile apps/portfolio-risk-workbench/labs/agent_studio.py apps/portfolio-risk-workbench/labs/studio_codex.py apps/portfolio-risk-workbench/labs/duckdb_server.py
+	node --check apps/portfolio-risk-workbench/labs/labs.js
+	$(PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+	git diff --check
+	@echo "Studio foundation S3 Agent Studio: PASS"
+
+.PHONY: verify-studio-foundation-s4
+verify-studio-foundation-s4:
+	PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS):$(CURDIR)/apps/portfolio-risk-workbench/labs" $(PYTHON) -m pytest tests/artifacts/test_repository.py tests/artifacts/test_run_comparison.py tests/application/test_artifact_api.py tests/application/test_experiment_run_audit.py tests/application/test_experiment_api.py tests/application/test_labs_runtime.py tests/architecture/test_experiment_run_audit_control_plane.py -q
+	$(PYTHON) -m py_compile apps/portfolio-risk-workbench/labs/artifact_repository.py apps/portfolio-risk-workbench/labs/experiment_run_audit.py apps/portfolio-risk-workbench/labs/duckdb_server.py
+	node --check apps/portfolio-risk-workbench/labs/labs.js
+	$(PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+	git diff --check
+	@echo "Studio foundation S4 Experiment Run Audit: PASS"
+
+.PHONY: verify-studio-foundation-s5-1
+verify-studio-foundation-s5-1:
+	PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS):$(CURDIR)/apps/portfolio-risk-workbench/labs" $(PYTHON) -m pytest tests/experiments/test_scientific_design.py tests/experiments/test_models.py tests/registry/test_registry_store.py tests/artifacts/test_run_comparison.py tests/application/test_experiment_api.py tests/architecture/test_scientific_identity_control_plane.py -q
+	$(PYTHON) -m py_compile packages/risk_experiments/src/risk_experiments/scientific_design.py packages/risk_experiments/src/risk_experiments/models.py apps/portfolio-risk-workbench/labs/duckdb_server.py
+	$(PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+	git diff --check
+	@echo "Studio foundation S5.1 Scientific Identity Pack: PASS"
+
+.PHONY: verify-studio-foundation-s5
+verify-studio-foundation-s5:
+	PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS):$(CURDIR)/apps/portfolio-risk-workbench/labs" $(PYTHON) -m pytest tests/experiments/test_scientific_design.py tests/experiments/test_experiment_objects.py tests/experiments/test_models.py tests/registry/test_registry_store.py tests/artifacts/test_run_comparison.py tests/application/test_experiment_api.py tests/architecture/test_scientific_identity_control_plane.py tests/architecture/test_s5_object_model_control_plane.py tests/tutorials/test_s5_object_tutorial.py -q
+	$(PYTHON) -m py_compile packages/risk_experiments/src/risk_experiments/scientific_design.py packages/risk_experiments/src/risk_experiments/experiment_objects.py packages/risk_experiments/src/risk_experiments/models.py apps/portfolio-risk-workbench/labs/duckdb_server.py scripts/thesis/tutorial_s5_objects.py
+	$(PYTHON) scripts/thesis/tutorial_s5_objects.py all >/dev/null
+	$(PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+	git diff --check
+	@echo "Studio foundation S5 Experiment Object Model: PASS"
+
+.PHONY: verify-studio-foundation-s5-qualification
+verify-studio-foundation-s5-qualification: preflight verify-platform-phase6 verify-studio-foundation-s1 verify-studio-foundation-s2 verify-studio-foundation-s3 verify-studio-foundation-s4 verify-studio-foundation-s5
+	PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS):$(CURDIR)/apps/portfolio-risk-workbench/labs" $(DAY0_PYTHON) -m pytest tests/experiments tests/registry tests/artifacts tests/application/test_experiment_api.py tests/application/test_experiment_run_audit.py tests/application/test_labs_runtime.py tests/architecture/test_platform_phase3_control_plane.py tests/architecture/test_platform_phase6_control_plane.py tests/architecture/test_experiment_run_audit_control_plane.py tests/architecture/test_scientific_identity_control_plane.py tests/architecture/test_s5_object_model_control_plane.py tests/tutorials -q
+	$(DAY0_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+	git diff --check
+	@echo "Studio foundation S5 engineering qualification: PASS"
+
+.PHONY: verify-platform-phase7
+verify-platform-phase7: verify-studio-foundation-s5
+	PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS):$(CURDIR)/apps/portfolio-risk-workbench/labs" $(DAY0_PYTHON) -m pytest tests/experiments/test_fixture_context.py tests/experiments/test_scientific_design.py tests/experiments/test_experiment_objects.py tests/registry/test_registry_store.py tests/application/test_fixture_context_runtime.py tests/architecture/test_platform_phase7_control_plane.py -q
+	$(DAY0_PYTHON) -m py_compile packages/risk_experiments/src/risk_experiments/fixture_context.py packages/risk_experiments/src/risk_experiments/pilot.py apps/portfolio-risk-workbench/labs/fixture_context_runtime.py apps/portfolio-risk-workbench/labs/duckdb_server.py scripts/thesis/register_calibration_pilot.py scripts/thesis/tutorial_p7_fixture.py
+	node --check apps/portfolio-risk-workbench/labs/labs.js
+	PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS)" $(DAY0_PYTHON) scripts/thesis/register_calibration_pilot.py >/dev/null
+	PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS)" $(DAY0_PYTHON) scripts/thesis/tutorial_p7_fixture.py >/dev/null
+	$(DAY0_PYTHON) scripts/day0/update_manifest_hashes.py apps/portfolio-risk-workbench/servicefabric-package.json --check
+	git diff --check
+	@echo "Platform development Phase 7 Fixture Context: PASS"
+
+.PHONY: verify-platform-phase8
+verify-platform-phase8: verify-platform-phase7
+	PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS):$(CURDIR)/apps/portfolio-risk-workbench/labs" $(DAY0_PYTHON) -m pytest tests/experiments/test_run_trace.py tests/application/test_run_trace_runtime.py tests/architecture/test_platform_phase8_control_plane.py -q
+	$(DAY0_PYTHON) -m py_compile packages/risk_experiments/src/risk_experiments/run_trace.py apps/portfolio-risk-workbench/labs/run_trace_runtime.py apps/portfolio-risk-workbench/labs/duckdb_server.py
+	node --check apps/portfolio-risk-workbench/labs/labs.js
+	git diff --check
+	@echo "Platform development Phase 8 effect-free run trace: PASS"
+
+.PHONY: verify-platform-phase11
+verify-platform-phase11: verify-platform-phase8
+	PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS):$(CURDIR)/apps/portfolio-risk-workbench/labs" $(DAY0_PYTHON) -m pytest tests/experiments/test_experimental_program.py tests/application/test_experimental_program_runtime.py tests/application/test_fixture_context_runtime.py tests/architecture/test_platform_phases9_11_control_plane.py -q
+	PYTHONPATH="$(CURDIR):$(DAY0_PACKAGE_PATHS):$(CURDIR)/apps/portfolio-risk-workbench/labs" $(DAY0_PYTHON) scripts/thesis/tutorial_p9_p11_program.py >/dev/null
+	$(DAY0_PYTHON) -m py_compile packages/risk_experiments/src/risk_experiments/experimental_program.py apps/portfolio-risk-workbench/labs/experimental_program_runtime.py scripts/thesis/tutorial_p9_p11_program.py
+	node --check apps/portfolio-risk-workbench/labs/labs.js
+	git diff --check
+	@echo "Platform development Phases 9-11 experimental programme: PASS"

@@ -21,29 +21,37 @@ import uvicorn
 import yaml
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from agent_studio import (
     AgentBlueprint,
     BlueprintAdviceRequest,
     BlueprintPlanRequest,
+    BlueprintRefineRequest,
+    BlueprintReviewRequest,
     CompileRequest,
+    COST_OPTIMIZED_LLM_MODEL,
     OutputPassRunRequest,
     RUN_ROOT,
     RunRequest,
     SectionPlanRequest,
     advise_blueprint,
+    agent_development_history,
+    agent_templates as all_agent_templates,
     capability_platform_manifest,
     compile_blueprint,
     _keychain_key,
     _scenario_context,
+    historically_calibrated_synthetic_context,
     list_agent_runs,
     load_agent_run,
     plan_blueprint,
+    refine_blueprint,
     plan_blueprint_section,
+    review_blueprint_configuration,
     run_blueprint,
     run_output_pass,
-    risk_agent_templates,
+    static_system_agent_fixture,
     runtime_status,
     synthetic_behavior_provenance,
 )
@@ -61,6 +69,17 @@ from experiment_workspace import (
     record_payload as experiment_record_payload,
     set_payload as experiment_set_payload,
 )
+from experiment_run_audit import (
+    RunAcceptanceRequest,
+    RunComparisonRequest,
+    catalogue_payload as run_audit_catalogue_payload,
+    comparison_payload as run_comparison_payload,
+    record_acceptance as record_run_acceptance,
+)
+from fixture_context_runtime import (
+    calibration_fixture_payload,
+    resolve_calibration_fixture,
+)
 from decision_review import (
     catalogue_payload as decision_catalogue_payload,
     decision_store,
@@ -74,12 +93,66 @@ from risk_analysis_package_runtime import (
     list_package_runs as list_risk_analysis_package_runs,
     load_package_run as load_risk_analysis_package_run,
 )
+from capability_studio import (
+    FixtureRunRequest as CapabilityFixtureRunRequest,
+    ProposalCreateRequest as CapabilityProposalCreateRequest,
+    ProposalTransitionRequest as CapabilityProposalTransitionRequest,
+    RequirementAssessmentRequest as CapabilityAssessmentRequest,
+    StudioDesignProposalRequest,
+    approve_blueprint as approve_capability_blueprint,
+    assess_requirement as assess_capability_requirement,
+    capability_catalogue,
+    compile_blueprint as compile_capability_blueprint,
+    create_proposal as create_capability_proposal,
+    create_studio_design_proposal,
+    delete_fixture_run as delete_capability_fixture_run,
+    delete_design_session as delete_capability_design_session,
+    delete_proposal as delete_capability_proposal,
+    execute_fixture as execute_capability_fixture,
+    list_design_sessions as list_capability_design_sessions,
+    list_fixture_runs as list_capability_fixture_runs,
+    list_proposals as list_capability_proposals,
+    load_design_session as load_capability_design_session,
+    load_fixture_run as load_capability_fixture_run,
+    save_design_session as save_capability_design_session,
+    transition_proposal as transition_capability_proposal,
+)
+from mandate_studio import (
+    MandateDesignPreviewRequest,
+    MandateRegistrationRequest,
+    MandateValidationRequest,
+    catalogue as mandate_studio_catalogue_data,
+    design_preview as prepare_mandate_design_preview,
+    mandate_bundle,
+    validate_bundle as validate_mandate_bundle,
+)
+from mandate_application import (
+    MandateApplicationRequest,
+    catalogue as mandate_application_catalogue_data,
+    run as run_mandate_application,
+)
+from studio_codex import (
+    CodexApprovalRequest,
+    CodexProposalApprovalRequest,
+    CodexProposalRequest,
+    CodexSessionRequest,
+    CodexTurnRequest,
+    studio_codex_manager,
+)
 from risk_artifacts import (
+    ArtifactKind,
+    ArtifactManifest,
     ArtifactConflict,
     ArtifactLifecycleState,
     ArtifactNotFound,
+    DataTruthClass,
     LegacyRunInvalid,
+    PreviewMode,
+    PublicationState,
+    RetentionClass,
+    RightsState,
     compile_legacy_run,
+    file_manifest,
     preview_legacy_run,
 )
 from risk_registry import (
@@ -90,6 +163,9 @@ from risk_registry import (
     RegistryNotFound,
 )
 from risk_experiments import (
+    ArchitectureMappingContext,
+    ArchitectureMappingError,
+    GraphExecutionEnvelope,
     DataTruth,
     ExperimentBudget,
     ExperimentConflict,
@@ -101,6 +177,16 @@ from risk_experiments import (
     SourceBinding,
     TemporalWindow,
     canonical_digest,
+    finalize_agent_graph_execution,
+    finalize_single_agent_execution,
+)
+from risk_agents import AgentExecutionEnvelope, AgentStructuredOutput
+from run_trace_runtime import create_calibration_run_trace, run_trace_payload
+from experimental_program_runtime import experimental_program_payload
+from historical_replay_runtime import (
+    HistoricalReplayError,
+    run_replay as run_historical_replay,
+    setup_payload as historical_replay_setup_payload,
 )
 from risk_reports import (
     MarkdownReport,
@@ -122,7 +208,7 @@ from risk_decisions import (
 )
 
 
-SQL_AGENT_MODEL = "gpt-5.6-luna"
+SQL_AGENT_MODEL = COST_OPTIMIZED_LLM_MODEL
 SQL_AGENT_REASONING_EFFORT = "low"
 MAX_QUERY_ROWS = 10_000
 MAX_QUERY_COLUMNS = 200
@@ -131,6 +217,7 @@ EXPERIMENT_ELIGIBLE_REGISTRY_STATES = {
     LifecycleState.VALIDATED,
     LifecycleState.PUBLISHED,
 }
+INCUBATOR_ASSET_KINDS = {AssetKind.REPORT, AssetKind.DASHBOARD}
 QUERY_TIMEOUT_SECONDS = 20
 
 LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
@@ -157,14 +244,19 @@ LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
             "persistence": "Browser-local draft · not published",
         },
         "agent.synthetic_behavior_sample": {
-            "data": "Synthetic behavior sample · exact input preview required",
+            "data": "Controlled synthetic fixture · fixed formula · no empirical calibration",
             "authority": "Findings and proposals only · effects none",
-            "persistence": "Temporary local run · deletable · not published",
+            "persistence": "Temporary review queue · explicit Artifact Repository retention",
+        },
+        "agent.historically_calibrated_synthetic": {
+            "data": "Synthetic path fitted on licensed in-sample aggregates · OOS window reserved · licensed rows not retained",
+            "authority": "Findings and proposals only · effects none",
+            "persistence": "Temporary review queue · retained comparisons are rights-restricted artifacts",
         },
         "agent.real_duckdb": {
             "data": "Licensed local historical data · point-in-time qualified per run",
             "authority": "Model interpretation is effect-free · review required",
-            "persistence": "Temporary local run · deletable · rights restricted",
+            "persistence": "Temporary review queue · explicit rights-restricted Artifact Repository retention",
         },
         "graph": {
             "data": "Browser-local agent drafts and registered catalogue previews",
@@ -178,8 +270,8 @@ LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
         },
         "studio": {
             "data": "Canonical source definitions, Registry metadata and browser-local Studio drafts",
-            "authority": "Build-brief preparation only · Studio–Codex execution requires PLATFORM-P12",
-            "persistence": "Draft brief is browser-local · Registry candidates require reviewed source changes",
+            "authority": "Development-only Studio–Codex · approved proposal IDs · worktree-scoped writes · human command review",
+            "persistence": "Blueprint proposals and Codex receipts persist locally · Registry admission and merge remain separate",
         },
         "dictionary": {
             "data": "Platform vocabulary projected by the local application",
@@ -441,7 +533,11 @@ class SqlOnlyPlan(BaseModel):
 
 
 class AgentInputPreviewRequest(BaseModel):
-    data_mode: Literal["synthetic_behavior_sample", "real_duckdb"] = (
+    data_mode: Literal[
+        "synthetic_behavior_sample",
+        "historically_calibrated_synthetic",
+        "real_duckdb",
+    ] = (
         "synthetic_behavior_sample"
     )
     scenario: Literal["routine", "concentration", "loss", "missing"] = "concentration"
@@ -600,6 +696,33 @@ class ExperimentQueueControlRequest(BaseModel):
 
 class ExperimentSetCreateRequest(BaseModel):
     definition: ExperimentSet
+
+
+class RunTraceCreateRequest(BaseModel):
+    actor: str = Field(default="local.researcher", min_length=3, max_length=128)
+
+
+class HistoricalReplayRequest(BaseModel):
+    workflow_id: str = Field(min_length=1, max_length=80)
+    portfolio_id: str = Field(min_length=1, max_length=80)
+    start_date: date
+    end_date: date
+    evaluation_id: str = Field(default="thesis_evaluation_v1", min_length=1, max_length=80)
+    save_result: bool = True
+    authorize_external_model_calls: bool = False
+
+
+class ArchitectureOutputMappingRequest(BaseModel):
+    context: ArchitectureMappingContext
+    single_agent_execution: AgentExecutionEnvelope | None = None
+    graph_execution: GraphExecutionEnvelope | None = None
+    mapped_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def exactly_one_execution(self) -> "ArchitectureOutputMappingRequest":
+        if (self.single_agent_execution is None) == (self.graph_execution is None):
+            raise ValueError("provide exactly one wrapped single-agent or graph execution")
+        return self
 
 
 def json_safe(value: Any) -> Any:
@@ -1455,6 +1578,36 @@ def prepare_agent_input(
         context = _scenario_context(request.scenario)
         return context, synthetic_behavior_provenance(request.scenario)
 
+    if request.data_mode == "historically_calibrated_synthetic":
+        if not request.portfolio_id or not request.as_of:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "historical calibration requires a reviewed portfolio and an as-of date"
+                ),
+            )
+        real_context, _real_provenance = prepare_agent_input(
+            request.model_copy(update={"data_mode": "real_duckdb"})
+        )
+        try:
+            context, provenance = historically_calibrated_synthetic_context(
+                scenario=request.scenario,
+                historical_values=real_context.get("metric_pack_input", {}).get(
+                    "observations", []
+                ),
+                portfolio_id=request.portfolio_id,
+                as_of=request.as_of.isoformat(),
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        provenance["calibration_source"] = {
+            "provider": "local DuckDB",
+            "datasets": request.datasets,
+            "rights": "licensed_restricted",
+            "raw_rows_in_run_output": False,
+        }
+        return json_safe(context), provenance
+
     if not request.portfolio_id or not request.as_of:
         raise HTTPException(
             status_code=422,
@@ -1819,7 +1972,11 @@ def health() -> dict[str, Any]:
 def platform_workspaces() -> dict[str, Any]:
     """Project existing stores into the two user-facing operating areas."""
 
-    documents = registry_store().list()
+    documents = [
+        item
+        for item in registry_store().list()
+        if item.projection.identity.kind not in INCUBATOR_ASSET_KINDS
+    ]
     eligible_states = EXPERIMENT_ELIGIBLE_REGISTRY_STATES
     saved = [
         {
@@ -1892,12 +2049,17 @@ def platform_workspaces() -> dict[str, Any]:
         ],
         "terminology": {
             "agent": "A bounded worker that receives context, invokes admitted capabilities, creates work products and escalates under policy.",
+            "agent_blueprint": "The reusable, versioned definition of an agent's outcome, context, capabilities, output, authority and evaluation expectations.",
             "agent_application": "The System Development test phase where an agent exercises saved objects inside a labelled Fixture Context.",
             "artifact": "A run work product deliberately retained with provenance and lifecycle policy.",
             "capability": "A reviewed typed operation with explicit inputs, outputs, authority, validation and receipts.",
             "companion_capability": "A capability created alongside an object to create, validate, lifecycle, modify or apply that object.",
-            "dashboard_package": "A reusable definition of pages, panels, data bindings, interactions and refresh behavior.",
             "definition": "A reusable system object with a stable identity and version.",
+            "blueprint_draft": "The mutable Agent Blueprint being designed in the Studio. It is not a saved version and refinements apply as bounded diffs.",
+            "configuration_review": "The compiler and semantic verification record for one exact blueprint digest.",
+            "material_finding": "An unresolved critical or high requirement that blocks development handoff or Registry admission.",
+            "development_proposal": "A reviewed, bounded request defining the blueprint, allowed paths, tests, skill and authority for one Studio-Codex job.",
+            "development_job": "One authorized Studio-Codex execution that plans, changes, verifies and independently reviews work inside its bounded workspace.",
             "experiment": "A reproducible composition of saved definitions, source bindings and execution/evaluation policy.",
             "experiment_set": "A governed group or factor matrix of independent experiments answering one research question.",
             "fixture_context": "A labelled, bounded input environment used to exercise a definition.",
@@ -1906,11 +2068,11 @@ def platform_workspaces() -> dict[str, Any]:
             "promotion": "A separate reviewed process that turns an approved proposal into a new reusable definition version.",
             "provider_adapter": "A governed interface to an MCP, API, database or other integration with schemas, rights and effect boundaries.",
             "registry_candidate": "A saved definition version indexed for local review but not yet validated or published.",
-            "report_template": "A reusable Markdown-first structure, evidence policy and rendering contract; not a rendered report artifact.",
-            "risk_analysis_package": "A reusable risk-question-first composition of semantic data roles, analytical capabilities, validation and analysis-dossier section briefs.",
+            "registry_admission": "The explicit decision to index an exact tested definition version in the Registry; it is separate from development and execution.",
+            "risk_analysis_package": "A reusable risk-question-first composition of semantic data roles, analytical capabilities, validation and structured output fields.",
             "run_work_product": "An output created during one application or experiment run.",
             "scenario_definition": "A reusable declaration of assumptions, shocks, temporal behavior, applicability and result contracts.",
-            "studio_codex": "The future development-only gateway that turns an approved Studio build brief into an isolated Codex worktree task, tests and a candidate definition.",
+            "studio_codex": "The development-only gateway that turns an authorized Development Proposal into one isolated Development Job, test evidence and a reviewed diff.",
             "system_object": "A reusable definition developed and governed by the platform rather than an output from one run.",
             "workflow_definition": "A reusable composition of agents, state, routes, interrupts, review points and output contracts.",
         },
@@ -1952,9 +2114,9 @@ def platform_workspaces() -> dict[str, Any]:
                 "title": "Risk Analysis Studio",
                 "definition_label": "RiskAnalysisPackageDefinition",
                 "registry_kind": "risk_analysis_package",
-                "purpose": "Describe a portfolio-risk question, then compile semantic data roles, modular analytical methods, validation and a concise analysis dossier.",
+                "purpose": "Describe a portfolio-risk question, then compile semantic data roles, modular analytical methods, validation and a structured ArchitectureOutput.",
                 "companion_policy": "Capabilities remain openly discoverable. The package pins validated defaults, permits recorded compatible substitutions and keeps supplemental work separate from the stable core.",
-                "companion_examples": ["portfolio.data_context.create", "risk.volatility.annualized", "risk.drawdown.maximum", "risk.var.historical", "risk.expected_shortfall.historical", "risk.report.render"],
+                "companion_examples": ["portfolio.data_context.create", "risk.volatility.annualized", "risk.drawdown.maximum", "risk.var.historical", "risk.expected_shortfall.historical"],
                 "skill_id": "servicefabric-risk-analysis-package-builder",
                 "availability": "reference_package_and_registry",
             },
@@ -1965,9 +2127,9 @@ def platform_workspaces() -> dict[str, Any]:
                 "registry_kind": "capability",
                 "purpose": "Build one typed, least-privilege operation with input preparation, execution, validation and receipts.",
                 "companion_policy": "The capability is the primary object. Add a lifecycle meta-capability only when it materially improves creation, validation or versioning.",
-                "companion_examples": ["capability.validate", "capability.fixture.run", "capability.publish_candidate"],
+                "companion_examples": ["capability.validate", "capability.test_case.run", "capability.publish_candidate"],
                 "skill_id": "servicefabric-capability-builder",
-                "availability": "registry_and_fixture_test",
+                "availability": "registry_and_fixed_tests",
             },
             {
                 "studio_id": "scenario",
@@ -1981,37 +2143,15 @@ def platform_workspaces() -> dict[str, Any]:
                 "availability": "registry_and_future_studio",
             },
             {
-                "studio_id": "dashboard",
-                "title": "Dashboard Studio",
-                "definition_label": "DashboardPackage",
-                "registry_kind": "dashboard",
-                "purpose": "Model pages, panels, data bindings, interactions, refresh rules and persistent monitoring intent.",
-                "companion_policy": "Build capabilities that create, patch, render, validate and apply the dashboard while preserving provenance and safe rendering.",
-                "companion_examples": ["dashboard.compose", "dashboard.patch", "dashboard.render", "dashboard.validate"],
-                "skill_id": "servicefabric-dashboard-builder",
-                "availability": "registry_and_future_studio",
-            },
-            {
-                "studio_id": "report",
-                "title": "Report Studio",
-                "definition_label": "ReportTemplate",
-                "registry_kind": "report",
-                "purpose": "Model Markdown-first structure, section ownership, evidence rules, tables, charts and rendering contracts.",
-                "companion_policy": "Build capabilities that plan, compose, critique, revise, render and publish a report candidate without conflating template and rendered artifact.",
-                "companion_examples": ["report.plan_sections", "report.compose_markdown", "report.validate", "report.render"],
-                "skill_id": "servicefabric-report-builder",
-                "availability": "registry_and_composer",
-            },
-            {
                 "studio_id": "portfolio_mandate",
-                "title": "Portfolio & Mandate Studio",
-                "definition_label": "PortfolioVersion + MandateVersion",
-                "registry_kind": None,
-                "purpose": "Build professional portfolio state and mandate rules, covenants, interpretations and knowledge-graph mappings together.",
-                "companion_policy": "Build capabilities for ingestion, normalization, mandate extraction, compliance evaluation and governed revision; never use them to create live financial effects.",
-                "companion_examples": ["portfolio.normalize", "mandate.extract", "mandate.validate", "mandate.compliance.evaluate"],
+                "title": "Mandate Studio",
+                "definition_label": "MandateVersion + RiskPolicySet",
+                "registry_kind": "mandate",
+                "purpose": "Design investment intent and compile every reviewed clause into a capability-bound policy and governance route before experiment assembly.",
+                "companion_policy": "Extract and classify clauses at design time, reuse registered evaluation capabilities, preserve source provenance and keep observations, breaches and experimental failures inside Evaluation.",
+                "companion_examples": ["mandate.extract", "mandate.validate", "mandate.rules.compile", "monitoring.policy.evaluate"],
                 "skill_id": "servicefabric-portfolio-mandate-builder",
-                "availability": "PLATFORM-P9",
+                "availability": "reference_fixtures_and_registry",
             },
             {
                 "studio_id": "workflow",
@@ -2137,7 +2277,11 @@ def registry_catalogue(
     include_discovered: bool = True,
 ) -> dict[str, Any]:
     store = registry_store()
-    indexed = store.list(kind=kind, state=state, query=q)
+    indexed = [
+        document
+        for document in store.list(kind=kind, state=state, query=q)
+        if document.projection.identity.kind not in INCUBATOR_ASSET_KINDS
+    ]
     indexed_by_reference = {
         document.projection.identity.reference: document for document in indexed
     }
@@ -2182,6 +2326,31 @@ def registry_catalogue(
         "counts": counts,
         "states": states,
     }
+
+
+@app.get("/api/incubator/catalogue")
+def incubator_catalogue() -> dict[str, Any]:
+    """Describe deferred objects without admitting them to active discovery."""
+
+    path = (
+        PROTOTYPE_ROOT.parents[2]
+        / "config"
+        / "incubator"
+        / "post-thesis-user-facing-objects.yaml"
+    )
+    decision = yaml.safe_load(path.read_text(encoding="utf-8"))
+    historical_records = [
+        {
+            "reference": document.projection.identity.reference,
+            "display_name": document.projection.display_name,
+            "kind": document.projection.identity.kind.value,
+            "historical_lifecycle_state": document.state.value,
+            "active": False,
+        }
+        for document in registry_store().list()
+        if document.projection.identity.kind in INCUBATOR_ASSET_KINDS
+    ]
+    return {**decision, "historical_registry_records": historical_records}
 
 
 @app.post("/api/registry/bootstrap")
@@ -2515,9 +2684,293 @@ def experiment_catalogue() -> dict[str, Any]:
         raise _experiment_error(error) from error
 
 
+@app.get("/api/experiments/replay-setup")
+def historical_replay_setup() -> dict[str, Any]:
+    """Return only the real-data choices used by the simplified Experiment page."""
+
+    try:
+        workflows = [
+            {
+                "asset_id": projection.identity.asset_id,
+                "display_name": projection.display_name,
+            }
+            for projection in discover_registry_projections()
+            if projection.identity.kind is AssetKind.WORKFLOW
+        ]
+        return historical_replay_setup_payload(
+            find_private_root(PROTOTYPE_ROOT), workflows
+        )
+    except (HistoricalReplayError, RuntimeError, duckdb.Error) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+def _save_historical_replay(result: dict[str, Any]) -> dict[str, Any]:
+    result_bytes = (json.dumps(result, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    files = {"result.json": result_bytes}
+    file_roles = {"result.json": "run_result"}
+    run_record = result.get("run_record")
+    hierarchy = result.get("hierarchy")
+    if run_record and hierarchy:
+        structured_files = {
+            "case.json": hierarchy["case"],
+            "run-input.json": run_record["run_input"],
+            "architecture-output.json": run_record["architecture_output"],
+            "architecture-outputs.json": run_record.get("architecture_outputs", []),
+            "finding-episodes.json": run_record.get("finding_episodes", []),
+            "decision-branches.json": run_record.get("decision_branches", []),
+            "metric-specifications.json": run_record.get("metric_specifications", []),
+            "run-trace.json": run_record["run_trace"],
+            "processing-receipts.json": run_record.get("processing_receipts", []),
+            "evaluation-record.json": run_record["evaluation_record"],
+        }
+        for path, payload in structured_files.items():
+            files[path] = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        file_roles.update({
+            "case.json": "experimental_case",
+            "run-input.json": "run_input",
+            "architecture-output.json": "architecture_output",
+            "architecture-outputs.json": "cycle_architecture_outputs",
+            "finding-episodes.json": "finding_episodes",
+            "decision-branches.json": "decision_branches",
+            "metric-specifications.json": "metric_specifications",
+            "run-trace.json": "run_trace",
+            "processing-receipts.json": "processing_receipts",
+            "evaluation-record.json": "evaluation_record",
+        })
+    file_records = tuple(sorted((
+        file_manifest(
+            path=path,
+            content=content,
+            media_type="application/json",
+            role=file_roles[path],
+            preview_mode=PreviewMode.ESCAPED_TEXT,
+            download_allowed=True,
+        )
+        for path, content in files.items()
+    ), key=lambda item: item.path))
+    artifact_id = f"historical-replay:{result['run_id'].lower()}"
+    manifest = ArtifactManifest(
+        artifact_id=artifact_id,
+        title=f"Historical replay — {result['portfolio']['id']}",
+        kind=ArtifactKind.RETAINED_RUN,
+        created_at=datetime.now(timezone.utc),
+        created_by="local.researcher",
+        creation_method="deterministic_historical_replay",
+        run_id=result["run_id"],
+        experiment_id=result.get("hierarchy", {}).get("experiment", {}).get(
+            "experiment_id", f"historical-replay-{result['portfolio']['id'].replace('_', '-')}"
+        ),
+        data_truth=DataTruthClass.LICENSED_REAL,
+        rights=RightsState.LICENSED_RESTRICTED,
+        rights_policy_id="rights:licensed-research-only",
+        publication=PublicationState.RESTRICTED,
+        retention=RetentionClass.EXPERIMENT_EVIDENCE,
+        entry_file="architecture-output.json" if run_record and hierarchy else "result.json",
+        files=file_records,
+        total_size_bytes=sum(item.size_bytes for item in file_records),
+        restrictions=("licensed-data-no-redistribution",),
+    )
+    record = artifact_store().admit(
+        manifest,
+        files,
+        actor="local.researcher",
+        rationale="Saved an explicitly requested licensed-data historical replay for later review.",
+    )
+    return {
+        "artifact_id": record.manifest.artifact_id,
+        "saved_at": record.receipts[0].occurred_at.isoformat(),
+        "state": record.state.value,
+    }
+
+
+def _saved_historical_replays() -> list[dict[str, Any]]:
+    saved = []
+    for record in artifact_store().list():
+        if record.manifest.creation_method != "deterministic_historical_replay":
+            continue
+        result_bytes, _ = artifact_store().open_file(record.manifest.artifact_id, "result.json")
+        result = json.loads(result_bytes)
+        saved.append({
+            "artifact_id": record.manifest.artifact_id,
+            "run_id": result["run_id"],
+            "portfolio_id": result["portfolio"]["id"],
+            "mandate": result["mandate"]["name"],
+            "period": result["period"],
+            "created_at": record.manifest.created_at.isoformat(),
+        })
+    return sorted(saved, key=lambda item: item["created_at"], reverse=True)
+
+
+@app.get("/api/experiments/replay-runs")
+def list_historical_replays() -> dict[str, Any]:
+    try:
+        return {"runs": _saved_historical_replays()}
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.get("/api/experiments/architecture-output/mapping-contract")
+@app.get("/api/experiments/architecture-output/projection-contract", deprecated=True)
+def architecture_output_projection_contract() -> dict[str, Any]:
+    """Describe the common structured-output mapping boundary."""
+
+    return {
+        "flow": ["headless_agent_or_graph_wrapper", "evaluation_byproducts_and_observed_behavior", "deterministic_mapping", "architecture_output", "evaluation"],
+        "agent_writes_architecture_output": False,
+        "primary_artifact_is_rewritten": False,
+        "checks": [
+            "run_cycle_architecture_identity",
+            "point_in_time_evidence_eligibility",
+            "available_capabilities_and_agents",
+            "effect_free_capability_receipts",
+            "structured_byproduct_quality",
+            "presentation_artifacts_excluded",
+            "final_decision_and_specialist_node_scope",
+            "execution_and_graph_behavior_observed",
+        ],
+        "output_schema": AgentStructuredOutput.model_json_schema(),
+        "single_agent_wrapper_schema": AgentExecutionEnvelope.model_json_schema(),
+        "graph_wrapper_schema": GraphExecutionEnvelope.model_json_schema(),
+        "context_schema": ArchitectureMappingContext.model_json_schema(),
+    }
+
+
+@app.post("/api/experiments/architecture-output/map")
+def map_architecture_output(request: ArchitectureOutputMappingRequest) -> dict[str, Any]:
+    """Map one agent output into the common experiment output without rewriting it."""
+
+    try:
+        result = (
+            finalize_single_agent_execution(
+                request.single_agent_execution,
+                request.context,
+                mapped_at=request.mapped_at,
+            )
+            if request.single_agent_execution is not None
+            else finalize_agent_graph_execution(
+                request.graph_execution,
+                request.context,
+                mapped_at=request.mapped_at,
+            )
+        )
+    except ArchitectureMappingError as error:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "output cannot be mapped to this experiment cycle", "violations": error.violations},
+        ) from error
+    return result.model_dump(mode="json")
+
+
+@app.get("/api/experiments/replay-runs/{artifact_id:path}")
+def load_historical_replay(artifact_id: str) -> dict[str, Any]:
+    try:
+        record = artifact_store().get(artifact_id)
+        if record.manifest.creation_method != "deterministic_historical_replay":
+            raise ArtifactNotFound(artifact_id)
+        content, _ = artifact_store().open_file(artifact_id, "result.json")
+        result = json.loads(content)
+        result["saved"] = {
+            "artifact_id": artifact_id,
+            "saved_at": record.manifest.created_at.isoformat(),
+            "state": record.state.value,
+        }
+        return result
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/experiments/replay-runs")
+def create_historical_replay(request: HistoricalReplayRequest) -> dict[str, Any]:
+    """Run the bounded, deterministic historical baseline on licensed data."""
+
+    try:
+        if request.workflow_id in {"B1", "A1"} and not request.authorize_external_model_calls:
+            raise HistoricalReplayError(
+                "B1 and A1 require explicit authorization to send bounded, derived licensed-data context to OpenAI for this run"
+            )
+        result = run_historical_replay(
+            find_private_root(PROTOTYPE_ROOT),
+            workflow_id=request.workflow_id,
+            portfolio_id=request.portfolio_id,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            evaluation_id=request.evaluation_id,
+        )
+        result["saved"] = _save_historical_replay(result) if request.save_result else None
+        return result
+    except HistoricalReplayError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except (RuntimeError, duckdb.Error) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
 @app.get("/api/experiments/options")
 def experiment_options() -> dict[str, Any]:
     return _experiment_options_payload()
+
+
+@app.get("/api/experiments/fixture-context")
+def experiment_fixture_context() -> dict[str, Any]:
+    try:
+        return calibration_fixture_payload(registry_store())
+    except (RegistryConflict, RegistryNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.post("/api/experiments/fixture-context/resolve")
+def resolve_experiment_fixture_context() -> dict[str, Any]:
+    try:
+        return resolve_calibration_fixture(registry_store())
+    except (RegistryConflict, RegistryNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.get("/api/experiments/run-traces")
+def experiment_run_traces() -> dict[str, Any]:
+    try:
+        return run_trace_payload()
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/experiments/run-traces")
+def create_experiment_run_trace(request: RunTraceCreateRequest) -> dict[str, Any]:
+    try:
+        return create_calibration_run_trace(actor=request.actor)
+    except (ArtifactConflict, ArtifactNotFound, KeyError, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.get("/api/experiments/program")
+def experiment_program() -> dict[str, Any]:
+    try:
+        return experimental_program_payload()
+    except (KeyError, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.get("/api/experiments/run-audit")
+def experiment_run_audit_catalogue() -> dict[str, Any]:
+    try:
+        return run_audit_catalogue_payload()
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/experiments/run-audit/compare")
+def compare_experiment_runs(request: RunComparisonRequest) -> dict[str, Any]:
+    try:
+        return run_comparison_payload(request)
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/experiments/run-audit/acceptance")
+def accept_experiment_run_comparison(request: RunAcceptanceRequest) -> dict[str, Any]:
+    try:
+        return record_run_acceptance(request)
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
 
 
 def _experiment_registry_documents() -> list[Any]:
@@ -2534,7 +2987,8 @@ def _experiment_registry_documents() -> list[Any]:
 def _require_experiment_registry_assets(identities: tuple[RegistryIdentity, ...]) -> None:
     eligible = {
         document.projection.identity.reference: document
-        for document in _experiment_registry_documents()
+        for document in registry_store().list()
+        if document.state in EXPERIMENT_ELIGIBLE_REGISTRY_STATES
     }
     missing = [identity.reference for identity in identities if identity.reference not in eligible]
     if missing:
@@ -2542,6 +2996,16 @@ def _require_experiment_registry_assets(identities: tuple[RegistryIdentity, ...]
             "experiment assets must be saved in the Registry and remain candidate, validated, "
             "or published: " + ", ".join(missing)
         )
+
+
+def _experiment_definition_registry_assets(
+    definition: ExperimentDefinition,
+) -> tuple[RegistryIdentity, ...]:
+    return definition.system_assets + (
+        (definition.scientific_design,) if definition.scientific_design is not None else ()
+    ) + (
+        (definition.object_set,) if definition.object_set is not None else ()
+    )
 
 
 def _experiment_options_payload() -> dict[str, Any]:
@@ -2564,6 +3028,8 @@ def _experiment_options_payload() -> dict[str, Any]:
         {
             "portfolio_id": item["portfolio_id"],
             "title": item["title"],
+            "position_count": len(item.get("positions", ())),
+            "base_currency": item.get("base_currency"),
             "reference": f"portfolio-selection:{selection_id}:{item['portfolio_id']}@{selection_digest}",
             "data_truth": "licensed_real",
             "data_revision_reference": f"dataset-snapshot:{snapshot_id}",
@@ -2607,6 +3073,13 @@ def _experiment_options_payload() -> dict[str, Any]:
             "data_truth": "licensed_real",
         },
         "portfolios": [*real_portfolios, *synthetic_portfolios, *simulated_portfolios],
+        "licensed_data": {
+            "available": bool(real_portfolios),
+            "source_snapshot_id": snapshot_id,
+            "selection_id": selection_id,
+            "access": "read_only",
+            "synthetic_fallback": False,
+        },
     }
 
 
@@ -2689,7 +3162,9 @@ def draft_experiment(request: ExperimentDraftRequest) -> dict[str, Any]:
 @app.post("/api/experiments")
 def create_experiment(request: ExperimentCreateRequest) -> dict[str, Any]:
     try:
-        _require_experiment_registry_assets(request.definition.system_assets)
+        _require_experiment_registry_assets(
+            _experiment_definition_registry_assets(request.definition)
+        )
         record = experiment_store().create(
             request.definition,
             actor=request.actor,
@@ -2715,7 +3190,9 @@ def transition_experiment(
     try:
         if request.to_state == ExperimentState.VALIDATED:
             current = experiment_store().get(experiment_id)
-            _require_experiment_registry_assets(current.definition.system_assets)
+            _require_experiment_registry_assets(
+                _experiment_definition_registry_assets(current.definition)
+            )
         record = experiment_store().transition(
             experiment_id,
             request.to_state,
@@ -3005,7 +3482,144 @@ def agent_capability_platform() -> dict[str, Any]:
 
 @app.get("/api/agents/templates")
 def agent_templates() -> dict[str, Any]:
-    return {"agents": risk_agent_templates()}
+    agents = all_agent_templates()
+    return {
+        "agents": agents,
+        "classes": {
+            "static_system": [item for item in agents if item["agent_class"] == "static_system"],
+            "experimental_specialist": [
+                item for item in agents if item["agent_class"] == "experimental_specialist"
+            ],
+        },
+    }
+
+
+@app.get("/api/agents/system-agents")
+def system_agents() -> dict[str, Any]:
+    agents = [
+        item for item in all_agent_templates() if item["agent_class"] == "static_system"
+    ]
+    return {"agents": agents, "count": len(agents)}
+
+
+@app.post("/api/agents/system-agents/agent-studio-architect/fixture")
+def run_agent_studio_architect_fixture() -> dict[str, Any]:
+    return static_system_agent_fixture()
+
+
+@app.get("/api/studios/codex/status")
+def studio_codex_status(probe: bool = False) -> dict[str, Any]:
+    """Inspect the local development provider without exposing authentication data."""
+
+    return studio_codex_manager.status(probe=probe)
+
+
+@app.get("/api/studios/codex/proposals")
+def studio_codex_proposals() -> dict[str, Any]:
+    proposals = studio_codex_manager.list_proposals()
+    return {"proposals": proposals, "count": len(proposals)}
+
+
+@app.post("/api/studios/codex/proposals")
+def create_studio_codex_proposal(request: CodexProposalRequest) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.create_proposal(request)
+    except Exception as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.post("/api/studios/codex/proposals/{proposal_id}/approve")
+def approve_studio_codex_proposal(
+    proposal_id: str, request: CodexProposalApprovalRequest
+) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.approve_proposal(proposal_id, request)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Studio-Codex proposal not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/api/studios/codex/sessions")
+def studio_codex_sessions(recover: bool = False) -> dict[str, Any]:
+    if recover:
+        studio_codex_manager.schedule_recovery()
+    sessions = studio_codex_manager.list_sessions()
+    return {"sessions": sessions, "count": len(sessions)}
+
+
+@app.post("/api/studios/codex/sessions")
+def start_studio_codex_session(request: CodexSessionRequest) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.start_session(request)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Studio-Codex proposal not found") from error
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/api/studios/codex/sessions/{session_id}")
+def studio_codex_session(session_id: str) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.get_session(session_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Studio-Codex session not found") from error
+
+
+@app.post("/api/studios/codex/sessions/{session_id}/turns")
+def continue_studio_codex_session(
+    session_id: str, request: CodexTurnRequest
+) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.start_turn(session_id, request)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Studio-Codex session not found") from error
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/studios/codex/sessions/{session_id}/review")
+def review_studio_codex_session(session_id: str) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.review(session_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Studio-Codex session not found") from error
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/studios/codex/sessions/{session_id}/interrupt")
+def interrupt_studio_codex_session(session_id: str) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.interrupt(session_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Studio-Codex session not found") from error
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/studios/codex/sessions/{session_id}/approvals")
+def resolve_studio_codex_approval(
+    session_id: str, request: CodexApprovalRequest
+) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.respond_approval(session_id, request)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Codex approval request not found") from error
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/studios/codex/sessions/{session_id}/archive")
+def archive_studio_codex_session(session_id: str) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.archive(session_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Studio-Codex session not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @app.post("/api/agents/blueprint/validate")
@@ -3019,15 +3633,71 @@ def validate_agent_blueprint(blueprint: AgentBlueprint) -> dict[str, Any]:
     }
 
 
+@app.post("/api/agents/blueprint/review")
+def review_agent_blueprint_configuration(
+    request: BlueprintReviewRequest,
+) -> dict[str, Any]:
+    try:
+        return review_blueprint_configuration(request)
+    except Exception as error:
+        safe_type = re.sub(r"[^A-Za-z0-9_-]", "_", type(error).__name__)[:64]
+        raise HTTPException(
+            status_code=422,
+            detail=f"Agent configuration review failed: {safe_type}",
+        ) from error
+
+
+@app.get("/api/agents/history")
+def agent_history(agent_name: str, version: str = "0.1.0") -> dict[str, Any]:
+    if not agent_name.strip():
+        raise HTTPException(status_code=422, detail="agent_name is required")
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        raise HTTPException(status_code=422, detail="version must use semantic versioning")
+    return agent_development_history(agent_name.strip()[:80], version)
+
+
 @app.post("/api/agents/blueprint/plan")
 def create_agent_blueprint(request: BlueprintPlanRequest) -> dict[str, Any]:
     try:
         return plan_blueprint(request)
+    except ModuleNotFoundError as error:
+        missing = getattr(error, "name", None) or "required runtime dependency"
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Agent Blueprint planning is unavailable because {missing} is not "
+                "installed in the server runtime. Restart the application with "
+                "apps/portfolio-risk-workbench/labs/start_live_data.sh."
+            ),
+        ) from error
     except Exception as error:
         safe_type = re.sub(r"[^A-Za-z0-9_-]", "_", type(error).__name__)[:64]
         raise HTTPException(
             status_code=502,
             detail=f"OpenAI blueprint planning failed: {safe_type}",
+        ) from error
+
+
+@app.post("/api/agents/blueprint/refine")
+def refine_agent_blueprint(request: BlueprintRefineRequest) -> dict[str, Any]:
+    try:
+        return refine_blueprint(request)
+    except ModuleNotFoundError as error:
+        missing = getattr(error, "name", None) or "required runtime dependency"
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Agent Blueprint refinement is unavailable because {missing} is not "
+                "installed in the server runtime. Restart the application with "
+                "apps/portfolio-risk-workbench/labs/start_live_data.sh."
+            ),
+        ) from error
+    except Exception as error:
+        detail = str(error).strip() or type(error).__name__
+        detail = re.sub(r"[\r\n\t]+", " ", detail)[:1200]
+        raise HTTPException(
+            status_code=422,
+            detail=f"Agent refinement failed: {detail}",
         ) from error
 
 
@@ -3075,6 +3745,14 @@ def preview_agent_input(request: AgentInputPreviewRequest) -> dict[str, Any]:
 @app.post("/api/agents/run")
 def run_agent(request: RunRequest) -> dict[str, Any]:
     try:
+        if request.blueprint.agent_class == "static_system":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Static System Agents use the Studio design fixture, not the portfolio "
+                    "experiment runner. Run the Agent Studio Architect fixture instead."
+                ),
+            )
         preview_request = AgentInputPreviewRequest(
             data_mode=request.data_mode,
             scenario=request.scenario,
@@ -3096,9 +3774,100 @@ def run_agent(request: RunRequest) -> dict[str, Any]:
         ) from error
 
 
+@app.post("/api/agents/compare")
+def compare_agent_execution(request: RunRequest) -> dict[str, Any]:
+    """Run one frozen input through deterministic and model-backed drafting."""
+
+    if request.blueprint.agent_class == "static_system":
+        raise HTTPException(
+            status_code=409,
+            detail="Static System Agents do not use the portfolio comparison runner.",
+        )
+    try:
+        preview_request = AgentInputPreviewRequest(
+            data_mode=request.data_mode,
+            scenario=request.scenario,
+            portfolio_id=request.portfolio_id,
+            as_of=date.fromisoformat(request.as_of) if request.as_of else None,
+            datasets=request.datasets or ["market", "fundamental", "identity", "links"],
+        )
+        context, provenance = prepare_agent_input(preview_request)
+        created_at = datetime.now(timezone.utc).replace(microsecond=0)
+        comparison_digest = hashlib.sha256(
+            json.dumps(
+                {
+                    "blueprint": request.blueprint.model_dump(mode="json"),
+                    "context": context,
+                    "created_at": created_at.isoformat(),
+                },
+                sort_keys=True,
+                default=str,
+            ).encode()
+        ).hexdigest()[:8]
+        comparison_id = (
+            f"comparison-{created_at.strftime('%Y%m%dT%H%M%SZ')}-{comparison_digest}"
+        )
+        common = {
+            "input_context": context,
+            "input_provenance": provenance,
+            "comparison_id": comparison_id,
+            "persist_run": True,
+        }
+        deterministic = run_blueprint(
+            request.model_copy(update={**common, "execution_mode": "deterministic"})
+        )
+        live_llm = run_blueprint(
+            request.model_copy(update={**common, "execution_mode": "live_llm"})
+        )
+        input_digest = "sha256:" + hashlib.sha256(
+            json.dumps(context, sort_keys=True, separators=(",", ":"), default=str).encode()
+        ).hexdigest()
+        return {
+            "comparison_id": comparison_id,
+            "input_digest": input_digest,
+            "same_frozen_input": True,
+            "deterministic": deterministic,
+            "live_llm": live_llm,
+            "summary": {
+                "deterministic_semantic_status": deterministic.get("final_state", {})
+                .get("semantic_verification", {})
+                .get("status"),
+                "model_semantic_status": live_llm.get("final_state", {})
+                .get("semantic_verification", {})
+                .get("status"),
+                "model_tokens": sum(
+                    item.get("total_tokens", 0)
+                    for item in live_llm.get("final_state", {}).get("model_receipts", [])
+                ),
+                "deterministic_elapsed_ms": deterministic.get("elapsed_ms"),
+                "model_elapsed_ms": live_llm.get("elapsed_ms"),
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Agent comparison failed: {type(error).__name__}: {error}",
+        ) from error
+
+
 @app.get("/api/agents/runs")
-def agent_runs() -> dict[str, Any]:
-    return {"runs": list_agent_runs()}
+def agent_runs(include_retained: bool = False) -> dict[str, Any]:
+    runs = list_agent_runs()
+    retained_run_ids = {
+        record.manifest.run_id
+        for record in artifact_store().list(include_deleted=False)
+        if record.manifest.run_id is not None
+    }
+    visible = runs if include_retained else [
+        run for run in runs if run.get("run_id") not in retained_run_ids
+    ]
+    return {
+        "runs": visible,
+        "retained_run_count": len(retained_run_ids),
+        "hidden_retained_run_count": len(runs) - len(visible),
+    }
 
 
 @app.get("/api/agents/runs/{run_id}")
@@ -3171,6 +3940,259 @@ def remove_risk_analysis_package_run(run_id: str) -> dict[str, Any]:
         return delete_risk_analysis_package_run(run_id)
     except FileNotFoundError as error:
         raise HTTPException(status_code=404, detail="risk analysis package run not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+def _mandate_catalogue_payload() -> dict[str, Any]:
+    payload = mandate_studio_catalogue_data()
+    projections = {
+        (item.identity.kind, item.identity.asset_id): item
+        for item in discover_registry_projections()
+        if item.identity.kind in {AssetKind.MANDATE, AssetKind.RISK_POLICY}
+    }
+    documents = {
+        item.projection.identity.reference: item
+        for item in registry_store().list()
+        if item.projection.identity.kind in {AssetKind.MANDATE, AssetKind.RISK_POLICY}
+    }
+    records = []
+    for record in payload["records"]:
+        mandate = record["mandate"]
+        policy = record["risk_policy"]
+        mandate_projection = projections[(AssetKind.MANDATE, mandate["object_id"])]
+        policy_projection = projections[(AssetKind.RISK_POLICY, policy["object_id"])]
+        mandate_document = documents.get(mandate_projection.identity.reference)
+        policy_document = documents.get(policy_projection.identity.reference)
+        records.append(
+            {
+                **record,
+                "registry": {
+                    "mandate_identity": mandate_projection.identity.model_dump(mode="json"),
+                    "mandate_reference": mandate_projection.identity.reference,
+                    "mandate_state": mandate_document.state.value if mandate_document else "discovered",
+                    "policy_identity": policy_projection.identity.model_dump(mode="json"),
+                    "policy_reference": policy_projection.identity.reference,
+                    "policy_state": policy_document.state.value if policy_document else "discovered",
+                    "registered": mandate_document is not None and policy_document is not None,
+                },
+            }
+        )
+    return {**payload, "records": records}
+
+
+@app.get("/api/studios/mandates/catalogue")
+def mandate_studio_catalogue() -> dict[str, Any]:
+    return _mandate_catalogue_payload()
+
+
+@app.post("/api/studios/mandates/design-preview")
+def mandate_studio_design_preview(request: MandateDesignPreviewRequest) -> dict[str, Any]:
+    try:
+        return prepare_mandate_design_preview(request)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Mandate fixture not found") from error
+
+
+@app.post("/api/studios/mandates/validate")
+def mandate_studio_validate(request: MandateValidationRequest) -> dict[str, Any]:
+    try:
+        _, mandate, policy = mandate_bundle(request.mandate_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Mandate fixture not found") from error
+    return validate_mandate_bundle(mandate, policy)
+
+
+@app.post("/api/studios/mandates/register")
+def mandate_studio_register(request: MandateRegistrationRequest) -> dict[str, Any]:
+    try:
+        _, mandate, policy = mandate_bundle(request.mandate_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Mandate fixture not found") from error
+    validation = validate_mandate_bundle(mandate, policy)
+    if not validation["valid"]:
+        raise HTTPException(status_code=409, detail="Mandate bundle did not pass design validation")
+    wanted = {
+        (AssetKind.MANDATE, mandate.object_id),
+        (AssetKind.RISK_POLICY, policy.object_id),
+    }
+    projections = [
+        item
+        for item in discover_registry_projections()
+        if (item.identity.kind, item.identity.asset_id) in wanted
+    ]
+    if len(projections) != 2:
+        raise HTTPException(status_code=409, detail="Exact mandate Registry projections are unavailable")
+    try:
+        documents, conflicts = registry_store().index_many(projections, actor=request.actor)
+    except (RegistryConflict, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    if conflicts:
+        raise HTTPException(status_code=409, detail="; ".join(conflicts))
+    return {
+        "registered": True,
+        "mandate_id": mandate.object_id,
+        "records": [document_payload(document) for document in documents],
+        "validation": validation,
+        "production_publication": False,
+        "effects": [],
+    }
+
+
+@app.get("/api/application/mandate")
+def mandate_application_catalogue() -> dict[str, Any]:
+    try:
+        return mandate_application_catalogue_data(registry_store())
+    except (KeyError, RegistryConflict, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/application/mandate/run")
+def mandate_application_run(request: MandateApplicationRequest) -> dict[str, Any]:
+    try:
+        return run_mandate_application(request, registry_store())
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Mandate application input was not found") from error
+    except (PermissionError, RegistryConflict, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/api/studios/capabilities/catalogue")
+def capability_studio_catalogue() -> dict[str, Any]:
+    return capability_catalogue()
+
+
+@app.post("/api/studios/capabilities/assess")
+def capability_studio_assessment(request: CapabilityAssessmentRequest) -> dict[str, Any]:
+    try:
+        assessment = assess_capability_requirement(request)
+        save_capability_design_session(request, assessment)
+        return assessment.model_dump(mode="json")
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.get("/api/studios/capabilities/design-sessions")
+def capability_studio_design_sessions() -> dict[str, Any]:
+    return {"sessions": list_capability_design_sessions()}
+
+
+@app.get("/api/studios/capabilities/design-sessions/{session_id}")
+def capability_studio_design_session(session_id: str) -> dict[str, Any]:
+    try:
+        return load_capability_design_session(session_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="capability design session not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.delete("/api/studios/capabilities/design-sessions/{session_id}")
+def capability_studio_delete_design_session(session_id: str) -> dict[str, Any]:
+    try:
+        return delete_capability_design_session(session_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="capability design session not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.get("/api/studios/capabilities/proposals")
+def capability_studio_proposals() -> dict[str, Any]:
+    return {"proposals": list_capability_proposals()}
+
+
+@app.post("/api/studios/capabilities/proposals")
+def capability_studio_create_proposal(request: CapabilityProposalCreateRequest) -> dict[str, Any]:
+    try:
+        return create_capability_proposal(request)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.post("/api/studios/capabilities/blueprints")
+def capability_studio_compile_blueprint(request: CapabilityProposalCreateRequest) -> dict[str, Any]:
+    return {
+        "decision": request.decision,
+        "blueprint": compile_capability_blueprint(request).model_dump(mode="json"),
+    }
+
+
+@app.post("/api/studios/capabilities/proposals/approve")
+def capability_studio_approve_blueprint(request: CapabilityProposalCreateRequest) -> dict[str, Any]:
+    try:
+        return approve_capability_blueprint(request)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/studios/design-proposals")
+def studio_design_proposal(request: StudioDesignProposalRequest) -> dict[str, Any]:
+    try:
+        return create_studio_design_proposal(request)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.delete("/api/studios/capabilities/proposals/{proposal_id}")
+def capability_studio_delete_proposal(proposal_id: str) -> dict[str, Any]:
+    try:
+        return delete_capability_proposal(proposal_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="capability proposal not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.post("/api/studios/capabilities/proposals/{proposal_id}/transition")
+def capability_studio_transition_proposal(
+    proposal_id: str,
+    request: CapabilityProposalTransitionRequest,
+) -> dict[str, Any]:
+    try:
+        return transition_capability_proposal(proposal_id, request)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="capability proposal not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/api/studios/capabilities/runs")
+def capability_studio_runs() -> dict[str, Any]:
+    return {"runs": list_capability_fixture_runs()}
+
+
+@app.post("/api/studios/capabilities/runs")
+def capability_studio_execute_run(request: CapabilityFixtureRunRequest) -> dict[str, Any]:
+    try:
+        return execute_capability_fixture(request)
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except Exception as error:
+        safe_type = re.sub(r"[^A-Za-z0-9_-]", "_", type(error).__name__)[:64]
+        raise HTTPException(status_code=502, detail=f"Capability fixture execution failed: {safe_type}") from error
+
+
+@app.get("/api/studios/capabilities/runs/{run_id}")
+def capability_studio_run(run_id: str) -> dict[str, Any]:
+    try:
+        return load_capability_fixture_run(run_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="capability fixture run not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.delete("/api/studios/capabilities/runs/{run_id}")
+def capability_studio_delete_run(run_id: str) -> dict[str, Any]:
+    try:
+        return delete_capability_fixture_run(run_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="capability fixture run not found") from error
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
 

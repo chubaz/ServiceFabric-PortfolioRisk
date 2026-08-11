@@ -76,7 +76,7 @@ class NarrativeValuePolicy(ImmutableDomainModel):
         return values
 
 
-class DossierSectionBrief(ImmutableDomainModel):
+class ArchitectureOutputField(ImmutableDomainModel):
     section_id: str = Field(pattern=r"^[a-z][a-z0-9_]{1,79}$")
     title: NonEmptyString
     question: str = Field(min_length=3, max_length=1200)
@@ -93,9 +93,9 @@ class DossierSectionBrief(ImmutableDomainModel):
         return values
 
 
-class PublicationValidationPolicy(ImmutableDomainModel):
+class OutputValidationPolicy(ImmutableDomainModel):
     deterministic_validation_required: Literal[True] = True
-    representative_dossier_human_review_required: Literal[True] = True
+    representative_output_human_review_required: Literal[True] = True
     fixture_cases: tuple[Literal["normal", "missing_data", "temporal_boundary", "adverse"], ...]
     exact_llm_wording_is_regression_target: Literal[False] = False
     required_agentic_checks: tuple[
@@ -105,7 +105,7 @@ class PublicationValidationPolicy(ImmutableDomainModel):
             "numbers_reconcile",
             "no_unsupported_claims",
             "empty_sections_allowed",
-            "safe_rendering",
+            "output_schema_valid",
         ],
         ...,
     ]
@@ -120,32 +120,32 @@ class RiskAnalysisPackageDefinition(ImmutableDomainModel):
     resolution_mode: Literal["hybrid"] = "hybrid"
     data_roles: tuple[SemanticDataRole, ...]
     capability_roles: tuple[CapabilityRole, ...]
-    dossier_sections: tuple[DossierSectionBrief, ...]
+    output_fields: tuple[ArchitectureOutputField, ...]
     temporal_envelope: TemporalEnvelope
     narrative_value_policy: NarrativeValuePolicy
-    publication_validation: PublicationValidationPolicy
+    output_validation: OutputValidationPolicy
     stable_core_with_supplemental_expansion: Literal[True] = True
     supplemental_work_may_mutate_published_core: Literal[False] = False
-    output_boundary: Literal["analysis_dossier"] = "analysis_dossier"
+    output_boundary: Literal["architecture_output"] = "architecture_output"
 
     @model_validator(mode="after")
     def package_members_are_unique_and_resolvable(self) -> "RiskAnalysisPackageDefinition":
         for label, values in (
             ("data role", [item.role_id for item in self.data_roles]),
             ("capability role", [item.role_id for item in self.capability_roles]),
-            ("dossier section", [item.section_id for item in self.dossier_sections]),
+            ("output field", [item.section_id for item in self.output_fields]),
         ):
             if len(values) != len(set(values)):
                 raise ValueError(f"{label} identifiers must be unique")
         capability_ids = {item.role_id for item in self.capability_roles}
-        for section in self.dossier_sections:
+        for section in self.output_fields:
             unknown = set(section.evidence_role_ids) - capability_ids
             if unknown:
                 raise ValueError(
-                    f"dossier section {section.section_id} references unknown capability roles: {sorted(unknown)}"
+                    f"output field {section.section_id} references unknown capability roles: {sorted(unknown)}"
                 )
         if not any(item.implementation_kind is CapabilityImplementationKind.AGENT_BACKED for item in self.capability_roles):
-            raise ValueError("an analysis dossier package requires a bounded agent-backed narrative role")
+            raise ValueError("an architecture output package requires a bounded agent-backed interpretation role")
         return self
 
 
@@ -198,15 +198,14 @@ DAILY_PORTFOLIO_DOWNSIDE_RISK_PACKAGE = RiskAnalysisPackageDefinition(
         CapabilityRole(role_id="summarize_exposure", objective="Calculate weights and concentration from the immutable snapshot.", implementation_kind="deterministic", input_contract="ExposureSummaryRequest", output_contract="ExposureSnapshot", default_implementation="portfolio.exposure.summarize"),
         CapabilityRole(role_id="attribute_return", objective="Reconcile constituent weighted-return contributions.", implementation_kind="deterministic", input_contract="ContributionSummaryRequest", output_contract="ContributionSummary", default_implementation="risk.contribution.summarize"),
         CapabilityRole(role_id="evaluate_scenario", objective="Evaluate one reviewed effect-free downside scenario.", implementation_kind="deterministic", input_contract="ScenarioRequest", output_contract="ScenarioResult", default_implementation="risk.scenario.evaluate", required=False),
-        CapabilityRole(role_id="render_evidence", objective="Render reviewed analytical results as safe Markdown and semantic HTML.", implementation_kind="deterministic", input_contract="ReportRequest", output_contract="RiskReport", default_implementation="risk.report.render"),
-        CapabilityRole(role_id="interpret_material_findings", objective="Select only valuable findings and draft concise cited dossier sections.", implementation_kind="agent_backed", input_contract="ValidatedRiskEvidencePacket", output_contract="DossierContribution", default_implementation="risk.agent.alert_recommendation"),
+        CapabilityRole(role_id="interpret_material_findings", objective="Select only valuable findings and populate cited ArchitectureOutput fields.", implementation_kind="agent_backed", input_contract="ValidatedRiskEvidencePacket", output_contract="ArchitectureOutputContribution", default_implementation="risk.agent.alert_recommendation"),
     ),
-    dossier_sections=(
-        DossierSectionBrief(section_id="material_signal", title="Material signal", question="What changed materially and why does it matter now?", evidence_role_ids=("estimate_volatility", "measure_drawdown", "estimate_var", "estimate_expected_shortfall"), max_words=90),
-        DossierSectionBrief(section_id="downside_profile", title="Downside profile", question="What does the joint loss distribution evidence reveal without repeating the signal?", evidence_role_ids=("estimate_volatility", "measure_drawdown", "estimate_var", "estimate_expected_shortfall"), max_words=150, format="mixed"),
-        DossierSectionBrief(section_id="drivers_and_exposure", title="Drivers and exposure", question="Which holdings or concentrations explain the material portfolio risk?", evidence_role_ids=("summarize_exposure", "attribute_return"), max_words=140, format="mixed"),
-        DossierSectionBrief(section_id="scenario_sensitivity", title="Scenario sensitivity", question="Does a reviewed downside scenario alter the risk interpretation?", evidence_role_ids=("evaluate_scenario",), max_words=120, format="mixed"),
-        DossierSectionBrief(section_id="uncertainty_and_review", title="Uncertainty and review", question="Which unresolved issue could change the conclusion or require human attention?", evidence_role_ids=("prepare_context", "render_evidence"), max_words=100),
+    output_fields=(
+        ArchitectureOutputField(section_id="material_signal", title="Material signal", question="What changed materially and why does it matter now?", evidence_role_ids=("estimate_volatility", "measure_drawdown", "estimate_var", "estimate_expected_shortfall"), max_words=90),
+        ArchitectureOutputField(section_id="downside_profile", title="Downside profile", question="What does the joint loss distribution evidence reveal without repeating the signal?", evidence_role_ids=("estimate_volatility", "measure_drawdown", "estimate_var", "estimate_expected_shortfall"), max_words=150, format="mixed"),
+        ArchitectureOutputField(section_id="drivers_and_exposure", title="Drivers and exposure", question="Which holdings or concentrations explain the material portfolio risk?", evidence_role_ids=("summarize_exposure", "attribute_return"), max_words=140, format="mixed"),
+        ArchitectureOutputField(section_id="scenario_sensitivity", title="Scenario sensitivity", question="Does a reviewed downside scenario alter the risk interpretation?", evidence_role_ids=("evaluate_scenario",), max_words=120, format="mixed"),
+        ArchitectureOutputField(section_id="uncertainty_and_review", title="Uncertainty and review", question="Which unresolved issue could change the conclusion or require human attention?", evidence_role_ids=("prepare_context",), max_words=100),
     ),
     temporal_envelope=TemporalEnvelope(as_of_binding="assignment.as_of"),
     narrative_value_policy=NarrativeValuePolicy(
@@ -214,9 +213,9 @@ DAILY_PORTFOLIO_DOWNSIDE_RISK_PACKAGE = RiskAnalysisPackageDefinition(
         dimensions=("portfolio_materiality", "mandate_relevance", "decision_relevance", "novelty", "evidence_strength", "time_sensitivity", "uncertainty_reduction"),
         penalties=("repetition", "unsupported_inference", "methodology_narration", "low_materiality"),
     ),
-    publication_validation=PublicationValidationPolicy(
+    output_validation=OutputValidationPolicy(
         fixture_cases=("normal", "missing_data", "temporal_boundary", "adverse"),
-        required_agentic_checks=("admitted_findings_only", "evidence_citations", "numbers_reconcile", "no_unsupported_claims", "empty_sections_allowed", "safe_rendering"),
+        required_agentic_checks=("admitted_findings_only", "evidence_citations", "numbers_reconcile", "no_unsupported_claims", "empty_sections_allowed", "output_schema_valid"),
     ),
 )
 

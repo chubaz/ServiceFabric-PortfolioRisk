@@ -33,6 +33,11 @@ draft -> isolated object test                    fixture + saved definitions
 
 ## 2. Terms
 
+Agent Studio authoring uses the normative bounded-context vocabulary in
+`docs/architecture/agent-studio-ubiquitous-language.md`. In particular,
+Blueprint Draft, Configuration Review, Material Finding, Development Proposal,
+Development Job and Registry Admission must not be used interchangeably.
+
 | Term | Exact meaning |
 |---|---|
 | Reusable definition | A system-level object with stable identity, version, source pointer and lifecycle. |
@@ -63,7 +68,7 @@ System Development owns singular object construction and its controlled applicat
 - future ProviderAdapter;
 - future PortfolioVersion and MandateVersion.
 
-Each Studio treats the reusable definition and its necessary companion capabilities as one development concern. A Dashboard Studio may therefore build both a `DashboardPackage` and the typed capabilities that validate, render or update it. This does not fuse their identities: each remains separately versioned, reviewable and least-privileged. Agent and Capability Studios add companion capabilities only for lifecycle or native framework gaps.
+Each active Studio treats the reusable definition and its necessary companion capabilities as one development concern. For example, a Risk Analysis Studio may build both an `AnalysisPackage` and the typed calculations that validate or execute it. This does not fuse their identities: each remains separately versioned, reviewable and least-privileged. Agent and Capability Studios add companion capabilities only for lifecycle or native framework gaps. Report and Dashboard presentation studios are deferred under ADR-0009.
 
 The first specialised Studio slice is the question-first
 `RiskAnalysisPackageDefinition`. It composes semantic data roles, validated

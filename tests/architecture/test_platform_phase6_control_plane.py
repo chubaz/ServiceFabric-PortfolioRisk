@@ -84,10 +84,12 @@ def test_system_overview_is_a_minimal_object_launcher() -> None:
     overview = html.split('<section class="lab-page active" id="lab-system"', 1)[1].split(
         '<section class="lab-page" id="lab-studio"', 1
     )[0]
-    assert overview.count('data-open-studio=') == 9
-    assert overview.count('role="button"') == 9
-    assert overview.count('tabindex="0"') == 9
-    assert "<h1" not in overview
+    # Reports, dashboards and investment theses are deferred to the post-thesis
+    # incubator; the overview exposes the six active research-system objects.
+    assert overview.count('data-open-studio=') == 6
+    assert overview.count('role="button"') == 6
+    assert overview.count('tabindex="0"') == 6
+    assert '<h1 id="lab-system-title">Research system components</h1>' in overview
     assert "definition-lifecycle" not in overview
     assert "registry-summary" not in overview
     assert "platform-terminology" not in overview
@@ -107,10 +109,10 @@ def test_secondary_development_tools_live_under_one_workbench_tab() -> None:
     assert "Studios" in system_tabs[1]
     assert "Workbench" in system_tabs[2]
     assert 'id="workbench-sidebar"' in html
-    assert html.count("data-workbench-workspace=") == 10
+    assert html.count("data-workbench-workspace=") == 9
     for workspace in (
         "dictionary", "portfolio", "agent", "graph", "dataset", "decisions",
-        "decision-diligence", "cycle",
+        "decision-diligence",
     ):
         assert f'data-workbench-workspace="{workspace}"' in html
     assert "const workbenchWorkspaces" in javascript
@@ -122,8 +124,8 @@ def test_studios_pair_objects_with_companion_capabilities_and_safe_codex_handoff
     html = read("apps/portfolio-risk-workbench/labs/index.html")
     javascript = read("apps/portfolio-risk-workbench/labs/labs.js")
     for studio in (
-        "capability", "scenario", "dashboard", "report", "portfolio_mandate",
-        "workflow", "provider_connector", "agent", "risk_analysis",
+        "capability", "scenario", "portfolio_mandate", "workflow",
+        "provider_connector", "agent", "risk_analysis",
     ):
         assert f'"studio_id": "{studio}"' in server
     assert "Companion capabilities" in html

@@ -16,6 +16,19 @@ from .models import (
     file_manifest,
 )
 from .store import ArtifactConflict, ArtifactNotFound, LocalArtifactRepository
+from .comparison import (
+    CONTROL_DIMENSIONS,
+    THESIS_DIMENSIONS,
+    VARIABLE_DIMENSIONS,
+    FileComparisonStatus,
+    RetainedRunAudit,
+    RetainedRunComparison,
+    RunDimension,
+    RunFileAudit,
+    RunFileComparison,
+    audit_retained_run,
+    compare_retained_runs,
+)
 from .legacy import (
     LegacyRunInvalid,
     LegacyRunPreview,
@@ -43,6 +56,17 @@ __all__ = [
     "ArtifactConflict",
     "ArtifactNotFound",
     "LocalArtifactRepository",
+    "CONTROL_DIMENSIONS",
+    "THESIS_DIMENSIONS",
+    "VARIABLE_DIMENSIONS",
+    "FileComparisonStatus",
+    "RetainedRunAudit",
+    "RetainedRunComparison",
+    "RunDimension",
+    "RunFileAudit",
+    "RunFileComparison",
+    "audit_retained_run",
+    "compare_retained_runs",
     "LegacyRunInvalid",
     "LegacyRunPreview",
     "compile_legacy_run",

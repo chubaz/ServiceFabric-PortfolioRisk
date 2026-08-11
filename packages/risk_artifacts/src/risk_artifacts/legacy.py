@@ -26,7 +26,7 @@ from .models import (
 
 
 ADAPTER_ID = "portfolio-risk.legacy-agent-run-adapter"
-ADAPTER_REVISION = "1.1.0"
+ADAPTER_REVISION = "1.2.0"
 RUN_ID_PATTERN = re.compile(r"run-[0-9]{8}T[0-9]{6}(?:Z|\+0000)-[a-f0-9]{8}")
 EXPECTED_FILES = (
     "activity.json",
@@ -45,7 +45,14 @@ EXPECTED_FILES = (
 CURRENT_EXPECTED_FILES = tuple(
     sorted((*EXPECTED_FILES, "report.json", "review-brief.html"))
 )
-SUPPORTED_INVENTORIES = (EXPECTED_FILES, CURRENT_EXPECTED_FILES)
+SEMANTIC_EXPECTED_FILES = tuple(
+    sorted((*CURRENT_EXPECTED_FILES, "semantic-verification.json"))
+)
+SUPPORTED_INVENTORIES = (
+    EXPECTED_FILES,
+    CURRENT_EXPECTED_FILES,
+    SEMANTIC_EXPECTED_FILES,
+)
 ROLE_BY_NAME = {
     "activity.json": "activity_log",
     "blueprint.json": "agent_blueprint_input",
@@ -56,6 +63,7 @@ ROLE_BY_NAME = {
     "model-executions.json": "model_receipts",
     "output.json": "structured_output",
     "research-plan.json": "research_plan",
+    "semantic-verification.json": "semantic_verification",
     "report.json": "report_envelope",
     "review-brief.html": "safe_rendered_report",
     "review-brief.md": "rendered_report",
@@ -68,6 +76,7 @@ PREVIEWABLE_SYNTHETIC = {
     "blueprint.json",
     "output.json",
     "research-plan.json",
+    "semantic-verification.json",
     "report.json",
     "review-brief.html",
     "review.json",
@@ -130,10 +139,28 @@ def _observation_identity(
             separators=(",", ":"),
         ).encode("utf-8")
     )
-    real = manifest.get("data_mode") == "real_duckdb"
-    truth = DataTruthClass.LICENSED_REAL if real else DataTruthClass.SYNTHETIC_SAMPLE
-    rights = RightsState.LICENSED_RESTRICTED if real else RightsState.INTERNAL
-    policy = "local.licensed.research.v1" if real else "internal.synthetic.research.v1"
+    mode = manifest.get("data_mode")
+    real = mode == "real_duckdb"
+    calibrated = mode == "historically_calibrated_synthetic"
+    truth = (
+        DataTruthClass.LICENSED_REAL
+        if real
+        else DataTruthClass.MIXED
+        if calibrated
+        else DataTruthClass.SYNTHETIC_SAMPLE
+    )
+    rights = (
+        RightsState.LICENSED_RESTRICTED
+        if real or calibrated
+        else RightsState.INTERNAL
+    )
+    policy = (
+        "local.licensed.research.v1"
+        if real
+        else "local.licensed-derived-synthetic.research.v1"
+        if calibrated
+        else "internal.synthetic.research.v1"
+    )
     artifact_id = f"retained-run-{inventory_digest[7:31]}"
     token = _digest(
         f"{ADAPTER_ID}|{ADAPTER_REVISION}|{run_id}|{inventory_digest}|{policy}".encode()

@@ -46,10 +46,11 @@ def test_phase3_storage_and_application_boundaries_are_explicit() -> None:
     assert "/api/experiments/draft" in server
     assert "/api/experiment-queue/" in server
     assert 'data-workspace="experiments"' in html
-    assert "System assets" in html
-    assert "Experiment overlays" in html
-    assert "Run outputs" in html
-    assert "Promotion" in html
+    assert 'id="experiment-system-asset"' in html
+    assert 'id="experiment-truth"' in html
+    assert 'id="experiment-queue-panel"' in html
+    assert "Run outputs stay in the Artifact Repository" in html
+    assert "Saving does not execute the workflow" in html
     launcher = read("apps/portfolio-risk-workbench/labs/start_live_data.sh")
     assert "packages/risk_experiments/src" in launcher
     assert 'git -C "$prototype_dir" rev-parse --show-toplevel' in launcher

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build ServiceFabric Agent"
+  short_description: "Build governed ServiceFabric agent candidates"
+  default_prompt: "Use $build-servicefabric-agent to turn an approved AgentBlueprint into a tested ServiceFabric candidate."

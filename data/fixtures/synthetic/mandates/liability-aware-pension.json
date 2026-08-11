@@ -1,0 +1,298 @@
+{
+  "fixture_kind": "synthetic-mandate-and-policy/v1",
+  "truth": "reviewed_synthetic",
+  "mandate": {
+    "namespace": "portfolio-risk.reference",
+    "object_id": "liability-aware-pension",
+    "version": "1.1.0",
+    "name": "Liability-aware pension mandate",
+    "objective": "Maintain funded resilience, sufficient liquidity and an investable asset mix that can meet modeled benefit obligations across the liability horizon.",
+    "horizon_seconds": 631152000,
+    "eligible_universe_reference": "universe:portfolio-risk.reference:pension-permitted-assets@1.0.0",
+    "constraints": [
+      {
+        "constraint_id": "duration-gap",
+        "category": "risk_budget",
+        "statement": "The absolute asset-liability duration gap should remain within two years under the reviewed liability model.",
+        "clause_type": "prospective_tolerance",
+        "system_treatment": "prospective_assessment",
+        "source_clause_reference": "uk-pensions-sip#synthetic-liability-adaptation"
+      },
+      {
+        "constraint_id": "funding-ratio",
+        "category": "risk_budget",
+        "statement": "A modeled funded ratio below 95% requires a formal funding and investment-risk review.",
+        "clause_type": "monitoring_trigger",
+        "system_treatment": "alert_trigger",
+        "source_clause_reference": "calpers-policy#synthetic-funded-status-adaptation"
+      },
+      {
+        "constraint_id": "illiquid-assets",
+        "category": "liquidity",
+        "statement": "Assets classified as illiquid must not exceed 25% of total plan assets under the reviewed liquidity classification.",
+        "clause_type": "hard_constraint",
+        "system_treatment": "compliance_test",
+        "source_clause_reference": "uk-pensions-sip#synthetic-realisation-adaptation"
+      },
+      {
+        "constraint_id": "liability-data-freshness",
+        "category": "other",
+        "statement": "Liability cash-flow and benefit-outflow assumptions must have a reviewed valuation date no more than twelve months before the experiment as-of time.",
+        "clause_type": "governance_rule",
+        "system_treatment": "decision_gate",
+        "source_clause_reference": "uk-pensions-sip#synthetic-governance-adaptation"
+      },
+      {
+        "constraint_id": "liquidity-coverage",
+        "category": "liquidity",
+        "statement": "Liquid assets must cover at least 1.2 times the modeled twelve-month net benefit outflow.",
+        "clause_type": "hard_constraint",
+        "system_treatment": "compliance_test",
+        "source_clause_reference": "uk-pensions-sip#synthetic-realisation-adaptation"
+      },
+      {
+        "constraint_id": "return-relative-to-liabilities",
+        "category": "objective",
+        "statement": "Evaluate whether the long-horizon expected real return remains sufficient relative to the reviewed liability discount and inflation assumptions; shortfall is an objective finding, not an automatic breach.",
+        "clause_type": "objective",
+        "system_treatment": "objective_evaluation",
+        "source_clause_reference": "calpers-policy#synthetic-return-adaptation"
+      },
+      {
+        "constraint_id": "scenario-loss",
+        "category": "loss",
+        "statement": "A reviewed severe but plausible scenario loss above 10% of NAV requires Investment Committee review.",
+        "clause_type": "monitoring_trigger",
+        "system_treatment": "alert_trigger",
+        "source_clause_reference": "calpers-policy#synthetic-risk-adaptation"
+      }
+    ],
+    "sources": [
+      {
+        "source_id": "calpers-policy",
+        "title": "CalPERS Total Fund Investment Policy materials",
+        "source_kind": "public_reference",
+        "reference": "https://www.calpers.ca.gov/investments/about-investment-office/policies",
+        "authority_effect": "reference_only",
+        "note": "Used as institutional risk-governance reference; every threshold in this research fixture is synthetic."
+      },
+      {
+        "source_id": "uk-pensions-sip",
+        "title": "The Pensions Regulator: Statements of investment principles",
+        "source_kind": "public_reference",
+        "reference": "https://www.thepensionsregulator.gov.uk/en/document-library/code-of-practice/funding-and-investment/investment/statement-of-investment-principles",
+        "authority_effect": "reference_only",
+        "note": "Used to inform the pension-liability archetype; it has no regulatory effect in this research fixture."
+      }
+    ],
+    "capability_requirements": [
+      {
+        "capability_reference": "capability:risk:portfolio.data_context.create@1.0.0",
+        "purpose": "resolve_data",
+        "constraint_ids": ["duration-gap", "funding-ratio", "illiquid-assets", "liability-data-freshness", "liquidity-coverage", "return-relative-to-liabilities"]
+      },
+      {
+        "capability_reference": "capability:risk:portfolio.exposure.summarize@1.0.0",
+        "purpose": "evaluate_compliance",
+        "constraint_ids": ["funding-ratio", "illiquid-assets", "liquidity-coverage"]
+      },
+      {
+        "capability_reference": "capability:risk:risk.returns.simple@1.0.0",
+        "purpose": "evaluate_compliance",
+        "constraint_ids": ["return-relative-to-liabilities"]
+      },
+      {
+        "capability_reference": "capability:risk:risk.scenario.evaluate@1.0.0",
+        "purpose": "evaluate_scenario",
+        "constraint_ids": ["duration-gap", "funding-ratio", "liquidity-coverage", "scenario-loss"]
+      }
+    ],
+    "data_requirements": [
+      {
+        "data_role": "asset_cashflow_schedule",
+        "description": "Projected contractual and modeled asset cash flows used in asset-liability duration analysis.",
+        "value_kind": "schedule",
+        "unit": "base_currency",
+        "temporal_basis": "forecast",
+        "confidentiality": "confidential",
+        "constraint_ids": ["duration-gap"]
+      },
+      {
+        "data_role": "benefit_outflow_forecast",
+        "description": "Versioned forecast of gross benefit payments and expected contribution inflows over the next twelve months.",
+        "value_kind": "schedule",
+        "unit": "base_currency",
+        "temporal_basis": "forecast",
+        "confidentiality": "restricted",
+        "constraint_ids": ["liability-data-freshness", "liquidity-coverage"]
+      },
+      {
+        "data_role": "discount_curve",
+        "description": "Point-in-time liability discount curve and its reviewed methodology version.",
+        "value_kind": "curve",
+        "unit": "annualized_rate",
+        "temporal_basis": "current",
+        "confidentiality": "confidential",
+        "constraint_ids": ["duration-gap", "funding-ratio", "return-relative-to-liabilities"]
+      },
+      {
+        "data_role": "funded_status_inputs",
+        "description": "Reviewed plan asset value and actuarial present value of projected benefit obligations.",
+        "value_kind": "table",
+        "unit": "base_currency",
+        "temporal_basis": "current",
+        "confidentiality": "restricted",
+        "constraint_ids": ["funding-ratio"]
+      },
+      {
+        "data_role": "illiquidity_classification",
+        "description": "Versioned instrument or holding classification identifying assets not realizable within the mandate liquidity horizon.",
+        "value_kind": "table",
+        "temporal_basis": "current",
+        "confidentiality": "internal",
+        "constraint_ids": ["illiquid-assets"]
+      },
+      {
+        "data_role": "inflation_forecast",
+        "description": "Reviewed point-in-time inflation assumption used to express expected return in real terms.",
+        "value_kind": "time_series",
+        "unit": "annualized_rate",
+        "temporal_basis": "forecast",
+        "confidentiality": "internal",
+        "constraint_ids": ["return-relative-to-liabilities"]
+      },
+      {
+        "data_role": "liability_cashflow_schedule",
+        "description": "Versioned projected liability cash flows with valuation date and model provenance.",
+        "value_kind": "schedule",
+        "unit": "base_currency",
+        "temporal_basis": "forecast",
+        "confidentiality": "restricted",
+        "constraint_ids": ["duration-gap", "liability-data-freshness"]
+      },
+      {
+        "data_role": "sponsor_contribution_schedule",
+        "description": "Versioned expected sponsor and participant contributions used to calculate net benefit outflow.",
+        "value_kind": "schedule",
+        "unit": "base_currency",
+        "temporal_basis": "forecast",
+        "confidentiality": "restricted",
+        "constraint_ids": ["liquidity-coverage"]
+      }
+    ],
+    "applicable_law_notes": [
+      "Pension regulation is mentioned for provenance only; no regulatory rule is interpreted or enforced."
+    ],
+    "effective_from": "2024-01-01T00:00:00Z"
+  },
+  "risk_policy": {
+    "namespace": "portfolio-risk.reference",
+    "object_id": "liability-aware-pension-policy",
+    "version": "1.1.0",
+    "name": "Liability-aware pension policy",
+    "rules": [
+      {
+        "rule_id": "duration-gap",
+        "mandate_constraint_id": "duration-gap",
+        "system_treatment": "prospective_assessment",
+        "capability_reference": "capability:risk:risk.scenario.evaluate@1.0.0",
+        "metric_reference": "metric:risk:absolute-duration-gap-years@1.0.0",
+        "operator": "lte",
+        "threshold": "2.0",
+        "unit": "years",
+        "evaluation_basis": "forecast",
+        "severity": "warning",
+        "escalation": "human_review",
+        "governance_route": {"outcome": "request_review", "governance_level": "risk_officer", "decision_policy_reference": "decision-policy:portfolio-risk:asset-liability-review@1.0.0"}
+      },
+      {
+        "rule_id": "funding-ratio",
+        "mandate_constraint_id": "funding-ratio",
+        "system_treatment": "alert_trigger",
+        "capability_reference": "capability:risk:risk.scenario.evaluate@1.0.0",
+        "metric_reference": "metric:risk:pension-funded-ratio@1.0.0",
+        "operator": "gte",
+        "threshold": "0.95",
+        "unit": "coverage_ratio",
+        "denominator": "projected_benefit_obligation_present_value",
+        "evaluation_basis": "current",
+        "severity": "critical",
+        "escalation": "decision_required",
+        "governance_route": {"outcome": "require_decision", "governance_level": "investment_committee", "decision_policy_reference": "decision-policy:portfolio-risk:pension-funding@1.0.0"}
+      },
+      {
+        "rule_id": "illiquid-assets",
+        "mandate_constraint_id": "illiquid-assets",
+        "system_treatment": "compliance_test",
+        "capability_reference": "capability:risk:portfolio.exposure.summarize@1.0.0",
+        "metric_reference": "metric:risk:illiquid-asset-weight@1.0.0",
+        "operator": "lte",
+        "threshold": "0.25",
+        "unit": "portfolio_weight",
+        "denominator": "plan_assets",
+        "evaluation_basis": "current",
+        "severity": "breach",
+        "escalation": "decision_required",
+        "governance_route": {"outcome": "require_decision", "governance_level": "risk_officer", "decision_policy_reference": "decision-policy:portfolio-risk:pension-illiquidity@1.0.0"}
+      },
+      {
+        "rule_id": "liability-data-freshness",
+        "mandate_constraint_id": "liability-data-freshness",
+        "system_treatment": "decision_gate",
+        "capability_reference": "capability:risk:portfolio.data_context.create@1.0.0",
+        "metric_reference": "metric:data:liability-valuation-age-days@1.0.0",
+        "operator": "lte",
+        "threshold": "365",
+        "unit": "days",
+        "evaluation_basis": "current",
+        "severity": "critical",
+        "escalation": "decision_required",
+        "governance_route": {"outcome": "require_decision", "governance_level": "risk_officer", "decision_policy_reference": "decision-policy:portfolio-risk:liability-data-readiness@1.0.0"}
+      },
+      {
+        "rule_id": "liquidity-coverage",
+        "mandate_constraint_id": "liquidity-coverage",
+        "system_treatment": "compliance_test",
+        "capability_reference": "capability:risk:risk.scenario.evaluate@1.0.0",
+        "metric_reference": "metric:risk:twelve-month-liquidity-coverage@1.0.0",
+        "operator": "gte",
+        "threshold": "1.20",
+        "unit": "coverage_ratio",
+        "denominator": "modeled_twelve_month_net_benefit_outflow",
+        "evaluation_basis": "forecast",
+        "severity": "critical",
+        "escalation": "decision_required",
+        "governance_route": {"outcome": "require_decision", "governance_level": "investment_committee", "decision_policy_reference": "decision-policy:portfolio-risk:pension-liquidity@1.0.0"}
+      },
+      {
+        "rule_id": "return-relative-to-liabilities",
+        "mandate_constraint_id": "return-relative-to-liabilities",
+        "system_treatment": "objective_evaluation",
+        "capability_reference": "capability:risk:risk.returns.simple@1.0.0",
+        "metric_reference": "metric:risk:expected-real-return-liability-hurdle-spread@1.0.0",
+        "operator": "gte",
+        "threshold": "0.0",
+        "unit": "annualized_return",
+        "evaluation_basis": "forecast",
+        "severity": "warning",
+        "escalation": "human_review",
+        "governance_route": {"outcome": "request_review", "governance_level": "investment_committee", "decision_policy_reference": "decision-policy:portfolio-risk:pension-return-objective@1.0.0"}
+      },
+      {
+        "rule_id": "scenario-loss",
+        "mandate_constraint_id": "scenario-loss",
+        "system_treatment": "alert_trigger",
+        "capability_reference": "capability:risk:risk.scenario.evaluate@1.0.0",
+        "metric_reference": "metric:risk:scenario-loss-nav@1.0.0",
+        "operator": "lte",
+        "threshold": "0.10",
+        "unit": "portfolio_weight",
+        "denominator": "portfolio_nav",
+        "evaluation_basis": "scenario",
+        "severity": "critical",
+        "escalation": "decision_required",
+        "governance_route": {"outcome": "require_decision", "governance_level": "investment_committee", "decision_policy_reference": "decision-policy:portfolio-risk:scenario-loss@1.0.0"}
+      }
+    ]
+  }
+}

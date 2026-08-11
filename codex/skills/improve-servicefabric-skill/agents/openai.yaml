@@ -1,0 +1,4 @@
+interface:
+  display_name: "Improve ServiceFabric Skill"
+  short_description: "Turn run evidence into a safer skill revision"
+  default_prompt: "Use $improve-servicefabric-skill to propose a validated skill update from a completed Studio-Codex run."

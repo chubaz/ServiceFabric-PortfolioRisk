@@ -766,3 +766,23 @@ class LocalArtifactRepository:
         if len(content) != item.size_bytes or _sha256(content) != item.content_digest:
             raise ArtifactConflict("artifact file failed integrity verification")
         return content, item.media_type
+
+    def read_file_for_audit(self, artifact_id: str, path: str) -> tuple[bytes, str]:
+        """Read immutable bytes for an internal integrity/audit process.
+
+        This does not relax browser preview or download policy. Callers must not
+        return the bytes directly; the method exists so governed services can
+        validate complete restricted bundles without inventing a second file
+        access path.
+        """
+
+        record = self.get(artifact_id)
+        if record.state in {ArtifactLifecycleState.TOMBSTONED, ArtifactLifecycleState.DELETED}:
+            raise ArtifactConflict("tombstoned or deleted artifacts cannot be audited")
+        item = next((candidate for candidate in record.manifest.files if candidate.path == path), None)
+        if item is None:
+            raise ArtifactNotFound(path)
+        content = self._safe_read(self._blob_path(item.content_digest), label="artifact audit blob")
+        if len(content) != item.size_bytes or _sha256(content) != item.content_digest:
+            raise ArtifactConflict("artifact file failed integrity verification")
+        return content, item.media_type

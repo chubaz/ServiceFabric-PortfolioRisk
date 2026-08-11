@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -28,14 +29,14 @@ def test_reviewed_synthetic_package_run_uses_capabilities_and_persists_review(
     assert manifest["status"] == "completed"
     assert manifest["data_truth"] == "reviewed_synthetic"
     assert manifest["narrative_mode"] == "deterministic_preview"
-    assert manifest["capability_call_count"] == 9
+    assert manifest["capability_call_count"] == 8
     assert manifest["finding_count"] == 3
     assert manifest["human_review_required"] is True
     assert manifest["effects"] == []
     assert Path(manifest["folder"]).parent == tmp_path
 
     receipts = contents["capability-receipts.json"]
-    assert [item["sequence"] for item in receipts] == list(range(1, 10))
+    assert [item["sequence"] for item in receipts] == list(range(1, 9))
     assert all(item["status"] == "succeeded" for item in receipts)
     assert all(item["effects"] == [] for item in receipts)
     assert {item["resolved_implementation"] for item in receipts} == {
@@ -43,7 +44,6 @@ def test_reviewed_synthetic_package_run_uses_capabilities_and_persists_review(
         "risk.contribution.summarize",
         "risk.drawdown.maximum",
         "risk.expected_shortfall.historical",
-        "risk.report.render",
         "risk.returns.simple",
         "risk.scenario.evaluate",
         "risk.var.historical",
@@ -56,8 +56,8 @@ def test_reviewed_synthetic_package_run_uses_capabilities_and_persists_review(
         "output_tokens": 0,
         "reason": "deterministic preview selected",
     }
-    assert contents["report-validation.json"]["valid"] is True
-    assert "Northstar Industries" in contents["dossier.html"]
+    assert contents["output-validation.json"]["valid"] is True
+    assert "Northstar Industries" in json.dumps(contents["architecture-output.json"])
     assert contents["input.json"]["fixture"]["evidence_packet"]["data_truth"] == "reviewed_synthetic"
 
     required_files = {
@@ -66,20 +66,16 @@ def test_reviewed_synthetic_package_run_uses_capabilities_and_persists_review(
         "capability-receipts.json",
         "analysis-results.json",
         "candidate-findings.json",
-        "narrative-output.json",
+        "architecture-output.json",
+        "output-validation.json",
         "model-receipt.json",
-        "report-plan.json",
-        "report.json",
-        "report-validation.json",
-        "dossier.md",
-        "dossier.html",
         "manifest.json",
     }
     assert required_files <= {item["name"] for item in manifest["files"]}
 
     loaded = runtime.load_package_run(manifest["run_id"])
     assert loaded["manifest"]["run_id"] == manifest["run_id"]
-    assert loaded["contents"]["report.json"]["rendered_html"]
+    assert loaded["contents"]["architecture-output.json"]["effects"] == []
     assert runtime.list_package_runs()[0]["run_id"] == manifest["run_id"]
 
     deletion = runtime.delete_package_run(manifest["run_id"])
@@ -99,7 +95,13 @@ def test_package_run_repository_rejects_unsafe_identifiers(
 
 
 def test_live_narrative_is_an_explicit_mode_without_implicit_provider_call() -> None:
-    request = runtime.PackageRunRequest(narrative_mode="live_llm", model="gpt-5.6-terra")
+    request = runtime.PackageRunRequest(narrative_mode="live_llm")
 
     assert request.narrative_mode == "live_llm"
-    assert request.model == "gpt-5.6-terra"
+    assert request.model == "gpt-5.6-luna"
+
+    for disallowed_model in ("gpt-5.5", "gpt-5.4"):
+        with pytest.raises(ValueError):
+            runtime.PackageRunRequest(
+                narrative_mode="live_llm", model=disallowed_model
+            )

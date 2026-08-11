@@ -29,11 +29,11 @@ def test_catalogue_preview_is_truthful_and_covers_each_kind(
         "agent",
         "capability",
         "evaluation",
-        "report",
-        "dashboard",
         "scenario",
-            "workflow",
-            "risk_analysis_package",
+        "workflow",
+        "risk_analysis_package",
+        "mandate",
+        "risk_policy",
     }
     assert result["states"] == {"discovered": len(result["records"])}
     assert all(record["indexed"] is False for record in result["records"])
@@ -64,11 +64,30 @@ def test_bootstrap_preview_declares_count_and_consequence_without_writing(
     preview = duckdb_server.preview_registry_bootstrap(
         duckdb_server.RegistryBootstrapRequest(actor="test.reviewer")
     )
-    assert preview["would_index"] == preview["discovered"] == 45
+    assert preview["would_index"] == preview["discovered"] == len(
+        duckdb_server.discover_registry_projections()
+    )
     assert preview["already_indexed"] == 0
     assert preview["conflicts"] == []
     assert "do not copy, run, deploy" in preview["consequence"]
     assert duckdb_server.registry_store().list() == []
+
+
+def test_user_facing_objects_are_preserved_only_in_the_incubator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PORTFOLIO_RISK_REGISTRY_ROOT", str(tmp_path / "registry"))
+    active_kinds = {
+        item.identity.kind for item in duckdb_server.discover_registry_projections()
+    }
+    assert duckdb_server.AssetKind.REPORT not in active_kinds
+    assert duckdb_server.AssetKind.DASHBOARD not in active_kinds
+    incubator = duckdb_server.incubator_catalogue()
+    assert incubator["status"] == "incubator"
+    assert incubator["active_registry_discovery"] is False
+    assert {item["object_kind"] for item in incubator["objects"]} == {
+        "report", "dashboard", "investment_thesis"
+    }
 
 
 def test_item_lifecycle_detail_and_source_drift_receipt(

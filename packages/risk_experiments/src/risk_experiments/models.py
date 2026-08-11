@@ -149,6 +149,8 @@ class ExperimentDefinition(FrozenModel):
     data_truth: DataTruth
     source_bindings: tuple[SourceBinding, ...] = Field(min_length=4, max_length=32)
     system_assets: tuple[RegistryIdentity, ...] = ()
+    scientific_design: RegistryIdentity | None = None
+    object_set: RegistryIdentity | None = None
     overlays: tuple[ExperimentOverlay, ...] = ()
     budget: ExperimentBudget = ExperimentBudget()
     retention_policy: str = Field(default="experiment_evidence", pattern=IDENTIFIER)
@@ -178,14 +180,29 @@ class ExperimentDefinition(FrozenModel):
         )
         if required_asset not in asset_kinds:
             raise ValueError(f"{self.presentation_mode.value} requires a registered {required_asset} asset")
+        if (
+            self.scientific_design is not None
+            and self.scientific_design.kind.value != "scientific_design"
+        ):
+            raise ValueError("scientific_design must reference a registered scientific-design pack")
+        if self.object_set is not None and self.object_set.kind.value != "experiment_object_set":
+            raise ValueError("object_set must reference a registered experiment-object set")
+        if self.object_set is not None and self.scientific_design is None:
+            raise ValueError("an experiment object set requires a scientific-design identity")
         overlay_ids = [item.overlay_id for item in self.overlays]
         if overlay_ids != sorted(set(overlay_ids)):
             raise ValueError("overlays must be uniquely and deterministically ordered")
         payload = self.model_dump(mode="json", exclude={"definition_digest"})
         expected = canonical_digest(payload)
-        if self.definition_digest is not None and self.definition_digest != expected:
+        accepted = {expected}
+        if self.scientific_design is None and self.object_set is None:
+            legacy_payload = dict(payload)
+            legacy_payload.pop("scientific_design", None)
+            legacy_payload.pop("object_set", None)
+            accepted.add(canonical_digest(legacy_payload))
+        if self.definition_digest is not None and self.definition_digest not in accepted:
             raise ValueError("definition_digest does not match canonical content")
-        object.__setattr__(self, "definition_digest", expected)
+        object.__setattr__(self, "definition_digest", self.definition_digest or expected)
         return self
 
 

@@ -1,0 +1,42 @@
+schema_version: portfolio-risk.incubator/v1
+decision_id: DEFER-USER-FACING-OBJECTS-001
+status: incubator
+active_registry_discovery: false
+active_studio: false
+active_experiment_dependency: false
+effective_date: '2026-08-11'
+reason: >-
+  Reports and dashboards are presentation objects and are not required to
+  answer the thesis architecture questions. Investment theses would require a
+  separate portfolio-specific research design. All three are deferred until
+  after the thesis, except for a separately approved visual demonstration.
+objects:
+  - object_kind: report
+    disposition: preserved_in_incubator
+    prior_sources:
+      - packages/risk_reports
+      - packages/risk_analytics/src/risk_analytics/reports.py
+      - packages/risk_analytics/src/risk_analytics/monitoring_reports.py
+      - examples/portfolio-risk-thesis/src/portfolio_risk_thesis/day4/report.py
+      - apps/portfolio-risk-workbench/labs/agent_studio.py#historical-report-compatibility
+      - apps/portfolio-risk-workbench/labs/index.html#lab-cycle
+      - apps/portfolio-risk-workbench/labs/labs.js#workflow-cycle
+    active_replacement: architecture_output
+  - object_kind: dashboard
+    disposition: preserved_in_incubator
+    prior_sources:
+      - examples/portfolio-risk-thesis/src/portfolio_risk_thesis/day4/report.py
+      - apps/portfolio-risk-workbench/templates/dashboard.html
+      - apps/portfolio-risk-workbench/labs/index.html#lab-cycle
+      - apps/portfolio-risk-workbench/labs/labs.js#workflow-cycle
+    active_replacement: structured_run_result
+  - object_kind: investment_thesis
+    disposition: deferred_research_only
+    prior_sources:
+      - apps/portfolio-risk-workbench/labs/DEVELOPMENT_ROADMAP.md
+    active_replacement: null
+reactivation_requirements:
+  - Thesis architecture experiments are complete or the object is required for an approved visual demonstration.
+  - Presentation behavior is evaluated separately from architecture reasoning.
+  - No presentation instruction or renderer is included in a headless architecture run.
+  - Existing historical files and Registry records remain readable and immutable.

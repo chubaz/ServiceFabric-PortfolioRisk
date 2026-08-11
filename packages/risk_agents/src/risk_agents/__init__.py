@@ -8,6 +8,12 @@ from risk_domain.monitoring import ContextualMonitoringRequest, ContextualMonito
 from .roles import ACTIVE_AGENT_ROLE_IDS, AGENT_ROLES, ROLE_BY_ID, validate_role_cards
 from .analysis import AnalysisPlanStep, Day1AnalysisRunRequest, DeterministicAnalysisOrchestrator
 from .timeline import AgentTimeline, AgentTimelineStep, CapabilityReceipt, ReviewCheckpoint
+from .artifacts import (
+    AgentCapabilityUse, AgentDecisionByproduct, AgentDecisionProposal,
+    AgentEvaluationByproducts, AgentFindingArtifact, AgentFindingByproduct,
+    AgentPresentationArtifact, AgentStructuredOutput, AgentWorkArtifact,
+)
+from .experimental_wrapper import AgentExecutionEnvelope, AgentRuntimeTelemetry, wrap_agent_execution
 
 __all__ = [
     "AGENT_ROLES",
@@ -33,4 +39,16 @@ __all__ = [
     "AnalysisPlanStep",
     "Day1AnalysisRunRequest",
     "DeterministicAnalysisOrchestrator",
+    "AgentDecisionProposal",
+    "AgentDecisionByproduct",
+    "AgentCapabilityUse",
+    "AgentFindingArtifact",
+    "AgentFindingByproduct",
+    "AgentEvaluationByproducts",
+    "AgentPresentationArtifact",
+    "AgentStructuredOutput",
+    "AgentWorkArtifact",
+    "AgentExecutionEnvelope",
+    "AgentRuntimeTelemetry",
+    "wrap_agent_execution",
 ]

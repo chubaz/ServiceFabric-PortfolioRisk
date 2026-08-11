@@ -307,23 +307,31 @@
     },
     {
       "path": "labs/README.md",
-      "sha256": "c8201032426988c256fd447890f4e9a7a7a52e4c118ff7a2d43357aa581056ed"
+      "sha256": "71458338e703dff7703d330e427a3c96b27512588b198c9e89672cee3b2fef5a"
     },
     {
       "path": "labs/agent_studio.py",
-      "sha256": "85a3506126d622b872b7c2204f9a3b808d7c125a2f42c0b10621750bef649823"
+      "sha256": "a21a3524edcb736cda3db8a853cd076147be43708fdd80c42d7ca49da7c8f006"
+    },
+    {
+      "path": "labs/agent_treatment_runtime.py",
+      "sha256": "aca9bc42f197ab793685b8157a14b3ecf83422fe725b344c22b5895e1a6f948d"
     },
     {
       "path": "labs/artifact_repository.py",
-      "sha256": "6f656a2d8d90f50b91725feb39a5411bc9577b108d2568629921d465f4f8190d"
+      "sha256": "8a2ed303564c3ad819f023948afd18b7dad0268e372c3618835f74ef0fb9e185"
     },
     {
       "path": "labs/app.js",
       "sha256": "a1c90b2af2c460af3cdfc04ca4afa8b046321decb378c163c97d7637fd93f56e"
     },
     {
+      "path": "labs/capability_studio.py",
+      "sha256": "3ecc4f33da4c1abff24036d1b2ec3440a90d5344c59330d12406c8e82013efc2"
+    },
+    {
       "path": "labs/duckdb_server.py",
-      "sha256": "889a34b983350ee182447cb1d3c64e7c579d9d8e2d32aef092be39012e138c35"
+      "sha256": "018ea99c5f93c66537483e5ff8f6c82c4f5a93d3a573bfe5a8effc12f29b95f1"
     },
     {
       "path": "labs/decision_review.py",
@@ -331,31 +339,67 @@
     },
     {
       "path": "labs/experiment_workspace.py",
-      "sha256": "14c4ca149a10f737fe2c13a097bcab6f23a40352df6276dc33850247cd83d302"
+      "sha256": "9d3fa3d16a2649d8ecc6af0d45310912e878c5a742f3ceeba839066cb8e3fbcf"
+    },
+    {
+      "path": "labs/experiment_run_audit.py",
+      "sha256": "6dccf34d35c0a5094266969a7e133853d2d65bf696ef84d2db3f08b074ca5c31"
+    },
+    {
+      "path": "labs/experimental_program_runtime.py",
+      "sha256": "270ad9c129c4d0f4bd80e307dce1cb7dabe7dd192e5131487aa501fe2076a08e"
+    },
+    {
+      "path": "labs/fixture_context_runtime.py",
+      "sha256": "e18745d1a3b6e89d4cbf15e0abd3e6f9bed27efc1baa2209125ae6af90198cf7"
+    },
+    {
+      "path": "labs/historical_replay_runtime.py",
+      "sha256": "a81add529685f98bd96ee8544ddd3594da050d00ec942af755d255c918cdff0b"
     },
     {
       "path": "labs/index.html",
-      "sha256": "2ba3b2f0e407cb907f599c0826b6bfaa1638ebc11874093665b24aa2153d8da4"
+      "sha256": "e061edce0576e6b863b8e6539a744c5efb95529d5fb50193458ee2e1d84ffdb5"
     },
     {
       "path": "labs/labs.js",
-      "sha256": "a2e7bcdb2569a5071d8947ef443485f676b0dfd6c68d4daccd9339b5dd5daca3"
+      "sha256": "1ad47bc56bbe21beec1add6593ba55d28ddce6969aee8641213cc9ae37e75b4b"
+    },
+    {
+      "path": "labs/mandate_studio.py",
+      "sha256": "2608f821a81147dd43b0585e667b6d9815383513c997d537f9460d4467c59ed0"
+    },
+    {
+      "path": "labs/mandate_application.py",
+      "sha256": "c3a2929b2eecb882327248a670455bc8b278d89dce316a9827190de3fc402080"
+    },
+    {
+      "path": "labs/professional.css",
+      "sha256": "9d0852fd381d62aa738e4eaf3d3edbda46076d410ba4a36f70d7d09f28a21392"
     },
     {
       "path": "labs/registry_sources.py",
-      "sha256": "e76f51e4b567bc321e84cedb056c2d78d602590aa696ceff388b19a0be232b6c"
+      "sha256": "11b202b86bf49059cbfacee46e6cd28fc22af44b9fa16096f16d6a07cd62f76f"
     },
     {
       "path": "labs/risk_analysis_package_runtime.py",
-      "sha256": "4a76ccd840b018562f74fc8f442b9c1c924f427ee8dd64747e7d7ca323ba95b6"
+      "sha256": "5963f1b6a14091e4eae9a350646ef0b1862a00a209a471e2818418f6c938753b"
+    },
+    {
+      "path": "labs/run_trace_runtime.py",
+      "sha256": "14432d603609b4fcc1b3ee9506ab7b44acd9240b115b4ba858ad1ee42d3fe13e"
+    },
+    {
+      "path": "labs/studio_codex.py",
+      "sha256": "1bd10e588bf91e12b7c8f68e4a040a1ef325f18f59eb610d7381f2bbac04c70a"
     },
     {
       "path": "labs/start_live_data.sh",
-      "sha256": "16eba58bb5fc2cc0c0d5f01fa5797d9c7becd8919ee7ce6702cf7aaee3ecb504"
+      "sha256": "aa16ec26c90211e2b01c58076d80eb7fd8e7f52aa26116c78d5384277d011613"
     },
     {
       "path": "labs/styles.css",
-      "sha256": "d635f11eb2332defa5be4179a10db2f539fa384d6cae1fadfb1dc56b1e271525"
+      "sha256": "f6334c7003366cc63fe3f37c9c60741a43a59f8f0b44951736ee87cdd0eca3f5"
     },
     {
       "path": "labs/workflow_cycle_runtime.py",
@@ -363,7 +407,7 @@
     },
     {
       "path": "labs/DEVELOPMENT_ROADMAP.md",
-      "sha256": "df77361924afbeb10c24faa9355c7a918fa6e56500197b6c20347664eed0452b"
+      "sha256": "3d608f4e36007a7eb7c850655c128e8f6e126ab9181832ef4701cc9cd427fc3a"
     },
     {
       "path": "labs/EXTERNAL_ADAPTERS_DISCUSSION_BRIEF.md",

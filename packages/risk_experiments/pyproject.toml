@@ -7,7 +7,7 @@ name = "risk-experiments"
 version = "0.1.0"
 description = "Governed experiment definitions, lifecycle, and local queue projections."
 requires-python = ">=3.11,<3.12"
-dependencies = ["pydantic>=2,<3", "risk-registry"]
+dependencies = ["pydantic>=2,<3", "risk-agents", "risk-registry"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

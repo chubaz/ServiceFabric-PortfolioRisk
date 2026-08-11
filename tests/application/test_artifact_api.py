@@ -13,6 +13,7 @@ LABS_ROOT = ROOT / "apps" / "portfolio-risk-workbench" / "labs"
 sys.path.insert(0, str(LABS_ROOT))
 
 import duckdb_server  # noqa: E402
+import artifact_repository  # noqa: E402
 from risk_artifacts.legacy import EXPECTED_FILES  # noqa: E402
 
 
@@ -89,6 +90,8 @@ def test_explicit_admission_catalogue_detail_preview_and_archive(
         "need_attention": 0,
     }
     assert "root" not in json.dumps(catalogue).lower()
+    monkeypatch.setattr(artifact_repository, "RUN_ROOT", run_root)
+    assert artifact_repository.catalogue_payload()["candidates"] == []
     detail = duckdb_server.artifact_detail(admitted["manifest"]["artifact_id"])
     assert detail["verification"]["valid"]
     report = next(item for item in detail["manifest"]["files"] if item["path"] == "review-brief.md")
