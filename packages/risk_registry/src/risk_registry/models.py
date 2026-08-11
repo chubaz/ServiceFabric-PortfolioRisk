@@ -45,6 +45,17 @@ class AssetKind(str, Enum):
     DASHBOARD = "dashboard"
     SCENARIO = "scenario"
     WORKFLOW = "workflow"
+    RISK_ANALYSIS_PACKAGE = "risk_analysis_package"
+    SCIENTIFIC_DESIGN = "scientific_design"
+    MANDATE = "mandate"
+    RISK_POLICY = "risk_policy"
+    PORTFOLIO_GOVERNANCE = "portfolio_governance"
+    WORLD_CONTEXT = "world_context"
+    RESOURCE_ENVELOPE = "resource_envelope"
+    AGENT_GRAPH = "agent_graph"
+    AUTHORITY_ENVELOPE = "authority_envelope"
+    OUTPUT_EVALUATION = "output_evaluation"
+    EXPERIMENT_OBJECT_SET = "experiment_object_set"
 
 
 class LifecycleState(str, Enum):

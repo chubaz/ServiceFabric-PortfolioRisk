@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design ServiceFabric Agent Graph"
+  short_description: "Decide and design governed agent composition"
+  default_prompt: "Determine whether this agent should remain single or become a governed Agent Graph, then propose the smallest coherent composition."

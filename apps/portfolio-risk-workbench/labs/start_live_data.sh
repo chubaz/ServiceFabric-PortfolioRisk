@@ -24,6 +24,15 @@ if [[ ! -x "$python_runtime" ]]; then
   echo "Set PORTFOLIO_RISK_PYTHON to a Python 3.11 executable with the thesis dependencies." >&2
   exit 1
 fi
-server_port="${1:-8766}"
+if ! "$python_runtime" -c "import duckdb, fastapi, langgraph, openai, pydantic, uvicorn" >/dev/null 2>&1; then
+  echo "The selected Python runtime is missing one or more required live Studio dependencies." >&2
+  echo "Required: duckdb, fastapi, langgraph, openai, pydantic and uvicorn." >&2
+  echo "Set PORTFOLIO_RISK_PYTHON to the thesis runtime before starting the application." >&2
+  exit 1
+fi
+server_port="${1:-8776}"
+repository_root="$(git -C "$prototype_dir" rev-parse --show-toplevel)"
+package_paths="$repository_root/packages/risk_domain/src:$repository_root/packages/risk_planning/src:$repository_root/packages/risk_data/src:$repository_root/packages/risk_capabilities/src:$repository_root/packages/risk_agents/src:$repository_root/packages/risk_analytics/src:$repository_root/packages/risk_registry/src:$repository_root/packages/risk_artifacts/src:$repository_root/packages/risk_experiments/src:$repository_root/packages/risk_reports/src:$repository_root/packages/risk_decisions/src"
 
-exec "$python_runtime" "$prototype_dir/duckdb_server.py" --port "$server_port"
+PYTHONPATH="$repository_root:$package_paths${PYTHONPATH:+:$PYTHONPATH}" \
+  exec "$python_runtime" "$prototype_dir/duckdb_server.py" --port "$server_port"

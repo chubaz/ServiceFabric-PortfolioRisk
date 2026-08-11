@@ -13,5 +13,6 @@ for package in (
     "risk_capabilities",
     "risk_agents",
     "risk_registry",
+    "risk_artifacts",
 ):
     sys.path.insert(0, str(ROOT / "packages" / package / "src"))

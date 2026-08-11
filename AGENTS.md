@@ -315,24 +315,25 @@ explicit human QA.
 
 ## Active platform development programme
 
-The current programme is `PLATFORM-P1` on
-`integration/platform-registry-kernel`. Its authoritative workplan is
-`docs/workplans/platform-development/phase-1-registry-kernel.md`, lifecycle state is
-in `config/agent/platform-development/status.json`, and exact lane ownership is
-in `config/agent/platform-development/phase1-lanes.json`.
+The current programme is `PLATFORM-P6` on
+`integration/platform-decision-due-diligence`. Its authoritative workplan is
+`docs/workplans/platform-development/phase-6-decision-due-diligence.md` and
+lifecycle state is in `config/agent/platform-development/status.json`.
 
-Phase 1 has one integration authority and three parallel read-only specialist
-audits: registry contracts/persistence, catalogue UI, and source migration.
-Specialists may write only their exact handoff file and stop without merging.
-Independent QA begins only after integration synthesis and likewise writes only
-its exact handoff. Shared contracts, application changes, tests, CI, status,
-and acceptance remain integration-owned.
+Phase 6 adds a human due-diligence workspace over the accepted Phase 5 Decision
+Review lifecycle. The base proposal remains immutable. Temporary investigation
+workflows may contain only the five registered deterministic inspection modules
+declared by the workplan. Their step receipts, supplemental evidence and additive
+candidate proposal revisions remain in the existing external Decision
+Repository. A candidate revision is not a resolution and cannot resume a cycle.
 
-This programme must reuse canonical objects before proposing new ones, preserve
-the working vertical slice, and keep development, experimental, and persistent
-research semantics distinct. Real, synthetic, fixture, simulated, missing, and
-unavailable data states must never be conflated. Studio–Codex controls remain
-development-only; external effects remain disabled.
+Phase 6 has no non-human resolver, arbitrary SQL/Python/LLM workflow, registry
+publication, new empirical-data retrieval, portfolio mutation, broker, order,
+trade, hedge, rebalance, or external effect.
+
+Real, synthetic, fixture, simulated, missing, and unavailable data states must
+remain explicit at every application and API boundary. Studio–Codex controls remain
+development-only, and external effects remain disabled throughout this programme.
 
 ## Completion report
 

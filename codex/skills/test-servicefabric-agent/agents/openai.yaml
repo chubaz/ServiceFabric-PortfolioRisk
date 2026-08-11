@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test ServiceFabric Agent"
+  short_description: "Design and run bounded agent evaluation"
+  default_prompt: "Test this ServiceFabric agent with representative, boundary, and adversarial fixtures."

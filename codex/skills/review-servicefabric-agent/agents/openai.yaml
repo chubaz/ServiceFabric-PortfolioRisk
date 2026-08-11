@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review ServiceFabric Agent"
+  short_description: "Audit an agent blueprint and its compiled graph"
+  default_prompt: "Review this ServiceFabric agent against its requirements, boundaries, compilation, and test evidence."

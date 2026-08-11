@@ -108,8 +108,10 @@ class OpenAIResponsesProvider(StructuredModelProvider):
         self,
         configuration: ModelConfiguration,
         client_factory: Callable[..., object] | None = None,
+        api_key: str | None = None,
     ):
-        if not os.environ.get("OPENAI_API_KEY"):
+        self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        if not self._api_key:
             raise ValueError("OPENAI_API_KEY is required")
         if configuration.provider_id != self.provider_id:
             raise ValueError("model configuration selects a different provider")
@@ -265,7 +267,7 @@ class OpenAIResponsesProvider(StructuredModelProvider):
             else:
                 client_factory = self._client_factory
             client = client_factory(
-                api_key=os.environ["OPENAI_API_KEY"],
+                api_key=self._api_key,
                 timeout=self.configuration.timeout_seconds,
                 max_retries=self.configuration.retry_count,
             )

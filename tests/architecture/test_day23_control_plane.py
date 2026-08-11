@@ -209,7 +209,7 @@ def test_day23_completion_state_is_recorded() -> None:
     current = (ROOT / "docs/workplans/current.md").read_text(
         encoding="utf-8"
     ).lower()
-    assert "id: platform-p1" in current
+    assert "id: platform-p" in current
     assert "phase 0 is accepted" in current
     assert "days 1–3 remain accepted" in current
     readme = (ROOT / "README.md").read_text(encoding="utf-8").lower()

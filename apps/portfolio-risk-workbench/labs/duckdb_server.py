@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -18,31 +19,39 @@ from typing import Any, Literal
 import duckdb
 import uvicorn
 import yaml
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from agent_studio import (
     AgentBlueprint,
     BlueprintAdviceRequest,
     BlueprintPlanRequest,
+    BlueprintRefineRequest,
+    BlueprintReviewRequest,
     CompileRequest,
+    COST_OPTIMIZED_LLM_MODEL,
     OutputPassRunRequest,
+    RUN_ROOT,
     RunRequest,
     SectionPlanRequest,
     advise_blueprint,
+    agent_development_history,
+    agent_templates as all_agent_templates,
     capability_platform_manifest,
     compile_blueprint,
-    delete_agent_run,
     _keychain_key,
     _scenario_context,
+    historically_calibrated_synthetic_context,
     list_agent_runs,
     load_agent_run,
     plan_blueprint,
+    refine_blueprint,
     plan_blueprint_section,
+    review_blueprint_configuration,
     run_blueprint,
     run_output_pass,
-    risk_agent_templates,
+    static_system_agent_fixture,
     runtime_status,
     synthetic_behavior_provenance,
 )
@@ -53,6 +62,99 @@ from registry_sources import (
     document_payload,
     registry_store,
 )
+from artifact_repository import artifact_store, catalogue_payload, record_payload
+from experiment_workspace import (
+    catalogue_payload as experiment_catalogue_payload,
+    experiment_store,
+    record_payload as experiment_record_payload,
+    set_payload as experiment_set_payload,
+)
+from experiment_run_audit import (
+    RunAcceptanceRequest,
+    RunComparisonRequest,
+    catalogue_payload as run_audit_catalogue_payload,
+    comparison_payload as run_comparison_payload,
+    record_acceptance as record_run_acceptance,
+)
+from fixture_context_runtime import (
+    calibration_fixture_payload,
+    resolve_calibration_fixture,
+)
+from decision_review import (
+    catalogue_payload as decision_catalogue_payload,
+    decision_store,
+    due_diligence_payload as decision_due_diligence_payload,
+    record_payload as decision_record_payload,
+)
+from risk_analysis_package_runtime import (
+    PackageRunRequest,
+    delete_package_run as delete_risk_analysis_package_run,
+    execute_package as execute_risk_analysis_package,
+    list_package_runs as list_risk_analysis_package_runs,
+    load_package_run as load_risk_analysis_package_run,
+)
+from capability_studio import (
+    FixtureRunRequest as CapabilityFixtureRunRequest,
+    ProposalCreateRequest as CapabilityProposalCreateRequest,
+    ProposalTransitionRequest as CapabilityProposalTransitionRequest,
+    RequirementAssessmentRequest as CapabilityAssessmentRequest,
+    StudioDesignProposalRequest,
+    approve_blueprint as approve_capability_blueprint,
+    assess_requirement as assess_capability_requirement,
+    capability_catalogue,
+    compile_blueprint as compile_capability_blueprint,
+    create_proposal as create_capability_proposal,
+    create_studio_design_proposal,
+    delete_fixture_run as delete_capability_fixture_run,
+    delete_design_session as delete_capability_design_session,
+    delete_proposal as delete_capability_proposal,
+    execute_fixture as execute_capability_fixture,
+    list_design_sessions as list_capability_design_sessions,
+    list_fixture_runs as list_capability_fixture_runs,
+    list_proposals as list_capability_proposals,
+    load_design_session as load_capability_design_session,
+    load_fixture_run as load_capability_fixture_run,
+    save_design_session as save_capability_design_session,
+    transition_proposal as transition_capability_proposal,
+)
+from mandate_studio import (
+    MandateDesignPreviewRequest,
+    MandateRegistrationRequest,
+    MandateValidationRequest,
+    catalogue as mandate_studio_catalogue_data,
+    design_preview as prepare_mandate_design_preview,
+    mandate_bundle,
+    validate_bundle as validate_mandate_bundle,
+)
+from mandate_application import (
+    MandateApplicationRequest,
+    catalogue as mandate_application_catalogue_data,
+    run as run_mandate_application,
+)
+from studio_codex import (
+    CodexApprovalRequest,
+    CodexProposalApprovalRequest,
+    CodexProposalRequest,
+    CodexSessionRequest,
+    CodexTurnRequest,
+    studio_codex_manager,
+)
+from risk_artifacts import (
+    ArtifactKind,
+    ArtifactManifest,
+    ArtifactConflict,
+    ArtifactLifecycleState,
+    ArtifactNotFound,
+    DataTruthClass,
+    LegacyRunInvalid,
+    PreviewMode,
+    PublicationState,
+    RetentionClass,
+    RightsState,
+    compile_legacy_run,
+    file_manifest,
+    preview_legacy_run,
+)
 from risk_registry import (
     AssetKind,
     LifecycleState,
@@ -60,12 +162,62 @@ from risk_registry import (
     RegistryIdentity,
     RegistryNotFound,
 )
+from risk_experiments import (
+    ArchitectureMappingContext,
+    ArchitectureMappingError,
+    GraphExecutionEnvelope,
+    DataTruth,
+    ExperimentBudget,
+    ExperimentConflict,
+    ExperimentDefinition,
+    ExperimentNotFound,
+    ExperimentSet,
+    ExperimentState,
+    PresentationMode,
+    SourceBinding,
+    TemporalWindow,
+    canonical_digest,
+    finalize_agent_graph_execution,
+    finalize_single_agent_execution,
+)
+from risk_agents import AgentExecutionEnvelope, AgentStructuredOutput
+from run_trace_runtime import create_calibration_run_trace, run_trace_payload
+from experimental_program_runtime import experimental_program_payload
+from historical_replay_runtime import (
+    HistoricalReplayError,
+    run_replay as run_historical_replay,
+    setup_payload as historical_replay_setup_payload,
+)
+from risk_reports import (
+    MarkdownReport,
+    compose_daily_risk_report,
+    default_daily_risk_plan,
+    render_report,
+    report_markdown,
+    validate_report,
+    with_rendered_html,
+)
+from risk_analytics import RISK_ANALYSIS_PACKAGES
+from risk_decisions import (
+    DecisionConflict as DecisionReviewConflict,
+    DecisionNotFound as DecisionReviewNotFound,
+    DecisionOutcome,
+    DueDiligenceCapability,
+    run_due_diligence,
+    resolve as resolve_decision_record,
+)
 
 
-SQL_AGENT_MODEL = "gpt-5.6-luna"
+SQL_AGENT_MODEL = COST_OPTIMIZED_LLM_MODEL
 SQL_AGENT_REASONING_EFFORT = "low"
 MAX_QUERY_ROWS = 10_000
 MAX_QUERY_COLUMNS = 200
+EXPERIMENT_ELIGIBLE_REGISTRY_STATES = {
+    LifecycleState.CANDIDATE,
+    LifecycleState.VALIDATED,
+    LifecycleState.PUBLISHED,
+}
+INCUBATOR_ASSET_KINDS = {AssetKind.REPORT, AssetKind.DASHBOARD}
 QUERY_TIMEOUT_SECONDS = 20
 
 LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
@@ -92,24 +244,69 @@ LAB_RUNTIME_BOUNDARY: dict[str, Any] = {
             "persistence": "Browser-local draft · not published",
         },
         "agent.synthetic_behavior_sample": {
-            "data": "Synthetic behavior sample · exact input preview required",
+            "data": "Controlled synthetic fixture · fixed formula · no empirical calibration",
             "authority": "Findings and proposals only · effects none",
-            "persistence": "Temporary local run · deletable · not published",
+            "persistence": "Temporary review queue · explicit Artifact Repository retention",
+        },
+        "agent.historically_calibrated_synthetic": {
+            "data": "Synthetic path fitted on licensed in-sample aggregates · OOS window reserved · licensed rows not retained",
+            "authority": "Findings and proposals only · effects none",
+            "persistence": "Temporary review queue · retained comparisons are rights-restricted artifacts",
         },
         "agent.real_duckdb": {
             "data": "Licensed local historical data · point-in-time qualified per run",
             "authority": "Model interpretation is effect-free · review required",
-            "persistence": "Temporary local run · deletable · rights restricted",
+            "persistence": "Temporary review queue · explicit rights-restricted Artifact Repository retention",
         },
         "graph": {
             "data": "Browser-local agent drafts and registered catalogue previews",
             "authority": "Compiled plan preview · not registered or executable",
             "persistence": "Browser-local draft · not published",
         },
+        "system": {
+            "data": "Canonical sources and saved registry metadata · no run output is treated as a definition",
+            "authority": "Author, isolate-test and govern reusable definitions · external effects prohibited",
+            "persistence": "Saved definitions use the local versioned Registry; browser drafts remain explicitly unsaved",
+        },
+        "studio": {
+            "data": "Canonical source definitions, Registry metadata and browser-local Studio drafts",
+            "authority": "Development-only Studio–Codex · approved proposal IDs · worktree-scoped writes · human command review",
+            "persistence": "Blueprint proposals and Codex receipts persist locally · Registry admission and merge remain separate",
+        },
+        "dictionary": {
+            "data": "Platform vocabulary projected by the local application",
+            "authority": "Read-only reference",
+            "persistence": "Versioned with the application architecture",
+        },
+        "application": {
+            "data": "Explicit fixture context plus saved, versioned system definitions",
+            "authority": "Effect-free isolated object and agent testing · no code mutation or external effects",
+            "persistence": "Run work products are temporary until separately retained as artifacts",
+        },
         "registry": {
             "data": "Existing definitions · indexed metadata points to canonical sources",
             "authority": "Local lifecycle review only · no financial effects",
             "persistence": "Persistent local development registry · not production publication",
+        },
+        "decisions": {
+            "data": "Immutable findings, proposals, evidence references and supplemental context revisions",
+            "authority": "Human review only · D1 recommendation · portfolio and external effects prohibited",
+            "persistence": "Persistent local Decision Repository · lifecycle and consequence receipts retained",
+        },
+        "decision-diligence": {
+            "data": "Declared proposal references · supplemental analysis is truth-labelled and point-in-time bound",
+            "authority": "Human-built temporary workflow · no decision, publication, portfolio or external effect",
+            "persistence": "Runs, step receipts, evidence and candidate revisions retained in the Decision Repository",
+        },
+        "artifacts": {
+            "data": "Retained generated outputs · data truth disclosed per record",
+            "authority": "Browse and govern local artifacts only · execution and external effects prohibited",
+            "persistence": "Content-addressed local repository · outside Git · not production publication",
+        },
+        "experiments": {
+            "data": "Immutable source revisions and saved registry definitions with explicit real/synthetic/simulated declarations",
+            "authority": "Local research orchestration only · external effects prohibited",
+            "persistence": "Restart-safe experiment metadata outside Git · outputs remain separate artifacts",
         },
         "cycle": {
             "data": "Mixed · licensed daily anchors + simulated seeded intraday",
@@ -336,7 +533,11 @@ class SqlOnlyPlan(BaseModel):
 
 
 class AgentInputPreviewRequest(BaseModel):
-    data_mode: Literal["synthetic_behavior_sample", "real_duckdb"] = (
+    data_mode: Literal[
+        "synthetic_behavior_sample",
+        "historically_calibrated_synthetic",
+        "real_duckdb",
+    ] = (
         "synthetic_behavior_sample"
     )
     scenario: Literal["routine", "concentration", "loss", "missing"] = "concentration"
@@ -347,6 +548,21 @@ class AgentInputPreviewRequest(BaseModel):
         min_length=1,
         max_length=4,
     )
+
+
+class ReportComposeRequest(BaseModel):
+    report_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,159}$")
+    presentation: dict[str, Any]
+    evidence_ids: list[str] = Field(default_factory=list, max_length=500)
+
+
+class ReportValidationRequest(BaseModel):
+    report: MarkdownReport
+    available_evidence_ids: list[str] = Field(default_factory=list, max_length=500)
+
+
+class ReportRenderRequest(BaseModel):
+    report: MarkdownReport
 
 
 class WorkflowCycleCreateRequest(BaseModel):
@@ -364,9 +580,27 @@ class WorkflowCycleControlRequest(BaseModel):
 
 
 class WorkflowCycleDecisionRequest(BaseModel):
-    outcome: Literal["accepted", "investigate", "rejected"]
+    outcome: Literal["investigate", "accept_and_monitor", "defer", "reject", "escalate"]
     resolver_id: str = Field(min_length=3, max_length=120)
     resolver_type: Literal["human"] = "human"
+    rationale: str = Field(min_length=3, max_length=2000)
+    idempotency_key: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,159}$")
+    expected_revision: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class DecisionResolveRequest(WorkflowCycleDecisionRequest):
+    pass
+
+
+class DecisionDueDiligenceRunRequest(BaseModel):
+    name: str = Field(min_length=3, max_length=160)
+    investigation_question: str = Field(min_length=5, max_length=1200)
+    capability_ids: list[DueDiligenceCapability] = Field(min_length=1, max_length=5)
+    candidate_recommendation: Literal["investigate", "accept_and_monitor", "defer", "reject", "escalate"]
+    actor_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,119}$")
+    actor_type: Literal["human"] = "human"
+    idempotency_key: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,159}$")
+    expected_revision: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
 
 
 class WorkflowCycleAgentAttachRequest(BaseModel):
@@ -398,6 +632,97 @@ class RegistryTransitionRequest(BaseModel):
 class RegistryCompareRequest(BaseModel):
     left: RegistryIdentity
     right: RegistryIdentity
+
+
+class ArtifactTransitionRequest(BaseModel):
+    actor: str = Field(default="local.developer", min_length=3, max_length=128)
+    rationale: str = Field(min_length=3, max_length=1000)
+    expected_revision: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class ArtifactDeletionRequest(ArtifactTransitionRequest):
+    confirmation_token: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class ArtifactAdmissionRequest(BaseModel):
+    run_id: str = Field(min_length=3, max_length=160)
+    confirmation_token: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    actor: str = Field(default="local.developer", min_length=3, max_length=128)
+
+
+class ExperimentCreateRequest(BaseModel):
+    definition: ExperimentDefinition
+    actor: str = Field(default="local.researcher", min_length=3, max_length=128)
+    idempotency_key: str = Field(min_length=3, max_length=160, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]+$")
+
+
+class ExperimentDraftRequest(BaseModel):
+    experiment_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$")
+    name: str = Field(min_length=1, max_length=200)
+    purpose: str = Field(min_length=3, max_length=1200)
+    hypothesis: str = Field(min_length=3, max_length=1200)
+    start_date: date
+    end_date: date
+    presentation_mode: PresentationMode
+    data_truth: DataTruth
+    portfolio_reference: str = Field(min_length=1, max_length=768)
+    snapshot_policy_reference: str = Field(min_length=1, max_length=768)
+    mandate_reference: str = Field(min_length=1, max_length=768)
+    data_revision_reference: str = Field(min_length=1, max_length=768)
+    system_asset: RegistryIdentity
+    max_model_calls: int = Field(default=12, ge=0, le=10_000)
+    max_cost_usd: Decimal = Field(default=Decimal("2.00"), ge=0, le=100_000)
+    actor: str = Field(default="local.researcher", min_length=3, max_length=128)
+
+
+class ExperimentTransitionRequest(BaseModel):
+    to_state: ExperimentState
+    actor: str = Field(default="local.researcher", min_length=3, max_length=128)
+    rationale: str = Field(min_length=3, max_length=1000)
+    idempotency_key: str = Field(min_length=3, max_length=160, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]+$")
+    expected_revision: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class ExperimentEnqueueRequest(BaseModel):
+    actor: str = Field(default="local.researcher", min_length=3, max_length=128)
+    idempotency_key: str = Field(min_length=3, max_length=160, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]+$")
+    expected_revision: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class ExperimentQueueControlRequest(BaseModel):
+    action: Literal["start", "pause", "resume", "cancel", "complete", "fail"]
+    resume_token: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class ExperimentSetCreateRequest(BaseModel):
+    definition: ExperimentSet
+
+
+class RunTraceCreateRequest(BaseModel):
+    actor: str = Field(default="local.researcher", min_length=3, max_length=128)
+
+
+class HistoricalReplayRequest(BaseModel):
+    workflow_id: str = Field(min_length=1, max_length=80)
+    portfolio_id: str = Field(min_length=1, max_length=80)
+    start_date: date
+    end_date: date
+    evaluation_id: str = Field(default="thesis_evaluation_v1", min_length=1, max_length=80)
+    save_result: bool = True
+    authorize_external_model_calls: bool = False
+
+
+class ArchitectureOutputMappingRequest(BaseModel):
+    context: ArchitectureMappingContext
+    single_agent_execution: AgentExecutionEnvelope | None = None
+    graph_execution: GraphExecutionEnvelope | None = None
+    mapped_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def exactly_one_execution(self) -> "ArchitectureOutputMappingRequest":
+        if (self.single_agent_execution is None) == (self.graph_execution is None):
+            raise ValueError("provide exactly one wrapped single-agent or graph execution")
+        return self
 
 
 def json_safe(value: Any) -> Any:
@@ -1253,6 +1578,36 @@ def prepare_agent_input(
         context = _scenario_context(request.scenario)
         return context, synthetic_behavior_provenance(request.scenario)
 
+    if request.data_mode == "historically_calibrated_synthetic":
+        if not request.portfolio_id or not request.as_of:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "historical calibration requires a reviewed portfolio and an as-of date"
+                ),
+            )
+        real_context, _real_provenance = prepare_agent_input(
+            request.model_copy(update={"data_mode": "real_duckdb"})
+        )
+        try:
+            context, provenance = historically_calibrated_synthetic_context(
+                scenario=request.scenario,
+                historical_values=real_context.get("metric_pack_input", {}).get(
+                    "observations", []
+                ),
+                portfolio_id=request.portfolio_id,
+                as_of=request.as_of.isoformat(),
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        provenance["calibration_source"] = {
+            "provider": "local DuckDB",
+            "datasets": request.datasets,
+            "rights": "licensed_restricted",
+            "raw_rows_in_run_output": False,
+        }
+        return json_safe(context), provenance
+
     if not request.portfolio_id or not request.as_of:
         raise HTTPException(
             status_code=422,
@@ -1613,6 +1968,255 @@ def health() -> dict[str, Any]:
     }
 
 
+@app.get("/api/platform/workspaces")
+def platform_workspaces() -> dict[str, Any]:
+    """Project existing stores into the two user-facing operating areas."""
+
+    documents = [
+        item
+        for item in registry_store().list()
+        if item.projection.identity.kind not in INCUBATOR_ASSET_KINDS
+    ]
+    eligible_states = EXPERIMENT_ELIGIBLE_REGISTRY_STATES
+    saved = [
+        {
+            "identity": item.projection.identity.model_dump(mode="json"),
+            "reference": item.projection.identity.reference,
+            "display_name": item.projection.display_name,
+            "summary": item.projection.summary,
+            "lifecycle_state": item.state.value,
+            "registry_revision": item.receipts[-1].receipt_digest,
+            "experiment_eligible": (
+                item.state in eligible_states
+                and item.projection.identity.kind
+                in {AssetKind.WORKFLOW, AssetKind.EVALUATION}
+            ),
+        }
+        for item in documents
+    ]
+    saved_counts: dict[str, int] = {}
+    for item in saved:
+        kind = item["identity"]["kind"]
+        saved_counts[kind] = saved_counts.get(kind, 0) + 1
+    discovered_analysis_packages = {
+        item.identity.asset_id: item
+        for item in discover_registry_projections()
+        if item.identity.kind is AssetKind.RISK_ANALYSIS_PACKAGE
+    }
+    analysis_packages = []
+    saved_by_reference = {item["reference"]: item for item in saved}
+    for definition in RISK_ANALYSIS_PACKAGES:
+        projection = discovered_analysis_packages[definition.package_id]
+        indexed = saved_by_reference.get(projection.identity.reference)
+        analysis_packages.append(
+            {
+                "definition": definition.model_dump(mode="json"),
+                "registry_identity": projection.identity.model_dump(mode="json"),
+                "registry_reference": projection.identity.reference,
+                "registry_state": indexed["lifecycle_state"] if indexed else "discovered",
+                "indexed": indexed is not None,
+            }
+        )
+    return {
+        "schema_version": "portfolio-risk.platform-workspaces/v1",
+        "zones": [
+            {
+                "zone_id": "system",
+                "title": "System Development",
+                "purpose": "Build reusable definitions, then apply them with agents inside controlled fixtures.",
+                "accepts": "Drafts and canonical source definitions",
+                "produces": "Saved definitions plus temporary application-test work products",
+            },
+            {
+                "zone_id": "research",
+                "title": "Experimental Research",
+                "purpose": "Compose reproducible experiments and comparisons from saved definitions.",
+                "accepts": "Registry identities, immutable source bindings and explicit policies",
+                "produces": "Experiment records, run work products, evaluations and retained artifacts",
+            },
+        ],
+        "development_phases": [
+            {
+                "phase_id": "build",
+                "title": "Build the system object",
+                "purpose": "Model the reusable object and any companion capabilities together, test them in isolation, and prepare a Registry candidate.",
+            },
+            {
+                "phase_id": "apply",
+                "title": "Apply it with an agent",
+                "purpose": "Load the saved object and its capabilities into a Fixture Context and inspect how an agent acts upon it.",
+            },
+        ],
+        "terminology": {
+            "agent": "A bounded worker that receives context, invokes admitted capabilities, creates work products and escalates under policy.",
+            "agent_blueprint": "The reusable, versioned definition of an agent's outcome, context, capabilities, output, authority and evaluation expectations.",
+            "agent_application": "The System Development test phase where an agent exercises saved objects inside a labelled Fixture Context.",
+            "artifact": "A run work product deliberately retained with provenance and lifecycle policy.",
+            "capability": "A reviewed typed operation with explicit inputs, outputs, authority, validation and receipts.",
+            "companion_capability": "A capability created alongside an object to create, validate, lifecycle, modify or apply that object.",
+            "definition": "A reusable system object with a stable identity and version.",
+            "blueprint_draft": "The mutable Agent Blueprint being designed in the Studio. It is not a saved version and refinements apply as bounded diffs.",
+            "configuration_review": "The compiler and semantic verification record for one exact blueprint digest.",
+            "material_finding": "An unresolved critical or high requirement that blocks development handoff or Registry admission.",
+            "development_proposal": "A reviewed, bounded request defining the blueprint, allowed paths, tests, skill and authority for one Studio-Codex job.",
+            "development_job": "One authorized Studio-Codex execution that plans, changes, verifies and independently reviews work inside its bounded workspace.",
+            "experiment": "A reproducible composition of saved definitions, source bindings and execution/evaluation policy.",
+            "experiment_set": "A governed group or factor matrix of independent experiments answering one research question.",
+            "fixture_context": "A labelled, bounded input environment used to exercise a definition.",
+            "mandate_version": "An immutable version of portfolio rules, covenants, interpretations and effective dates.",
+            "portfolio_version": "An immutable portfolio identity, holdings/cash state and point-in-time provenance boundary.",
+            "promotion": "A separate reviewed process that turns an approved proposal into a new reusable definition version.",
+            "provider_adapter": "A governed interface to an MCP, API, database or other integration with schemas, rights and effect boundaries.",
+            "registry_candidate": "A saved definition version indexed for local review but not yet validated or published.",
+            "registry_admission": "The explicit decision to index an exact tested definition version in the Registry; it is separate from development and execution.",
+            "risk_analysis_package": "A reusable risk-question-first composition of semantic data roles, analytical capabilities, validation and structured output fields.",
+            "run_work_product": "An output created during one application or experiment run.",
+            "scenario_definition": "A reusable declaration of assumptions, shocks, temporal behavior, applicability and result contracts.",
+            "studio_codex": "The development-only gateway that turns an authorized Development Proposal into one isolated Development Job, test evidence and a reviewed diff.",
+            "system_object": "A reusable definition developed and governed by the platform rather than an output from one run.",
+            "workflow_definition": "A reusable composition of agents, state, routes, interrupts, review points and output contracts.",
+        },
+        "definition_lifecycle": [
+            "author_draft",
+            "isolated_fixture_test",
+            "index_candidate",
+            "validate",
+            "publish_locally",
+            "load_into_application_or_experiment",
+        ],
+        "saved_definitions": saved,
+        "saved_counts": saved_counts,
+        "risk_analysis_packages": analysis_packages,
+        "portfolios": data_plane.public_portfolios(),
+        "fixture_profiles": [
+            {
+                "fixture_id": "licensed_real",
+                "label": "Licensed historical fixture",
+                "data_truth": "licensed_real",
+                "description": "Point-in-time CRSP/Compustat records queried locally through DuckDB.",
+            },
+            {
+                "fixture_id": "reviewed_synthetic",
+                "label": "Reviewed synthetic fixture",
+                "data_truth": "reviewed_synthetic",
+                "description": "Named deterministic cases for normal, failure and adversarial behavior.",
+            },
+            {
+                "fixture_id": "simulated_intraday",
+                "label": "Real-anchored simulated intraday",
+                "data_truth": "simulated_intraday",
+                "description": "Seeded intraday evolution between licensed daily close anchors.",
+            },
+        ],
+        "studio_profiles": [
+            {
+                "studio_id": "risk_analysis",
+                "title": "Risk Analysis Studio",
+                "definition_label": "RiskAnalysisPackageDefinition",
+                "registry_kind": "risk_analysis_package",
+                "purpose": "Describe a portfolio-risk question, then compile semantic data roles, modular analytical methods, validation and a structured ArchitectureOutput.",
+                "companion_policy": "Capabilities remain openly discoverable. The package pins validated defaults, permits recorded compatible substitutions and keeps supplemental work separate from the stable core.",
+                "companion_examples": ["portfolio.data_context.create", "risk.volatility.annualized", "risk.drawdown.maximum", "risk.var.historical", "risk.expected_shortfall.historical"],
+                "skill_id": "servicefabric-risk-analysis-package-builder",
+                "availability": "reference_package_and_registry",
+            },
+            {
+                "studio_id": "capability",
+                "title": "Capability Studio",
+                "definition_label": "CapabilityDefinition",
+                "registry_kind": "capability",
+                "purpose": "Build one typed, least-privilege operation with input preparation, execution, validation and receipts.",
+                "companion_policy": "The capability is the primary object. Add a lifecycle meta-capability only when it materially improves creation, validation or versioning.",
+                "companion_examples": ["capability.validate", "capability.test_case.run", "capability.publish_candidate"],
+                "skill_id": "servicefabric-capability-builder",
+                "availability": "registry_and_fixed_tests",
+            },
+            {
+                "studio_id": "scenario",
+                "title": "Scenario Studio",
+                "definition_label": "ScenarioDefinition",
+                "registry_kind": "scenario",
+                "purpose": "Model scenario assumptions, shocks, temporal behavior, applicability and deterministic result contracts.",
+                "companion_policy": "Create capabilities that instantiate, parameterize, validate, compare and lifecycle the scenario without silently changing its assumptions.",
+                "companion_examples": ["scenario.parameterize", "scenario.validate", "scenario.compare", "scenario.revise_candidate"],
+                "skill_id": "servicefabric-scenario-builder",
+                "availability": "registry_and_future_studio",
+            },
+            {
+                "studio_id": "portfolio_mandate",
+                "title": "Mandate Studio",
+                "definition_label": "MandateVersion + RiskPolicySet",
+                "registry_kind": "mandate",
+                "purpose": "Design investment intent and compile every reviewed clause into a capability-bound policy and governance route before experiment assembly.",
+                "companion_policy": "Extract and classify clauses at design time, reuse registered evaluation capabilities, preserve source provenance and keep observations, breaches and experimental failures inside Evaluation.",
+                "companion_examples": ["mandate.extract", "mandate.validate", "mandate.rules.compile", "monitoring.policy.evaluate"],
+                "skill_id": "servicefabric-portfolio-mandate-builder",
+                "availability": "reference_fixtures_and_registry",
+            },
+            {
+                "studio_id": "workflow",
+                "title": "Workflow Studio",
+                "definition_label": "AgentGraphDefinition + WorkflowDefinition",
+                "registry_kind": "workflow",
+                "purpose": "Compose saved agents into explicit routes, state transitions, interrupts, review points and output contracts.",
+                "companion_policy": "Prefer native LangGraph routing, state and interrupt methods. Add capabilities only for typed workflow lifecycle, validation or external operations.",
+                "companion_examples": ["workflow.compile", "workflow.validate", "workflow.replay", "workflow.publish_candidate"],
+                "skill_id": "servicefabric-workflow-builder",
+                "availability": "PLATFORM-P14",
+            },
+            {
+                "studio_id": "provider_connector",
+                "title": "Provider & Connector Studio",
+                "definition_label": "ProviderAdapter",
+                "registry_kind": None,
+                "purpose": "Model MCP, API and database integrations with rights, secrets, schemas, health checks and effect boundaries.",
+                "companion_policy": "Build capabilities that discover, configure, query and health-check the adapter through reviewed typed contracts rather than granting raw provider access.",
+                "companion_examples": ["provider.discover", "provider.configure", "provider.healthcheck", "provider.query"],
+                "skill_id": "servicefabric-provider-adapter-builder",
+                "availability": "PLATFORM-P15",
+            },
+            {
+                "studio_id": "agent",
+                "title": "Agent Studio",
+                "definition_label": "AgentBlueprint",
+                "registry_kind": "agent",
+                "purpose": "Model a bounded agent's objective, state, routing, tools, prompts, outputs, authority and test expectations.",
+                "companion_policy": "Domain capabilities remain selected dependencies. Create companion capabilities only for agent lifecycle, specialist/sub-agent creation, or operations not already native to LangGraph.",
+                "companion_examples": ["agent.validate", "agent.fixture.run", "agent.specialist.propose", "agent.publish_candidate"],
+                "skill_id": "servicefabric-agent-builder",
+                "availability": "agent_studio_and_registry",
+            },
+        ],
+        "future_dependencies": [
+            {
+                "phase": "PLATFORM-P7",
+                "capability": "Fixture Context compiler and cumulative Environment Risk Context boundary",
+                "unlocks": "Portable context fixtures that can be reused across object tests.",
+            },
+            {
+                "phase": "PLATFORM-P8",
+                "capability": "End-to-end Agent Application execution adapter",
+                "unlocks": "Execute the selected saved agent against the selected saved objects in one vertical slice.",
+            },
+            {
+                "phase": "PLATFORM-P9",
+                "capability": "Mandate Lab and registered portfolio/mandate versions",
+                "unlocks": "First-class mandate and portfolio selection rather than source-binding text references.",
+            },
+            {
+                "phase": "PLATFORM-P14",
+                "capability": "Agent graph and workflow composition",
+                "unlocks": "Fractioned human-review, supra-agent and modular workflow experimental policies.",
+            },
+            {
+                "phase": "PLATFORM-P15",
+                "capability": "Provider and external adapter registry",
+                "unlocks": "Governed MCP, API and external integration selection.",
+            },
+        ],
+    }
+
+
 @app.get("/api/catalog")
 def catalog() -> dict[str, Any]:
     return {
@@ -1673,7 +2277,11 @@ def registry_catalogue(
     include_discovered: bool = True,
 ) -> dict[str, Any]:
     store = registry_store()
-    indexed = store.list(kind=kind, state=state, query=q)
+    indexed = [
+        document
+        for document in store.list(kind=kind, state=state, query=q)
+        if document.projection.identity.kind not in INCUBATOR_ASSET_KINDS
+    ]
     indexed_by_reference = {
         document.projection.identity.reference: document for document in indexed
     }
@@ -1718,6 +2326,31 @@ def registry_catalogue(
         "counts": counts,
         "states": states,
     }
+
+
+@app.get("/api/incubator/catalogue")
+def incubator_catalogue() -> dict[str, Any]:
+    """Describe deferred objects without admitting them to active discovery."""
+
+    path = (
+        PROTOTYPE_ROOT.parents[2]
+        / "config"
+        / "incubator"
+        / "post-thesis-user-facing-objects.yaml"
+    )
+    decision = yaml.safe_load(path.read_text(encoding="utf-8"))
+    historical_records = [
+        {
+            "reference": document.projection.identity.reference,
+            "display_name": document.projection.display_name,
+            "kind": document.projection.identity.kind.value,
+            "historical_lifecycle_state": document.state.value,
+            "active": False,
+        }
+        for document in registry_store().list()
+        if document.projection.identity.kind in INCUBATOR_ASSET_KINDS
+    ]
+    return {**decision, "historical_registry_records": historical_records}
 
 
 @app.post("/api/registry/bootstrap")
@@ -1855,9 +2488,829 @@ def compare_registry_items(request: RegistryCompareRequest) -> dict[str, Any]:
     }
 
 
+def _artifact_error(error: Exception) -> HTTPException:
+    if isinstance(error, ArtifactNotFound):
+        return HTTPException(status_code=404, detail="artifact or file not found")
+    return HTTPException(status_code=409, detail=str(error))
+
+
+@app.get("/api/artifacts/catalogue")
+def artifact_catalogue(include_deleted: bool = False) -> dict[str, Any]:
+    try:
+        return catalogue_payload(include_deleted=include_deleted)
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.get("/api/artifacts/{artifact_id}")
+def artifact_detail(artifact_id: str) -> dict[str, Any]:
+    try:
+        store = artifact_store()
+        record = store.get(artifact_id)
+        payload = record_payload(record)
+        payload["verification"] = store.verify(artifact_id).model_dump(mode="json")
+        if record.state in {ArtifactLifecycleState.ACTIVE, ArtifactLifecycleState.ARCHIVED}:
+            payload["deletion_preview"] = store.deletion_preview(artifact_id).model_dump(mode="json")
+        elif record.state == ArtifactLifecycleState.TOMBSTONED:
+            payload["deletion_preview"] = store.deletion_preview(
+                artifact_id, finalize=True
+            ).model_dump(mode="json")
+        else:
+            payload["deletion_preview"] = None
+        return payload
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/artifacts/{artifact_id}/verify")
+def verify_artifact(artifact_id: str) -> dict[str, Any]:
+    try:
+        return artifact_store().verify(artifact_id).model_dump(mode="json")
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.get("/api/artifacts/{artifact_id}/files/{file_id}/preview")
+def preview_artifact_file(artifact_id: str, file_id: str) -> dict[str, Any]:
+    try:
+        record = artifact_store().get(artifact_id)
+        item = next((value for value in record.manifest.files if value.file_id == file_id), None)
+        if item is None:
+            raise ArtifactNotFound(file_id)
+        content, _media_type = artifact_store().open_file(artifact_id, item.path)
+        if len(content) > 250_000:
+            raise ArtifactConflict("file is too large for bounded browser preview")
+        return {
+            "artifact_id": artifact_id,
+            "file_id": file_id,
+            "logical_name": item.path,
+            "rendering": "escaped_text_only",
+            "text": content.decode("utf-8", errors="replace"),
+        }
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.get("/api/artifacts/{artifact_id}/files/{file_id}/download")
+def download_artifact_file(artifact_id: str, file_id: str) -> Response:
+    try:
+        record = artifact_store().get(artifact_id)
+        item = next((value for value in record.manifest.files if value.file_id == file_id), None)
+        if item is None:
+            raise ArtifactNotFound(file_id)
+        content, media_type = artifact_store().open_file(artifact_id, item.path, download=True)
+        safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", Path(item.path).name)[:120]
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_name}"',
+                "X-Content-Type-Options": "nosniff",
+                "Content-Security-Policy": "default-src 'none'",
+            },
+        )
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/artifacts/{artifact_id}/archive")
+def archive_artifact(artifact_id: str, request: ArtifactTransitionRequest) -> dict[str, Any]:
+    try:
+        record = artifact_store().transition(
+            artifact_id,
+            to_state=ArtifactLifecycleState.ARCHIVED,
+            actor=request.actor,
+            rationale=request.rationale,
+            expected_revision=request.expected_revision,
+        )
+        return record_payload(record)
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/artifacts/{artifact_id}/restore")
+def restore_artifact(artifact_id: str, request: ArtifactTransitionRequest) -> dict[str, Any]:
+    try:
+        store = artifact_store()
+        current = store.get(artifact_id)
+        if current.state == ArtifactLifecycleState.TOMBSTONED:
+            record = store.restore_tombstone(
+                artifact_id,
+                actor=request.actor,
+                rationale=request.rationale,
+                expected_revision=request.expected_revision,
+            )
+        else:
+            record = store.transition(
+                artifact_id,
+                to_state=ArtifactLifecycleState.ACTIVE,
+                actor=request.actor,
+                rationale=request.rationale,
+                expected_revision=request.expected_revision,
+            )
+        return record_payload(record)
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/artifacts/{artifact_id}/tombstone")
+def tombstone_artifact(artifact_id: str, request: ArtifactDeletionRequest) -> dict[str, Any]:
+    try:
+        record = artifact_store().tombstone(
+            artifact_id,
+            confirmation_token=request.confirmation_token,
+            expected_revision=request.expected_revision,
+            actor=request.actor,
+            rationale=request.rationale,
+        )
+        return record_payload(record)
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/artifacts/{artifact_id}/finalize")
+def finalize_artifact_deletion(artifact_id: str, request: ArtifactDeletionRequest) -> dict[str, Any]:
+    try:
+        record = artifact_store().finalize_delete(
+            artifact_id,
+            confirmation_token=request.confirmation_token,
+            expected_revision=request.expected_revision,
+            actor=request.actor,
+            rationale=request.rationale,
+        )
+        return record_payload(record)
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.get("/api/artifacts/admission/{run_id}/preview")
+def preview_artifact_admission(run_id: str) -> dict[str, Any]:
+    return preview_legacy_run(RUN_ROOT, run_id).payload()
+
+
+@app.post("/api/artifacts/admission")
+def admit_artifact_run(request: ArtifactAdmissionRequest) -> dict[str, Any]:
+    try:
+        manifest, files = compile_legacy_run(
+            RUN_ROOT,
+            request.run_id,
+            confirmation_token=request.confirmation_token,
+        )
+        record = artifact_store().admit(
+            manifest,
+            files,
+            actor=request.actor,
+            rationale="Explicitly admitted a validated Agent Lab run after preview.",
+        )
+        verification = artifact_store().verify(record.manifest.artifact_id)
+        if not verification.valid:
+            raise ArtifactConflict("admitted run failed repository integrity verification")
+        return record_payload(record)
+    except (ArtifactConflict, ArtifactNotFound, LegacyRunInvalid, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+def _experiment_error(error: Exception) -> HTTPException:
+    if isinstance(error, ExperimentNotFound):
+        return HTTPException(status_code=404, detail="experiment, set, or queue entry not found")
+    return HTTPException(status_code=409, detail=str(error))
+
+
+@app.get("/api/experiments/catalogue")
+def experiment_catalogue() -> dict[str, Any]:
+    try:
+        return experiment_catalogue_payload()
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.get("/api/experiments/replay-setup")
+def historical_replay_setup() -> dict[str, Any]:
+    """Return only the real-data choices used by the simplified Experiment page."""
+
+    try:
+        workflows = [
+            {
+                "asset_id": projection.identity.asset_id,
+                "display_name": projection.display_name,
+            }
+            for projection in discover_registry_projections()
+            if projection.identity.kind is AssetKind.WORKFLOW
+        ]
+        return historical_replay_setup_payload(
+            find_private_root(PROTOTYPE_ROOT), workflows
+        )
+    except (HistoricalReplayError, RuntimeError, duckdb.Error) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+def _save_historical_replay(result: dict[str, Any]) -> dict[str, Any]:
+    result_bytes = (json.dumps(result, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    files = {"result.json": result_bytes}
+    file_roles = {"result.json": "run_result"}
+    run_record = result.get("run_record")
+    hierarchy = result.get("hierarchy")
+    if run_record and hierarchy:
+        structured_files = {
+            "case.json": hierarchy["case"],
+            "run-input.json": run_record["run_input"],
+            "architecture-output.json": run_record["architecture_output"],
+            "architecture-outputs.json": run_record.get("architecture_outputs", []),
+            "finding-episodes.json": run_record.get("finding_episodes", []),
+            "decision-branches.json": run_record.get("decision_branches", []),
+            "metric-specifications.json": run_record.get("metric_specifications", []),
+            "run-trace.json": run_record["run_trace"],
+            "processing-receipts.json": run_record.get("processing_receipts", []),
+            "evaluation-record.json": run_record["evaluation_record"],
+        }
+        for path, payload in structured_files.items():
+            files[path] = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        file_roles.update({
+            "case.json": "experimental_case",
+            "run-input.json": "run_input",
+            "architecture-output.json": "architecture_output",
+            "architecture-outputs.json": "cycle_architecture_outputs",
+            "finding-episodes.json": "finding_episodes",
+            "decision-branches.json": "decision_branches",
+            "metric-specifications.json": "metric_specifications",
+            "run-trace.json": "run_trace",
+            "processing-receipts.json": "processing_receipts",
+            "evaluation-record.json": "evaluation_record",
+        })
+    file_records = tuple(sorted((
+        file_manifest(
+            path=path,
+            content=content,
+            media_type="application/json",
+            role=file_roles[path],
+            preview_mode=PreviewMode.ESCAPED_TEXT,
+            download_allowed=True,
+        )
+        for path, content in files.items()
+    ), key=lambda item: item.path))
+    artifact_id = f"historical-replay:{result['run_id'].lower()}"
+    manifest = ArtifactManifest(
+        artifact_id=artifact_id,
+        title=f"Historical replay — {result['portfolio']['id']}",
+        kind=ArtifactKind.RETAINED_RUN,
+        created_at=datetime.now(timezone.utc),
+        created_by="local.researcher",
+        creation_method="deterministic_historical_replay",
+        run_id=result["run_id"],
+        experiment_id=result.get("hierarchy", {}).get("experiment", {}).get(
+            "experiment_id", f"historical-replay-{result['portfolio']['id'].replace('_', '-')}"
+        ),
+        data_truth=DataTruthClass.LICENSED_REAL,
+        rights=RightsState.LICENSED_RESTRICTED,
+        rights_policy_id="rights:licensed-research-only",
+        publication=PublicationState.RESTRICTED,
+        retention=RetentionClass.EXPERIMENT_EVIDENCE,
+        entry_file="architecture-output.json" if run_record and hierarchy else "result.json",
+        files=file_records,
+        total_size_bytes=sum(item.size_bytes for item in file_records),
+        restrictions=("licensed-data-no-redistribution",),
+    )
+    record = artifact_store().admit(
+        manifest,
+        files,
+        actor="local.researcher",
+        rationale="Saved an explicitly requested licensed-data historical replay for later review.",
+    )
+    return {
+        "artifact_id": record.manifest.artifact_id,
+        "saved_at": record.receipts[0].occurred_at.isoformat(),
+        "state": record.state.value,
+    }
+
+
+def _saved_historical_replays() -> list[dict[str, Any]]:
+    saved = []
+    for record in artifact_store().list():
+        if record.manifest.creation_method != "deterministic_historical_replay":
+            continue
+        result_bytes, _ = artifact_store().open_file(record.manifest.artifact_id, "result.json")
+        result = json.loads(result_bytes)
+        saved.append({
+            "artifact_id": record.manifest.artifact_id,
+            "run_id": result["run_id"],
+            "portfolio_id": result["portfolio"]["id"],
+            "mandate": result["mandate"]["name"],
+            "period": result["period"],
+            "created_at": record.manifest.created_at.isoformat(),
+        })
+    return sorted(saved, key=lambda item: item["created_at"], reverse=True)
+
+
+@app.get("/api/experiments/replay-runs")
+def list_historical_replays() -> dict[str, Any]:
+    try:
+        return {"runs": _saved_historical_replays()}
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.get("/api/experiments/architecture-output/mapping-contract")
+@app.get("/api/experiments/architecture-output/projection-contract", deprecated=True)
+def architecture_output_projection_contract() -> dict[str, Any]:
+    """Describe the common structured-output mapping boundary."""
+
+    return {
+        "flow": ["headless_agent_or_graph_wrapper", "evaluation_byproducts_and_observed_behavior", "deterministic_mapping", "architecture_output", "evaluation"],
+        "agent_writes_architecture_output": False,
+        "primary_artifact_is_rewritten": False,
+        "checks": [
+            "run_cycle_architecture_identity",
+            "point_in_time_evidence_eligibility",
+            "available_capabilities_and_agents",
+            "effect_free_capability_receipts",
+            "structured_byproduct_quality",
+            "presentation_artifacts_excluded",
+            "final_decision_and_specialist_node_scope",
+            "execution_and_graph_behavior_observed",
+        ],
+        "output_schema": AgentStructuredOutput.model_json_schema(),
+        "single_agent_wrapper_schema": AgentExecutionEnvelope.model_json_schema(),
+        "graph_wrapper_schema": GraphExecutionEnvelope.model_json_schema(),
+        "context_schema": ArchitectureMappingContext.model_json_schema(),
+    }
+
+
+@app.post("/api/experiments/architecture-output/map")
+def map_architecture_output(request: ArchitectureOutputMappingRequest) -> dict[str, Any]:
+    """Map one agent output into the common experiment output without rewriting it."""
+
+    try:
+        result = (
+            finalize_single_agent_execution(
+                request.single_agent_execution,
+                request.context,
+                mapped_at=request.mapped_at,
+            )
+            if request.single_agent_execution is not None
+            else finalize_agent_graph_execution(
+                request.graph_execution,
+                request.context,
+                mapped_at=request.mapped_at,
+            )
+        )
+    except ArchitectureMappingError as error:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "output cannot be mapped to this experiment cycle", "violations": error.violations},
+        ) from error
+    return result.model_dump(mode="json")
+
+
+@app.get("/api/experiments/replay-runs/{artifact_id:path}")
+def load_historical_replay(artifact_id: str) -> dict[str, Any]:
+    try:
+        record = artifact_store().get(artifact_id)
+        if record.manifest.creation_method != "deterministic_historical_replay":
+            raise ArtifactNotFound(artifact_id)
+        content, _ = artifact_store().open_file(artifact_id, "result.json")
+        result = json.loads(content)
+        result["saved"] = {
+            "artifact_id": artifact_id,
+            "saved_at": record.manifest.created_at.isoformat(),
+            "state": record.state.value,
+        }
+        return result
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/experiments/replay-runs")
+def create_historical_replay(request: HistoricalReplayRequest) -> dict[str, Any]:
+    """Run the bounded, deterministic historical baseline on licensed data."""
+
+    try:
+        if request.workflow_id in {"B1", "A1"} and not request.authorize_external_model_calls:
+            raise HistoricalReplayError(
+                "B1 and A1 require explicit authorization to send bounded, derived licensed-data context to OpenAI for this run"
+            )
+        result = run_historical_replay(
+            find_private_root(PROTOTYPE_ROOT),
+            workflow_id=request.workflow_id,
+            portfolio_id=request.portfolio_id,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            evaluation_id=request.evaluation_id,
+        )
+        result["saved"] = _save_historical_replay(result) if request.save_result else None
+        return result
+    except HistoricalReplayError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except (RuntimeError, duckdb.Error) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@app.get("/api/experiments/options")
+def experiment_options() -> dict[str, Any]:
+    return _experiment_options_payload()
+
+
+@app.get("/api/experiments/fixture-context")
+def experiment_fixture_context() -> dict[str, Any]:
+    try:
+        return calibration_fixture_payload(registry_store())
+    except (RegistryConflict, RegistryNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.post("/api/experiments/fixture-context/resolve")
+def resolve_experiment_fixture_context() -> dict[str, Any]:
+    try:
+        return resolve_calibration_fixture(registry_store())
+    except (RegistryConflict, RegistryNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.get("/api/experiments/run-traces")
+def experiment_run_traces() -> dict[str, Any]:
+    try:
+        return run_trace_payload()
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/experiments/run-traces")
+def create_experiment_run_trace(request: RunTraceCreateRequest) -> dict[str, Any]:
+    try:
+        return create_calibration_run_trace(actor=request.actor)
+    except (ArtifactConflict, ArtifactNotFound, KeyError, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.get("/api/experiments/program")
+def experiment_program() -> dict[str, Any]:
+    try:
+        return experimental_program_payload()
+    except (KeyError, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.get("/api/experiments/run-audit")
+def experiment_run_audit_catalogue() -> dict[str, Any]:
+    try:
+        return run_audit_catalogue_payload()
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/experiments/run-audit/compare")
+def compare_experiment_runs(request: RunComparisonRequest) -> dict[str, Any]:
+    try:
+        return run_comparison_payload(request)
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/experiments/run-audit/acceptance")
+def accept_experiment_run_comparison(request: RunAcceptanceRequest) -> dict[str, Any]:
+    try:
+        return record_run_acceptance(request)
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+def _experiment_registry_documents() -> list[Any]:
+    """Return only saved registry definitions that may enter new experiments."""
+
+    return [
+        document
+        for document in registry_store().list()
+        if document.projection.identity.kind in {AssetKind.WORKFLOW, AssetKind.EVALUATION}
+        and document.state in EXPERIMENT_ELIGIBLE_REGISTRY_STATES
+    ]
+
+
+def _require_experiment_registry_assets(identities: tuple[RegistryIdentity, ...]) -> None:
+    eligible = {
+        document.projection.identity.reference: document
+        for document in registry_store().list()
+        if document.state in EXPERIMENT_ELIGIBLE_REGISTRY_STATES
+    }
+    missing = [identity.reference for identity in identities if identity.reference not in eligible]
+    if missing:
+        raise ExperimentConflict(
+            "experiment assets must be saved in the Registry and remain candidate, validated, "
+            "or published: " + ", ".join(missing)
+        )
+
+
+def _experiment_definition_registry_assets(
+    definition: ExperimentDefinition,
+) -> tuple[RegistryIdentity, ...]:
+    return definition.system_assets + (
+        (definition.scientific_design,) if definition.scientific_design is not None else ()
+    ) + (
+        (definition.object_set,) if definition.object_set is not None else ()
+    )
+
+
+def _experiment_options_payload() -> dict[str, Any]:
+    assets = [
+        {
+            "identity": document.projection.identity.model_dump(mode="json"),
+            "reference": document.projection.identity.reference,
+            "display_name": document.projection.display_name,
+            "summary": document.projection.summary,
+            "lifecycle_state": document.state.value,
+            "registry_revision": document.receipts[-1].receipt_digest,
+            "saved": True,
+        }
+        for document in _experiment_registry_documents()
+    ]
+    selection_id = data_plane.selection["selection_id"]
+    snapshot_id = data_plane.selection["source_snapshot_id"]
+    selection_digest = data_plane.selection["candidate_artifact"]["sha256"]
+    real_portfolios = [
+        {
+            "portfolio_id": item["portfolio_id"],
+            "title": item["title"],
+            "position_count": len(item.get("positions", ())),
+            "base_currency": item.get("base_currency"),
+            "reference": f"portfolio-selection:{selection_id}:{item['portfolio_id']}@{selection_digest}",
+            "data_truth": "licensed_real",
+            "data_revision_reference": f"dataset-snapshot:{snapshot_id}",
+        }
+        for item in data_plane.public_portfolios()
+    ]
+    simulated_portfolios = [
+        {
+            **item,
+            "data_truth": "simulated_intraday",
+            "data_revision_reference": f"simulation:seeded-intraday@v1+anchor:{snapshot_id}",
+        }
+        for item in real_portfolios
+    ]
+    synthetic_portfolios = []
+    fixture_root = PROTOTYPE_ROOT.parents[2] / "examples" / "portfolio-risk-thesis" / "portfolios"
+    for path in sorted(fixture_root.glob("*.yaml")):
+        document = yaml.safe_load(path.read_text(encoding="utf-8"))
+        digest = "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+        synthetic_portfolios.append(
+            {
+                "portfolio_id": document["portfolio_id"],
+                "title": document["title"],
+                "reference": f"portfolio-fixture:{document['portfolio_id']}@{digest}",
+                "data_truth": "reviewed_synthetic",
+                "data_revision_reference": "fixture:portfolio-risk-thesis@2026-07-28.2",
+            }
+        )
+    return {
+        "system_assets": assets,
+        "eligibility_policy": {
+            "registry_required": True,
+            "accepted_lifecycle_states": sorted(
+                state.value for state in EXPERIMENT_ELIGIBLE_REGISTRY_STATES
+            ),
+            "meaning": "Only explicitly indexed, versioned definitions can enter a new experiment.",
+        },
+        "defaults": {
+            "snapshot_policy_reference": "snapshot-policy:point-in-time-available-at@v1",
+            "mandate_reference": "mandate:research-default@v1",
+            "data_truth": "licensed_real",
+        },
+        "portfolios": [*real_portfolios, *synthetic_portfolios, *simulated_portfolios],
+        "licensed_data": {
+            "available": bool(real_portfolios),
+            "source_snapshot_id": snapshot_id,
+            "selection_id": selection_id,
+            "access": "read_only",
+            "synthetic_fallback": False,
+        },
+    }
+
+
+@app.post("/api/experiments/draft")
+def draft_experiment(request: ExperimentDraftRequest) -> dict[str, Any]:
+    try:
+        expected_kind = (
+            AssetKind.EVALUATION
+            if request.presentation_mode == PresentationMode.EVALUATION_ONLY
+            else AssetKind.WORKFLOW
+        )
+        if request.system_asset.kind != expected_kind:
+            raise ExperimentConflict(
+                f"{request.presentation_mode.value} requires a {expected_kind.value} definition"
+            )
+        _require_experiment_registry_assets((request.system_asset,))
+        options = _experiment_options_payload()
+        portfolio_option = next(
+            (
+                item
+                for item in options["portfolios"]
+                if item["reference"] == request.portfolio_reference
+                and item["data_truth"] == request.data_truth.value
+            ),
+            None,
+        )
+        if portfolio_option is None:
+            raise ExperimentConflict(
+                "portfolio reference is not reviewed for the selected data-truth class"
+            )
+        if portfolio_option["data_revision_reference"] != request.data_revision_reference:
+            raise ExperimentConflict(
+                "data revision does not match the reviewed portfolio/data-truth option"
+            )
+        raw_bindings = {
+            "portfolio": request.portfolio_reference,
+            "snapshot_policy": request.snapshot_policy_reference,
+            "mandate": request.mandate_reference,
+            "data_revision": request.data_revision_reference,
+        }
+        bindings = tuple(
+            SourceBinding(
+                role=role,
+                reference=reference,
+                revision="declared-v1",
+                digest=canonical_digest(
+                    {"kind": "experiment-source-binding/v1", "role": role, "reference": reference}
+                ),
+            )
+            for role, reference in sorted(raw_bindings.items())
+        )
+        definition = ExperimentDefinition(
+            experiment_id=request.experiment_id,
+            version="0.1.0",
+            name=request.name,
+            purpose=request.purpose,
+            hypothesis=request.hypothesis,
+            owner=request.actor,
+            created_at=datetime.now(timezone.utc),
+            temporal=TemporalWindow(start_date=request.start_date, end_date=request.end_date),
+            presentation_mode=request.presentation_mode,
+            data_truth=request.data_truth,
+            source_bindings=bindings,
+            system_assets=(request.system_asset,),
+            budget=ExperimentBudget(
+                max_model_calls=request.max_model_calls,
+                max_cost_usd=request.max_cost_usd,
+            ),
+        )
+        record = experiment_store().create(
+            definition,
+            actor=request.actor,
+            idempotency_key=f"create-{request.experiment_id}",
+        )
+        return experiment_record_payload(record)
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.post("/api/experiments")
+def create_experiment(request: ExperimentCreateRequest) -> dict[str, Any]:
+    try:
+        _require_experiment_registry_assets(
+            _experiment_definition_registry_assets(request.definition)
+        )
+        record = experiment_store().create(
+            request.definition,
+            actor=request.actor,
+            idempotency_key=request.idempotency_key,
+        )
+        return experiment_record_payload(record)
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.get("/api/experiments/{experiment_id}")
+def experiment_detail(experiment_id: str) -> dict[str, Any]:
+    try:
+        return experiment_record_payload(experiment_store().get(experiment_id))
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.post("/api/experiments/{experiment_id}/transition")
+def transition_experiment(
+    experiment_id: str, request: ExperimentTransitionRequest
+) -> dict[str, Any]:
+    try:
+        if request.to_state == ExperimentState.VALIDATED:
+            current = experiment_store().get(experiment_id)
+            _require_experiment_registry_assets(
+                _experiment_definition_registry_assets(current.definition)
+            )
+        record = experiment_store().transition(
+            experiment_id,
+            request.to_state,
+            actor=request.actor,
+            rationale=request.rationale,
+            idempotency_key=request.idempotency_key,
+            expected_revision=request.expected_revision,
+        )
+        return experiment_record_payload(record)
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.post("/api/experiments/{experiment_id}/enqueue")
+def enqueue_experiment(
+    experiment_id: str, request: ExperimentEnqueueRequest
+) -> dict[str, Any]:
+    try:
+        record, queue = experiment_store().enqueue(
+            experiment_id,
+            actor=request.actor,
+            idempotency_key=request.idempotency_key,
+            expected_revision=request.expected_revision,
+        )
+        return {
+            "experiment": experiment_record_payload(record),
+            "queue": queue.model_dump(mode="json"),
+        }
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.get("/api/experiment-queue")
+def experiment_queue_entries() -> dict[str, Any]:
+    try:
+        return {"entries": [item.model_dump(mode="json") for item in experiment_store().queue_entries()]}
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.post("/api/experiment-queue/{queue_id}/control")
+def control_experiment_queue(
+    queue_id: str, request: ExperimentQueueControlRequest
+) -> dict[str, Any]:
+    try:
+        record, queue = experiment_store().update_queue(
+            queue_id, action=request.action, resume_token=request.resume_token
+        )
+        return {
+            "experiment": experiment_record_payload(record),
+            "queue": queue.model_dump(mode="json"),
+        }
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.get("/api/experiment-sets")
+def experiment_sets() -> dict[str, Any]:
+    try:
+        store = experiment_store()
+        return {"sets": [experiment_set_payload(item, store) for item in store.list_sets()]}
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
+@app.post("/api/experiment-sets")
+def create_experiment_set(request: ExperimentSetCreateRequest) -> dict[str, Any]:
+    try:
+        store = experiment_store()
+        definition = store.create_set(request.definition)
+        return experiment_set_payload(definition, store)
+    except (ExperimentConflict, ExperimentNotFound, ValueError) as error:
+        raise _experiment_error(error) from error
+
+
 @app.get("/api/agents/runtime")
 def agent_runtime() -> dict[str, Any]:
     return runtime_status()
+
+
+@app.post("/api/report-composer/plan")
+def report_composer_plan() -> dict[str, Any]:
+    return default_daily_risk_plan().model_dump(mode="json")
+
+
+@app.post("/api/report-composer/compose")
+def report_composer_compose(request: ReportComposeRequest) -> dict[str, Any]:
+    report = compose_daily_risk_report(
+        request.presentation,
+        report_id=request.report_id,
+        evidence_ids=request.evidence_ids,
+    )
+    report = with_rendered_html(report)
+    validation = validate_report(
+        report,
+        available_evidence_ids=request.evidence_ids,
+    )
+    return {
+        "report": report.model_dump(mode="json"),
+        "validation": validation.model_dump(mode="json"),
+        "markdown": report_markdown(report),
+    }
+
+
+@app.post("/api/report-composer/validate")
+def report_composer_validate(request: ReportValidationRequest) -> dict[str, Any]:
+    return validate_report(
+        request.report,
+        available_evidence_ids=request.available_evidence_ids,
+    ).model_dump(mode="json")
+
+
+@app.post("/api/report-composer/render")
+def report_composer_render(request: ReportRenderRequest) -> dict[str, Any]:
+    return {
+        "renderer_version": request.report.renderer_version,
+        "safe_html": render_report(request.report),
+    }
 
 
 @app.post("/api/workflow-cycle/sessions")
@@ -1913,6 +3366,9 @@ def resolve_workflow_cycle_decision_proposal(
             request.outcome,
             resolver_id=request.resolver_id,
             resolver_type=request.resolver_type,
+            rationale=request.rationale,
+            idempotency_key=request.idempotency_key,
+            expected_revision=request.expected_revision,
         )
         return session.snapshot()
     except KeyError as error:
@@ -1922,6 +3378,79 @@ def resolve_workflow_cycle_decision_proposal(
         ) from error
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.get("/api/decisions")
+def decision_catalogue() -> dict[str, Any]:
+    return decision_catalogue_payload()
+
+
+@app.get("/api/decisions/{proposal_id}")
+def decision_record(proposal_id: str) -> dict[str, Any]:
+    try:
+        return decision_record_payload(decision_store().get(proposal_id))
+    except DecisionReviewNotFound as error:
+        raise HTTPException(status_code=404, detail="decision proposal not found") from error
+
+
+@app.post("/api/decisions/{proposal_id}/resolve")
+def resolve_persisted_decision(proposal_id: str, request: DecisionResolveRequest) -> dict[str, Any]:
+    try:
+        session = workflow_cycle_manager.find_by_proposal(proposal_id)
+        if session is not None:
+            session.resolve_proposal(
+                proposal_id, request.outcome, resolver_id=request.resolver_id,
+                resolver_type=request.resolver_type, rationale=request.rationale,
+                idempotency_key=request.idempotency_key,
+                expected_revision=request.expected_revision,
+            )
+            record = session.decision_store.get(proposal_id)
+        else:
+            record = resolve_decision_record(
+                decision_store(), proposal_id, DecisionOutcome(request.outcome),
+                resolver_id=request.resolver_id, rationale=request.rationale,
+                idempotency_key=request.idempotency_key,
+                expected_revision=request.expected_revision,
+            )
+        return decision_record_payload(record)
+    except DecisionReviewNotFound as error:
+        raise HTTPException(status_code=404, detail="decision proposal not found") from error
+    except DecisionReviewConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/api/decisions/{proposal_id}/due-diligence")
+def decision_due_diligence(proposal_id: str) -> dict[str, Any]:
+    try:
+        return decision_due_diligence_payload(decision_store().get(proposal_id))
+    except DecisionReviewNotFound as error:
+        raise HTTPException(status_code=404, detail="decision proposal not found") from error
+
+
+@app.post("/api/decisions/{proposal_id}/due-diligence/runs")
+def execute_decision_due_diligence(
+    proposal_id: str,
+    request: DecisionDueDiligenceRunRequest,
+) -> dict[str, Any]:
+    try:
+        session = workflow_cycle_manager.find_by_proposal(proposal_id)
+        store = session.decision_store if session is not None else decision_store()
+        record = run_due_diligence(
+            store,
+            proposal_id,
+            name=request.name,
+            investigation_question=request.investigation_question,
+            capability_ids=tuple(request.capability_ids),
+            candidate_recommendation=DecisionOutcome(request.candidate_recommendation),
+            actor_id=request.actor_id,
+            idempotency_key=request.idempotency_key,
+            expected_revision=request.expected_revision,
+        )
+        return decision_due_diligence_payload(record)
+    except DecisionReviewNotFound as error:
+        raise HTTPException(status_code=404, detail="decision proposal not found") from error
+    except DecisionReviewConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @app.post("/api/workflow-cycle/sessions/{session_id}/agents")
@@ -1953,7 +3482,144 @@ def agent_capability_platform() -> dict[str, Any]:
 
 @app.get("/api/agents/templates")
 def agent_templates() -> dict[str, Any]:
-    return {"agents": risk_agent_templates()}
+    agents = all_agent_templates()
+    return {
+        "agents": agents,
+        "classes": {
+            "static_system": [item for item in agents if item["agent_class"] == "static_system"],
+            "experimental_specialist": [
+                item for item in agents if item["agent_class"] == "experimental_specialist"
+            ],
+        },
+    }
+
+
+@app.get("/api/agents/system-agents")
+def system_agents() -> dict[str, Any]:
+    agents = [
+        item for item in all_agent_templates() if item["agent_class"] == "static_system"
+    ]
+    return {"agents": agents, "count": len(agents)}
+
+
+@app.post("/api/agents/system-agents/agent-studio-architect/fixture")
+def run_agent_studio_architect_fixture() -> dict[str, Any]:
+    return static_system_agent_fixture()
+
+
+@app.get("/api/studios/codex/status")
+def studio_codex_status(probe: bool = False) -> dict[str, Any]:
+    """Inspect the local development provider without exposing authentication data."""
+
+    return studio_codex_manager.status(probe=probe)
+
+
+@app.get("/api/studios/codex/proposals")
+def studio_codex_proposals() -> dict[str, Any]:
+    proposals = studio_codex_manager.list_proposals()
+    return {"proposals": proposals, "count": len(proposals)}
+
+
+@app.post("/api/studios/codex/proposals")
+def create_studio_codex_proposal(request: CodexProposalRequest) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.create_proposal(request)
+    except Exception as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.post("/api/studios/codex/proposals/{proposal_id}/approve")
+def approve_studio_codex_proposal(
+    proposal_id: str, request: CodexProposalApprovalRequest
+) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.approve_proposal(proposal_id, request)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Studio-Codex proposal not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/api/studios/codex/sessions")
+def studio_codex_sessions(recover: bool = False) -> dict[str, Any]:
+    if recover:
+        studio_codex_manager.schedule_recovery()
+    sessions = studio_codex_manager.list_sessions()
+    return {"sessions": sessions, "count": len(sessions)}
+
+
+@app.post("/api/studios/codex/sessions")
+def start_studio_codex_session(request: CodexSessionRequest) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.start_session(request)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Studio-Codex proposal not found") from error
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/api/studios/codex/sessions/{session_id}")
+def studio_codex_session(session_id: str) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.get_session(session_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Studio-Codex session not found") from error
+
+
+@app.post("/api/studios/codex/sessions/{session_id}/turns")
+def continue_studio_codex_session(
+    session_id: str, request: CodexTurnRequest
+) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.start_turn(session_id, request)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Studio-Codex session not found") from error
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/studios/codex/sessions/{session_id}/review")
+def review_studio_codex_session(session_id: str) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.review(session_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Studio-Codex session not found") from error
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/studios/codex/sessions/{session_id}/interrupt")
+def interrupt_studio_codex_session(session_id: str) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.interrupt(session_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Studio-Codex session not found") from error
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/studios/codex/sessions/{session_id}/approvals")
+def resolve_studio_codex_approval(
+    session_id: str, request: CodexApprovalRequest
+) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.respond_approval(session_id, request)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Codex approval request not found") from error
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/studios/codex/sessions/{session_id}/archive")
+def archive_studio_codex_session(session_id: str) -> dict[str, Any]:
+    try:
+        return studio_codex_manager.archive(session_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Studio-Codex session not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @app.post("/api/agents/blueprint/validate")
@@ -1967,15 +3633,71 @@ def validate_agent_blueprint(blueprint: AgentBlueprint) -> dict[str, Any]:
     }
 
 
+@app.post("/api/agents/blueprint/review")
+def review_agent_blueprint_configuration(
+    request: BlueprintReviewRequest,
+) -> dict[str, Any]:
+    try:
+        return review_blueprint_configuration(request)
+    except Exception as error:
+        safe_type = re.sub(r"[^A-Za-z0-9_-]", "_", type(error).__name__)[:64]
+        raise HTTPException(
+            status_code=422,
+            detail=f"Agent configuration review failed: {safe_type}",
+        ) from error
+
+
+@app.get("/api/agents/history")
+def agent_history(agent_name: str, version: str = "0.1.0") -> dict[str, Any]:
+    if not agent_name.strip():
+        raise HTTPException(status_code=422, detail="agent_name is required")
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        raise HTTPException(status_code=422, detail="version must use semantic versioning")
+    return agent_development_history(agent_name.strip()[:80], version)
+
+
 @app.post("/api/agents/blueprint/plan")
 def create_agent_blueprint(request: BlueprintPlanRequest) -> dict[str, Any]:
     try:
         return plan_blueprint(request)
+    except ModuleNotFoundError as error:
+        missing = getattr(error, "name", None) or "required runtime dependency"
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Agent Blueprint planning is unavailable because {missing} is not "
+                "installed in the server runtime. Restart the application with "
+                "apps/portfolio-risk-workbench/labs/start_live_data.sh."
+            ),
+        ) from error
     except Exception as error:
         safe_type = re.sub(r"[^A-Za-z0-9_-]", "_", type(error).__name__)[:64]
         raise HTTPException(
             status_code=502,
             detail=f"OpenAI blueprint planning failed: {safe_type}",
+        ) from error
+
+
+@app.post("/api/agents/blueprint/refine")
+def refine_agent_blueprint(request: BlueprintRefineRequest) -> dict[str, Any]:
+    try:
+        return refine_blueprint(request)
+    except ModuleNotFoundError as error:
+        missing = getattr(error, "name", None) or "required runtime dependency"
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Agent Blueprint refinement is unavailable because {missing} is not "
+                "installed in the server runtime. Restart the application with "
+                "apps/portfolio-risk-workbench/labs/start_live_data.sh."
+            ),
+        ) from error
+    except Exception as error:
+        detail = str(error).strip() or type(error).__name__
+        detail = re.sub(r"[\r\n\t]+", " ", detail)[:1200]
+        raise HTTPException(
+            status_code=422,
+            detail=f"Agent refinement failed: {detail}",
         ) from error
 
 
@@ -2023,6 +3745,14 @@ def preview_agent_input(request: AgentInputPreviewRequest) -> dict[str, Any]:
 @app.post("/api/agents/run")
 def run_agent(request: RunRequest) -> dict[str, Any]:
     try:
+        if request.blueprint.agent_class == "static_system":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Static System Agents use the Studio design fixture, not the portfolio "
+                    "experiment runner. Run the Agent Studio Architect fixture instead."
+                ),
+            )
         preview_request = AgentInputPreviewRequest(
             data_mode=request.data_mode,
             scenario=request.scenario,
@@ -2044,9 +3774,100 @@ def run_agent(request: RunRequest) -> dict[str, Any]:
         ) from error
 
 
+@app.post("/api/agents/compare")
+def compare_agent_execution(request: RunRequest) -> dict[str, Any]:
+    """Run one frozen input through deterministic and model-backed drafting."""
+
+    if request.blueprint.agent_class == "static_system":
+        raise HTTPException(
+            status_code=409,
+            detail="Static System Agents do not use the portfolio comparison runner.",
+        )
+    try:
+        preview_request = AgentInputPreviewRequest(
+            data_mode=request.data_mode,
+            scenario=request.scenario,
+            portfolio_id=request.portfolio_id,
+            as_of=date.fromisoformat(request.as_of) if request.as_of else None,
+            datasets=request.datasets or ["market", "fundamental", "identity", "links"],
+        )
+        context, provenance = prepare_agent_input(preview_request)
+        created_at = datetime.now(timezone.utc).replace(microsecond=0)
+        comparison_digest = hashlib.sha256(
+            json.dumps(
+                {
+                    "blueprint": request.blueprint.model_dump(mode="json"),
+                    "context": context,
+                    "created_at": created_at.isoformat(),
+                },
+                sort_keys=True,
+                default=str,
+            ).encode()
+        ).hexdigest()[:8]
+        comparison_id = (
+            f"comparison-{created_at.strftime('%Y%m%dT%H%M%SZ')}-{comparison_digest}"
+        )
+        common = {
+            "input_context": context,
+            "input_provenance": provenance,
+            "comparison_id": comparison_id,
+            "persist_run": True,
+        }
+        deterministic = run_blueprint(
+            request.model_copy(update={**common, "execution_mode": "deterministic"})
+        )
+        live_llm = run_blueprint(
+            request.model_copy(update={**common, "execution_mode": "live_llm"})
+        )
+        input_digest = "sha256:" + hashlib.sha256(
+            json.dumps(context, sort_keys=True, separators=(",", ":"), default=str).encode()
+        ).hexdigest()
+        return {
+            "comparison_id": comparison_id,
+            "input_digest": input_digest,
+            "same_frozen_input": True,
+            "deterministic": deterministic,
+            "live_llm": live_llm,
+            "summary": {
+                "deterministic_semantic_status": deterministic.get("final_state", {})
+                .get("semantic_verification", {})
+                .get("status"),
+                "model_semantic_status": live_llm.get("final_state", {})
+                .get("semantic_verification", {})
+                .get("status"),
+                "model_tokens": sum(
+                    item.get("total_tokens", 0)
+                    for item in live_llm.get("final_state", {}).get("model_receipts", [])
+                ),
+                "deterministic_elapsed_ms": deterministic.get("elapsed_ms"),
+                "model_elapsed_ms": live_llm.get("elapsed_ms"),
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Agent comparison failed: {type(error).__name__}: {error}",
+        ) from error
+
+
 @app.get("/api/agents/runs")
-def agent_runs() -> dict[str, Any]:
-    return {"runs": list_agent_runs()}
+def agent_runs(include_retained: bool = False) -> dict[str, Any]:
+    runs = list_agent_runs()
+    retained_run_ids = {
+        record.manifest.run_id
+        for record in artifact_store().list(include_deleted=False)
+        if record.manifest.run_id is not None
+    }
+    visible = runs if include_retained else [
+        run for run in runs if run.get("run_id") not in retained_run_ids
+    ]
+    return {
+        "runs": visible,
+        "retained_run_count": len(retained_run_ids),
+        "hidden_retained_run_count": len(runs) - len(visible),
+    }
 
 
 @app.get("/api/agents/runs/{run_id}")
@@ -2061,12 +3882,13 @@ def agent_run_detail(run_id: str) -> dict[str, Any]:
 
 @app.delete("/api/agents/runs/{run_id}")
 def remove_agent_run(run_id: str) -> dict[str, Any]:
-    try:
-        return delete_agent_run(run_id)
-    except FileNotFoundError as error:
-        raise HTTPException(status_code=404, detail="agent run not found") from error
-    except ValueError as error:
-        raise HTTPException(status_code=422, detail=str(error)) from error
+    raise HTTPException(
+        status_code=409,
+        detail=(
+            "Immediate run-folder deletion is disabled. Review and explicitly admit the "
+            "run in the Artifact Repository, then use its recoverable deletion lifecycle."
+        ),
+    )
 
 
 @app.post("/api/agents/output-pass")
@@ -2079,6 +3901,300 @@ def run_agent_output_pass(request: OutputPassRunRequest) -> dict[str, Any]:
             status_code=422,
             detail=f"Structured output pass failed: {safe_type}: {error}",
         ) from error
+
+
+@app.post("/api/studios/risk-analysis/runs")
+def run_risk_analysis_package(request: PackageRunRequest) -> dict[str, Any]:
+    try:
+        return execute_risk_analysis_package(request)
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except Exception as error:
+        safe_type = re.sub(r"[^A-Za-z0-9_-]", "_", type(error).__name__)[:64]
+        raise HTTPException(
+            status_code=502,
+            detail=f"Risk Analysis Package execution failed: {safe_type}",
+        ) from error
+
+
+@app.get("/api/studios/risk-analysis/runs")
+def risk_analysis_package_runs() -> dict[str, Any]:
+    return {"runs": list_risk_analysis_package_runs()}
+
+
+@app.get("/api/studios/risk-analysis/runs/{run_id}")
+def risk_analysis_package_run(run_id: str) -> dict[str, Any]:
+    try:
+        return load_risk_analysis_package_run(run_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="risk analysis package run not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.delete("/api/studios/risk-analysis/runs/{run_id}")
+def remove_risk_analysis_package_run(run_id: str) -> dict[str, Any]:
+    try:
+        return delete_risk_analysis_package_run(run_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="risk analysis package run not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+def _mandate_catalogue_payload() -> dict[str, Any]:
+    payload = mandate_studio_catalogue_data()
+    projections = {
+        (item.identity.kind, item.identity.asset_id): item
+        for item in discover_registry_projections()
+        if item.identity.kind in {AssetKind.MANDATE, AssetKind.RISK_POLICY}
+    }
+    documents = {
+        item.projection.identity.reference: item
+        for item in registry_store().list()
+        if item.projection.identity.kind in {AssetKind.MANDATE, AssetKind.RISK_POLICY}
+    }
+    records = []
+    for record in payload["records"]:
+        mandate = record["mandate"]
+        policy = record["risk_policy"]
+        mandate_projection = projections[(AssetKind.MANDATE, mandate["object_id"])]
+        policy_projection = projections[(AssetKind.RISK_POLICY, policy["object_id"])]
+        mandate_document = documents.get(mandate_projection.identity.reference)
+        policy_document = documents.get(policy_projection.identity.reference)
+        records.append(
+            {
+                **record,
+                "registry": {
+                    "mandate_identity": mandate_projection.identity.model_dump(mode="json"),
+                    "mandate_reference": mandate_projection.identity.reference,
+                    "mandate_state": mandate_document.state.value if mandate_document else "discovered",
+                    "policy_identity": policy_projection.identity.model_dump(mode="json"),
+                    "policy_reference": policy_projection.identity.reference,
+                    "policy_state": policy_document.state.value if policy_document else "discovered",
+                    "registered": mandate_document is not None and policy_document is not None,
+                },
+            }
+        )
+    return {**payload, "records": records}
+
+
+@app.get("/api/studios/mandates/catalogue")
+def mandate_studio_catalogue() -> dict[str, Any]:
+    return _mandate_catalogue_payload()
+
+
+@app.post("/api/studios/mandates/design-preview")
+def mandate_studio_design_preview(request: MandateDesignPreviewRequest) -> dict[str, Any]:
+    try:
+        return prepare_mandate_design_preview(request)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Mandate fixture not found") from error
+
+
+@app.post("/api/studios/mandates/validate")
+def mandate_studio_validate(request: MandateValidationRequest) -> dict[str, Any]:
+    try:
+        _, mandate, policy = mandate_bundle(request.mandate_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Mandate fixture not found") from error
+    return validate_mandate_bundle(mandate, policy)
+
+
+@app.post("/api/studios/mandates/register")
+def mandate_studio_register(request: MandateRegistrationRequest) -> dict[str, Any]:
+    try:
+        _, mandate, policy = mandate_bundle(request.mandate_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Mandate fixture not found") from error
+    validation = validate_mandate_bundle(mandate, policy)
+    if not validation["valid"]:
+        raise HTTPException(status_code=409, detail="Mandate bundle did not pass design validation")
+    wanted = {
+        (AssetKind.MANDATE, mandate.object_id),
+        (AssetKind.RISK_POLICY, policy.object_id),
+    }
+    projections = [
+        item
+        for item in discover_registry_projections()
+        if (item.identity.kind, item.identity.asset_id) in wanted
+    ]
+    if len(projections) != 2:
+        raise HTTPException(status_code=409, detail="Exact mandate Registry projections are unavailable")
+    try:
+        documents, conflicts = registry_store().index_many(projections, actor=request.actor)
+    except (RegistryConflict, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    if conflicts:
+        raise HTTPException(status_code=409, detail="; ".join(conflicts))
+    return {
+        "registered": True,
+        "mandate_id": mandate.object_id,
+        "records": [document_payload(document) for document in documents],
+        "validation": validation,
+        "production_publication": False,
+        "effects": [],
+    }
+
+
+@app.get("/api/application/mandate")
+def mandate_application_catalogue() -> dict[str, Any]:
+    try:
+        return mandate_application_catalogue_data(registry_store())
+    except (KeyError, RegistryConflict, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/application/mandate/run")
+def mandate_application_run(request: MandateApplicationRequest) -> dict[str, Any]:
+    try:
+        return run_mandate_application(request, registry_store())
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="Mandate application input was not found") from error
+    except (PermissionError, RegistryConflict, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/api/studios/capabilities/catalogue")
+def capability_studio_catalogue() -> dict[str, Any]:
+    return capability_catalogue()
+
+
+@app.post("/api/studios/capabilities/assess")
+def capability_studio_assessment(request: CapabilityAssessmentRequest) -> dict[str, Any]:
+    try:
+        assessment = assess_capability_requirement(request)
+        save_capability_design_session(request, assessment)
+        return assessment.model_dump(mode="json")
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.get("/api/studios/capabilities/design-sessions")
+def capability_studio_design_sessions() -> dict[str, Any]:
+    return {"sessions": list_capability_design_sessions()}
+
+
+@app.get("/api/studios/capabilities/design-sessions/{session_id}")
+def capability_studio_design_session(session_id: str) -> dict[str, Any]:
+    try:
+        return load_capability_design_session(session_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="capability design session not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.delete("/api/studios/capabilities/design-sessions/{session_id}")
+def capability_studio_delete_design_session(session_id: str) -> dict[str, Any]:
+    try:
+        return delete_capability_design_session(session_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="capability design session not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.get("/api/studios/capabilities/proposals")
+def capability_studio_proposals() -> dict[str, Any]:
+    return {"proposals": list_capability_proposals()}
+
+
+@app.post("/api/studios/capabilities/proposals")
+def capability_studio_create_proposal(request: CapabilityProposalCreateRequest) -> dict[str, Any]:
+    try:
+        return create_capability_proposal(request)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.post("/api/studios/capabilities/blueprints")
+def capability_studio_compile_blueprint(request: CapabilityProposalCreateRequest) -> dict[str, Any]:
+    return {
+        "decision": request.decision,
+        "blueprint": compile_capability_blueprint(request).model_dump(mode="json"),
+    }
+
+
+@app.post("/api/studios/capabilities/proposals/approve")
+def capability_studio_approve_blueprint(request: CapabilityProposalCreateRequest) -> dict[str, Any]:
+    try:
+        return approve_capability_blueprint(request)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/api/studios/design-proposals")
+def studio_design_proposal(request: StudioDesignProposalRequest) -> dict[str, Any]:
+    try:
+        return create_studio_design_proposal(request)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.delete("/api/studios/capabilities/proposals/{proposal_id}")
+def capability_studio_delete_proposal(proposal_id: str) -> dict[str, Any]:
+    try:
+        return delete_capability_proposal(proposal_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="capability proposal not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.post("/api/studios/capabilities/proposals/{proposal_id}/transition")
+def capability_studio_transition_proposal(
+    proposal_id: str,
+    request: CapabilityProposalTransitionRequest,
+) -> dict[str, Any]:
+    try:
+        return transition_capability_proposal(proposal_id, request)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="capability proposal not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/api/studios/capabilities/runs")
+def capability_studio_runs() -> dict[str, Any]:
+    return {"runs": list_capability_fixture_runs()}
+
+
+@app.post("/api/studios/capabilities/runs")
+def capability_studio_execute_run(request: CapabilityFixtureRunRequest) -> dict[str, Any]:
+    try:
+        return execute_capability_fixture(request)
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except Exception as error:
+        safe_type = re.sub(r"[^A-Za-z0-9_-]", "_", type(error).__name__)[:64]
+        raise HTTPException(status_code=502, detail=f"Capability fixture execution failed: {safe_type}") from error
+
+
+@app.get("/api/studios/capabilities/runs/{run_id}")
+def capability_studio_run(run_id: str) -> dict[str, Any]:
+    try:
+        return load_capability_fixture_run(run_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="capability fixture run not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.delete("/api/studios/capabilities/runs/{run_id}")
+def capability_studio_delete_run(run_id: str) -> dict[str, Any]:
+    try:
+        return delete_capability_fixture_run(run_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail="capability fixture run not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 app.mount("/", StaticFiles(directory=PROTOTYPE_ROOT, html=True), name="prototype")

@@ -1,9 +1,16 @@
 # ServiceFabric Labs — architecture and phased development roadmap
 
-- Status: maintained architecture and development skeleton
-- Updated: 2026-08-03
+- Status: historical roadmap; superseded for active thesis scope by ADR-0009
+- Updated: 2026-08-11
 - Scope: ServiceFabric PortfolioRisk research and development application
 - Current authority: planning only; this file does not enable live orders, broker connectivity, or portfolio effects
+
+> Incubator notice: references in this roadmap to Report, Dashboard, visual
+> presentation artifacts, and Investment Thesis describe preserved post-thesis
+> ideas. They are not active experiment objects, Registry discovery targets, or
+> thesis-run dependencies. The active object decision is recorded in
+> `docs/architecture/adr/0009-defer-user-facing-objects.md` and
+> `config/incubator/post-thesis-user-facing-objects.yaml`.
 
 ## 1. Purpose
 
@@ -20,6 +27,16 @@ The objective is to build a system in which users can:
 7. preserve thesis-grade lineage across inputs, calculations, prompts, capabilities, decisions, outputs, and later outcomes.
 
 The system is not a collection of one-off agent demos. It is a governed authoring, experiment, persistence, and evaluation environment.
+
+### 1.1 Unified application operating zones
+
+The application now projects the existing services into three explicit zones:
+
+- **System Development** creates and fixture-tests reusable definitions, then saves them in the Registry;
+- **Agent Application** loads saved definitions into a labelled fixture context and exposes the agent/object work record;
+- **Experimental Research** composes only saved definition versions into persistent experiments and comparisons.
+
+The normative terminology, movement rules, backend reuse and later-phase dependency reminders are maintained in [`docs/architecture/platform-operating-zones.md`](../../../docs/architecture/platform-operating-zones.md). Every later phase must preserve the distinction among reusable definitions, Fixture Contexts, temporary run work products, retained artifacts and experiments.
 
 ## 2. Product principles
 
@@ -165,6 +182,8 @@ The catalogue contains at least:
 - RiskThesis / InvestmentThesis;
 - MonitoringStrategy and SubscriptionPack;
 - ContextPack, CapabilityPack, OutputContract, AutonomyProfile, and RuntimeProfile.
+- RiskAnalysisPackageDefinition, combining a risk question, semantic data roles,
+  modular analytical capability roles, validation and an analysis-dossier contract.
 
 ### 4.2 Storage responsibilities
 

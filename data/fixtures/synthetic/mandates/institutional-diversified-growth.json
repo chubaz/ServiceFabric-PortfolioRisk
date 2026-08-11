@@ -1,0 +1,137 @@
+{
+  "fixture_kind": "synthetic-mandate-and-policy/v1",
+  "truth": "reviewed_synthetic",
+  "mandate": {
+    "namespace": "portfolio-risk.reference",
+    "object_id": "institutional-diversified-growth",
+    "version": "1.0.0",
+    "name": "Institutional diversified growth mandate",
+    "objective": "Support long-term spending while preserving real purchasing power through a diversified, liquid portfolio.",
+    "horizon_seconds": 315576000,
+    "eligible_universe_reference": "universe:portfolio-risk.reference:diversified-liquid-assets@1.0.0",
+    "constraints": [
+      {
+        "constraint_id": "cash-minimum",
+        "category": "liquidity",
+        "statement": "Cash and immediately available liquidity must remain at or above 5% of portfolio NAV.",
+        "clause_type": "hard_constraint",
+        "system_treatment": "compliance_test",
+        "source_clause_reference": "nmu-endowment#synthetic-liquidity-adaptation"
+      },
+      {
+        "constraint_id": "issuer-concentration",
+        "category": "concentration",
+        "statement": "Exposure to one consolidated issuer must not exceed 10% of portfolio NAV.",
+        "clause_type": "hard_constraint",
+        "system_treatment": "compliance_test",
+        "source_clause_reference": "cfa-ips-elements#synthetic-diversification-adaptation"
+      },
+      {
+        "constraint_id": "real-return-objective",
+        "category": "objective",
+        "statement": "Evaluate whether the portfolio sustains a 5% annualized real return over a rolling five-year horizon; shortfall is an objective finding, not a compliance breach.",
+        "clause_type": "objective",
+        "system_treatment": "objective_evaluation",
+        "source_clause_reference": "nmu-endowment#synthetic-return-adaptation"
+      }
+    ],
+    "sources": [
+      {
+        "source_id": "cfa-ips-elements",
+        "title": "CFA Institute: Elements of an Investment Policy Statement for Institutional Investors",
+        "source_kind": "public_reference",
+        "reference": "https://rpc.cfainstitute.org/policy/positions/elements-of-an-investment-policy-statement-for-institutional-investors",
+        "authority_effect": "reference_only",
+        "note": "Used as structural guidance; this fixture is synthetic and is not CFA Institute policy language."
+      },
+      {
+        "source_id": "nmu-endowment",
+        "title": "Northern Michigan University Investment Policy Statement for Endowments",
+        "source_kind": "public_reference",
+        "reference": "https://nmu.edu/policies-and-requirements/policies/1194",
+        "authority_effect": "reference_only",
+        "note": "Used to inform the endowment-purpose archetype; no clause is legally operative in ServiceFabric."
+      }
+    ],
+    "capability_requirements": [
+      {
+        "capability_reference": "capability:risk:portfolio.exposure.summarize@1.0.0",
+        "purpose": "evaluate_compliance",
+        "constraint_ids": ["cash-minimum", "issuer-concentration"]
+      },
+      {
+        "capability_reference": "capability:risk:risk.returns.simple@1.0.0",
+        "purpose": "evaluate_compliance",
+        "constraint_ids": ["real-return-objective"]
+      }
+    ],
+    "applicable_law_notes": [
+      "Applicable law is retained as non-operative reference metadata and produces no system effect."
+    ],
+    "effective_from": "2024-01-01T00:00:00Z"
+  },
+  "risk_policy": {
+    "namespace": "portfolio-risk.reference",
+    "object_id": "institutional-diversified-growth-policy",
+    "version": "1.0.0",
+    "name": "Institutional diversified growth policy",
+    "rules": [
+      {
+        "rule_id": "cash-minimum",
+        "mandate_constraint_id": "cash-minimum",
+        "system_treatment": "compliance_test",
+        "capability_reference": "capability:risk:portfolio.exposure.summarize@1.0.0",
+        "metric_reference": "metric:risk:cash-weight@1.0.0",
+        "operator": "gte",
+        "threshold": "0.05",
+        "unit": "portfolio_weight",
+        "denominator": "portfolio_nav",
+        "evaluation_basis": "current",
+        "severity": "breach",
+        "escalation": "decision_required",
+        "governance_route": {
+          "outcome": "require_decision",
+          "governance_level": "risk_officer",
+          "decision_policy_reference": "decision-policy:portfolio-risk:liquidity-review@1.0.0"
+        }
+      },
+      {
+        "rule_id": "issuer-concentration",
+        "mandate_constraint_id": "issuer-concentration",
+        "system_treatment": "compliance_test",
+        "capability_reference": "capability:risk:portfolio.exposure.summarize@1.0.0",
+        "metric_reference": "metric:risk:consolidated-issuer-weight@1.0.0",
+        "operator": "lte",
+        "threshold": "0.10",
+        "unit": "portfolio_weight",
+        "denominator": "portfolio_nav",
+        "evaluation_basis": "current",
+        "severity": "breach",
+        "escalation": "decision_required",
+        "governance_route": {
+          "outcome": "require_decision",
+          "governance_level": "risk_officer",
+          "decision_policy_reference": "decision-policy:portfolio-risk:concentration-review@1.0.0"
+        }
+      },
+      {
+        "rule_id": "real-return-objective",
+        "mandate_constraint_id": "real-return-objective",
+        "system_treatment": "objective_evaluation",
+        "capability_reference": "capability:risk:risk.returns.simple@1.0.0",
+        "metric_reference": "metric:risk:annualized-real-return-five-year@1.0.0",
+        "operator": "gte",
+        "threshold": "0.05",
+        "unit": "annualized_return",
+        "evaluation_basis": "trailing_historical",
+        "severity": "warning",
+        "escalation": "record",
+        "governance_route": {
+          "outcome": "record_finding",
+          "governance_level": "investment_committee",
+          "decision_policy_reference": "decision-policy:portfolio-risk:objective-review@1.0.0"
+        }
+      }
+    ]
+  }
+}

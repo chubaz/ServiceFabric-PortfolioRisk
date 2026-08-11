@@ -11,6 +11,10 @@ executes it locally against allow-listed read-only views, and independently
 caps the result at 10,000 rows and 200 columns. The visible result can be
 exported as CSV.
 
+All other enabled Studio model calls are also pinned at the server boundary to
+GPT-5.6 Luna. Deterministic preview modes remain the default and make no model
+call; the browser cannot override the cost-optimized model selection.
+
 ## Local use
 
 The application deliberately runs only on localhost and reads licensed data
@@ -20,10 +24,10 @@ generated agents, or execution results belong in Git.
 From the repository root, start the local service with:
 
 ```sh
-apps/portfolio-risk-workbench/labs/start_live_data.sh 8766
+apps/portfolio-risk-workbench/labs/start_live_data.sh 8776
 ```
 
-Then open <http://127.0.0.1:8766/?workspace=agent>.
+Then open <http://127.0.0.1:8776/?zone=system&workspace=studio>.
 
 The launcher uses the thesis Python environment under the surrounding
 `servicefabric-lab/state` directory. Override it when needed with
