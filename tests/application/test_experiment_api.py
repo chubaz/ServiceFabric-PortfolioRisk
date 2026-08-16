@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -61,6 +63,39 @@ def test_experiment_options_declare_real_data_without_synthetic_fallback() -> No
     assert options["licensed_data"]["synthetic_fallback"] is False
     assert all(item["position_count"] > 0 for item in real)
     assert all(item["base_currency"] for item in real)
+
+
+def test_metadata_remains_available_without_private_licensed_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unavailable_plane = duckdb_server.LazyReadOnlyDataPlane()
+    monkeypatch.setattr(duckdb_server, "data_plane", unavailable_plane)
+
+    def unavailable_root(_start: Path) -> Path:
+        raise RuntimeError("private test data is absent")
+
+    monkeypatch.setattr(duckdb_server, "find_private_root", unavailable_root)
+
+    options = duckdb_server._experiment_options_payload()
+    assert options["licensed_data"] == {
+        "available": False,
+        "status": "unavailable",
+        "unavailable_reason": "licensed data root is not configured",
+        "source_snapshot_id": None,
+        "selection_id": None,
+        "access": "read_only",
+        "synthetic_fallback": False,
+    }
+    assert not [
+        item for item in options["portfolios"] if item["data_truth"] == "licensed_real"
+    ]
+    assert [
+        item for item in options["portfolios"] if item["data_truth"] == "reviewed_synthetic"
+    ]
+    assert duckdb_server.platform_workspaces()["portfolios"] == []
+
+    with pytest.raises(RuntimeError, match="private test data is absent"):
+        duckdb_server.portfolios()
 
 
 def scientific_design_projection(identity: RegistryIdentity) -> RegistryProjection:
@@ -214,6 +249,220 @@ def test_catalogue_isolates_a_comparison_set_with_a_missing_member(
     assert payload["sets"][0]["comparison_ready"] is False
     assert payload["sets"][0]["members"][0]["state"] == "missing"
     assert payload["issues"][0]["code"] == "missing_experiment_member"
+
+
+def _counterfactual_run_result(workflow_id: str, repetition: int) -> dict:
+    case_id = "case-portfolio-01-2020-01-01-2020-01-03"
+    model_calls = 0 if workflow_id == "B0" else 1
+    return {
+        "run_id": f"run-{workflow_id.lower()}-{repetition}",
+        "workflow": {"id": workflow_id},
+        "hierarchy": {
+            "case": {"case_id": case_id, "context_digest": "sha256:" + "a" * 64},
+            "regimes": [{"dimension": "volatility", "value": "high"}],
+        },
+        "portfolio": {"id": "portfolio-01"},
+        "mandate": {"reference": "mandate:portfolio-risk:01@1.0.0"},
+        "period": {"start": "2020-01-01", "end": "2020-01-03"},
+        "execution_regime": {
+            "resource_usage": {
+                "processing_wall_ms": 10.0,
+                "model_calls": model_calls,
+                "input_tokens": model_calls * 10,
+                "output_tokens": model_calls * 2,
+                "estimated_cost_usd": model_calls * 0.01,
+            }
+        },
+        "evaluation": {
+            "id": "thesis_evaluation_v1",
+            "dimensions": [
+                {
+                    "id": dimension_id,
+                    "status": "partial",
+                    "summary": "Retained observation only.",
+                    "metrics": {},
+                }
+                for dimension_id in (
+                    "detection_quality",
+                    "severity_understanding",
+                    "timeliness",
+                    "evidence_quality",
+                    "confidence_calibration",
+                    "decision_quality",
+                    "robustness",
+                    "stability",
+                    "efficiency",
+                )
+            ],
+        },
+        "run_record": {
+            "run_input": {"information_regime": "market-events", "repetition": repetition},
+            "run_trace": {"wall_clock_ms": 10.0},
+            "finding_episodes": [],
+            "architecture_outputs": [
+                {
+                    "assessment_state": "clear",
+                    "severity": 0,
+                    "confidence": 0.5,
+                    "findings": [],
+                    "decision": {
+                        "monitoring_action": "continue_monitoring",
+                        "portfolio_action": "none",
+                        "human_review_required": False,
+                    },
+                }
+            ],
+        },
+    }
+
+
+def test_counterfactual_studio_exposes_hierarchy_and_dimension_roles() -> None:
+    payload = duckdb_server.counterfactual_dimensions()
+    dimensions = {item["id"]: item for item in payload["dimensions"]}
+
+    assert payload["hierarchy"] == ["study", "experiment", "case", "run"]
+    assert payload["regime_role"] == "cross_cutting_case_classification"
+    assert dimensions["architecture"]["execution_state"] == "available"
+    assert dimensions["portfolio_action"]["kind"] == "financial_counterfactual"
+    assert dimensions["regime"]["kind"] == "conditioning_variable"
+
+
+def test_counterfactual_batch_executes_cells_and_returns_terminal_analysis(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = []
+
+    def fake_run(_private_root, **kwargs):
+        calls.append(kwargs)
+        return _counterfactual_run_result(kwargs["workflow_id"], kwargs["repetition"])
+
+    monkeypatch.setattr(duckdb_server, "find_private_root", lambda _root: tmp_path)
+    monkeypatch.setattr(duckdb_server, "run_historical_replay", fake_run)
+    monkeypatch.setattr(
+        duckdb_server,
+        "_save_historical_replay",
+        lambda value: {
+            "artifact_id": f"historical-replay:{value['run_id']}",
+            "saved_at": "2026-08-11T00:00:00+00:00",
+            "state": "active",
+        },
+    )
+    monkeypatch.setattr(
+        duckdb_server,
+        "_save_counterfactual_analysis",
+        lambda _definition, analysis: {
+            "artifact_id": "counterfactual-analysis:experiment-01:test",
+            "artifact_digest": analysis["analysis_digest"],
+            "created_at": analysis["generated_at"],
+            "state": "active",
+        },
+    )
+    request = duckdb_server.CounterfactualBatchRequest(
+        study_id="study-01",
+        study_title="Portfolio risk architecture study",
+        experiment_id="experiment-01",
+        research_question="Does architecture change the same Case output?",
+        hypothesis="The architecture treatments produce different retained observations.",
+        portfolio_ids=("portfolio-01",),
+        workflow_ids=("B0", "B1"),
+        start_date=date(2020, 1, 1),
+        end_date=date(2020, 1, 3),
+        repetitions=2,
+        max_concurrency=2,
+        authorize_external_model_calls=True,
+    )
+
+    payload = duckdb_server.create_counterfactual_batch(request)
+
+    assert len(calls) == 4
+    assert {item["workflow_id"] for item in calls} == {"B0", "B1"}
+    assert {item["repetition"] for item in calls} == {1, 2}
+    assert payload["definition"]["regime_role"] == "cross_cutting_case_classification"
+    assert payload["analysis"]["status"] == "complete"
+    assert payload["analysis"]["matrix_coverage"]["completed"] == 4
+    assert len(payload["analysis"]["contrasts"]) == 2
+    assert len(payload["run_artifacts"]) == 4
+
+
+def test_counterfactual_batch_requires_explicit_model_authorization() -> None:
+    request = duckdb_server.CounterfactualBatchRequest(
+        study_id="study-01",
+        study_title="Portfolio risk architecture study",
+        experiment_id="experiment-01",
+        research_question="Does architecture change the same Case output?",
+        hypothesis="The architecture treatments produce different retained observations.",
+        portfolio_ids=("portfolio-01",),
+        workflow_ids=("B0", "A1"),
+        start_date=date(2020, 1, 1),
+        end_date=date(2020, 1, 3),
+    )
+
+    with pytest.raises(duckdb_server.HTTPException) as denied:
+        duckdb_server.create_counterfactual_batch(request)
+
+    assert denied.value.status_code == 422
+    assert "explicit authorization" in denied.value.detail
+
+
+def test_counterfactual_terminal_analysis_is_retained_as_its_own_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PORTFOLIO_RISK_ARTIFACT_ROOT", str(tmp_path / "artifacts"))
+    definition = {
+        "study": {"study_id": "study-01", "title": "S" * 300},
+        "experiment": {"experiment_id": "experiment-01"},
+    }
+    analysis = {
+        "analysis_digest": canonical_digest({"experiment_id": "experiment-01"}),
+        "study_id": "study-01",
+        "experiment_id": "experiment-01",
+        "status": "partial",
+        "generated_at": "2026-08-11T00:00:00+00:00",
+        "matrix_coverage": {"planned": 2, "completed": 0, "failed": 0, "missing": 2, "fraction": 0.0},
+        "cells": [],
+    }
+
+    saved = duckdb_server._save_counterfactual_analysis(definition, analysis)
+    record = duckdb_server.artifact_store().get(saved["artifact_id"])
+    loaded = duckdb_server.load_counterfactual_batch(saved["artifact_id"])
+
+    assert record.manifest.kind.value == "evidence_bundle"
+    assert len(record.manifest.title) == 200
+    assert record.manifest.parent_artifact_ids == ()
+    assert {item.path for item in record.manifest.files} == {
+        "batch-definition.json",
+        "counterfactual-analysis.json",
+        "experiment-assurance-report.md",
+        "shortcomings.json",
+    }
+    assert loaded["definition"] == definition
+    assert loaded["analysis"] == analysis
+    assert duckdb_server.list_counterfactual_batches()["analyses"][0]["analysis_digest"] == analysis["analysis_digest"]
+
+
+def test_research_catalogues_ignore_tombstoned_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class TombstonedStore:
+        def list(self):
+            return [
+                SimpleNamespace(
+                    manifest=SimpleNamespace(creation_method="deterministic_historical_replay"),
+                    state=SimpleNamespace(value="tombstoned"),
+                ),
+                SimpleNamespace(
+                    manifest=SimpleNamespace(creation_method="experiment-lab.counterfactual-terminal-analysis"),
+                    state=SimpleNamespace(value="tombstoned"),
+                ),
+            ]
+
+        def open_file(self, *_args, **_kwargs):
+            raise AssertionError("tombstoned evidence must not be opened")
+
+    monkeypatch.setattr(duckdb_server, "artifact_store", TombstonedStore)
+
+    assert duckdb_server._saved_historical_replays() == []
+    assert duckdb_server._counterfactual_analysis_artifacts() == []
 
 
 def test_draft_rejects_portfolio_truth_misclassification(
@@ -440,15 +689,206 @@ def test_historical_replay_can_be_saved_listed_and_reloaded(
         "metric-specifications.json",
         "processing-receipts.json",
         "result.json",
+        "run-assurance-report.md",
+        "run-assurance.json",
+        "run-diagnostics.json",
         "run-input.json",
+        "run-manifest.json",
         "run-trace.json",
+        "runtime-report.json",
     }
     assert record.manifest.entry_file == "architecture-output.json"
+    manifest_bytes, _ = duckdb_server.artifact_store().open_file(
+        saved["artifact_id"], "run-manifest.json"
+    )
+    run_manifest = json.loads(manifest_bytes)
+    assert run_manifest["schema_version"] == "portfolio-risk.run-reproducibility-manifest/v1"
+    assert run_manifest["run_id"] == result["run_id"]
+    assert run_manifest["manifest_digest"].startswith("sha256:")
     catalogue = duckdb_server.list_historical_replays()
     assert catalogue["runs"][0]["run_id"] == result["run_id"]
     loaded = duckdb_server.load_historical_replay(saved["artifact_id"])
     assert loaded["mandate"]["reference"] == result["mandate"]["reference"]
     assert loaded["saved"]["artifact_id"] == saved["artifact_id"]
+
+
+def _assurance_result(*, label_state: str = "admitted") -> dict:
+    dimensions = [
+        "detection_quality", "severity_understanding", "timeliness",
+        "evidence_quality", "confidence_calibration", "decision_quality",
+        "robustness", "stability", "efficiency",
+    ]
+    return {
+        "run_id": "run-assurance-01",
+        "status": "completed",
+        "hierarchy": {
+            "case": {"case_id": "case-01", "context_digest": "sha256:" + "a" * 64},
+        },
+        "run_record": {
+            "run_input": {
+                "case_id": "case-01",
+                "capability_configurations": [
+                    {
+                        "capability_id": "historical-replay-context",
+                        "evaluation_roles": ["architecture_input", "measurement"],
+                    },
+                    {
+                        "capability_id": "portfolio-risk-metric-pack",
+                        "evaluation_roles": ["architecture_input", "measurement"],
+                    },
+                    {
+                        "capability_id": "event-relevance-classifier",
+                        "evaluation_roles": ["architecture_input"],
+                    },
+                    {
+                        "capability_id": "fundamental-state-classifier",
+                        "evaluation_roles": ["architecture_input"],
+                    },
+                    {
+                        "capability_id": "mandate-policy-evaluator",
+                        "evaluation_roles": ["architecture_input", "measurement"],
+                    },
+                    {
+                        "capability_id": "mandate-rule-reference-label",
+                        "evaluation_roles": ["reference_label"],
+                    },
+                    {
+                        "capability_id": "daily-session-timeliness",
+                        "evaluation_roles": ["measurement"],
+                    },
+                    {
+                        "capability_id": "evidence-structural-audit",
+                        "evaluation_roles": ["measurement"],
+                    },
+                    {
+                        "capability_id": "execution-telemetry-collector",
+                        "evaluation_roles": ["measurement"],
+                    },
+                ],
+            },
+            "architecture_output": {"output_id": "output-01"},
+            "architecture_outputs": [
+                {
+                    "output_id": "output-01",
+                    "execution_summary": {
+                        "errors": [],
+                        "schema_validation_failures": 0,
+                        "semantic_verification_failures": 0,
+                    },
+                }
+            ],
+            "processing_receipts": [{"processing_wall_ms": 12.0}],
+        },
+        "workflow": {"id": "B0"},
+        "execution_regime": {"resource_usage": {"processing_wall_ms": 12.0}},
+        "diagnostics": {"counts": {}, "shortcomings": [], "codex_handoff": {}},
+        "evaluation": {
+            "trading_days": 1,
+            "workflow_failures": 0,
+            "reference_treatment": {
+                "scope": "deterministic_mandate_breaches",
+                "label_state": label_state,
+                "label_set_digest": "sha256:" + "b" * 64 if label_state == "admitted" else None,
+                "cycles": 1,
+            },
+            "dimensions": [
+                {"id": dimension, "status": "measured"} for dimension in dimensions
+            ],
+        },
+    }
+
+
+def test_single_run_assurance_uses_canonical_attributes_without_reexecution() -> None:
+    assurance = duckdb_server._single_run_assurance(
+        _assurance_result(), retention_requested=True
+    )
+
+    assert assurance["engine_ready"] is True
+    assert assurance["archive_ready"] is True
+    assert assurance["computation"] == {
+        "strategy": "canonical_attribute_inspection",
+        "database_queries": 0,
+        "model_calls": 0,
+        "capability_reexecutions": 0,
+    }
+    assert next(
+        item for item in assurance["checks"] if item["check_id"] == "capability-readiness"
+    )["status"] == "pass"
+    assert next(
+        item for item in assurance["checks"] if item["check_id"] == "label-scope"
+    )["status"] == "warning"
+
+
+def test_single_run_assurance_fails_when_reference_labels_are_not_admitted() -> None:
+    assurance = duckdb_server._single_run_assurance(
+        _assurance_result(label_state="not_admitted"), retention_requested=True
+    )
+
+    label_check = next(
+        item for item in assurance["checks"] if item["check_id"] == "label-readiness"
+    )
+    assert label_check["status"] == "fail"
+    assert label_check["required_for_valid_run"] is True
+    assert assurance["engine_ready"] is False
+    assert assurance["archive_ready"] is False
+
+
+def test_professor_demo_definition_pins_one_case_and_all_demo_capabilities() -> None:
+    definition = historical_replay_runtime.professor_demo_definition()
+
+    assert definition["demo_id"] == "professor-demo-v0.1"
+    assert definition["case"]["portfolio_id"] == "defensive_multi_asset"
+    assert definition["case"]["start_date"] == definition["case"]["end_date"] == "2016-03-07"
+    assert definition["architectures"] == ["B0", "B1", "A1"]
+    assert set(definition["capabilities"]) == {
+        item.capability_id for item in historical_replay_runtime.PRECONFIGURED_CAPABILITIES
+    }
+    assert definition["effects"] == []
+
+
+def test_professor_demo_endpoint_exposes_preflight_without_model_execution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected = {"demo_ready": True, "status": "ready_with_limitations"}
+    monkeypatch.setattr(duckdb_server, "find_private_root", lambda _root: Path("/licensed"))
+    monkeypatch.setattr(duckdb_server, "professor_demo_preflight", lambda _root: expected)
+
+    assert duckdb_server.professor_demo() == expected
+
+
+def test_professor_demo_run_compiles_the_frozen_three_cell_matrix(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = {}
+    monkeypatch.setattr(duckdb_server, "find_private_root", lambda _root: Path("/licensed"))
+    monkeypatch.setattr(
+        duckdb_server,
+        "professor_demo_preflight",
+        lambda _root: {"demo_ready": True, "checks": []},
+    )
+
+    def execute(request):
+        captured["request"] = request
+        return {"analysis": {"status": "complete"}}
+
+    monkeypatch.setattr(duckdb_server, "create_counterfactual_batch", execute)
+    result = duckdb_server.run_professor_demo(
+        duckdb_server.ProfessorDemoRunRequest(authorize_external_model_calls=True)
+    )
+
+    request = captured["request"]
+    assert request.portfolio_ids == ("defensive_multi_asset",)
+    assert request.workflow_ids == ("B0", "B1", "A1")
+    assert request.start_date == request.end_date == date(2016, 3, 7)
+    assert request.authorize_external_model_calls is True
+    assert result["analysis"]["status"] == "complete"
+
+
+def test_professor_demo_run_requires_explicit_model_authorization() -> None:
+    with pytest.raises(duckdb_server.HTTPException) as denied:
+        duckdb_server.run_professor_demo(duckdb_server.ProfessorDemoRunRequest())
+
+    assert denied.value.status_code == 422
 
 
 def test_functional_evaluator_does_not_award_vacuous_or_proxy_scores() -> None:
@@ -469,6 +909,67 @@ def test_functional_evaluator_does_not_award_vacuous_or_proxy_scores() -> None:
     assert by_id["robustness"]["status"] == "not_measurable"
     assert by_id["robustness"]["score"] is None
     assert by_id["stability"]["status"] == "partial"
+
+
+def test_evaluator_calculates_admitted_mandate_reference_metrics() -> None:
+    first = datetime(2017, 12, 1, 21, tzinfo=timezone.utc)
+    second = datetime(2017, 12, 4, 21, tzinfo=timezone.utc)
+    finding = SimpleNamespace(
+        metric_id="cash-weight", severity=2, risk_type="liquidity",
+        evidence_ids=("metric:cash",),
+    )
+    outputs = (
+        SimpleNamespace(
+            cycle_id="cycle-2017-12-01", findings=(finding,),
+            architecture_type="single_agent", as_of=first, trigger_available_at=first,
+            execution_summary=None, supporting_evidence_ids=("metric:cash",),
+            conflicting_evidence_ids=(), confidence_kind="ordinal_judgement",
+            confidence=0.8, assessment_state="watch",
+            decision=SimpleNamespace(
+                monitoring_action="increase_monitoring", portfolio_action="review_exposure",
+            ),
+        ),
+        SimpleNamespace(
+            cycle_id="cycle-2017-12-04", findings=(),
+            architecture_type="single_agent", as_of=second, trigger_available_at=second,
+            execution_summary=None, supporting_evidence_ids=(), conflicting_evidence_ids=(),
+            confidence_kind="ordinal_judgement", confidence=0.8, assessment_state="clear",
+            decision=SimpleNamespace(
+                monitoring_action="continue_monitoring", portfolio_action="none",
+            ),
+        ),
+    )
+    references = (
+        {
+            "cycle_id": "cycle-2017-12-01", "available_at": first,
+            "findings": ({
+                "key": "cycle-2017-12-01:cash-weight", "metric_id": "cash-weight",
+                "risk_type": "liquidity", "severity": 3, "available_at": first,
+            },),
+            "monitoring_action": "urgent_human_review", "portfolio_action": "review_exposure",
+        },
+        {
+            "cycle_id": "cycle-2017-12-04", "available_at": second, "findings": (),
+            "monitoring_action": "continue_monitoring", "portfolio_action": "none",
+        },
+    )
+    dimensions = historical_replay_runtime._evaluate_architecture_outputs(
+        outputs, (), position_observation_completeness=1.0, wall_clock_ms=20.0,
+        query_receipts=("query-01",), repetitions=1, label_state="admitted",
+        reference_cycles=references,
+    )
+    by_id = {item["id"]: item for item in dimensions}
+
+    assert by_id["detection_quality"]["score"] == 1.0
+    assert by_id["detection_quality"]["metrics"]["cycle_classification_accuracy"] == 1.0
+    assert by_id["severity_understanding"]["metrics"]["severity_mae"] == 1.0
+    assert by_id["severity_understanding"]["score"] == pytest.approx(2 / 3)
+    assert by_id["timeliness"]["score"] == 1.0
+    assert by_id["evidence_quality"]["score"] == 1.0
+    assert by_id["decision_quality"]["metrics"]["monitoring_action_agreement"] == 0.5
+    assert by_id["decision_quality"]["score"] == 0.75
+    assert by_id["confidence_calibration"]["status"] == "not_measurable"
+    assert by_id["robustness"]["score"] is None
 
 
 def test_live_agent_replay_requires_explicit_external_context_authorization() -> None:
@@ -500,3 +1001,19 @@ def test_agent_output_mapping_contract_keeps_artifact_flexible_and_evaluation_co
     assert payload["output_schema"]["title"] == "AgentStructuredOutput"
     assert payload["single_agent_wrapper_schema"]["title"] == "AgentExecutionEnvelope"
     assert payload["graph_wrapper_schema"]["title"] == "GraphExecutionEnvelope"
+
+
+def test_matched_evaluation_endpoint_returns_only_salient_projection(monkeypatch) -> None:
+    expected = {
+        "matrix_id": "matrix-one",
+        "status": "valid_with_limitations",
+        "archivable": True,
+        "coverage": {"completed": 3, "planned": 3},
+        "runs": [],
+    }
+    monkeypatch.setattr(
+        duckdb_server, "evaluate_matched_matrix",
+        lambda matrix_id: expected if matrix_id == "matrix-one" else None,
+    )
+
+    assert duckdb_server.experiment_evaluate_matched_run_plan("matrix-one") == expected

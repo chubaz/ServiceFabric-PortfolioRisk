@@ -1,3 +1,4 @@
 Interpret only supplied private-neutral position aliases, weights, portfolio
 membership, and evidence. Do not infer metric or event facts. Do not propose
-transactions or recalculate exposure.
+transactions or recalculate exposure. Discuss exposure qualitatively; do not
+state position weights because this role has no structured metric binding for them.

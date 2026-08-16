@@ -2,7 +2,7 @@
 
 from .catalog import CAPABILITY_BY_ID, CAPABILITY_DESCRIPTORS, ORDER_AND_BROKER_EFFECTS
 from .contracts import CapabilityDescriptor, CapabilityInput, CapabilityInvocation, CapabilityOutcome, EvidenceReference
-from .analytics import ContributionSummaryRequest, ContributionValue, DerivedReturnsRequest, HistoricalTailRiskRequest, ReportRequest, ReturnsRequest, ScenarioRequest, VolatilityRequest
+from .analytics import ContributionSummaryRequest, ContributionValue, DerivedReturnsRequest, DetectorExecutionRequest, HistoricalTailRiskRequest, ReportRequest, ReturnsRequest, ScenarioRequest, VolatilityRequest
 from .registry import AlertDraft, AlertReviewRequest, AlertSynthesisRequest, Anomaly, AnomalyDetectionRequest, AnomalyReport, CAPABILITY_REQUEST_TYPES, CapabilityInvocationRecord, CapabilityRegistry, CapabilityResult, CapabilityStopped, DEFAULT_CAPABILITY_REGISTRY, DecisionPoint, ExposureSummaryRequest, MonitoringFinding, NewsClassificationRequest, PortfolioSnapshotRequest, PositionSpecification, SyntheticNewsEvent
 from .monitoring import ContextualMonitoringCapabilityRequest, ContextualMonitoringWorkflowRequest, EventQueryCapabilityRequest, MonitoringAlertSynthesisCapabilityRequest, MonitoringReportCapabilityRequest, PolicyEvaluationCapabilityRequest, PortfolioDataContextCapabilityRequest, ReplayCapabilityRequest, ReplayEvaluationCapabilityRequest, ReplayStepInput, build_contextual_monitoring_request, event_signals_from_result, invoke_contextual_monitoring_workflow
 
@@ -18,6 +18,7 @@ __all__ = [
     "ContributionSummaryRequest",
     "ContributionValue",
     "DerivedReturnsRequest",
+    "DetectorExecutionRequest",
     "HistoricalTailRiskRequest",
     "ReportRequest",
     "ReturnsRequest",

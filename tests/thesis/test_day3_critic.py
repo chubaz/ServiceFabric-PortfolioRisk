@@ -86,6 +86,39 @@ def test_critic_failure_becomes_deterministic_abstention_and_preserves_digest():
     assert final.human_review_required
 
 
+def test_provider_error_code_in_abstention_is_not_treated_as_numeric_risk_claim():
+    unavailable = review_output(
+        status="ABSTAINED_AGENT_OUTPUT",
+        severity=0,
+        summary="Model output was unavailable; deterministic abstention applied.",
+        uncertainties=(
+            "provider_error:BadRequestError:invalid_json_schema:text.format.schema:400",
+        ),
+    )
+    report = critic(unavailable, bundle(), "B1")
+    assert report.passed
+    assert not [item for item in report.violations if item.code == "numeric_claim"]
+
+
+def test_metric_convention_and_event_source_reference_are_admissible_when_bound():
+    context = bundle()
+    event = context.events[0]
+    result = review_output(
+        summary="Historical VaR at 95% is supported by the supplied metric.",
+        evidence_refs=(event.source_reference,),
+        supporting_claims=({
+            "claim_id": "claim-var",
+            "statement": "Historical VaR at 95% is supported by the supplied metric.",
+            "claim_type": "metric",
+            "metric_ref": "historical_var_95",
+            "reported_metric_value": "0.02",
+            "evidence_refs": (EVIDENCE,),
+        },),
+    )
+    report = critic(result, context, "B1")
+    assert report.passed
+
+
 def test_future_event_cannot_enter_the_authoritative_context():
     context = bundle()
     document = context.model_dump(mode="python")

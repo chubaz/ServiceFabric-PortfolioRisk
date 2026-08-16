@@ -1,0 +1,507 @@
+{
+  "$defs": {
+    "AnalysisEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "evidence_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "reference": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "reference",
+        "digest",
+        "description"
+      ],
+      "title": "AnalysisEvidence",
+      "type": "object"
+    },
+    "AnomalySignal": {
+      "additionalProperties": false,
+      "description": "Sparse, versioned output from one detector threshold crossing.",
+      "properties": {
+        "available_at": {
+          "format": "date-time",
+          "title": "Available At",
+          "type": "string"
+        },
+        "detector_definition_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Detector Definition Digest",
+          "type": "string"
+        },
+        "detector_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Detector Id",
+          "type": "string"
+        },
+        "detector_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Detector Version",
+          "type": "string"
+        },
+        "direction": {
+          "$ref": "#/$defs/SignalDirection"
+        },
+        "evidence_ids": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "forecast_horizon_sessions": {
+          "minimum": 1,
+          "title": "Forecast Horizon Sessions",
+          "type": "integer"
+        },
+        "interval_end": {
+          "format": "date-time",
+          "title": "Interval End",
+          "type": "string"
+        },
+        "interval_start": {
+          "format": "date-time",
+          "title": "Interval Start",
+          "type": "string"
+        },
+        "lookback": {
+          "minimum": 5,
+          "title": "Lookback",
+          "type": "integer"
+        },
+        "observation_time": {
+          "format": "date-time",
+          "title": "Observation Time",
+          "type": "string"
+        },
+        "peak_time": {
+          "format": "date-time",
+          "title": "Peak Time",
+          "type": "string"
+        },
+        "quality_flags": {
+          "default": [],
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Quality Flags",
+          "type": "array"
+        },
+        "raw_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Raw Score"
+        },
+        "regime_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Regime Id",
+          "type": "string"
+        },
+        "scope_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Scope Id",
+          "type": "string"
+        },
+        "scope_type": {
+          "$ref": "#/$defs/SignalScope"
+        },
+        "series_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Series Id",
+          "type": "string"
+        },
+        "signal_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Signal Id",
+          "type": "string"
+        },
+        "standardised_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Standardised Score"
+        },
+        "status": {
+          "const": "confirmed",
+          "default": "confirmed",
+          "title": "Status",
+          "type": "string"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Threshold"
+        }
+      },
+      "required": [
+        "signal_id",
+        "series_id",
+        "scope_type",
+        "scope_id",
+        "observation_time",
+        "available_at",
+        "detector_id",
+        "detector_version",
+        "detector_definition_digest",
+        "lookback",
+        "forecast_horizon_sessions",
+        "direction",
+        "raw_score",
+        "standardised_score",
+        "threshold",
+        "regime_id",
+        "interval_start",
+        "interval_end",
+        "peak_time",
+        "evidence_ids"
+      ],
+      "title": "AnomalySignal",
+      "type": "object"
+    },
+    "DetectorDefinition": {
+      "additionalProperties": false,
+      "description": "One immutable statistical method and its complete configuration.",
+      "properties": {
+        "definition_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Definition Digest"
+        },
+        "detector_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Detector Id",
+          "type": "string"
+        },
+        "horizon_sessions": {
+          "default": 1,
+          "maximum": 252,
+          "minimum": 1,
+          "title": "Horizon Sessions",
+          "type": "integer"
+        },
+        "kind": {
+          "$ref": "#/$defs/DetectorKind"
+        },
+        "lookback": {
+          "maximum": 2520,
+          "minimum": 5,
+          "title": "Lookback",
+          "type": "integer"
+        },
+        "normalization": {
+          "const": "rolling_median_mad",
+          "default": "rolling_median_mad",
+          "title": "Normalization",
+          "type": "string"
+        },
+        "parameters": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DetectorParameter"
+          },
+          "title": "Parameters",
+          "type": "array"
+        },
+        "regime_id": {
+          "default": "unconditioned",
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Regime Id",
+          "type": "string"
+        },
+        "residualization": {
+          "default": "supplied_benchmark",
+          "enum": [
+            "supplied_benchmark",
+            "none"
+          ],
+          "title": "Residualization",
+          "type": "string"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Threshold"
+        },
+        "version": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "detector_id",
+        "version",
+        "kind",
+        "lookback",
+        "threshold"
+      ],
+      "title": "DetectorDefinition",
+      "type": "object"
+    },
+    "DetectorKind": {
+      "enum": [
+        "robust_residual_z_score",
+        "two_sided_cusum"
+      ],
+      "title": "DetectorKind",
+      "type": "string"
+    },
+    "DetectorParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "title": "DetectorParameter",
+      "type": "object"
+    },
+    "SamplePeriod": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "SamplePeriod",
+      "type": "object"
+    },
+    "SignalDirection": {
+      "enum": [
+        "downside",
+        "upside"
+      ],
+      "title": "SignalDirection",
+      "type": "string"
+    },
+    "SignalScope": {
+      "enum": [
+        "instrument",
+        "group"
+      ],
+      "title": "SignalScope",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/detector-run.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Content-addressed execution result suitable for immutable caching.",
+  "properties": {
+    "as_of": {
+      "format": "date-time",
+      "title": "As Of",
+      "type": "string"
+    },
+    "cache_key": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Cache Key",
+      "type": "string"
+    },
+    "data_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Data Digest",
+      "type": "string"
+    },
+    "definition": {
+      "$ref": "#/$defs/DetectorDefinition"
+    },
+    "eligible_observation_count": {
+      "minimum": 0,
+      "title": "Eligible Observation Count",
+      "type": "integer"
+    },
+    "evaluated_point_count": {
+      "minimum": 0,
+      "title": "Evaluated Point Count",
+      "type": "integer"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/AnalysisEvidence"
+      },
+      "minItems": 1,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "input_observation_count": {
+      "minimum": 0,
+      "title": "Input Observation Count",
+      "type": "integer"
+    },
+    "output_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Digest"
+    },
+    "quality_flags": {
+      "default": [],
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Quality Flags",
+      "type": "array"
+    },
+    "rejected_future_observation_count": {
+      "minimum": 0,
+      "title": "Rejected Future Observation Count",
+      "type": "integer"
+    },
+    "run_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sample_period": {
+      "$ref": "#/$defs/SamplePeriod"
+    },
+    "series_count": {
+      "minimum": 0,
+      "title": "Series Count",
+      "type": "integer"
+    },
+    "signals": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AnomalySignal"
+      },
+      "title": "Signals",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "definition",
+    "as_of",
+    "sample_period",
+    "data_digest",
+    "cache_key",
+    "input_observation_count",
+    "eligible_observation_count",
+    "rejected_future_observation_count",
+    "evaluated_point_count",
+    "series_count",
+    "evidence"
+  ],
+  "title": "DetectorRun",
+  "type": "object"
+}

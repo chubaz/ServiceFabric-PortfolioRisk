@@ -22,8 +22,8 @@ def _context():
 def test_p9_arm_plan_is_exact_and_honestly_blocked():
     dates = tuple(datetime.fromisoformat(f"2024-04-{day:02d}T17:00:00+00:00") for day in range(1, 6))
     plan = compile_arm_plan(_context(), dates)
-    assert [item.arm_id for item in plan.arms] == ["b0", "a1"]
-    assert plan.expected_outputs == 10
+    assert [item.arm_id for item in plan.arms] == ["b0", "b1", "a1"]
+    assert plan.expected_outputs == 15
     assert not plan.executable
     assert {item.issue_id for item in plan.blockers} == {"point-in-time-prices-unbound", "processing-identities-unqualified"}
 
@@ -36,8 +36,8 @@ def test_p10_labels_remain_sealed_and_p11_matrix_is_repeatable():
     assert gate.labels_reachable_by_processing is False
     first = compile_matrix(_context(), plan, repeats=2)
     second = compile_matrix(_context(), plan, repeats=2)
-    assert len(first.cells) == 4
-    assert first.planned_observations == 20
+    assert len(first.cells) == 6
+    assert first.planned_observations == 30
     assert first.matrix_digest == second.matrix_digest
     assert first.execution_status == "blocked"
 

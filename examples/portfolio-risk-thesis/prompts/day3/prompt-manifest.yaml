@@ -3,7 +3,7 @@ prompts:
   - prompt_id: common-system
     file: common-system-v1.txt
     version: v1
-    sha256: sha256:873b52878c7777fd81c06d13e433c2b638695a5fb77936111e67c6ff97d0ac49
+    sha256: sha256:9f556d02fabdc42a81571ae5120b0447722da80bb1cb54aa431a6597dfd73e5c
     role: system
     permitted_input_sections: []
     output_schema_version: v1
@@ -18,7 +18,7 @@ prompts:
   - prompt_id: b1-synthesizer
     file: b1-synthesizer-v1.txt
     version: v1
-    sha256: sha256:6678502cf9d76f61257065e83efa43e29ed74c2abd927234e708880cf715fe97
+    sha256: sha256:4d028e261e8b44b49e6b95e47f7dbf417e933287f302f16d8fec175ddae3743c
     role: risk.agent.alert_recommendation
     permitted_input_sections:
       - portfolio_id
@@ -43,7 +43,7 @@ prompts:
   - prompt_id: a1-market-data
     file: a1-market-data-v1.txt
     version: v1
-    sha256: sha256:f7f023ac9186818a404ad36e5a98b03328e17e28746b0b55b9eda81e5c9dd803
+    sha256: sha256:12d48dcf6119d0e807d6d58b66b463aaec1ceca9a709933fce71a055c909d23c
     role: risk.agent.market_data
     permitted_input_sections:
       - portfolio_id
@@ -63,7 +63,7 @@ prompts:
   - prompt_id: a1-portfolio-exposure
     file: a1-portfolio-exposure-v1.txt
     version: v1
-    sha256: sha256:a70597b71ae0709a74ba3afebf95df3f51c14ee6c317d788a4664133d790607e
+    sha256: sha256:5dadfd4650d341a455d9df863d181b25a251f0dfa46b97fa81aad08753090981
     role: risk.agent.portfolio_exposure
     permitted_input_sections:
       - portfolio_id
@@ -81,7 +81,7 @@ prompts:
   - prompt_id: a1-news-sentiment
     file: a1-news-sentiment-v1.txt
     version: v1
-    sha256: sha256:9d8af23e58d233ce8e2bfbeb461c00b1838d38bc14efe6f71367813f68ef6980
+    sha256: sha256:a2ac211fb6f9d51253e6ffa3b23a4a437d1f8a6a81a801cb2e5528ceb9f101d0
     role: risk.agent.news_sentiment
     permitted_input_sections:
       - portfolio_id
@@ -101,7 +101,7 @@ prompts:
   - prompt_id: a1-alert-synthesis
     file: a1-alert-synthesis-v1.txt
     version: v1
-    sha256: sha256:469dad9178707a48c894790693ec2194f73475bf0abe653e23e990ef3e0255ba
+    sha256: sha256:386118ea3cc884a93bc16e8db6cd5977e9a9da4655a88b0d1feb6af64bd02578
     role: risk.agent.alert_recommendation
     permitted_input_sections:
       - portfolio_id
@@ -112,6 +112,7 @@ prompts:
       - specialist_outputs
       - evidence_refs
       - permitted_next_steps
+      - authoritative_catalogue
     output_schema_version: v1
     prohibitions:
       - outside_knowledge

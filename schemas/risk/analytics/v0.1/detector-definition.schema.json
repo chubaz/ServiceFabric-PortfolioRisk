@@ -1,0 +1,146 @@
+{
+  "$defs": {
+    "DetectorKind": {
+      "enum": [
+        "robust_residual_z_score",
+        "two_sided_cusum"
+      ],
+      "title": "DetectorKind",
+      "type": "string"
+    },
+    "DetectorParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "title": "DetectorParameter",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/detector-definition.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One immutable statistical method and its complete configuration.",
+  "properties": {
+    "definition_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Definition Digest"
+    },
+    "detector_id": {
+      "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+      "title": "Detector Id",
+      "type": "string"
+    },
+    "horizon_sessions": {
+      "default": 1,
+      "maximum": 252,
+      "minimum": 1,
+      "title": "Horizon Sessions",
+      "type": "integer"
+    },
+    "kind": {
+      "$ref": "#/$defs/DetectorKind"
+    },
+    "lookback": {
+      "maximum": 2520,
+      "minimum": 5,
+      "title": "Lookback",
+      "type": "integer"
+    },
+    "normalization": {
+      "const": "rolling_median_mad",
+      "default": "rolling_median_mad",
+      "title": "Normalization",
+      "type": "string"
+    },
+    "parameters": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DetectorParameter"
+      },
+      "title": "Parameters",
+      "type": "array"
+    },
+    "regime_id": {
+      "default": "unconditioned",
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Regime Id",
+      "type": "string"
+    },
+    "residualization": {
+      "default": "supplied_benchmark",
+      "enum": [
+        "supplied_benchmark",
+        "none"
+      ],
+      "title": "Residualization",
+      "type": "string"
+    },
+    "threshold": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Threshold"
+    },
+    "version": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "detector_id",
+    "version",
+    "kind",
+    "lookback",
+    "threshold"
+  ],
+  "title": "DetectorDefinition",
+  "type": "object"
+}

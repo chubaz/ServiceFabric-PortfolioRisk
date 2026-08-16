@@ -125,6 +125,21 @@ class BlockingReplayScheduler:
             outcome = processor(trigger)
             wall_completed = datetime.now(timezone.utc)
             wall_ms = (wall_completed - wall_started).total_seconds() * 1000
+            component_values = (
+                outcome.capability_processing_ms,
+                outcome.model_processing_ms,
+                outcome.validation_processing_ms,
+            )
+            component_total = sum(component_values)
+            # Provider and graph-node timings can overlap.  Receipts retain exclusive
+            # wall-time shares while preserving the reported aggregate in metadata.
+            scale = min(1.0, wall_ms / component_total) if component_total else 1.0
+            receipt_metadata = dict(outcome.metadata)
+            if scale < 1.0:
+                receipt_metadata["reported_component_ms"] = {
+                    "capability": component_values[0], "model": component_values[1],
+                    "validation": component_values[2], "overlap_reconciled": True,
+                }
             receipt = ReplayProcessingReceipt(
                 receipt_id=f"processing-{canonical_digest((trigger, outcome))[7:23]}",
                 trigger_id=trigger.trigger_id,
@@ -139,15 +154,15 @@ class BlockingReplayScheduler:
                 output_id=outcome.output_id,
                 capability_calls=outcome.capability_calls,
                 model_calls=outcome.model_calls,
-                capability_processing_ms=outcome.capability_processing_ms,
-                model_processing_ms=outcome.model_processing_ms,
-                validation_processing_ms=outcome.validation_processing_ms,
+                capability_processing_ms=component_values[0] * scale,
+                model_processing_ms=component_values[1] * scale,
+                validation_processing_ms=component_values[2] * scale,
                 input_tokens=outcome.input_tokens,
                 cached_input_tokens=outcome.cached_input_tokens,
                 output_tokens=outcome.output_tokens,
                 estimated_cost_usd=outcome.estimated_cost_usd,
                 pricing_reference=outcome.pricing_reference,
-                metadata=outcome.metadata,
+                metadata=receipt_metadata,
             )
             self.receipts.append(receipt)
             # replay_at deliberately remains trigger.replay_at until the next trigger

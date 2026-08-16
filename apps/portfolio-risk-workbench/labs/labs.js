@@ -239,6 +239,7 @@
     mandateDesignPreview: null,
     mandateApplicationCatalogue: null,
     mandateApplicationRun: null,
+    goldWork: null,
     applicationStudioSelection: null,
     agentStudioSystemAgents: [],
     agentStudioMessages: [],
@@ -330,6 +331,19 @@
     experimentOptions: null,
     experimentRunAudit: null,
     experimentRunComparison: null,
+    counterfactualCatalogue: null,
+    counterfactualBatch: null,
+    counterfactualAnalyses: [],
+    counterfactualView: "design",
+    matchedRunSetup: null,
+    caseSignalPayload: null,
+    labelBatches: [],
+    labelBatch: null,
+    selectedLabelUnitId: null,
+    contextPlanPreview: null,
+    experimentMode: "single",
+    professorDemo: null,
+    professorDemoRunning: false,
     selectedExperimentId: null,
     experimentLoading: false,
     decisionRecords: [],
@@ -386,7 +400,7 @@
 
   const zoneDefaults = {
     system: "system",
-    research: "experiments",
+    research: "demo",
   };
 
   const workbenchWorkspaces = new Set([
@@ -467,6 +481,7 @@
     if (name === "graph") refreshGraphAgents();
     if (name === "registry") loadRegistryCatalogue();
     if (name === "artifacts") loadArtifactCatalogue();
+    if (name === "demo") loadProfessorDemo();
     if (name === "experiments") loadExperimentWorkspace();
     if (name === "decisions") loadDecisionWorkspace();
     if (name === "decision-diligence") loadDueDiligenceWorkspace();
@@ -4382,7 +4397,6 @@
     }
     const changes = agentStudioChanges(labState.agentStudioCandidateBase, candidate);
     const facts = agentStudioBlueprintFacts(candidate);
-    const receipt = labState.agentStudioReceipt || {};
     const validated = Boolean(labState.agentStudioCandidateValidated);
     $("#agent-companion-candidate").innerHTML = `<header><div><span>Agent design</span><strong>${escapeHtml(candidate.name)} · v${escapeHtml(candidate.version)}</strong><small>${escapeHtml(candidate.purpose)}</small></div><b class="${validated ? "passed" : ""}">${validated ? "Verified" : "Review next"}</b></header>
       <div class="agent-candidate-scroll">
@@ -4392,8 +4406,7 @@
       <section><span>Proposed changes</span><div class="agent-candidate-changes">${changes.length ? changes.map((item) => `<article><strong>${escapeHtml(item.key)}</strong><small>${escapeHtml(item.before)}</small><b>→</b><p>${escapeHtml(item.after)}</p></article>`).join("") : '<p>No consequential difference from the current blueprint. The design was clarified without changing its contract.</p>'}</div></section>
       <section class="agent-candidate-boundary"><span>What will not happen</span><p>No Registry write, activation, portfolio effect, code change or Codex session occurs from this proposal.</p></section>
       </div>
-      <footer><button class="button primary" id="agent-candidate-review" type="button">Verify blueprint</button><button class="button ghost" id="agent-candidate-open" type="button">Edit advanced configuration</button></footer>
-      <details class="agent-candidate-receipt"><summary>Technical details</summary><small>${escapeHtml(receipt.system_agent_id || "system-agent-agent-studio-architect")} · v${escapeHtml(receipt.system_agent_version || "0.1.0")} · ${Number(receipt.input_tokens || 0) + Number(receipt.output_tokens || 0)} tokens · ${escapeHtml(receipt.model || "gpt-5.6-luna")}</small></details>`;
+      <footer><button class="button primary" id="agent-candidate-review" type="button">Verify blueprint</button><button class="button ghost" id="agent-candidate-open" type="button">Edit advanced configuration</button></footer>`;
     renderAgentConfigurationReview();
   }
 
@@ -5698,7 +5711,6 @@
     const manifest = record.manifest;
     const verification = record.verification || {};
     const preview = record.deletion_preview;
-    const receipts = record.receipts || [];
     const files = manifest.files.map((file) => `<article class="artifact-file-row">
       <div><strong>${escapeHtml(file.path)}</strong><span>${artifactBytes(file.size_bytes)}</span></div>
       <div>${file.preview_mode !== "none" ? `<button class="text-button" data-preview-file="${escapeHtml(file.file_id)}" type="button">Open</button>` : '<span class="registry-badge">Cannot preview</span>'}${file.download_allowed ? `<button class="text-button" data-download-file="${escapeHtml(file.file_id)}" type="button">Download</button>` : ""}</div>
@@ -5714,7 +5726,6 @@
     $("#artifact-detail").innerHTML = `<header class="registry-detail-header"><span class="panel-label">Saved result · ${escapeHtml(artifactLabel(record.state))}</span><h2>${escapeHtml(manifest.title)}</h2><p>${escapeHtml(manifest.run_id ? `Files from run ${manifest.run_id}` : "Files produced by one run")}</p></header>
       <div class="registry-detail-badges"><span class="registry-badge ${verification.valid ? "indexed" : ""}">${verification.valid ? "Files checked" : "Files need checking"}</span><span class="registry-badge">${escapeHtml(resultDataLabel(manifest.data_truth))}</span></div>
       <details open><summary>Files</summary><div class="artifact-files">${files}</div><pre class="artifact-preview hidden" id="artifact-file-preview"></pre></details>
-      <details><summary>Technical details</summary><dl class="registry-facts"><div><dt>Created</dt><dd>${escapeHtml(new Date(manifest.created_at).toLocaleString())}</dd></div><div><dt>Created by</dt><dd>${escapeHtml(manifest.created_by)}</dd></div><div><dt>Method</dt><dd>${escapeHtml(manifest.creation_method)}</dd></div><div><dt>File ID</dt><dd><code>${escapeHtml(manifest.artifact_id)}</code></dd></div></dl><div class="registry-receipts">${receipts.map((receipt) => `<article><b>${escapeHtml(artifactLabel(receipt.operation))}</b><span>${escapeHtml(new Date(receipt.occurred_at).toLocaleString())}</span><p>${escapeHtml(receipt.rationale)}</p></article>`).join("")}</div></details>
       <div class="registry-actions"><button class="button" id="artifact-verify" type="button">Check files</button>${lifecycleAction}${deletionAction}${preview && !preview.eligible ? `<p class="registry-blocked">Cannot delete: ${escapeHtml(preview.blockers.join(" · "))}</p>` : ""}</div>`;
   }
 
@@ -5965,6 +5976,110 @@
     }
   }
 
+  function demoMetric(value, fallback = "—") {
+    return value == null || Number.isNaN(Number(value)) ? fallback : Number(value);
+  }
+
+  function renderProfessorDemoPreflight(value) {
+    labState.professorDemo = value;
+    const readiness = $("#demo-readiness");
+    const flow = $("#demo-flow");
+    if (!value.demo_ready) {
+      const failed = (value.checks || []).filter((item) => item.required && item.status === "fail");
+      readiness.innerHTML = `<div class="demo-blocked-card"><div><strong>Demo blocked</strong><p>${escapeHtml(failed.map((item) => item.label).join(" · ") || "The preflight did not complete.")}</p></div></div>`;
+      flow.classList.add("hidden");
+      return;
+    }
+    readiness.innerHTML = `<div class="demo-ready-card"><div><strong>Ready for an apparatus demonstration</strong><p>Every required input and capability passed. Two scientific limitations remain visible and do not block the demo.</p></div><span>${(value.checks || []).filter((item) => item.status === "pass").length} checks passed</span></div>`;
+    flow.classList.remove("hidden");
+    const casePreview = value.case_preview;
+    const evidence = value.interesting_evidence;
+    $("#demo-case-title").textContent = casePreview.display_name;
+    $("#demo-case-summary").textContent = `${casePreview.date} · ${casePreview.holdings.length} holdings · ${casePreview.mandate}`;
+    $("#demo-case-detail").innerHTML = `<div class="demo-case-facts">
+      <article><b>${percent(evidence.daily_return, 1)}</b><span>Daily return</span></article>
+      <article><b>${percent(evidence.drawdown, 1)}</b><span>Lifetime drawdown</span></article>
+      <article><b>${percent(evidence.largest_issuer_weight, 1)}</b><span>Largest issuer</span></article>
+      <article><b>${Number(evidence.eligible_event_records).toLocaleString()}</b><span>Eligible event records</span></article>
+    </div>
+    <div class="demo-holdings">${casePreview.holdings.map((item) => `<span>${escapeHtml(item.company_name)} · ${escapeHtml(item.ticker)}</span>`).join("")}</div>
+    <div class="demo-limitations"><b>Selection boundary.</b> ${escapeHtml(casePreview.selection_limitation)}</div>`;
+    const readyCapabilities = value.capabilities?.ready || [];
+    $("#demo-capability-count").textContent = `${readyCapabilities.length} ready`;
+    $("#demo-capabilities").innerHTML = readyCapabilities.map((item) => `<span title="${escapeHtml(item.role)}">${escapeHtml(experimentLabel(item.capability_id))}</span>`).join("");
+    $("#demo-architectures").innerHTML = value.architectures.map((item) => `<article class="demo-architecture-card"><header><b>${escapeHtml(item.id)}</b><span>${item.model_calls} model call${item.model_calls === 1 ? "" : "s"}</span></header><p><strong>${escapeHtml(item.name)}</strong><br>${escapeHtml(item.strength)}</p><small>${escapeHtml(item.limitation)}</small></article>`).join("");
+    $("#demo-run").disabled = !$("#demo-authorize-model").checked;
+  }
+
+  function professorDemoOutcome(cell, dimensionId) {
+    return (cell.observed_outcomes || []).find((item) => item.dimension_id === dimensionId) || { metrics: {} };
+  }
+
+  function renderProfessorDemoResults(value) {
+    const analysis = value.analysis || {};
+    const assurance = analysis.assurance || {};
+    const cells = [...(analysis.cells || [])].sort((left, right) => ["B0", "B1", "A1"].indexOf(left.workflow_id) - ["B0", "B1", "A1"].indexOf(right.workflow_id));
+    const rows = cells.map((cell) => {
+      const detection = professorDemoOutcome(cell, "detection_quality");
+      const severity = professorDemoOutcome(cell, "severity_understanding");
+      const evidence = professorDemoOutcome(cell, "evidence_quality");
+      const decision = professorDemoOutcome(cell, "decision_quality");
+      const efficiency = professorDemoOutcome(cell, "efficiency");
+      const cost = efficiency.metrics.estimated_cost_usd;
+      return `<tr><td><b>${escapeHtml(cell.workflow_id)}</b></td><td>${escapeHtml(cell.run_id)}</td><td>${demoMetric(severity.metrics.maximum_severity)}</td><td>${detection.metrics.f1 == null ? "—" : percent(detection.metrics.f1, 0)}</td><td>${evidence.metrics.finding_citation_coverage == null ? "—" : percent(evidence.metrics.finding_citation_coverage, 0)}</td><td>${decision.metrics.monitoring_action_agreement == null ? "—" : percent(decision.metrics.monitoring_action_agreement, 0)}</td><td>${Math.round(demoMetric(efficiency.metrics.processing_wall_ms, 0)).toLocaleString()} ms</td><td>${cost == null ? "—" : `$${Number(cost).toFixed(6)}`}</td></tr>`;
+    }).join("");
+    const results = $("#demo-results");
+    results.classList.remove("hidden");
+    results.innerHTML = `<header><div><span class="eyebrow">Saved comparison</span><h2>${escapeHtml(assurance.label || experimentLabel(analysis.status || "completed"))}</h2><p>${escapeHtml(assurance.narrative || analysis.interpretation_boundary || "The comparison completed.")}</p></div><span class="demo-result-status">${analysis.matrix_coverage?.completed || 0}/${analysis.matrix_coverage?.planned || 0} Runs</span></header>
+      <div class="demo-evidence-grid">
+        <article><b>${labState.professorDemo?.interesting_evidence?.material_findings ?? "—"}</b><span>Reference findings</span></article>
+        <article><b>${labState.professorDemo?.interesting_evidence?.event_clusters ?? "—"}</b><span>Event clusters</span></article>
+        <article><b>${analysis.confounds?.length || 0}</b><span>Changed controls</span></article>
+        <article><b>${analysis.diagnostics?.counts?.critical || 0}</b><span>Critical defects</span></article>
+        <article><b>${analysis.analysis_digest ? analysis.analysis_digest.slice(7, 17) : "—"}</b><span>Result digest</span></article>
+      </div>
+      <div class="replay-table-wrap"><table class="demo-comparison-table"><thead><tr><th>Method</th><th>Run</th><th>Max severity</th><th>Detection F1</th><th>Citations</th><th>Policy agreement</th><th>Processing</th><th>Cost</th></tr></thead><tbody>${rows || '<tr><td colspan="8">No completed Runs.</td></tr>'}</tbody></table></div>
+      <div class="demo-limitations"><b>Interpret carefully.</b> ${escapeHtml(analysis.interpretation_boundary || "This is an apparatus comparison, not a causal performance result.")}</div>
+      <div class="registry-actions"><button class="button ghost" type="button" data-demo-open-experiment>Open full Experiment Lab</button><button class="button ghost" type="button" data-demo-open-results>Open saved results</button></div>`;
+    results.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function loadProfessorDemo() {
+    if (labState.professorDemoRunning) return;
+    $("#demo-readiness").innerHTML = '<div class="demo-loading"><span></span><b>Checking licensed data and the frozen case…</b></div>';
+    try {
+      const value = await agentApi("/api/professor-demo");
+      renderProfessorDemoPreflight(value);
+    } catch (error) {
+      $("#demo-readiness").innerHTML = `<div class="demo-blocked-card"><div><strong>Demo unavailable</strong><p>${escapeHtml(error.message)}</p></div></div>`;
+      $("#demo-flow").classList.add("hidden");
+    }
+  }
+
+  async function runProfessorDemo() {
+    if (labState.professorDemoRunning || !$("#demo-authorize-model").checked) return;
+    labState.professorDemoRunning = true;
+    const button = $("#demo-run");
+    button.disabled = true;
+    button.textContent = "Running 3 methods…";
+    $("#demo-readiness").innerHTML = '<div class="demo-loading"><span></span><b>Replay time is paused while the three methods work…</b></div>';
+    try {
+      const value = await agentApi("/api/professor-demo/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ authorize_external_model_calls: true }),
+      });
+      renderProfessorDemoPreflight(value.preflight);
+      renderProfessorDemoResults(value);
+    } catch (error) {
+      $("#demo-readiness").innerHTML = `<div class="demo-blocked-card"><div><strong>Comparison stopped</strong><p>${escapeHtml(error.message)}</p></div></div>`;
+    } finally {
+      labState.professorDemoRunning = false;
+      button.textContent = "Run comparison";
+      button.disabled = !$("#demo-authorize-model").checked;
+    }
+  }
+
   function renderExperimentRunTraces(value) {
     labState.experimentRunTraces = value;
     const traces = value.traces || [];
@@ -6036,20 +6151,68 @@
     $("#replay-portfolio-note").textContent = portfolio ? `${portfolio.positions} named holdings · ${portfolio.mandate.name} ${portfolio.mandate.version}. Holdings are held fixed across the replay.` : "";
     $("#replay-evaluation-note").textContent = evaluation?.note || "";
     const consentGranted = !requiresModelConsent || $("#replay-authorize-model").checked;
-    $("#replay-run").disabled = !setup.ready || !workflow?.runnable || !consentGranted;
-    $("#replay-run-hint").textContent = workflow?.runnable
+    const period = replayPeriodValidation();
+    $("#replay-run").disabled = !setup.ready || !workflow?.runnable || !consentGranted || !period.valid;
+    $("#replay-run-hint").classList.remove("success", "error", "running");
+    $("#replay-run-hint").textContent = !period.valid
+      ? period.message
+      : workflow?.runnable
       ? workflow.id === "B0"
         ? "Runs the fixed-rule reference locally with no model calls."
         : consentGranted
           ? `${workflow.id} uses live ${workflow.type.toLowerCase()} inference on each daily workflow cycle. Pilot limit: 20 model calls per run.`
           : "Review and accept the per-run OpenAI context authorization to enable this treatment."
       : "Choose a workflow marked available for this replay.";
+    $("#replay-run-hint").classList.toggle("error", !period.valid);
+    renderReplayProgrammePosition();
+  }
+
+  function replayPeriodValidation() {
+    const setup = labState.historicalReplaySetup;
+    const start = $("#replay-start").value;
+    const end = $("#replay-end").value;
+    if (!setup || !start || !end) return { valid: false, message: "Choose both dates before validating this Run." };
+    const startTime = Date.parse(`${start}T00:00:00Z`);
+    const endTime = Date.parse(`${end}T00:00:00Z`);
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || startTime > endTime) {
+      return { valid: false, message: "The observation window must end on or after its start date." };
+    }
+    const calendarDays = Math.round((endTime - startTime) / 86400000);
+    const maximumDays = Number(setup.period.maximum_calendar_days);
+    if (Number.isFinite(maximumDays) && calendarDays > maximumDays) {
+      return { valid: false, message: `Shorten the observation window to ${maximumDays} calendar days or fewer. The current selection spans ${calendarDays} days.` };
+    }
+    return { valid: true, message: "" };
+  }
+
+  function renderReplayProgrammePosition() {
+    const setup = labState.historicalReplaySetup;
+    const programme = labState.experimentalProgram;
+    if (!setup || !programme) return;
+    const workflow = setup.workflows.find((item) => item.id === $("#replay-workflow").value);
+    const portfolio = setup.portfolio_mandates.find((item) => item.id === $("#replay-portfolio").value);
+    const evaluation = setup.evaluations.find((item) => item.id === $("#replay-evaluation").value);
+    const baselines = programme.classification?.vertical_baselines || [];
+    const baseline = baselines.find((item) => item.id.toUpperCase() === workflow?.id);
+    const cards = [
+      ["Architecture", baseline ? baseline.id.toUpperCase() + " · " + baseline.name : "Choose a workflow", baseline?.role || "The three vertical baselines share each fixed case."],
+      ["Portfolio + mandate", portfolio?.label || "Choose a portfolio", portfolio?.mandate?.reference || "A reviewed pair is kept together."],
+      ["Information regime", "Licensed market, fundamentals and events", "Assigned before the run; realised calls are retained as observations."],
+      ["Scenario", "Historical replay", ($("#replay-start").value || "Start") + " to " + ($("#replay-end").value || "end") + " · replay-clock case."],
+      ["Evaluation", evaluation?.label || "Choose an evaluation", evaluation?.note || "Scored after the output is fixed."],
+      ["Market regime", "Classified after the run", "Labels help analysis; they are not an extra architecture input."],
+    ];
+    $("#replay-programme-status").textContent = workflow && portfolio && evaluation ? "Candidate cell" : "Selection needed";
+    $("#replay-programme-purpose").textContent = programme.classification?.purpose || "Each saved run belongs to one explicit comparison cell.";
+    $("#replay-programme-context").innerHTML = cards.map(([label, value, note]) => "<div><span>" + escapeHtml(label) + "</span><b title=\"" + escapeHtml(value) + "\">" + escapeHtml(value) + "</b><small>" + escapeHtml(note) + "</small></div>").join("");
   }
 
   function renderHistoricalReplaySetup(setup) {
     labState.historicalReplaySetup = setup;
     $("#replay-datasets").innerHTML = setup.datasets.map((item) => `<article class="${item.available ? "ready" : "missing"}"><div><b>${escapeHtml(item.label)}</b><span>${item.available ? "Connected" : "Unavailable"}</span></div><p>${item.start_date ? `${escapeHtml(item.start_date)} to ${escapeHtml(item.end_date)}` : "No usable rows"}</p><small>${Number(item.rows || 0).toLocaleString()} licensed rows · read only</small></article>`).join("");
     $("#replay-workflow").innerHTML = setup.workflows.map((item) => `<option value="${escapeHtml(item.id)}" ${item.runnable ? "" : "disabled"}>${escapeHtml(item.type)} — ${escapeHtml(item.label)}${item.runnable ? "" : " (not yet available)"}</option>`).join("");
+    const deterministicReference = setup.workflows.find((item) => item.id === "B0" && item.runnable);
+    if (deterministicReference) $("#replay-workflow").value = deterministicReference.id;
     $("#replay-portfolio").innerHTML = setup.portfolio_mandates.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)} — ${escapeHtml(item.mandate.name)}</option>`).join("");
     $("#replay-evaluation").innerHTML = setup.evaluations.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`).join("");
     ["#replay-workflow", "#replay-portfolio", "#replay-evaluation", "#replay-start", "#replay-end"].forEach((selector) => { $(selector).disabled = !setup.ready; });
@@ -6061,11 +6224,796 @@
     $("#replay-end").max = period.maximum;
     $("#replay-end").value = period.default_end;
     $("#replay-period-note").textContent = `${period.minimum} to ${period.maximum}. Maximum ${period.maximum_calendar_days} calendar days in this first slice.`;
+    const boundary = setup.data_boundary || {};
     $("#replay-notice").innerHTML = setup.ready
-      ? `<b>Ready for a real-data apparatus run.</b><span>${escapeHtml(setup.methodology_note)}</span>`
+      ? `<b>Ready for a licensed-data research run.</b><span>${escapeHtml(setup.methodology_note)}</span><div class="experiment-truth-line"><span><strong>Inputs</strong> Licensed · read only</span><span><strong>Method view</strong> Point-in-time · ex ante</span><span><strong>Reference</strong> Mandate-rule labels only</span><span><strong>Synthetic additions</strong> ${boundary.synthetic_additions === "none" ? "None" : escapeHtml(boundary.synthetic_additions || "Declared separately")}</span></div>`
       : '<b>The replay cannot run.</b><span>One or more licensed datasets or reviewed portfolio definitions are unavailable.</span>';
-    $("#experiment-status").textContent = setup.ready ? "Ready" : "Unavailable";
+    $("#experiment-replay-status").textContent = setup.ready ? "Ready" : "Unavailable";
     updateReplayNotes();
+    renderCounterfactualSetup(setup);
+  }
+
+  function switchExperimentMode(mode) {
+    labState.experimentMode = mode;
+    $$('[data-experiment-mode]').forEach((button) => {
+      const active = button.dataset.experimentMode === mode;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    $$('[data-experiment-mode-panel]').forEach((panel) => {
+      const active = panel.dataset.experimentModePanel === mode;
+      panel.classList.toggle("active", active);
+      panel.hidden = !active;
+    });
+    $$('[data-experiment-mode-only="experiment"]').forEach((element) => {
+      if (element.dataset.experimentPanel) {
+        const activeView = element.dataset.experimentPanel === labState.counterfactualView;
+        element.hidden = mode !== "experiment" || !activeView;
+      } else {
+        element.hidden = mode !== "experiment";
+      }
+    });
+  }
+
+  function useSingleRunInExperiment() {
+    $("#counterfactual-portfolio").value = $("#replay-portfolio").value;
+    $("#counterfactual-evaluation").value = $("#replay-evaluation").value;
+    $("#counterfactual-start").value = $("#replay-start").value;
+    $("#counterfactual-end").value = $("#replay-end").value;
+    const workflow = $("#replay-workflow").value;
+    $$('[data-counterfactual-workflow]').forEach((input) => {
+      input.checked = input.value === "B0" || input.value === workflow || (workflow === "B0" && input.value === "B1");
+    });
+    $("#counterfactual-authorize-model").checked = false;
+    updateCounterfactualDesign();
+    switchCounterfactualView("design");
+    switchExperimentMode("experiment");
+    $("#counterfactual-batch-form").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function validateSelectedExperimentCell() {
+    $("#replay-portfolio").value = $("#counterfactual-portfolio").value;
+    $("#replay-evaluation").value = $("#counterfactual-evaluation").value;
+    $("#replay-start").value = $("#counterfactual-start").value;
+    $("#replay-end").value = $("#counterfactual-end").value;
+    $("#replay-workflow").value = "B0";
+    $("#replay-authorize-model").checked = false;
+    updateReplayNotes();
+    switchExperimentMode("single");
+    $("#replay-form").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function switchCounterfactualView(view) {
+    labState.counterfactualView = view;
+    $$('[data-experiment-view]').forEach((button) => {
+      const active = button.dataset.experimentView === view;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+    $$('[data-experiment-panel]').forEach((panel) => {
+      const active = panel.dataset.experimentPanel === view;
+      panel.classList.toggle("active", active);
+      panel.hidden = labState.experimentMode !== "experiment" || !active;
+    });
+    if (view === "analysis" && labState.matchedMatrixId) loadMatchedEvaluation(labState.matchedMatrixId);
+  }
+
+  function selectedCounterfactualWorkflows() {
+    return $$('[data-counterfactual-workflow]:checked').map((item) => item.value);
+  }
+
+  function renderCounterfactualSetup(setup) {
+    const portfolios = setup.portfolio_mandates || [];
+    const evaluations = setup.evaluations || [];
+    $("#counterfactual-portfolio").innerHTML = portfolios.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)} · ${escapeHtml(item.mandate.name)}</option>`).join("");
+    $("#counterfactual-evaluation").innerHTML = evaluations.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`).join("");
+    ["#counterfactual-portfolio", "#counterfactual-evaluation", "#counterfactual-start", "#counterfactual-end"].forEach((selector) => { $(selector).disabled = !setup.ready; });
+    const period = setup.period;
+    ["#counterfactual-start", "#counterfactual-end"].forEach((selector) => {
+      $(selector).min = period.minimum;
+      $(selector).max = period.maximum;
+    });
+    $("#counterfactual-start").value = period.default_start;
+    $("#counterfactual-end").value = period.default_end;
+    updateCounterfactualDesign();
+  }
+
+  function renderCounterfactualDimensions(value) {
+    labState.counterfactualCatalogue = value;
+    const stateLabel = {
+      available: "Executable",
+      design_only: "Planned",
+      conditioning_only: "Group results",
+    };
+    const groups = value.groups || [];
+    const dimensions = value.dimensions || [];
+    $("#counterfactual-design-rule").textContent = value.design_rule || "Change one primary dimension while holding the other relevant dimensions fixed.";
+    $("#counterfactual-dimension-list").innerHTML = groups.map((group, groupIndex) => {
+      const items = dimensions.filter((item) => item.kind === group.id);
+      return `<article class="counterfactual-dimension-group ${escapeHtml(group.id)}"><header><span>${String(groupIndex + 1).padStart(2, "0")}</span><div><h3>${escapeHtml(group.label)}</h3><p>${escapeHtml(group.rule)}</p></div></header><div>${items.map((item) => `<section class="counterfactual-dimension-card ${escapeHtml(item.execution_state)}"><header><b>${escapeHtml(item.label)}</b><i>${escapeHtml(stateLabel[item.execution_state] || item.execution_state)}</i></header><p>${escapeHtml(item.question)}</p><small>${item.treatments.length ? escapeHtml(item.treatments.join(" · ").replaceAll("_", " ")) : "Observed label; use it to split and explain results."}</small></section>`).join("")}</div></article>`;
+    }).join("");
+    $("#counterfactual-outcome-list").innerHTML = (value.outcomes || []).map((item, index) => `<span><i>${String(index + 1).padStart(2, "0")}</i>${escapeHtml(item.label)}</span>`).join("");
+    $("#counterfactual-programme-list").innerHTML = (value.programme || []).map((item, index) => `<li class="${escapeHtml(item.state)}"><span>${String(index + 1).padStart(2, "0")}</span><div><b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.comparison)}</small></div><i>${item.state === "executable" ? "Now" : "Later"}</i></li>`).join("");
+  }
+
+  function renderDesignedCasePreview() {
+    if (labState.counterfactualBatch) return;
+    const setup = labState.historicalReplaySetup;
+    if (!setup) return;
+    const portfolio = setup.portfolio_mandates.find((item) => item.id === $("#counterfactual-portfolio").value);
+    if (!portfolio) return;
+    const caseId = `case-${portfolio.id.replaceAll("_", "-")}-${$("#counterfactual-start").value}-${$("#counterfactual-end").value}`;
+    $("#counterfactual-cases").innerHTML = `<article class="counterfactual-case-card"><header><div><span class="panel-label">Designed Case</span><h3>${escapeHtml(caseId)}</h3></div><span class="truth-chip">Pre-run</span></header><p>${escapeHtml(portfolio.label)} · ${escapeHtml(portfolio.mandate.name)}. The same point-in-time evidence boundary is supplied to every selected architecture.</p><div class="counterfactual-case-facts"><div><span>Observation window</span><b>${escapeHtml($("#counterfactual-start").value)} → ${escapeHtml($("#counterfactual-end").value)}</b></div><div><span>Mandate</span><b>${escapeHtml(portfolio.mandate.reference)}</b></div><div><span>Information</span><b>Market + fundamentals + events</b></div><div><span>Regime</span><b>Classified after execution</b></div></div></article>`;
+  }
+
+  function updateCounterfactualDesign() {
+    const setup = labState.historicalReplaySetup;
+    if (!setup) return;
+    const workflows = selectedCounterfactualWorkflows();
+    const repetitions = Number($("#counterfactual-repetitions").value || 1);
+    const runCount = workflows.length * repetitions;
+    const portfolio = setup.portfolio_mandates.find((item) => item.id === $("#counterfactual-portfolio").value);
+    const hasModelTreatment = workflows.some((item) => item !== "B0");
+    const consent = !hasModelTreatment || $("#counterfactual-authorize-model").checked;
+    const validDates = $("#counterfactual-start").value && $("#counterfactual-end").value && $("#counterfactual-start").value <= $("#counterfactual-end").value;
+    $("#counterfactual-run-count").textContent = `${runCount} Run${runCount === 1 ? "" : "s"}`;
+    $("#experiment-context-study").textContent = $("#counterfactual-study-title").value || "Untitled Study";
+    $("#experiment-context-experiment").textContent = $("#counterfactual-experiment-id").value || "Untitled Experiment";
+    const cells = [];
+    for (let repetition = 1; repetition <= repetitions; repetition += 1) {
+      workflows.forEach((workflow) => cells.push(`<div class="counterfactual-preview-cell ${workflow === "B0" ? "baseline" : ""}"><span>Repetition ${repetition}</span><b>${escapeHtml(workflow)}${workflow === "B0" ? " · baseline" : " · treatment"}</b></div>`));
+    }
+    $("#counterfactual-matrix-preview").innerHTML = portfolio ? `<div class="counterfactual-preview-case"><span>Case</span><b>${escapeHtml(portfolio.label)} · ${escapeHtml($("#counterfactual-start").value)} → ${escapeHtml($("#counterfactual-end").value)}</b></div><div class="counterfactual-preview-cells">${cells.join("")}</div>` : '<div class="empty-state">Choose one reviewed Case.</div>';
+    const ready = setup.ready && workflows.length > 1 && portfolio && validDates && consent;
+    $("#counterfactual-run").disabled = !ready;
+    $("#case-signal-run").disabled = !(setup.ready && portfolio && validDates);
+    $("#counterfactual-run-hint").textContent = workflows.length < 2
+      ? "Select at least one treatment beside B0."
+      : !consent
+        ? "Authorize the selected model treatments before execution."
+        : `${runCount} independent Run cells will execute with maximum concurrency ${$("#counterfactual-concurrency").value}. All outputs and the terminal analysis will be retained.`;
+    renderDesignedCasePreview();
+  }
+
+  function renderCaseSignals(payload) {
+    labState.caseSignalPayload = payload;
+    const summary = payload.summary || {};
+    const signals = payload.signals || [];
+    const summaryLine = `<div class="case-signal-summary"><span><b>${Number(summary.signals || 0).toLocaleString()}</b> signals</span><span><b>${Number(summary.instruments || 0).toLocaleString()}</b> securities</span><span><b>${Number(summary.sessions || 0).toLocaleString()}</b> sessions</span><span><b>${Number(summary.downside || 0).toLocaleString()}</b> downside</span><span><b>${Number(summary.upside || 0).toLocaleString()}</b> upside</span></div>`;
+    const rows = signals.length
+      ? `<div class="case-signal-list">${signals.map((item) => `<article><div><b>${escapeHtml(item.company)}</b><span>${escapeHtml(item.ticker)} · ${escapeHtml(item.date)}</span></div><i class="${escapeHtml(item.direction)}">${escapeHtml(item.direction)}</i><div><strong>${Number(item.score).toFixed(2)}</strong><small>threshold ${Number(item.threshold).toFixed(2)}</small></div><span>${escapeHtml(item.detector)}</span></article>`).join("")}</div>`
+      : '<div class="case-signal-empty"><b>No threshold crossings in this period.</b><span>The result is valid; it does not imply that the portfolio had no risk.</span></div>';
+    const more = payload.more_signals ? `<small class="case-signal-more">${Number(payload.more_signals).toLocaleString()} additional signals are retained for later case construction.</small>` : "";
+    $("#case-signal-results").innerHTML = `${summaryLine}<p>${escapeHtml(payload.method_note)}</p>${rows}${more}<small>${escapeHtml(payload.interpretation_note)}</small>`;
+    $("#case-label-prepare").hidden = !Number(summary.signals || 0);
+  }
+
+  async function runCaseSignalPreview() {
+    const button = $("#case-signal-run");
+    const parameters = new URLSearchParams({
+      portfolio_id: $("#counterfactual-portfolio").value,
+      start_date: $("#counterfactual-start").value,
+      end_date: $("#counterfactual-end").value,
+    });
+    button.disabled = true;
+    button.textContent = "Scanning…";
+    $("#case-label-prepare").hidden = true;
+    $("#case-signal-results").innerHTML = "<span>Reading licensed CRSP returns and applying the admitted statistical methods.</span>";
+    try {
+      renderCaseSignals(await agentApi(`/api/experiments/signals?${parameters.toString()}`));
+    } catch (error) {
+      $("#case-signal-results").innerHTML = `<div class="case-signal-empty error"><b>Scan failed.</b><span>${escapeHtml(error.message)}</span></div>`;
+    } finally {
+      button.textContent = "Scan this period";
+      updateCounterfactualDesign();
+    }
+  }
+
+  function labelValue(value) {
+    return String(value || "").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  function renderLabelBatchSelector() {
+    const select = $("#case-label-batch-select");
+    select.innerHTML = labState.labelBatches.length
+      ? `<option value="">Choose a saved sample</option>${labState.labelBatches.map((item) => `<option value="${escapeHtml(item.batch_id)}">${escapeHtml(item.portfolio_id)} · ${escapeHtml(item.period.start)} to ${escapeHtml(item.period.end)} · ${Number(item.summary.selected)} moves</option>`).join("")}`
+      : '<option value="">No saved samples</option>';
+    if (labState.labelBatch) select.value = labState.labelBatch.batch_id;
+    $("#case-label-load").disabled = !select.value;
+  }
+
+  function labelPathChart(study) {
+    const points = study.path || [];
+    if (!points.length) return "";
+    const width = 720, height = 170, pad = 18;
+    const values = points.map((item) => Number(item.value));
+    const low = Math.min(...values), high = Math.max(...values);
+    const range = Math.max(high - low, 0.001);
+    const x = (index) => pad + index * (width - pad * 2) / Math.max(1, points.length - 1);
+    const y = (value) => height - pad - (value - low) * (height - pad * 2) / range;
+    const line = points.map((item, index) => `${index ? "L" : "M"}${x(index).toFixed(1)},${y(Number(item.value)).toFixed(1)}`).join(" ");
+    const signal = points.findIndex((item) => item.signal);
+    return `<svg class="label-path-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Indexed market path around the selected move"><path class="area" d="${line} L${x(points.length - 1)},${height - pad} L${x(0)},${height - pad} Z"></path><path class="line" d="${line}"></path>${signal >= 0 ? `<line class="signal" x1="${x(signal)}" y1="${pad}" x2="${x(signal)}" y2="${height - pad}"></line><circle cx="${x(signal)}" cy="${y(Number(points[signal].value))}" r="4"></circle>` : ""}</svg><div class="label-path-axis"><span>${escapeHtml(points[0].date)}</span><b>Selected move</b><span>${escapeHtml(points[points.length - 1].date)}</span></div>`;
+  }
+
+  function labelStudyPanel(unit) {
+    const study = unit.study;
+    if (!study) return `<section class="label-study-empty"><div><span>Market path</span><b>Study this move before labelling it</b><p>Calculate its price path, alternative intervals, forward severity and portfolio-wide context.</p></div><button type="button" class="button secondary" data-label-study="${escapeHtml(unit.id)}">Study this move</button></section>`;
+    const group = study.group || {};
+    const intervalCards = (study.intervals || []).map((item, index) => `<button type="button" class="label-interval-proposal" data-label-use-interval="${index}"><span>${escapeHtml(labelValue(item.kind))}</span><b>${escapeHtml(item.start)} → ${item.censored ? "unresolved" : escapeHtml(item.end)}</b><small>Peak ${escapeHtml(item.peak)} · ${Math.round(Number(item.confidence) * 100)}% method confidence</small></button>`).join("");
+    const severity = (study.severity || []).map((item) => `<div><span>${Number(item.horizon)} session${Number(item.horizon) === 1 ? "" : "s"}</span><b>${Number(item.return_percent).toFixed(2)}%</b><small>${Number(item.impact_bps).toLocaleString(undefined, { maximumFractionDigits: 0 })} adverse bps${item.complete ? "" : " · partial"}</small></div>`).join("");
+    return `<section class="label-study"><header><div><span>Retrospective study</span><b>What happened around this move?</b></div><i>Suggestion only</i></header>${labelPathChart(study)}<div class="label-study-metrics">${severity}</div><div class="label-study-market"><div><span>Portfolio breadth</span><b>${group.breadth_percent == null ? "Not measurable" : `${Number(group.breadth_percent).toFixed(1)}% moved the same way`}</b></div><div><span>Average correlation</span><b>${group.correlation_before == null || group.correlation_after == null ? "Insufficient history" : `${Number(group.correlation_before).toFixed(2)} → ${Number(group.correlation_after).toFixed(2)}`}</b></div><div><span>Largest adverse path</span><b>${Number(study.maximum_adverse_excursion_bps).toLocaleString(undefined, { maximumFractionDigits: 0 })} bps</b></div></div><div class="label-interval-proposals"><span>Alternative interval interpretations</span>${intervalCards}</div><small class="label-study-boundary">${escapeHtml(study.boundary)}</small></section>`;
+  }
+
+  function contextWorkPanel(unit) {
+    const plan = unit.context_plan || {};
+    const work = unit.context_work || null;
+    const channels = new Set(plan.channels || ["events", "fundamentals"]);
+    const controls = new Set(plan.controls || []);
+    const status = plan.revision
+      ? `<div class="context-plan-status ${escapeHtml(plan.state)}"><div><span>Saved plan · revision ${Number(plan.revision)}</span><b>${escapeHtml(plan.state === "ready_for_later_execution" ? "Ready" : "Prepared with blockers")}</b></div><div><span>Evidence candidates</span><b>${work ? Number(work.candidate_count) : 0} · ${work ? "Prepared" : "Not started"}</b></div><div><span>Human review</span><b>${work ? escapeHtml(work.state) : "Not started"}</b></div><div><span>Synthetic controls</span><b>0 · Not generated</b></div></div>`
+      : `<div class="context-plan-promise"><b>Design the evidence work before running it.</b><span>This saves a bounded plan only. It does not retrieve data, link evidence, create controls, or change the label.</span></div>`;
+    const blockers = (plan.blockers || []).length ? `<div class="context-plan-issues"><b>Must be resolved before execution</b><ul>${plan.blockers.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>` : "";
+    const warnings = (plan.warnings || []).length ? `<div class="context-plan-warnings"><b>Known coverage limitations</b><ul>${plan.warnings.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>` : "";
+    return `<details class="context-work-panel" ${work || !plan.revision ? "open" : ""}><summary><span><small>Context work</small><b>${work ? "Review prepared evidence" : plan.revision ? "Review saved evidence plan" : "Prepare evidence plan"}</b></span><i>${work ? escapeHtml(work.state) : "Plan first"}</i></summary>${status}${blockers}${warnings}<form id="case-context-plan-form">
+      <div class="context-plan-primary"><label class="field"><span>Purpose</span><select id="case-context-purpose"><option value="prepare_case_context" ${!plan.purpose || plan.purpose === "prepare_case_context" ? "selected" : ""}>Prepare balanced case context</option><option value="explain_manifestation" ${plan.purpose === "explain_manifestation" ? "selected" : ""}>Explain the observed manifestation</option><option value="test_competing_explanations" ${plan.purpose === "test_competing_explanations" ? "selected" : ""}>Test competing explanations</option></select></label><fieldset><legend>Sources</legend><label><input type="checkbox" data-context-channel="events" ${channels.has("events") ? "checked" : ""}><span>Events</span></label><label><input type="checkbox" data-context-channel="fundamentals" ${channels.has("fundamentals") ? "checked" : ""}><span>Fundamentals</span></label></fieldset></div>
+      <div class="context-plan-window"><label class="field"><span>Event history · days before</span><input id="case-context-before" type="number" min="0" max="365" value="${Number(plan.event_days_before ?? 20)}"></label><label class="field"><span>Event follow-through · days after</span><input id="case-context-after" type="number" min="0" max="365" value="${Number(plan.event_days_after ?? 20)}"></label><label class="field"><span>Fundamental history · quarters</span><input id="case-context-quarters" type="number" min="1" max="40" value="${Number(plan.fundamental_lookback_quarters ?? 8)}"></label></div>
+      <label class="context-plan-alternative"><input id="case-context-alternatives" type="checkbox" ${plan.alternatives_required !== false ? "checked" : ""}><span><b>Require competing evidence</b><small>Later work must retain contradictory, alternative and unresolved material—not only supportive records.</small></span></label>
+      <fieldset class="context-control-options"><legend>Optional experimental controls</legend><label><input type="checkbox" data-context-control="irrelevant_event" ${controls.has("irrelevant_event") ? "checked" : ""}><span>Irrelevant event</span></label><label><input type="checkbox" data-context-control="ambiguous_event" ${controls.has("ambiguous_event") ? "checked" : ""}><span>Ambiguous event</span></label><label><input type="checkbox" data-context-control="immaterial_event" ${controls.has("immaterial_event") ? "checked" : ""}><span>Immaterial event</span></label><label><input type="checkbox" data-context-control="no_material_event" ${controls.has("no_material_event") ? "checked" : ""}><span>No-event period</span></label><small>Selections are specifications only. Synthetic controls are never generated at this stage.</small></fieldset>
+      <div id="case-context-plan-result" class="context-plan-result" hidden></div><div class="context-plan-actions"><button type="button" class="button secondary" data-context-plan-validate>Check plan</button><button type="button" class="button primary" data-context-plan-save>${plan.revision ? "Save revision" : "Save plan"}</button>${plan.revision && !work ? `<button type="button" class="button primary context-prepare-action" data-context-prepare ${plan.blockers?.length ? "disabled" : ""}>Prepare evidence</button>` : ""}<span>Provider details and technical receipts remain in the developer record.</span></div>
+    </form>${work ? contextEvidenceReview(work) : ""}</details>`;
+  }
+
+  function contextEvidenceReview(work) {
+    const cards = (work.candidates || []).map((item) => {
+      const review = item.review || {};
+      return `<article class="context-evidence-card" data-context-candidate="${escapeHtml(item.key)}"><header><span><i>${escapeHtml(item.source)}</i><b>${escapeHtml(item.title)}</b></span><em>${Number(item.distance_days) === 0 ? "Same day" : `${Math.abs(Number(item.distance_days))} day${Math.abs(Number(item.distance_days)) === 1 ? "" : "s"} ${Number(item.distance_days) < 0 ? "before" : "after"}`}</em></header><p>${escapeHtml(item.summary)}</p><div class="context-evidence-timing"><span>Observed ${escapeHtml(item.observed_at.slice(0, 16).replace("T", " "))}</span><span>Available ${escapeHtml(item.available_at.slice(0, 16).replace("T", " "))}</span><span class="${item.available_during_replay ? "eligible" : "retrospective"}">${item.available_during_replay ? "Available during replay" : "Retrospective only"}</span></div>${(item.limitations || []).length ? `<small>${item.limitations.map((value) => escapeHtml(value)).join(" · ")}</small>` : ""}<div class="context-candidate-fields"><label class="field"><span>Use</span><select data-context-decision><option value="needs_more_work" ${!review.outcome || review.outcome === "needs_more_work" ? "selected" : ""}>Needs review</option><option value="retain" ${review.outcome === "retain" ? "selected" : ""}>Retain</option><option value="reject" ${review.outcome === "reject" ? "selected" : ""}>Reject</option></select></label><label class="field"><span>Role</span><select data-context-role>${["unresolved", "precursor", "trigger", "amplifier", "confirmation", "response", "mitigation", "aftermath", "unrelated"].map((value) => `<option value="${value}" ${review.role === value ? "selected" : ""}>${escapeHtml(labelValue(value))}</option>`).join("")}</select></label><label class="field"><span>Position</span><select data-context-position>${["unresolved", "supporting", "contradicting", "alternative"].map((value) => `<option value="${value}" ${review.position === value ? "selected" : ""}>${escapeHtml(labelValue(value))}</option>`).join("")}</select></label></div><label class="field context-candidate-rationale"><span>Why?</span><input data-context-rationale value="${escapeHtml(review.rationale || "Review whether this source helps interpret the manifestation.")}"></label></article>`;
+    }).join("");
+    const exclusions = work.excluded || {};
+    const unresolved = (work.unresolved || []).length ? `<div class="context-plan-warnings"><b>Unresolved limits</b><ul>${work.unresolved.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>` : "";
+    return `<section class="context-evidence-review"><header><div><span>Prepared evidence</span><b>${Number(work.candidate_count)} candidates · ${Number(work.eligible_during_replay)} replay-eligible · ${Number(work.retrospective_only)} retrospective-only</b></div><i>${escapeHtml(work.state)}</i></header>${unresolved}<details class="context-exclusion-summary"><summary>Excluded source rows</summary><span>${Number(exclusions.missing_availability || 0)} missing availability · ${Number(exclusions.invalid_time || 0)} invalid time · ${Number(exclusions.after_cutoff || 0)} after cutoff</span></details><div class="context-evidence-list">${cards || '<div class="empty-state">No eligible evidence candidates were found inside this plan.</div>'}</div>${cards ? `<form id="case-context-review-form"><div class="context-review-summary"><label class="field"><span>Overall result</span><select id="case-context-review-outcome"><option value="request_changes">Request more work</option><option value="accept_context" ${work.review?.outcome === "accept_context" ? "selected" : ""}>Accept this context</option><option value="exclude_context" ${work.review?.outcome === "exclude_context" ? "selected" : ""}>Exclude this context</option></select></label><label class="context-limit-ack"><input id="case-context-limitations" type="checkbox" ${work.review?.limitations_acknowledged ? "checked" : ""}><span>I reviewed the limitations</span></label></div><label class="field"><span>Review summary</span><textarea id="case-context-review-summary" rows="2">${escapeHtml(work.review?.summary || "Record what this evidence adds, what remains uncertain, and why the retained candidates are useful.")}</textarea></label><div class="context-plan-actions"><button type="submit" class="button primary">Save evidence review</button><span>${escapeHtml(work.boundary)}</span></div></form>` : `<small class="label-study-boundary">${escapeHtml(work.boundary)}</small>`}</section>`;
+  }
+
+  function labelAnnotationForm(unit, batch) {
+    const value = unit.annotation || {};
+    const interval = value.interval || {};
+    const hasAnnotation = Boolean(unit.annotation);
+    const canReview = hasAnnotation && !["ready", "excluded"].includes(unit.state);
+    const severityValue = value.severity_level ?? (value.outcome === "non_material_move" ? 0 : 1);
+    return `<header class="label-editor-heading"><div><span>${escapeHtml(unit.ticker)} · ${escapeHtml(unit.date)}</span><h3>${escapeHtml(unit.company)}</h3></div><i class="${escapeHtml(unit.state)}">${escapeHtml(unit.state_label)}</i></header>
+      <div class="label-editor-context"><span><b>${escapeHtml(labelValue(unit.direction))}</b> detector direction</span><span><b>${escapeHtml(labelValue(unit.score_band))}</b> score band</span><span><b>${Number(unit.detector_support)} method${Number(unit.detector_support) === 1 ? "" : "s"}</b> agreed</span></div>
+      ${labelStudyPanel(unit)}
+      ${contextWorkPanel(unit)}
+      <form id="case-label-annotation-form" class="label-annotation-form">
+        <input type="hidden" id="case-label-unit-id" value="${escapeHtml(unit.id)}">
+        <div class="label-primary-choices">
+          <label class="field"><span>What does the move represent?</span><select id="case-label-outcome"><option value="materialised_risk" ${value.outcome === "materialised_risk" ? "selected" : ""}>Materialised risk</option><option value="non_material_move" ${value.outcome === "non_material_move" ? "selected" : ""}>Non-material move</option><option value="ambiguous" ${value.outcome === "ambiguous" ? "selected" : ""}>Unclear</option><option value="data_quality_error" ${value.outcome === "data_quality_error" ? "selected" : ""}>Data problem</option></select></label>
+          <label class="field"><span>Instrument relevance</span><select id="case-label-relevance"><option value="relevant" ${value.relevance === "relevant" ? "selected" : ""}>Relevant</option><option value="not_relevant" ${value.relevance === "not_relevant" ? "selected" : ""}>Not relevant</option><option value="uncertain" ${value.relevance === "uncertain" ? "selected" : ""}>Uncertain</option></select></label>
+          <label class="field"><span>Defensible scope</span><select id="case-label-scope"><option value="instrument" ${!value.scope_type || value.scope_type === "instrument" ? "selected" : ""}>Instrument</option><option value="issuer" ${value.scope_type === "issuer" ? "selected" : ""}>Issuer</option><option value="group" ${value.scope_type === "group" ? "selected" : ""}>Group</option><option value="market" ${value.scope_type === "market" ? "selected" : ""}>Market</option><option value="uncertain" ${value.scope_type === "uncertain" ? "selected" : ""}>Uncertain</option></select></label>
+          <label class="field"><span>Direction</span><select id="case-label-direction"><option value="downside" ${value.direction === "downside" || (!value.direction && unit.direction === "downside") ? "selected" : ""}>Downside</option><option value="upside" ${value.direction === "upside" || (!value.direction && unit.direction === "upside") ? "selected" : ""}>Upside</option><option value="two_sided" ${value.direction === "two_sided" ? "selected" : ""}>Two-sided</option><option value="uncertain" ${value.direction === "uncertain" ? "selected" : ""}>Uncertain</option></select></label>
+          <label class="field"><span>Observed path</span><select id="case-label-morphology"><option value="punctual_shock" ${!value.morphology || value.morphology === "punctual_shock" ? "selected" : ""}>Punctual shock</option><option value="clustered_shocks" ${value.morphology === "clustered_shocks" ? "selected" : ""}>Clustered shocks</option><option value="slow_burn" ${value.morphology === "slow_burn" ? "selected" : ""}>Slow burn</option><option value="persistent_deterioration" ${value.morphology === "persistent_deterioration" ? "selected" : ""}>Persistent deterioration</option><option value="regime_transition" ${value.morphology === "regime_transition" ? "selected" : ""}>Regime transition</option><option value="data_artifact" ${value.morphology === "data_artifact" ? "selected" : ""}>Data artifact</option><option value="unresolved" ${value.morphology === "unresolved" ? "selected" : ""}>Unresolved</option></select></label>
+          <label class="field"><span>Severity</span><select id="case-label-severity"><option value="0" ${severityValue === 0 ? "selected" : ""}>0 · none</option><option value="1" ${severityValue === 1 ? "selected" : ""}>1 · low</option><option value="2" ${severityValue === 2 ? "selected" : ""}>2 · material</option><option value="3" ${severityValue === 3 ? "selected" : ""}>3 · severe</option></select></label>
+        </div>
+        <fieldset class="label-interval-fields"><legend>Manifestation interval</legend><label class="field"><span>Start</span><input id="case-label-start" type="date" value="${escapeHtml(interval.start || unit.date)}"></label><label class="field"><span>Peak</span><input id="case-label-peak" type="date" value="${escapeHtml(interval.peak || unit.date)}"></label><label class="field"><span>End</span><input id="case-label-end" type="date" value="${escapeHtml(interval.end || unit.date)}"></label><label class="label-censor"><input id="case-label-censored" type="checkbox" ${interval.censored ? "checked" : ""}><span>Still unresolved at the retrospective cutoff</span></label></fieldset>
+        <div class="label-secondary-fields"><label class="field"><span>Observed adverse impact · basis points (optional)</span><input id="case-label-bps" type="number" min="0" step="0.01" value="${value.severity_basis_points ?? ""}" placeholder="Leave empty until calculated"></label><label class="field"><span>Measurement horizon · sessions</span><input id="case-label-horizon" type="number" min="1" max="252" value="${value.severity_horizon_sessions ?? ""}" placeholder="Required with impact"></label><label class="field"><span>Confidence in this retrospective label</span><input id="case-label-confidence" type="number" min="0" max="1" step="0.05" value="${value.review_confidence ?? 0.75}"></label></div>
+        <label class="field"><span>Concise research note</span><textarea id="case-label-notes" rows="3">${escapeHtml(value.notes || "Review the market path and record only non-trivial evidence or uncertainty.")}</textarea></label>
+        <div class="label-form-actions"><button class="button primary" type="submit">${hasAnnotation ? "Save revised label" : "Save label"}</button><span>Saving creates an immutable revision; it never creates a Gold case.</span></div>
+      </form>
+      ${canReview ? `<form id="case-label-review-form" class="label-independent-review"><header><div><span class="panel-label">Independent check</span><h3>Review the latest label</h3></div><span>Reviewer must differ from annotator</span></header><div class="label-review-checks"><label><input type="checkbox" data-label-review-check="detection"><span>Detection and scope</span></label><label><input type="checkbox" data-label-review-check="severity"><span>Severity</span></label><label><input type="checkbox" data-label-review-check="evidence"><span>Evidence</span></label><label><input type="checkbox" data-label-review-check="temporal"><span>Timing</span></label></div><div class="label-secondary-fields"><label class="field"><span>Decision</span><select id="case-label-review-outcome"><option value="accept_for_gold_preparation">Accept for later Gold preparation</option><option value="changes_requested">Request changes</option><option value="reject">Exclude</option></select></label><label class="field"><span>Reviewer</span><input id="case-label-reviewer" value="reviewer-independent"></label></div><label class="field"><span>Rationale</span><textarea id="case-label-review-rationale" rows="2">The label is independently checked against the available market path and declared evidence.</textarea></label><button class="button primary" type="submit">Record review</button></form>` : ""}
+      ${unit.state === "ready" ? '<div class="label-ready-note"><b>Reference-ready</b><span>The label passed its independent check. Evidence review and explicit experiment selection are still required.</span></div>' : ""}
+      <section class="gold-reference-work" id="gold-reference-work"><div class="gold-gate-loading">Checking the reference gate…</div></section>`;
+  }
+
+  function renderGoldWork(payload) {
+    labState.goldWork = payload;
+    const target = $("#gold-reference-work");
+    if (!target) return;
+    const gate = payload.gate || { ready: false, blockers: ["Reference prerequisites are unavailable."] };
+    const record = payload.record;
+    if (!record) {
+      if (!gate.ready) {
+        target.innerHTML = `<header><span>Experimental reference</span><b>Not ready</b></header><p>Complete these scientific checks before preparing a Gold reference.</p><ul>${(gate.blockers || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul><small>No reference or experimental Case has been created.</small>`;
+        return;
+      }
+      const defaultStudy = $("#counterfactual-study-id")?.value || "study-thesis-pilot";
+      const defaultExperiment = $("#counterfactual-experiment-id")?.value || "experiment-thesis-pilot";
+      const selectedUnit = labState.labelBatch?.units?.find((item) => item.id === labState.selectedLabelUnitId);
+      target.innerHTML = `<header><span>Experimental reference</span><b>Ready to prepare</b></header><p>Select the planned experiment and one decision checkpoint. Preparation copies reviewed facts; it does not generate a case narrative.</p><form id="gold-prepare-form"><div class="gold-prepare-grid"><label class="field"><span>Study</span><input id="gold-study-id" value="${escapeHtml(defaultStudy)}"></label><label class="field"><span>Experiment</span><input id="gold-experiment-id" value="${escapeHtml(defaultExperiment)}"></label><label class="field gold-purpose"><span>Why this case is needed</span><textarea id="gold-research-use" rows="2">Compare architecture detection, evidence use, timing and decisions on this reviewed historical manifestation.</textarea></label><label class="field"><span>Decision checkpoint</span><input id="gold-checkpoint-label" value="First actionable review"></label><label class="field"><span>Information cutoff</span><input id="gold-checkpoint-date" type="date" value="${escapeHtml(selectedUnit?.date || "")}"></label></div><fieldset class="gold-action-options"><legend>Acceptable actions at that checkpoint</legend>${[["investigate", "Investigate", true], ["monitor", "Monitor", true], ["request_data", "Request data", false], ["run_scenario", "Run scenario", false], ["escalate", "Escalate", false], ["abstain", "Abstain", false]].map(([value, label, checked]) => `<label><input type="checkbox" data-gold-action value="${value}" ${checked ? "checked" : ""}><span>${label}</span></label>`).join("")}</fieldset><div class="gold-primary-action"><button class="button primary" type="submit">Prepare Gold reference</button><span>An independent reviewer must accept it before a Case can be compiled.</span></div></form>`;
+      return;
+    }
+    const finding = record.finding || {};
+    const evidenceCount = (record.evidence || []).length;
+    const summary = `<div class="gold-reference-summary"><span><b>${escapeHtml(labelValue(finding.outcome || "unavailable"))}</b><small>${escapeHtml(labelValue(finding.direction || "uncertain"))} · severity ${finding.severity ?? "unavailable"}</small></span><span><b>${evidenceCount}</b><small>reviewed evidence item${evidenceCount === 1 ? "" : "s"}</small></span><span><b>${escapeHtml(labelValue(record.data_truth || "unavailable"))}</b><small>data truth</small></span></div>`;
+    if (["awaiting_independent_review", "changes_requested"].includes(record.state)) {
+      target.innerHTML = `<header><span>Gold reference</span><b>${record.state === "changes_requested" ? "Changes requested" : "Independent review"}</b></header>${summary}<p>${escapeHtml(record.research_use)}</p>${(record.limitations || []).length ? `<div class="gold-limitations"><b>Known limits</b><ul>${record.limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>` : ""}<form id="gold-review-form"><div class="gold-review-checks">${[["label", "Label reconciles"], ["evidence", "Evidence reconciles"], ["firewall", "Future truth is isolated"], ["limits", "Limits are acceptable"]].map(([key, label]) => `<label><input type="checkbox" data-gold-review-check="${key}"><span>${label}</span></label>`).join("")}</div><div class="gold-review-decision"><label class="field"><span>Decision</span><select id="gold-review-outcome"><option value="accept">Accept reference</option><option value="request_changes">Request changes</option><option value="exclude">Exclude</option></select></label><label class="field"><span>Independent reviewer</span><input id="gold-reviewer" value="gold-reviewer-independent"></label></div><label class="field"><span>Review rationale</span><textarea id="gold-review-rationale" rows="2">The label, retained evidence and temporal boundary reconcile; declared limitations remain visible.</textarea></label><div class="gold-primary-action"><button class="button primary" type="submit">Record Gold review</button><span>The reviewer must differ from the preparation kernel.</span></div></form>`;
+      return;
+    }
+    if (record.state === "accepted") {
+      const fallbackEnd = labState.labelBatch?.period?.end || finding.end || finding.peak || "";
+      target.innerHTML = `<header><span>Gold reference</span><b>Accepted</b></header>${summary}<p>The retrospective reference is sealed. Compile the observable replay boundary and hidden evaluation reference into the existing Experimental Case.</p><form id="gold-compile-form"><label class="field"><span>Evaluation horizon end</span><input id="gold-horizon-end" type="date" value="${escapeHtml(fallbackEnd)}"></label><div class="gold-primary-action"><button class="button primary" type="submit">Create experimental Case</button><span>Gold fields remain inaccessible to the architecture.</span></div></form>`;
+      return;
+    }
+    target.innerHTML = `<header><span>Experimental Case</span><b>Ready</b></header>${summary}<div class="gold-case-ready"><b>${escapeHtml(record.compiled_case_id || "Compiled Case")}</b><span>Observable replay evidence is separated from the admitted evaluation reference.</span></div><small>${escapeHtml(record.boundary)}</small>`;
+  }
+
+  async function loadGoldWork() {
+    const batch = labState.labelBatch;
+    const unitId = labState.selectedLabelUnitId;
+    if (!batch || !unitId || !$("#gold-reference-work")) return;
+    renderGoldWork(await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}/gold-work/${encodeURIComponent(unitId)}`));
+  }
+
+  function renderLabelBatch(payload) {
+    labState.labelBatch = payload;
+    const units = payload.units || [];
+    if (!units.some((item) => item.id === labState.selectedLabelUnitId)) labState.selectedLabelUnitId = units[0]?.id || null;
+    const selected = units.find((item) => item.id === labState.selectedLabelUnitId);
+    const summary = payload.summary || {};
+    const queue = `<div class="label-batch-summary"><span><b>${Number(summary.selected || 0)}</b> selected</span><span><b>${Number(summary.to_label || 0)}</b> to label</span><span><b>${Number(summary.needs_review || 0)}</b> to review</span><span><b>${Number(summary.ready || 0)}</b> ready</span></div><p>${escapeHtml(payload.method_note)}</p><div class="label-review-items">${units.map((item) => `<button type="button" class="${item.id === labState.selectedLabelUnitId ? "selected" : ""}" data-label-unit="${escapeHtml(item.id)}"><span><b>${escapeHtml(item.company)}</b><small>${escapeHtml(item.ticker)} · ${escapeHtml(item.date)}</small></span><i class="${escapeHtml(item.state)}">${escapeHtml(item.state_label)}</i></button>`).join("")}</div><small>${escapeHtml(payload.boundary_note)}</small>`;
+    $("#case-label-workspace .label-review-queue").innerHTML = queue;
+    $("#case-label-workspace .label-review-editor").innerHTML = selected ? labelAnnotationForm(selected, payload) : '<div class="empty-state">No selected moves are available.</div>';
+    $("#case-label-boundary").textContent = payload.boundary_note;
+    $("#case-context-check").disabled = !payload.batch_id;
+    renderLabelBatchSelector();
+    if (selected) loadGoldWork().catch((error) => {
+      const target = $("#gold-reference-work");
+      if (target) target.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+    });
+  }
+
+  async function prepareGoldReference(event) {
+    event.preventDefault();
+    const batch = labState.labelBatch;
+    const actions = $$('[data-gold-action]:checked').map((item) => item.value).sort();
+    const response = await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}/gold-work/prepare`, {
+      method: "POST",
+      body: JSON.stringify({
+        unit_id: labState.selectedLabelUnitId,
+        study_id: $("#gold-study-id").value.trim(),
+        experiment_id: $("#gold-experiment-id").value.trim(),
+        research_use: $("#gold-research-use").value.trim(),
+        checkpoint_label: $("#gold-checkpoint-label").value.trim(),
+        checkpoint_date: $("#gold-checkpoint-date").value,
+        acceptable_actions: actions,
+        selected_by: "research-lead",
+        prepared_by: "gold-preparation-kernel",
+      }),
+    });
+    renderGoldWork({ gate: { ready: true, blockers: [] }, record: response.record });
+    showToast("Gold reference prepared for independent review.", "success");
+  }
+
+  async function reviewGoldReference(event) {
+    event.preventDefault();
+    const batch = labState.labelBatch;
+    const record = labState.goldWork.record;
+    const checked = (key) => Boolean($(`[data-gold-review-check="${key}"]`)?.checked);
+    const response = await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}/gold-work/review`, {
+      method: "POST",
+      body: JSON.stringify({
+        reference_id: record.reference_id,
+        expected_review_revision: Number(record.review_revision || 0),
+        outcome: $("#gold-review-outcome").value,
+        label_reconciled: checked("label"),
+        evidence_reconciled: checked("evidence"),
+        temporal_firewall_verified: checked("firewall"),
+        limitations_acceptable: checked("limits"),
+        rationale: $("#gold-review-rationale").value.trim(),
+        reviewed_by: $("#gold-reviewer").value.trim(),
+      }),
+    });
+    renderGoldWork({ gate: { ready: true, blockers: [] }, record: response.record });
+    showToast("Gold review recorded.", "success");
+  }
+
+  async function compileGoldCase(event) {
+    event.preventDefault();
+    const batch = labState.labelBatch;
+    const response = await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}/gold-work/compile-case`, {
+      method: "POST",
+      body: JSON.stringify({
+        reference_id: labState.goldWork.record.reference_id,
+        evaluation_horizon_end: $("#gold-horizon-end").value,
+      }),
+    });
+    renderGoldWork({ gate: { ready: true, blockers: [] }, record: response.record });
+    showToast("Experimental Case compiled with Gold truth isolated.", "success");
+  }
+
+  function renderContextReadiness(payload) {
+    const target = $("#case-context-readiness");
+    target.hidden = false;
+    target.innerHTML = `<div><span>Source readiness</span><b>${escapeHtml(payload.state === "ready_for_authorisation" ? "Ready for the next authorised task" : "Needs attention")}</b><p>${escapeHtml(payload.message)}</p></div><div class="case-context-sources">${(payload.sources || []).map((item) => `<span><i class="${escapeHtml(item.state)}"></i><b>${escapeHtml(item.name)}</b><small>${Number(item.covered)} of ${Number(item.requested)} securities · ${Number(item.eligible_rows).toLocaleString()} eligible rows</small></span>`).join("")}<span><i class="deferred"></i><b>Associations</b><small>Not started · ${Number(payload.association_count)} created</small></span></div>`;
+  }
+
+  async function checkContextReadiness() {
+    const batch = labState.labelBatch;
+    if (!batch) return;
+    const button = $("#case-context-check");
+    button.disabled = true;
+    button.textContent = "Checking…";
+    try {
+      renderContextReadiness(await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}/context-readiness`, { method: "POST", body: JSON.stringify({ actor: "researcher-primary" }) }));
+    } finally {
+      button.disabled = false;
+      button.textContent = "Check sources";
+    }
+  }
+
+  function contextPlanPayload() {
+    const unit = labState.labelBatch.units.find((item) => item.id === labState.selectedLabelUnitId);
+    return {
+      unit_id: unit.id,
+      purpose: $("#case-context-purpose").value,
+      channels: $$('[data-context-channel]:checked').map((item) => item.dataset.contextChannel),
+      event_days_before: Number($("#case-context-before").value),
+      event_days_after: Number($("#case-context-after").value),
+      fundamental_lookback_quarters: Number($("#case-context-quarters").value),
+      alternatives_required: $("#case-context-alternatives").checked,
+      controls: $$('[data-context-control]:checked').map((item) => item.dataset.contextControl).sort(),
+      expected_revision: Number(unit.context_plan?.revision || 0),
+      actor: "researcher-primary",
+    };
+  }
+
+  function showContextPlanResult(payload) {
+    const target = $("#case-context-plan-result");
+    const plan = payload.plan || {};
+    target.hidden = false;
+    target.className = `context-plan-result ${escapeHtml(plan.state || "")}`;
+    target.innerHTML = `<b>${escapeHtml(payload.saved ? "Plan saved" : "Plan checked")}</b><span>${escapeHtml(payload.summary || "")}</span>${(plan.blockers || []).length ? `<strong>Blockers</strong><ul>${plan.blockers.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}${(plan.warnings || []).length ? `<strong>Limitations</strong><ul>${plan.warnings.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}<small>Retrieved ${Number(plan.retrieved || 0)} · Associated ${Number(plan.associations || 0)} · Controls created ${Number(plan.controls_generated || 0)}</small>`;
+  }
+
+  async function validateContextPlan() {
+    const batch = labState.labelBatch;
+    showContextPlanResult(await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}/context-plans/validate`, { method: "POST", body: JSON.stringify(contextPlanPayload()) }));
+  }
+
+  async function saveContextPlan() {
+    const batch = labState.labelBatch;
+    const response = await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}/context-plans`, { method: "POST", body: JSON.stringify(contextPlanPayload()) });
+    showContextPlanResult(response);
+    renderLabelBatch(await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}`));
+    showToast("Context work plan saved. Nothing was executed.", "success");
+  }
+
+  async function prepareContextEvidence() {
+    const batch = labState.labelBatch;
+    const unit = batch.units.find((item) => item.id === labState.selectedLabelUnitId);
+    const button = $("[data-context-prepare]");
+    button.disabled = true;
+    button.textContent = "Preparing…";
+    try {
+      const response = await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}/context-work/prepare`, {
+        method: "POST",
+        body: JSON.stringify({ unit_id: unit.id, expected_plan_revision: Number(unit.context_plan.revision), actor: "context-preparation-kernel" }),
+      });
+      renderLabelBatch(await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}`));
+      showToast(response.summary, "success");
+    } finally {
+      if (button.isConnected) {
+        button.disabled = false;
+        button.textContent = "Prepare evidence";
+      }
+    }
+  }
+
+  async function reviewContextEvidence(event) {
+    event.preventDefault();
+    const batch = labState.labelBatch;
+    const unit = batch.units.find((item) => item.id === labState.selectedLabelUnitId);
+    const work = unit.context_work;
+    const candidate_reviews = $$("[data-context-candidate]").map((card) => ({
+      candidate_id: card.dataset.contextCandidate,
+      outcome: card.querySelector("[data-context-decision]").value,
+      evidence_role: card.querySelector("[data-context-role]").value,
+      evidence_position: card.querySelector("[data-context-position]").value,
+      rationale: card.querySelector("[data-context-rationale]").value.trim(),
+    })).sort((left, right) => left.candidate_id.localeCompare(right.candidate_id));
+    const response = await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}/context-work/review`, {
+      method: "POST",
+      body: JSON.stringify({
+        unit_id: unit.id,
+        expected_plan_revision: Number(unit.context_plan.revision),
+        expected_review_revision: Number(work.review_revision || 0),
+        outcome: $("#case-context-review-outcome").value,
+        candidate_reviews,
+        limitations_acknowledged: $("#case-context-limitations").checked,
+        summary: $("#case-context-review-summary").value.trim(),
+        reviewed_by: "researcher-primary",
+      }),
+    });
+    renderLabelBatch(await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}`));
+    showToast(response.summary, "success");
+  }
+
+  async function loadLabelBatches() {
+    const payload = await agentApi("/api/experiments/label-batches");
+    labState.labelBatches = payload.batches || [];
+    renderLabelBatchSelector();
+  }
+
+  async function prepareLabelSample() {
+    const button = $("#case-label-prepare");
+    button.disabled = true;
+    button.textContent = "Preparing…";
+    try {
+      const payload = await agentApi("/api/experiments/label-batches", { method: "POST", body: JSON.stringify({ portfolio_id: $("#counterfactual-portfolio").value, start_date: $("#counterfactual-start").value, end_date: $("#counterfactual-end").value, target_count: 12, actor: "researcher-primary" }) });
+      renderLabelBatch(payload);
+      await loadLabelBatches();
+      switchCounterfactualView("cases");
+    } catch (error) {
+      showToast(error.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Prepare review sample";
+    }
+  }
+
+  async function loadSelectedLabelBatch() {
+    const batchId = $("#case-label-batch-select").value;
+    if (!batchId) return;
+    renderLabelBatch(await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batchId)}`));
+  }
+
+  async function studySelectedLabelUnit(unitId) {
+    const batch = labState.labelBatch;
+    const button = $("[data-label-study]");
+    if (button) { button.disabled = true; button.textContent = "Studying…"; }
+    try {
+      renderLabelBatch(await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}/study`, { method: "POST", body: JSON.stringify({ unit_id: unitId, actor: "researcher-primary" }) }));
+      await loadLabelBatches();
+    } catch (error) { showToast(error.message, "error"); }
+  }
+
+  function useIntervalProposal(index) {
+    const unit = labState.labelBatch.units.find((item) => item.id === labState.selectedLabelUnitId);
+    const interval = unit?.study?.intervals?.[index];
+    if (!interval) return;
+    $("#case-label-outcome").value = "materialised_risk";
+    $("#case-label-start").value = interval.start;
+    $("#case-label-peak").value = interval.peak;
+    $("#case-label-end").value = interval.end || interval.peak;
+    $("#case-label-censored").checked = Boolean(interval.censored);
+    const morphology = { punctual: "punctual_shock", drawdown: "persistent_deterioration", slow_deterioration: "slow_burn", regime_transition: "regime_transition" }[interval.kind];
+    if (morphology) $("#case-label-morphology").value = morphology;
+    const severity = unit.study.severity.find((item) => item.horizon === 20 && item.complete) || unit.study.severity.find((item) => item.complete);
+    if (severity) { $("#case-label-bps").value = severity.impact_bps; $("#case-label-horizon").value = severity.horizon; }
+    showToast("Suggestion copied into the unsaved form. Review and edit it before saving.", "success");
+  }
+
+  function annotationPayload() {
+    const outcome = $("#case-label-outcome").value;
+    const materialised = outcome === "materialised_risk";
+    const dataError = outcome === "data_quality_error";
+    const bps = $("#case-label-bps").value;
+    const horizon = $("#case-label-horizon").value;
+    return {
+      idempotency_key: `label-annotation-${Date.now()}-${$("#case-label-unit-id").value}`,
+      expected_revision: labState.labelBatch.revision,
+      unit_id: $("#case-label-unit-id").value,
+      outcome,
+      relevance: $("#case-label-relevance").value,
+      scope_type: $("#case-label-scope").value,
+      direction: $("#case-label-direction").value,
+      morphology: dataError ? "data_artifact" : $("#case-label-morphology").value,
+      interval_start: materialised ? $("#case-label-start").value : null,
+      interval_peak: materialised ? $("#case-label-peak").value : null,
+      interval_end: materialised && !$("#case-label-censored").checked ? $("#case-label-end").value : null,
+      interval_censored: materialised && $("#case-label-censored").checked,
+      severity_level: outcome === "non_material_move" || dataError ? 0 : Number($("#case-label-severity").value),
+      severity_basis_points: bps ? Number(bps) : null,
+      severity_horizon_sessions: horizon ? Number(horizon) : null,
+      data_quality_flags: dataError ? ["requires_data_steward_review"] : [],
+      review_confidence: Number($("#case-label-confidence").value),
+      notes: $("#case-label-notes").value,
+      annotated_by: "researcher-primary",
+      annotator_role: "human_researcher",
+    };
+  }
+
+  async function saveSignalAnnotation(event) {
+    event.preventDefault();
+    const batch = labState.labelBatch;
+    try {
+      renderLabelBatch(await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}/annotations`, { method: "POST", body: JSON.stringify(annotationPayload()) }));
+      await loadLabelBatches();
+      showToast("Label revision saved.", "success");
+    } catch (error) { showToast(error.message, "error"); }
+  }
+
+  async function saveLabelReview(event) {
+    event.preventDefault();
+    const batch = labState.labelBatch;
+    const unit = batch.units.find((item) => item.id === labState.selectedLabelUnitId);
+    const checks = Object.fromEntries($$("[data-label-review-check]").map((item) => [item.dataset.labelReviewCheck, item.checked]));
+    try {
+      renderLabelBatch(await agentApi(`/api/experiments/label-batches/${encodeURIComponent(batch.batch_id)}/reviews`, { method: "POST", body: JSON.stringify({ idempotency_key: `label-review-${Date.now()}-${unit.annotation.id}`, expected_revision: batch.revision, annotation_id: unit.annotation.id, outcome: $("#case-label-review-outcome").value, detection_fields_verified: Boolean(checks.detection), severity_fields_verified: Boolean(checks.severity), evidence_fields_verified: Boolean(checks.evidence), temporal_fields_verified: Boolean(checks.temporal), reviewer_confidence: Object.values(checks).every(Boolean) ? 0.8 : 0.4, rationale: $("#case-label-review-rationale").value, reviewed_by: $("#case-label-reviewer").value }) }));
+      await loadLabelBatches();
+      showToast("Independent review recorded.", "success");
+    } catch (error) { showToast(error.message, "error"); }
+  }
+
+  function renderCounterfactualCases(payload) {
+    const definition = payload.definition;
+    const cells = payload.analysis.cells || [];
+    const grouped = {};
+    cells.forEach((cell) => {
+      grouped[cell.case_id] ||= { cells: [], regimes: cell.regimes || [], control: cell.control_identity || {} };
+      grouped[cell.case_id].cells.push(cell);
+    });
+    $("#counterfactual-cases").innerHTML = Object.entries(grouped).map(([caseId, value]) => `<article class="counterfactual-case-card"><header><div><span class="panel-label">Case · ${value.cells.length} completed Runs</span><h3>${escapeHtml(caseId)}</h3></div><span class="truth-chip">Frozen</span></header><p>${escapeHtml(value.control.portfolio_id || "Portfolio unavailable")} · ${escapeHtml(value.control.period?.start || definition.period.start)} → ${escapeHtml(value.control.period?.end || definition.period.end)}</p><div class="counterfactual-case-facts"><div><span>Context digest</span><b>${escapeHtml(value.control.context_digest || "Unavailable")}</b></div><div><span>Mandate</span><b>${escapeHtml(value.control.mandate_reference || "Unavailable")}</b></div><div><span>Information regime</span><b>${escapeHtml((value.control.information_regime || "Unavailable").replaceAll("-", " "))}</b></div><div><span>Evaluation</span><b>${escapeHtml(value.control.evaluation_id || definition.evaluation_id)}</b></div></div><div class="counterfactual-regimes">${value.regimes.map((item) => `<i>${escapeHtml(item.dimension)} · ${escapeHtml(item.value)}</i>`).join("") || "<i>Not classified</i>"}</div></article>`).join("") || '<div class="empty-state">No completed Case evidence is available.</div>';
+  }
+
+  function renderCounterfactualRunMatrix(payload, running = false) {
+    const definition = payload.definition;
+    const artifacts = Object.fromEntries((payload.run_artifacts || []).map((item) => [item.cell_id, item]));
+    const failures = Object.fromEntries((payload.analysis?.failed_cells || []).map((item) => [item.cell_id, item]));
+    const workflows = [...new Set(definition.cells.map((item) => item.workflow_id))];
+    const groups = {};
+    definition.cells.forEach((cell) => { groups[`${cell.case_id}:r${cell.repetition}`] ||= []; groups[`${cell.case_id}:r${cell.repetition}`].push(cell); });
+    const rows = Object.entries(groups).map(([key, cells]) => `<tr><td><b>${escapeHtml(cells[0].case_id)}</b><br><small>Repetition ${cells[0].repetition}</small></td>${workflows.map((workflow) => {
+      const cell = cells.find((item) => item.workflow_id === workflow);
+      if (!cell) return "<td>—</td>";
+      const artifact = artifacts[cell.cell_id];
+      const failure = failures[cell.cell_id];
+      const state = artifact ? "completed" : failure ? "failed" : running ? "running" : "missing";
+      return `<td><div class="counterfactual-run-cell ${state}"><b>${escapeHtml(workflow)} · ${escapeHtml(state)}</b><span>${escapeHtml(artifact?.run_id || failure?.error || (running ? "Executing independent cell" : "No retained output"))}</span>${artifact ? `<button type="button" data-counterfactual-run-artifact="${escapeHtml(artifact.artifact_id)}">Inspect Run</button>` : ""}</div></td>`;
+    }).join("")}</tr>`).join("");
+    $("#counterfactual-run-matrix").innerHTML = `<table class="counterfactual-run-table"><thead><tr><th>Case / repetition</th>${workflows.map((item) => `<th>${escapeHtml(item)}${item === "B0" ? " · baseline" : ""}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function valueLabel(value) {
+    if (value == null) return "—";
+    if (typeof value === "number") return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(4);
+    return String(value).replaceAll("_", " ");
+  }
+
+  function outcomeObservation(outcome) {
+    return outcome.observations.find((item) => item.delta != null)
+      || outcome.observations.find((item) => item.baseline != null || item.treatment != null)
+      || { metric: "unavailable", baseline: null, treatment: null, delta: null };
+  }
+
+  function renderEvaluationResultsGraph(analysis) {
+    const cells = analysis.cells || [];
+    const workflows = [...new Set(cells.map((item) => item.workflow_id))].sort((a, b) => ["B0", "B1", "A1"].indexOf(a) - ["B0", "B1", "A1"].indexOf(b));
+    const byWorkflow = Object.fromEntries(workflows.map((workflow) => [workflow, cells.find((item) => item.workflow_id === workflow)]));
+    const dimensions = cells[0]?.observed_outcomes || [];
+    if (!dimensions.length) return '<section class="evaluation-results-graph"><div class="empty-state">No evaluation outcomes were retained.</div></section>';
+    return `<section class="evaluation-results-graph"><header><div><span class="panel-label">Nine-dimension evaluation</span><h3>What was measured</h3><p>Bars show declared 0–1 scores. A labelled status is shown where the method deliberately reports raw measures or lacks the evidence needed to calculate a score.</p></div><div class="evaluation-graph-legend">${workflows.map((workflow) => `<i class="workflow-${workflow.toLowerCase()}">${escapeHtml(workflow)}</i>`).join("")}</div></header><div class="evaluation-dimension-rows">${dimensions.map((dimension) => `<article class="evaluation-dimension-row"><div class="evaluation-dimension-explanation"><b>${escapeHtml(dimension.label)}</b><span>${escapeHtml(dimension.measurement_scope)}</span><details><summary>Calculation</summary><code>${escapeHtml(dimension.formula)}</code><p>${escapeHtml(dimension.summary)}</p></details></div><div class="evaluation-workflow-measures">${workflows.map((workflow) => {
+        const outcome = byWorkflow[workflow]?.observed_outcomes?.find((item) => item.dimension_id === dimension.dimension_id);
+        if (!outcome) return `<div class="evaluation-workflow-measure"><b>${escapeHtml(workflow)}</b><span>Missing</span></div>`;
+        const scoreValue = typeof outcome.score === "number" ? Math.max(0, Math.min(1, outcome.score)) : null;
+        const metrics = Object.entries(outcome.metrics || {}).filter(([, value]) => value != null && typeof value !== "object").slice(0, 3);
+        return `<div class="evaluation-workflow-measure workflow-${workflow.toLowerCase()}"><header><b>${escapeHtml(workflow)}</b><span>${escapeHtml(outcome.status.replaceAll("_", " "))}</span></header>${scoreValue == null ? `<div class="evaluation-score-unavailable">No composite score</div>` : `<div class="evaluation-score-track"><i style="width:${(scoreValue * 100).toFixed(1)}%"></i></div><strong>${(scoreValue * 100).toFixed(1)}%</strong>`}<small>${metrics.map(([key, value]) => `${escapeHtml(key.replaceAll("_", " "))}: ${escapeHtml(valueLabel(value))}`).join(" · ") || "No observed metric"}</small></div>`;
+      }).join("")}</div></article>`).join("")}</div></section>`;
+  }
+
+  function renderExperimentDiagnostics(analysis) {
+    const diagnostics = analysis.diagnostics || { counts: {}, shortcomings: [] };
+    const issues = diagnostics.shortcomings || [];
+    const order = { critical: 0, high: 1, medium: 2, low: 3 };
+    const grouped = Object.values(issues.reduce((result, issue) => {
+      const key = issue.code || "UNKNOWN";
+      result[key] ||= { ...issue, workflows: [], occurrences: 0 };
+      result[key].occurrences += 1;
+      if (issue.workflow_id && !result[key].workflows.includes(issue.workflow_id)) result[key].workflows.push(issue.workflow_id);
+      return result;
+    }, {}));
+    const sorted = grouped.sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9) || String(a.code).localeCompare(String(b.code)));
+    const uniqueCounts = Object.fromEntries(Object.keys(order).map((level) => [level, sorted.filter((item) => item.severity === level).length]));
+    return `<section class="experiment-diagnostics"><header><div><span class="panel-label">End-of-run log</span><h3>Shortcomings and debugging handoff</h3><p>Repeated issues are condensed across methods here. The retained technical JSON preserves every per-run occurrence for Codex.</p></div><div class="diagnostic-counts">${["critical", "high", "medium", "low"].map((level) => `<span class="${level}"><b>${uniqueCounts[level] || 0}</b>${level}</span>`).join("")}</div></header><div class="diagnostic-issue-list">${sorted.map((issue) => `<article class="diagnostic-issue ${escapeHtml(issue.severity)}"><header><span>${escapeHtml(issue.severity)} · ${escapeHtml(issue.category)}</span><code>${escapeHtml(issue.code)}</code><b>${escapeHtml(issue.workflows.join(", ") || "batch")}${issue.occurrences > 1 ? ` · ${issue.occurrences} runs` : ""}</b></header><h4>${escapeHtml(issue.summary)}</h4><p>${escapeHtml(issue.detail)}</p><footer><b>Next correction</b><span>${escapeHtml(issue.remediation)}</span></footer></article>`).join("") || '<div class="empty-state">No shortcomings were recorded.</div>'}</div><details class="diagnostic-codex-handoff"><summary>Codex handoff</summary><pre>${escapeHtml(JSON.stringify(diagnostics.codex_handoff || {}, null, 2))}</pre></details></section>`;
+  }
+
+  function renderExperimentAssurance(analysis) {
+    const assurance = analysis.assurance;
+    if (!assurance) return '<section class="experiment-assurance unavailable"><h3>Post-run assurance was not included in this older analysis.</h3></section>';
+    const passed = assurance.status !== "failed";
+    return `<section class="experiment-assurance ${escapeHtml(assurance.status)}"><header><div><span class="panel-label">Experiment outcome</span><h3>${escapeHtml(assurance.label)}</h3><p>${escapeHtml(assurance.narrative)}</p></div><div class="assurance-archive-state"><b>${assurance.archive_ready ? "Archive ready" : "Not archive ready"}</b><span>${assurance.narrative_agent?.used ? `Narrated by ${escapeHtml(assurance.narrative_agent.model)}` : "Deterministic summary"}</span></div></header><div class="assurance-checks">${assurance.checks.map((item) => `<article class="${escapeHtml(item.status)}"><i>${item.status === "pass" ? "✓" : item.status === "warning" ? "!" : "×"}</i><div><b>${escapeHtml(item.check_id === "validation-corrections" ? "Structured-output validation" : item.label)}</b><span>${escapeHtml(item.summary)}</span></div></article>`).join("")}</div><details class="assurance-technical"><summary>${passed ? "Open technical report for Codex" : "Open failures and technical report"}</summary><pre>${escapeHtml(JSON.stringify(assurance.technical_handoff, null, 2))}</pre></details></section>`;
+  }
+
+  function renderCounterfactualAnalysis(payload) {
+    const analysis = payload.analysis;
+    const coverage = analysis.matrix_coverage;
+    const contrasts = analysis.contrasts || [];
+    const statusClass = analysis.status === "complete" ? "indexed" : "lifecycle";
+    $("#counterfactual-analysis").innerHTML = `<section class="counterfactual-analysis-summary"><header><div><span class="panel-label">${escapeHtml(analysis.analysis_version)}</span><h3>${escapeHtml(analysis.research_question)}</h3><code>${escapeHtml(analysis.analysis_digest)}</code></div><span class="registry-badge ${statusClass}">${escapeHtml(analysis.status)}</span></header><div class="counterfactual-coverage"><article><b>${coverage.completed}/${coverage.planned}</b><span>Completed cells</span></article><article><b>${contrasts.length}</b><span>Paired contrasts</span></article><article><b>${coverage.failed}</b><span>Failed cells</span></article><article><b>${analysis.confounds.length}</b><span>Confounds</span></article></div><div class="counterfactual-regimes">${analysis.regime_conditioning.flatMap((item) => item.observed_values.map((value) => `<i>${escapeHtml(item.dimension)} · ${escapeHtml(value)}</i>`)).join("") || "<i>No Regime classifications</i>"}</div></section>
+      ${renderExperimentAssurance(analysis)}
+      ${renderEvaluationResultsGraph(analysis)}
+      <div class="counterfactual-contrast-list">${contrasts.map((contrast) => `<article class="counterfactual-contrast"><header><h3>${escapeHtml(contrast.baseline.workflow_id)} → ${escapeHtml(contrast.treatment.workflow_id)} · Case ${escapeHtml(contrast.case_id)} · repetition ${contrast.repetition}</h3><span class="registry-badge ${contrast.pair_comparable ? "indexed" : "lifecycle"}">${contrast.pair_comparable ? "Comparable" : "Confounded"}</span></header><table class="counterfactual-outcome-table"><thead><tr><th>Outcome</th><th>Status</th><th>Observed metric</th><th>Baseline</th><th>Treatment</th><th>Δ</th></tr></thead><tbody>${contrast.outcomes.map((outcome) => { const observed = outcomeObservation(outcome); return `<tr><td><b>${escapeHtml(outcome.label)}</b></td><td>${escapeHtml(outcome.status.replaceAll("_", " "))}</td><td>${escapeHtml(observed.metric.replaceAll("_", " "))}</td><td>${escapeHtml(valueLabel(observed.baseline))}</td><td>${escapeHtml(valueLabel(observed.treatment))}</td><td>${escapeHtml(valueLabel(observed.delta))}</td></tr>`; }).join("")}</tbody></table></article>`).join("") || '<div class="empty-state">No paired contrast is available. Inspect failed or missing baseline cells.</div>'}</div>
+      <section class="counterfactual-analysis-summary"><header><div><span class="panel-label">Repeated identical Runs</span><h3>Stability</h3></div><span class="truth-chip">Separate outcome</span></header><div class="counterfactual-coverage">${analysis.stability.map((item) => `<article><b>${item.completed_repetitions > 1 ? item.identical_outputs ? "Identical" : "Varied" : "Pending"}</b><span>${escapeHtml(item.workflow_id)} · ${item.completed_repetitions} repetition${item.completed_repetitions === 1 ? "" : "s"}</span></article>`).join("")}</div></section>
+      ${(analysis.confounds.length || analysis.failed_cells.length) ? `<section class="counterfactual-analysis-boundary"><b>Partial or confounded evidence.</b> ${analysis.failed_cells.length} failed cells and ${analysis.confounds.length} uncontrolled comparisons remain visible; affected contrasts were not silently dropped.</section>` : ""}
+      <section class="counterfactual-analysis-boundary"><b>Interpretation boundary.</b> ${escapeHtml(analysis.interpretation_boundary)}</section>
+      ${renderExperimentDiagnostics(analysis)}`;
+  }
+
+  function renderCounterfactualBatch(payload) {
+    labState.counterfactualBatch = payload;
+    $("#experiment-context-study").textContent = payload.definition.study.title;
+    $("#experiment-context-experiment").textContent = payload.definition.experiment.experiment_id;
+    renderCounterfactualCases(payload);
+    renderCounterfactualRunMatrix(payload);
+    renderCounterfactualAnalysis(payload);
+  }
+
+  async function runCounterfactualBatch(event) {
+    event.preventDefault();
+    const button = $("#counterfactual-run");
+    const workflows = selectedCounterfactualWorkflows();
+    const repetitions = Number($("#counterfactual-repetitions").value);
+    const caseId = `case-${$("#counterfactual-portfolio").value.replaceAll("_", "-")}-${$("#counterfactual-start").value}-${$("#counterfactual-end").value}`;
+    const definition = {
+      study: { title: $("#counterfactual-study-title").value },
+      experiment: { experiment_id: $("#counterfactual-experiment-id").value },
+      period: { start: $("#counterfactual-start").value, end: $("#counterfactual-end").value },
+      cells: Array.from({ length: repetitions }, (_, index) => workflows.map((workflow) => ({ cell_id: `${caseId}:r${index + 1}:${workflow}`, case_id: caseId, workflow_id: workflow, repetition: index + 1 }))).flat(),
+    };
+    button.disabled = true;
+    button.textContent = "Running batch…";
+    $("#experiment-replay-status").textContent = "Runs in progress";
+    switchCounterfactualView("runs");
+    renderCounterfactualRunMatrix({ definition, run_artifacts: [], analysis: { failed_cells: [] } }, true);
+    try {
+      const payload = await agentApi("/api/experiments/counterfactual-batches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        study_id: $("#counterfactual-study-id").value,
+        study_title: $("#counterfactual-study-title").value,
+        experiment_id: $("#counterfactual-experiment-id").value,
+        research_question: $("#counterfactual-question").value,
+        hypothesis: $("#counterfactual-hypothesis").value,
+        portfolio_ids: [$("#counterfactual-portfolio").value],
+        workflow_ids: workflows,
+        baseline_workflow_id: "B0",
+        start_date: $("#counterfactual-start").value,
+        end_date: $("#counterfactual-end").value,
+        evaluation_id: $("#counterfactual-evaluation").value,
+        repetitions,
+        max_concurrency: Number($("#counterfactual-concurrency").value),
+        authorize_external_model_calls: $("#counterfactual-authorize-model").checked,
+      }) });
+      renderCounterfactualBatch(payload);
+      await loadSavedCounterfactualAnalyses();
+      $("#experiment-replay-status").textContent = payload.analysis.status === "complete" ? "Analysis complete" : "Partial analysis";
+      switchCounterfactualView("analysis");
+    } catch (error) {
+      $("#experiment-replay-status").textContent = "Batch failed";
+      $("#counterfactual-run-matrix").innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+    } finally {
+      button.textContent = "Run counterfactual batch";
+      updateCounterfactualDesign();
+    }
+  }
+
+  async function loadSavedCounterfactualAnalyses() {
+    const payload = await agentApi("/api/experiments/counterfactual-batches");
+    labState.counterfactualAnalyses = payload.analyses || [];
+    $("#counterfactual-saved-select").innerHTML = labState.counterfactualAnalyses.length
+      ? `<option value="">Choose a retained analysis</option>${labState.counterfactualAnalyses.map((item) => `<option value="${escapeHtml(item.artifact_id)}">${escapeHtml(item.experiment_id)} · ${escapeHtml(item.status)} · ${item.matrix_coverage.completed}/${item.matrix_coverage.planned} Runs</option>`).join("")}`
+      : '<option value="">No saved analyses</option>';
+    $("#counterfactual-load-saved").disabled = true;
+  }
+
+  async function loadSelectedCounterfactualAnalysis() {
+    const artifactId = $("#counterfactual-saved-select").value;
+    if (!artifactId) return;
+    const payload = await agentApi(`/api/experiments/counterfactual-batches/${encodeURIComponent(artifactId)}`);
+    payload.run_artifacts = payload.analysis.cells.map((item) => ({ cell_id: item.cell_id, case_id: item.case_id, workflow_id: item.workflow_id, repetition: item.repetition, run_id: item.run_id, artifact_id: item.artifact_id, regimes: item.regimes }));
+    renderCounterfactualBatch(payload);
+    $("#experiment-replay-status").textContent = "Saved analysis loaded";
+  }
+
+  async function inspectCounterfactualRun(artifactId) {
+    $("#counterfactual-run-detail").innerHTML = '<div class="empty-state">Loading retained Run.</div>';
+    const result = await agentApi(`/api/experiments/replay-runs/${encodeURIComponent(artifactId)}`);
+    const hierarchy = result.hierarchy;
+    $("#counterfactual-run-detail").innerHTML = `<article class="counterfactual-run-inspector"><header><div><span class="panel-label">${escapeHtml(result.workflow.type)} · repetition ${hierarchy.run.repetition}</span><h3>${escapeHtml(hierarchy.run.run_id)}</h3></div><span class="truth-chip">Retained</span></header><p>${escapeHtml(hierarchy.study.title)} → ${escapeHtml(hierarchy.experiment.experiment_id)} → ${escapeHtml(hierarchy.case.case_id)}. Regime: ${hierarchy.regimes.map((item) => `${escapeHtml(item.dimension)} ${escapeHtml(item.value)}`).join(" · ") || "not classified"}.</p><div class="counterfactual-run-dimensions">${result.evaluation.dimensions.map((item) => `<article><b>${escapeHtml(item.label)}</b><span>${escapeHtml(item.status.replaceAll("_", " "))}</span></article>`).join("")}</div></article>`;
+  }
+
+  function renderSingleRunAssurance(result) {
+    const assurance = result.assurance;
+    if (!assurance) return '<section class="experiment-assurance unavailable"><h3>This older Run does not contain a qualification report.</h3></section>';
+    const runtime = result.runtime_report || {};
+    return `<section class="experiment-assurance single-run-assurance ${escapeHtml(assurance.status)}"><header><div><span class="panel-label">Run qualification</span><h3>${escapeHtml(assurance.label)}</h3><p>${escapeHtml(assurance.narrative)}</p></div><div class="assurance-archive-state"><b>${assurance.engine_ready ? "Engine ready" : "Engine not ready"}</b><span>${assurance.archive_ready ? "Saved result can be archived" : "Not ready to archive"}</span></div></header><div class="assurance-method"><b>Lean check</b><span>Read canonical object attributes · 0 database queries · 0 model calls · 0 capability reruns</span></div><div class="assurance-checks">${(assurance.checks || []).map((item) => `<article class="${escapeHtml(item.status)}"><i>${item.status === "pass" ? "✓" : item.status === "warning" ? "!" : "×"}</i><div><b>${escapeHtml(item.label)}</b><span>${escapeHtml(item.summary)}</span></div></article>`).join("")}</div><details class="assurance-technical"><summary>Runtime report and Codex handoff</summary><pre>${escapeHtml(JSON.stringify({ runtime_report: runtime, technical_handoff: assurance.technical_handoff }, null, 2))}</pre></details></section>`;
   }
 
   function renderHistoricalReplayResult(result) {
@@ -6084,6 +7032,28 @@
     $("#replay-results").classList.remove("hidden");
     const statusLabel = (value) => value.replaceAll("_", " ");
     const score = (value) => value == null ? "—" : Number(value).toFixed(2);
+    const dimensionMetricKeys = {
+      detection_quality: ["precision", "recall", "f1"],
+      severity_understanding: ["severity_mae", "exact_severity_rate", "risk_type_accuracy"],
+      timeliness: ["same_cycle_detection_rate", "mean_processing_to_first_finding_ms"],
+      evidence_quality: ["finding_citation_coverage", "evidence_index_coverage"],
+      confidence_calibration: ["brier_score", "mean_ordinal_confidence"],
+      decision_quality: ["monitoring_action_agreement", "portfolio_action_agreement", "regret"],
+      robustness: ["perturbation_cases", "position_observation_completeness"],
+      stability: ["compared_repetitions", "unique_output_signatures"],
+      efficiency: ["processing_wall_ms", "model_calls", "estimated_cost_usd"],
+    };
+    const dimensionMetricValue = (key, value) => {
+      if (value == null) return "—";
+      if (key.endsWith("_ms")) return `${Number(value).toFixed(0)} ms`;
+      if (key === "estimated_cost_usd") return `$${Number(value).toFixed(6)}`;
+      if (["precision", "recall", "f1", "exact_severity_rate", "risk_type_accuracy", "same_cycle_detection_rate", "finding_citation_coverage", "evidence_index_coverage", "mean_ordinal_confidence", "monitoring_action_agreement", "portfolio_action_agreement", "position_observation_completeness"].includes(key)) return percent(value);
+      return typeof value === "number" ? Number(value).toFixed(Number.isInteger(value) ? 0 : 3) : String(value);
+    };
+    const dimensionMetricsHtml = (item) => (dimensionMetricKeys[item.id] || [])
+      .filter((key) => Object.hasOwn(item.metrics || {}, key))
+      .map((key) => `<span><i>${escapeHtml(statusLabel(key))}</i><b>${escapeHtml(dimensionMetricValue(key, item.metrics[key]))}</b></span>`)
+      .join("");
     const hierarchyHtml = hierarchy ? `<section class="replay-hierarchy">
         <div><span>Study</span><b>${escapeHtml(hierarchy.study.title)}</b></div>
         <div><span>Experiment</span><b>${escapeHtml(hierarchy.experiment.experiment_id)}</b></div>
@@ -6106,6 +7076,7 @@
     const executionEffect = evaluation.end_of_day_execution_effect;
     const executionEffectHtml = executionEffect ? `<section class="replay-method-note"><b>End-of-day execution effect</b><span>${escapeHtml(executionEffect.interpretation)} Current measurable target: ${escapeHtml(executionEffect.measurable_with_current_data)}.</span></section>` : "";
     $("#replay-results").innerHTML = `<header><div><span class="panel-label">Completed real-data run</span><h2>Results</h2><p>${escapeHtml(result.run_id)} · ${escapeHtml(result.period.start)} to ${escapeHtml(result.period.end)}</p></div><span class="truth-chip">${result.saved ? "Saved" : "Not saved"}</span></header>
+      ${renderSingleRunAssurance(result)}
       ${hierarchyHtml}
       <div class="replay-summary"><article><b>${evaluation.trading_days}</b><span>Trading days</span></article><article><b>${result.workflow.model_calls || 0}</b><span>Model calls</span></article><article><b>${evaluation.warnings}</b><span>Rule warnings</span></article><article><b>${evaluation.ravenpack_events.toLocaleString()}</b><span>Eligible event records</span></article><article><b>${evaluation.missing_position_observations}</b><span>Missing price observations</span></article><article><b>${evaluation.compustat_companies_available}</b><span>Companies with accounts</span></article></div>
       <section class="replay-context"><div><span>Portfolio</span><b>${escapeHtml(result.portfolio.id)}</b><p>${result.portfolio.holdings.map((item) => `${escapeHtml(item.company_name)} (${escapeHtml(item.ticker)})`).join(" · ")}</p></div><div><span>Mandate</span><b>${escapeHtml(result.mandate.name)} ${escapeHtml(result.mandate.version)}</b><p>${escapeHtml(result.mandate.objective)}</p></div></section>
@@ -6115,11 +7086,11 @@
       ${executionEffectHtml}
       ${metricSpecificationsHtml}
       ${instrumentHistoryHtml}
-      <section class="replay-dimensions"><header><span>Independent evaluation</span><b>Nine dimensions · scored after the architecture output is fixed</b></header>${evaluation.dimensions.map((item) => `<article class="${escapeHtml(item.status)}"><div><b>${escapeHtml(item.label)}</b><span>${escapeHtml(statusLabel(item.status))}${item.score == null ? "" : ` · ${score(item.score)}`}</span></div><p>${escapeHtml(item.summary)}</p></article>`).join("")}</section>
+      <section class="replay-dimensions"><header><span>Independent evaluation</span><b>Nine dimensions · ${escapeHtml(evaluation.reference_treatment?.scope?.replaceAll("_", " ") || "reference availability disclosed per metric")}</b></header>${evaluation.dimensions.map((item) => `<article class="${escapeHtml(item.status)}"><div><b>${escapeHtml(item.label)}</b><span>${escapeHtml(statusLabel(item.status))}${item.score == null ? "" : ` · ${score(item.score)}`}</span></div><p>${escapeHtml(item.summary)}</p><section>${dimensionMetricsHtml(item)}</section></article>`).join("")}</section>
       <section class="replay-rules"><header><span>Mandate checks</span><b>${escapeHtml(result.mandate.name)}</b></header><table class="replay-table"><thead><tr><th>Rule</th><th>Clause</th><th>Passed</th><th>Breached</th><th>Unavailable</th></tr></thead><tbody>${evaluation.rule_summary.map((item) => `<tr><td><b>${escapeHtml(item.label)}</b></td><td>${escapeHtml(item.clause)}</td><td>${item.passed}</td><td>${item.breached}</td><td>${item.unable_to_assess}</td></tr>`).join("")}</tbody></table></section>
       <div class="replay-method-note"><b>What this result means</b><span>${escapeHtml(evaluation.interpretation)} ${escapeHtml(result.methodology_note)} Evaluation targets the retained ArchitectureOutput.</span></div>
       <details class="replay-clock"><summary>Daily calculations <small>${evaluation.trading_days} trading days</small></summary><div class="replay-table-wrap"><table class="replay-table"><thead><tr><th>Date</th><th>Portfolio value</th><th>Daily change</th><th>Volatility</th><th>Drawdown</th><th>Events</th><th>Warnings</th></tr></thead><tbody>${result.clock.map((row) => `<tr><td>${escapeHtml(row.date)}</td><td>${money(row.portfolio_value)}</td><td>${percent(row.daily_return)}</td><td>${percent(row.annualised_volatility)}</td><td>${percent(row.drawdown)}</td><td>${Number(row.ravenpack_events.count).toLocaleString()}</td><td>${row.warnings.length ? row.warnings.map((item) => `<span class="replay-warning ${escapeHtml(item.level)}">${escapeHtml(item.reason)}</span>`).join("") : "—"}</td></tr>`).join("")}</tbody></table></div></details>`;
-    $("#experiment-status").textContent = "Run completed";
+    $("#experiment-replay-status").textContent = "Run completed";
     $("#replay-results").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -6135,13 +7106,13 @@
   async function loadSelectedHistoricalReplay() {
     const artifactId = $("#replay-saved-select").value;
     if (!artifactId) return;
-    $("#experiment-status").textContent = "Loading saved run";
+    $("#experiment-replay-status").textContent = "Loading saved run";
     try {
       const result = await agentApi(`/api/experiments/replay-runs/${encodeURIComponent(artifactId)}`);
       renderHistoricalReplayResult(result);
       $("#replay-run-hint").textContent = "Saved run loaded. No calculation was repeated.";
     } catch (error) {
-      $("#experiment-status").textContent = "Load failed";
+      $("#experiment-replay-status").textContent = "Load failed";
       $("#replay-run-hint").textContent = error.message;
     }
   }
@@ -6149,11 +7120,20 @@
   async function runHistoricalReplay(event) {
     event.preventDefault();
     const button = $("#replay-run");
+    const period = replayPeriodValidation();
+    if (!period.valid) {
+      $("#experiment-replay-status").textContent = "Run not started";
+      $("#replay-run-hint").textContent = period.message;
+      $("#replay-run-hint").className = "error";
+      return;
+    }
     button.disabled = true;
     button.textContent = "Running…";
-    let completionMessage = "";
-    $("#experiment-status").textContent = "Running";
+    let terminalMessage = "";
+    let terminalState = "";
+    $("#experiment-replay-status").textContent = "Running";
     $("#replay-run-hint").textContent = "Reading each trading day from CRSP, Compustat and RavenPack.";
+    $("#replay-run-hint").className = "running";
     try {
       const result = await agentApi("/api/experiments/replay-runs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         workflow_id: $("#replay-workflow").value,
@@ -6166,28 +7146,351 @@
       }) });
       renderHistoricalReplayResult(result);
       if (result.saved) await loadSavedHistoricalReplays();
-      completionMessage = result.saved ? "Run complete and saved. It can now be reloaded." : "Run complete. This result was not saved.";
+      terminalMessage = result.saved ? "Run complete and saved. It can now be reloaded." : "Run complete. This result was not saved.";
+      terminalState = "success";
     } catch (error) {
-      $("#experiment-status").textContent = "Run failed";
-      $("#replay-run-hint").textContent = error.message;
+      $("#experiment-replay-status").textContent = "Run failed";
+      terminalMessage = error.message;
+      terminalState = "error";
     } finally {
-      button.textContent = "Run historical replay";
+      button.textContent = "Validate this Run";
       updateReplayNotes();
-      if (completionMessage) $("#replay-run-hint").textContent = completionMessage;
+      if (terminalMessage) {
+        $("#replay-run-hint").textContent = terminalMessage;
+        $("#replay-run-hint").className = terminalState;
+      }
+    }
+  }
+
+  function renderMatchedRunPlan(plan) {
+    labState.matchedMatrixId = plan.matrix_id;
+    const projected = plan.projected;
+    const groups = ["B0", "B1", "A1"].map((architecture) => {
+      const cells = plan.cells.filter((item) => item.architecture === architecture);
+      const calls = cells.reduce((total, item) => total + item.model_calls, 0);
+      return `<article><span>${architecture}</span><b>${architecture === "B0" ? "Deterministic" : architecture === "B1" ? "Single agent" : "Agent graph"}</b><small>${cells.length} Run${cells.length === 1 ? "" : "s"} · ${calls} model calls maximum</small></article>`;
+    }).join("");
+    $("#matched-run-review").innerHTML = `
+      <div class="matched-run-summary">
+        <div><span>Plan saved</span><b>${projected.runs} matched Runs</b><small>${projected.model_calls} calls · ${Number(projected.input_tokens).toLocaleString()} input tokens · up to ${money(projected.max_cost_usd)}</small></div>
+        <span class="truth-chip ${plan.status === "ready" ? "success" : "warning"}">${plan.status === "ready" ? "Authorised" : "Awaiting authorisation"}</span>
+      </div>
+      <div class="matched-run-architectures">${groups}</div>
+      <div class="matched-run-results" id="matched-run-results"><small>Checking retained results…</small></div>
+      <p class="matched-run-boundary">${escapeHtml(plan.boundary)} Execution remains a separate step.</p>`;
+    loadMatchedRunResults(plan.matrix_id);
+  }
+
+  async function loadMatchedRunResults(matrixId) {
+    const host = $("#matched-run-results");
+    if (!host) return;
+    try {
+      const payload = await agentApi(`/api/experiments/matched-run-plans/${encodeURIComponent(matrixId)}/results`);
+      if (!payload.results.length) {
+        host.innerHTML = "<small>No retained Runs yet.</small>";
+        return;
+      }
+      const order = { B0: 0, B1: 1, A1: 2 };
+      const cards = payload.results.sort((a, b) => order[a.architecture] - order[b.architecture]).map((item) => `
+        <article>
+          <div><b>${escapeHtml(item.architecture)}</b><span class="truth-chip ${item.status === "failed" ? "warning" : "success"}">${item.status === "completed_with_abstentions" ? "Complete" : escapeHtml(item.status)}</span></div>
+          <strong>${item.outputs} cycles with output</strong>
+          <small>${item.cycles} cycles · ${item.abstentions} intentionally skipped</small>
+          <small>${item.model_calls} model calls · ${money(item.cost_usd)}</small>
+          <button class="matched-run-view" type="button" data-matrix="${escapeHtml(matrixId)}" data-cell="${escapeHtml(item.cell_id)}">View timeline</button>
+        </article>`).join("");
+      host.innerHTML = `<div class="matched-run-results-head"><b>${payload.completed_runs}/${payload.planned_runs} Runs retained</b><small>${payload.complete ? "Comparison ready" : "Execution incomplete"}</small></div><div class="matched-run-result-cards">${cards}</div><div id="matched-run-timeline"></div>`;
+      host.querySelectorAll("[data-cell]").forEach((button) => button.addEventListener("click", () => {
+        loadMatchedRunTimeline(button.dataset.matrix, button.dataset.cell);
+      }));
+      if (payload.complete) loadMatchedEvaluation(matrixId);
+    } catch (error) {
+      host.innerHTML = `<small>Retained results could not be loaded: ${escapeHtml(error.message)}</small>`;
+    }
+  }
+
+  function evaluationStatusLabel(value) {
+    return {
+      measured: "Measured", partial: "Partial", not_measurable: "Not available",
+      not_applicable: "Not applicable", valid: "Valid", valid_with_limitations: "Valid · limited",
+      invalid: "Invalid",
+    }[value] || String(value || "").replaceAll("_", " ");
+  }
+
+  function evaluationResultLabel(dimension) {
+    if (dimension.status === "not_measurable") return "";
+    const first = dimension.metrics?.[0];
+    if (dimension.dimension_id === "detection_quality") return first?.value ? "Hit · 1/1" : "Miss · 0/1";
+    if (dimension.dimension_id === "timeliness") return first?.value ? "Same session" : "Delayed";
+    if (dimension.dimension_id === "decision_quality") return first?.value ? "Accepted · 1/1" : "Not accepted";
+    if (dimension.dimension_id === "evidence_quality" && dimension.score != null) return `${Math.round(Number(dimension.score) * 100)}%`;
+    return dimension.status === "measured" ? "Measured" : "Partial";
+  }
+
+  function evaluationCost(value) {
+    const cost = Number(value || 0);
+    if (cost === 0) return "$0";
+    return cost.toLocaleString("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 4,
+      maximumFractionDigits: 4,
+    });
+  }
+
+  function renderMatchedEvaluation(payload) {
+    const host = $("#counterfactual-analysis");
+    if (!host) return;
+    if (!payload.runs?.length) {
+      host.innerHTML = `<div class="empty-state"><b>Evaluation is not ready.</b><span>${escapeHtml(payload.summary)}</span></div>`;
+      return;
+    }
+    const comparisons = payload.architectures || payload.runs;
+    const runCards = comparisons.map((run) => `
+      <article class="matched-evaluation-run ${run.status}">
+        <header><div><span>${escapeHtml(run.architecture)}</span><b>${run.architecture === "B0" ? "Deterministic" : run.architecture === "B1" ? "Single agent" : "Agent graph"}</b></div><i>${escapeHtml(evaluationStatusLabel(run.status))}</i></header>
+        <strong>${run.measured_dimensions} of 9 dimensions usable</strong>
+        ${run.run_count ? `<small>${run.run_count} Runs · ${run.repetitions} repetitions · ${run.perturbations} evidence conditions</small>` : ""}
+        <small>${Number(run.resources.processing_ms).toLocaleString(undefined, { maximumFractionDigits: 0 })} ms · ${run.resources.model_calls} calls · ${evaluationCost(run.resources.cost_usd)}</small>
+      </article>`).join("");
+    const dimensionOrder = comparisons[0].dimensions.map((item) => item.dimension_id);
+    const dimensionRows = dimensionOrder.map((dimensionId) => {
+      const values = comparisons.map((run) => run.dimensions.find((item) => item.dimension_id === dimensionId));
+      return `<div class="matched-evaluation-row"><b>${escapeHtml(values[0].label)}</b>${values.map((item) => `<span class="${escapeHtml(item.status)}"><i>${escapeHtml(evaluationStatusLabel(item.status))}</i>${evaluationResultLabel(item) ? `<strong>${escapeHtml(evaluationResultLabel(item))}</strong>` : ""}<small>${escapeHtml(item.summary)}</small></span>`).join("")}</div>`;
+    }).join("");
+    const shortcomings = [...new Set(payload.runs.flatMap((run) => run.shortcomings))];
+    const checks = payload.runs.flatMap((run) => run.checks.map((item) => ({ ...item, architecture: run.architecture })));
+    host.innerHTML = `
+      <section class="matched-evaluation-verdict ${payload.archivable ? "passed_with_limitations" : "failed"}">
+        <div><span>${escapeHtml(payload.data_truth?.replaceAll("_", " ") || "research data")}</span><h3>${payload.archivable ? "Comparison ran correctly" : "Comparison needs attention"}</h3><p>${escapeHtml(payload.summary)}</p></div>
+        <aside><b>${payload.coverage.completed}/${payload.coverage.planned} Runs</b><small>${payload.archivable ? "Evaluation retained" : "Not archivable"}</small></aside>
+      </section>
+      <section class="matched-evaluation-findings"><div><span>What we learned</span>${payload.findings.map((item) => `<p>${escapeHtml(item)}</p>`).join("")}</div><div class="matched-evaluation-run-list">${runCards}</div></section>
+      <section class="matched-bundle-actions" data-matrix-id="${escapeHtml(payload.matrix_id)}"><div><span>Saved result</span><b>Keep this comparison reproducible</b><small>The Case, exact versions, outputs, evaluations and a readable report are stored together.</small></div><button class="button primary" data-bundle-save type="button">Save comparison</button><span data-bundle-status></span></section>
+      <section class="matched-evaluation-dimensions">
+        <header><div><span>Measurement coverage</span><h3>Nine dimensions, without invented scores</h3></div><small>A percentage appears only where this selected Case supplies a valid numerator and denominator.</small></header>
+        <div class="matched-evaluation-head"><b>Dimension</b>${comparisons.map((run) => `<b>${escapeHtml(run.architecture)}</b>`).join("")}</div>
+        ${dimensionRows}
+      </section>
+      <section class="matched-evaluation-limits"><div><span>What is missing</span><h3>Next evidence needed</h3></div><ul>${shortcomings.slice(0, 6).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>
+      <details class="matched-evaluation-technical"><summary>Technical validation · ${checks.filter((item) => item.passed).length}/${checks.length} checks passed</summary><div>${checks.map((item) => `<p class="${item.passed ? "pass" : "fail"}"><b>${escapeHtml(item.architecture)} · ${escapeHtml(item.label)}</b><span>${escapeHtml(item.detail)}</span></p>`).join("")}</div><pre>${escapeHtml(JSON.stringify(payload.technical_receipt || {}, null, 2))}</pre></details>`;
+    host.querySelector("[data-bundle-save]")?.addEventListener("click", () => saveMatchedBundle(payload.matrix_id));
+  }
+
+  async function loadMatchedBundles() {
+    const payload = await agentApi("/api/experiments/reproducibility-bundles");
+    const select = $("#matched-saved-select");
+    select.innerHTML = '<option value="">Saved comparisons</option>' + payload.bundles.map((item) => `<option value="${escapeHtml(item.bundle_id)}">${escapeHtml(item.case_id)} · ${escapeHtml(item.state)}</option>`).join("");
+    $("#matched-saved-open").disabled = !select.value;
+  }
+
+  async function saveMatchedBundle(matrixId) {
+    const status = $("[data-bundle-status]");
+    if (status) status.textContent = "Saving…";
+    try {
+      const bundle = await agentApi(`/api/experiments/matched-run-plans/${encodeURIComponent(matrixId)}/bundle`, { method: "POST" });
+      if (status) status.textContent = bundle.verified ? "Saved and verified" : "Saved with a verification warning";
+      await loadMatchedBundles();
+      $("#matched-saved-select").value = bundle.bundle_id;
+      $("#matched-saved-open").disabled = false;
+      renderMatchedBundleActions(bundle);
+    } catch (error) { if (status) status.textContent = error.message; }
+  }
+
+  function renderMatchedBundleActions(bundle) {
+    const host = $(".matched-bundle-actions");
+    if (!host) return;
+    host.innerHTML = `<div><span>Saved result</span><b>${escapeHtml(bundle.state)} comparison</b><small>${bundle.verified ? "All retained files match the manifest." : "Verification needs attention."}</small></div>
+      <div class="matched-bundle-buttons"><button class="button ghost" data-bundle-verify type="button">Reproduce</button><button class="button ghost" data-bundle-lifecycle type="button">${bundle.state === "archived" ? "Restore" : "Archive"}</button><button class="button ghost" data-bundle-remove type="button">Remove saved copy</button></div><span data-bundle-status></span>`;
+    host.querySelector("[data-bundle-verify]").addEventListener("click", async () => {
+      const result = await agentApi(`/api/experiments/reproducibility-bundles/${encodeURIComponent(bundle.bundle_id)}/verify`, { method: "POST" });
+      host.querySelector("[data-bundle-status]").textContent = result.verified ? "Manifest and reproduced result match" : "Reproduction differs";
+    });
+    host.querySelector("[data-bundle-lifecycle]").addEventListener("click", async () => {
+      const action = bundle.state === "archived" ? "restore" : "archive";
+      const result = await agentApi(`/api/experiments/reproducibility-bundles/${encodeURIComponent(bundle.bundle_id)}/${action}`, { method: "POST" });
+      renderMatchedBundleActions(result);
+      await loadMatchedBundles();
+    });
+    const remove = host.querySelector("[data-bundle-remove]");
+    remove.addEventListener("click", async () => {
+      if (remove.dataset.confirm !== "yes") {
+        remove.dataset.confirm = "yes";
+        remove.textContent = "Confirm remove";
+        return;
+      }
+      await agentApi(`/api/experiments/reproducibility-bundles/${encodeURIComponent(bundle.bundle_id)}`, { method: "DELETE", body: JSON.stringify({ confirmation: bundle.bundle_id }) });
+      host.innerHTML = "<div><b>Saved copy removed</b><small>The immutable source Runs were not deleted.</small></div>";
+      await loadMatchedBundles();
+    });
+  }
+
+  async function openMatchedBundle() {
+    const bundleId = $("#matched-saved-select").value;
+    if (!bundleId) return;
+    const bundle = await agentApi(`/api/experiments/reproducibility-bundles/${encodeURIComponent(bundleId)}`);
+    labState.matchedMatrixId = bundle.matrix_id;
+    renderMatchedEvaluation(bundle.comparison);
+    renderMatchedBundleActions(bundle);
+  }
+
+  async function loadMatchedEvaluation(matrixId = labState.matchedMatrixId) {
+    if (!matrixId) return;
+    labState.matchedMatrixId = matrixId;
+    const host = $("#counterfactual-analysis");
+    if (!host) return;
+    host.innerHTML = '<div class="empty-state">Evaluating retained outputs against the hidden reference…</div>';
+    try {
+      const payload = await agentApi(`/api/experiments/matched-run-plans/${encodeURIComponent(matrixId)}/evaluation`);
+      renderMatchedEvaluation(payload);
+    } catch (error) {
+      host.innerHTML = `<div class="empty-state"><b>Evaluation could not be completed.</b><span>${escapeHtml(error.message)}</span></div>`;
+    }
+  }
+
+  async function loadMatchedRunTimeline(matrixId, cellId) {
+    const host = $("#matched-run-timeline");
+    if (!host) return;
+    host.innerHTML = '<div class="empty-state">Loading the retained timeline…</div>';
+    try {
+      const timeline = await agentApi(`/api/experiments/matched-run-plans/${encodeURIComponent(matrixId)}/cells/${encodeURIComponent(cellId)}/result`);
+      const cycles = timeline.cycles.map((cycle) => {
+        const incoming = Object.entries(cycle.incoming_by_type || {})
+          .map(([kind, count]) => `${count} ${kind}`)
+          .join(" · ") || "No new evidence";
+        const outlook = cycle.assessment || (cycle.status === "abstained" ? "Skipped" : "Error");
+        const confidence = cycle.confidence == null ? "—" : `${Math.round(Number(cycle.confidence) * 100)}% confidence`;
+        const interpretation = cycle.interpretation || cycle.reason || "No architecture conclusion was produced at this cycle.";
+        const graph = cycle.agent_contributions > 1
+          ? `<small>${cycle.agent_contributions} agents · ${Math.round(Number(cycle.finding_disagreement || 0) * 100)}% finding disagreement · ${Number(cycle.coordination_overhead_ms || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} ms coordination</small>`
+          : "";
+        return `<details class="matched-cycle ${cycle.assessment || cycle.status}">
+          <summary><span><b>${new Date(cycle.replay_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })}</b><small>${escapeHtml(incoming)}</small></span><span><strong>${escapeHtml(outlook)}</strong><small>${escapeHtml(confidence)}</small></span></summary>
+          <div class="matched-cycle-body">
+            <p>${escapeHtml(interpretation)}</p>
+            <div><span><b>${escapeHtml(cycle.monitoring_action || "No action")}</b><small>Monitoring decision</small></span><span><b>${cycle.capability_calls} / ${cycle.model_calls}</b><small>Capability / model calls</small></span><span><b>${Number(cycle.processing_ms).toLocaleString(undefined, { maximumFractionDigits: 1 })} ms</b><small>Real processing time</small></span></div>
+            ${graph}
+          </div>
+        </details>`;
+      }).join("");
+      host.innerHTML = `
+        <div class="matched-timeline-head">
+          <div><span>Selected Run</span><b>${escapeHtml(timeline.architecture)} trajectory</b><small>${timeline.cycles.length} chronological workflow cycles · simulated time frozen during processing</small></div>
+          <div><span>First actionable output</span><b>${timeline.first_actionable_at ? new Date(timeline.first_actionable_at).toLocaleDateString(undefined, { dateStyle: "medium", timeZone: "UTC" }) : "None"}</b><small>Longest active streak: ${timeline.maximum_active_streak_cycles} cycles · ${timeline.confidence_decay_events} confidence decays</small></div>
+        </div>
+        <div class="matched-cycle-list">${cycles}</div>
+        <p class="matched-run-boundary">This readable timeline is excluded from scoring. Evaluation uses the retained structured outputs and processing receipts.</p>`;
+    } catch (error) {
+      host.innerHTML = `<div class="empty-state"><b>Timeline unavailable.</b><span>${escapeHtml(error.message)}</span></div>`;
+    }
+  }
+
+  async function renderMatchedCasePreview() {
+    const caseId = $("#matched-run-case").value;
+    if (!caseId) return;
+    $("#matched-run-review").innerHTML = '<div class="empty-state">Checking the historical stream…</div>';
+    try {
+      const preview = await agentApi(`/api/experiments/cases/${encodeURIComponent(caseId)}/replay-preview`);
+      const types = Object.entries(preview.by_type)
+        .map(([kind, count]) => `${count} ${kind}`)
+        .join(" · ");
+      $("#matched-run-review").innerHTML = `
+        <div class="matched-run-summary">
+          <div><span>Case ready</span><b>${preview.workflow_cycles} workflow cycles</b><small>${preview.observations} licensed observations · ${escapeHtml(types)}</small></div>
+          <span class="truth-chip success">Point-in-time</span>
+        </div>
+        <p class="matched-run-boundary">${escapeHtml(preview.temporal_rule)} Gold reference data stays hidden.</p>`;
+    } catch (error) {
+      $("#matched-run-review").innerHTML = `<div class="empty-state"><b>Case stream is not ready.</b><span>${escapeHtml(error.message)}</span></div>`;
+    }
+  }
+
+  async function loadMatchedRunPlanner() {
+    const setup = await agentApi("/api/experiments/matched-run-plans/setup");
+    labState.matchedRunSetup = setup;
+    const caseSelect = $("#matched-run-case");
+    const packageSelect = $("#matched-run-package");
+    caseSelect.innerHTML = setup.cases.length
+      ? setup.cases.map((item) => `<option value="${escapeHtml(item.case_id)}">${escapeHtml(item.name)} · ${escapeHtml(item.as_of)}</option>`).join("")
+      : '<option value="">No accepted Case yet</option>';
+    packageSelect.innerHTML = setup.packages.map((item) => `<option value="${escapeHtml(item.package_id)}">${escapeHtml(item.name)} · ${item.capability_count} operations</option>`).join("");
+    caseSelect.disabled = !setup.ready;
+    packageSelect.disabled = !setup.ready;
+    $("#matched-run-compile").disabled = !setup.ready;
+    if (!setup.ready) {
+      $("#matched-run-review").innerHTML = `<div class="empty-state"><b>No accepted Case yet.</b><span>${escapeHtml(setup.blocker)}</span></div>`;
+    } else if (setup.saved_plans.length) {
+      renderMatchedRunPlan(setup.saved_plans[0]);
+    } else {
+      await renderMatchedCasePreview();
+    }
+    await loadMatchedBundles();
+  }
+
+  async function compileMatchedRunPlan(event) {
+    event.preventDefault();
+    const button = $("#matched-run-compile");
+    button.disabled = true;
+    button.textContent = "Compiling…";
+    try {
+      const result = await agentApi("/api/experiments/matched-run-plans/compile", {
+        method: "POST",
+        body: JSON.stringify({
+          case_id: $("#matched-run-case").value,
+          capability_package_ids: [$("#matched-run-package").value],
+          repetitions: Number($("#matched-run-repetitions").value),
+          identity_condition: $("#matched-run-identity").value,
+          authorize_external_model_calls: $("#matched-run-authorize").checked,
+          include_delayed_event_perturbation: $("#matched-run-perturb").checked,
+        }),
+      });
+      renderMatchedRunPlan(result.plan);
+      showToast("Matched Run plan saved. Nothing was executed.", "success");
+    } catch (error) {
+      $("#matched-run-review").innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+    } finally {
+      button.disabled = !labState.matchedRunSetup?.ready;
+      button.textContent = "Compile plan";
     }
   }
 
   async function loadExperimentWorkspace() {
     if (labState.experimentLoading) return;
     labState.experimentLoading = true;
-    $("#experiment-status").textContent = "Loading";
+    $("#experiment-replay-status").textContent = "Loading";
     try {
       renderExperimentIssues([]);
-      const setup = await agentApi("/api/experiments/replay-setup");
+      const [setup, programme, counterfactuals] = await Promise.all([
+        agentApi("/api/experiments/replay-setup"),
+        agentApi("/api/experiments/program").catch(() => null),
+        agentApi("/api/experiments/counterfactual-dimensions"),
+      ]);
       renderHistoricalReplaySetup(setup);
-      await loadSavedHistoricalReplays();
+      if (programme) renderExperimentalProgram(programme);
+      renderCounterfactualDimensions(counterfactuals);
+      const evidenceLoads = await Promise.allSettled([
+        loadSavedHistoricalReplays(),
+        loadSavedCounterfactualAnalyses(),
+        loadLabelBatches(),
+        loadMatchedRunPlanner(),
+      ]);
+      if (evidenceLoads[0].status === "rejected") {
+        $("#replay-saved-select").innerHTML = '<option value="">Saved Run catalogue unavailable</option>';
+        $("#replay-load-saved").disabled = true;
+      }
+      if (evidenceLoads[1].status === "rejected") {
+        $("#counterfactual-saved-select").innerHTML = '<option value="">Saved analysis catalogue unavailable</option>';
+        $("#counterfactual-load-saved").disabled = true;
+      }
+      if (evidenceLoads[2].status === "rejected") {
+        $("#case-label-batch-select").innerHTML = '<option value="">Saved review samples unavailable</option>';
+        $("#case-label-load").disabled = true;
+      }
+      if (evidenceLoads[3].status === "rejected") {
+        $("#matched-run-review").innerHTML = '<div class="empty-state">The matched Run planner is unavailable.</div>';
+      }
     } catch (error) {
-      $("#experiment-status").textContent = "Unavailable";
+      $("#experiment-replay-status").textContent = "Unavailable";
       $("#replay-notice").innerHTML = `<b>Readiness could not be checked.</b><span>${escapeHtml(error.message)} No synthetic fallback was used.</span>`;
       $("#replay-run").disabled = true;
     } finally {
@@ -6337,7 +7640,7 @@
       const params = new URLSearchParams(window.location.search);
       const workspace = params.get("workspace") || "system";
       const zone = params.get("zone");
-      if (["system", "studio", "application", "dictionary", "dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "decisions", "decision-diligence", "full"].includes(workspace)) switchWorkspace(workspace, false, zoneDefaults[normalizedZone(zone)] ? normalizedZone(zone) : null);
+      if (["system", "studio", "application", "dictionary", "dataset", "portfolio", "agent", "graph", "registry", "artifacts", "demo", "experiments", "decisions", "decision-diligence", "full"].includes(workspace)) switchWorkspace(workspace, false, zoneDefaults[normalizedZone(zone)] ? normalizedZone(zone) : null);
     });
     $("#studio-profile-select").addEventListener("change", (event) => { labState.selectedStudioId = event.target.value; renderStudioProfile(true); });
     $("#studio-prepare-brief").addEventListener("click", prepareStudioCodexBrief);
@@ -6585,9 +7888,68 @@
       const section = $(selector);
       if (section) experimentKernel.appendChild(section);
     });
+    $("#demo-refresh").addEventListener("click", loadProfessorDemo);
+    $("#demo-case-toggle").addEventListener("click", () => {
+      const detail = $("#demo-case-detail");
+      const hidden = detail.classList.toggle("hidden");
+      $("#demo-case-toggle").textContent = hidden ? "View inputs" : "Hide inputs";
+    });
+    $("#demo-authorize-model").addEventListener("change", () => {
+      $("#demo-run").disabled = !labState.professorDemo?.demo_ready || !$("#demo-authorize-model").checked || labState.professorDemoRunning;
+    });
+    $("#demo-run").addEventListener("click", runProfessorDemo);
+    $("#demo-results").addEventListener("click", (event) => {
+      if (event.target.closest("[data-demo-open-experiment]")) switchWorkspace("experiments", true, "research");
+      if (event.target.closest("[data-demo-open-results]")) switchWorkspace("artifacts", true, "research");
+    });
     $("#experiment-refresh").addEventListener("click", loadExperimentWorkspace);
+    $$('[data-experiment-mode]').forEach((button) => button.addEventListener("click", () => switchExperimentMode(button.dataset.experimentMode)));
+    $("#single-run-use-in-experiment").addEventListener("click", useSingleRunInExperiment);
+    $("#experiment-test-one-cell").addEventListener("click", validateSelectedExperimentCell);
+    $("#case-signal-run").addEventListener("click", runCaseSignalPreview);
+    $("#case-label-prepare").addEventListener("click", prepareLabelSample);
+    $("#case-label-batch-select").addEventListener("change", () => { $("#case-label-load").disabled = !$("#case-label-batch-select").value; });
+    $("#case-label-load").addEventListener("click", () => loadSelectedLabelBatch().catch((error) => showToast(error.message, "error")));
+    $("#case-context-check").addEventListener("click", () => checkContextReadiness().catch((error) => showToast(error.message, "error")));
+    $("#case-label-workspace").addEventListener("click", (event) => {
+      if (event.target.closest("[data-context-plan-validate]")) { validateContextPlan().catch((error) => showToast(error.message, "error")); return; }
+      if (event.target.closest("[data-context-plan-save]")) { saveContextPlan().catch((error) => showToast(error.message, "error")); return; }
+      if (event.target.closest("[data-context-prepare]")) { prepareContextEvidence().catch((error) => showToast(error.message, "error")); return; }
+      const studyButton = event.target.closest("[data-label-study]");
+      if (studyButton) { studySelectedLabelUnit(studyButton.dataset.labelStudy); return; }
+      const intervalButton = event.target.closest("[data-label-use-interval]");
+      if (intervalButton) { useIntervalProposal(Number(intervalButton.dataset.labelUseInterval)); return; }
+      const button = event.target.closest("[data-label-unit]");
+      if (!button || !labState.labelBatch) return;
+      labState.selectedLabelUnitId = button.dataset.labelUnit;
+      renderLabelBatch(labState.labelBatch);
+    });
+    $("#case-label-workspace").addEventListener("submit", (event) => {
+      if (event.target.id === "case-label-annotation-form") saveSignalAnnotation(event);
+      if (event.target.id === "case-label-review-form") saveLabelReview(event);
+      if (event.target.id === "case-context-review-form") reviewContextEvidence(event).catch((error) => showToast(error.message, "error"));
+      if (event.target.id === "gold-prepare-form") prepareGoldReference(event).catch((error) => showToast(error.message, "error"));
+      if (event.target.id === "gold-review-form") reviewGoldReference(event).catch((error) => showToast(error.message, "error"));
+      if (event.target.id === "gold-compile-form") compileGoldCase(event).catch((error) => showToast(error.message, "error"));
+    });
+    $$('[data-experiment-view]').forEach((button) => button.addEventListener("click", () => switchCounterfactualView(button.dataset.experimentView)));
+    $("#counterfactual-batch-form").addEventListener("submit", (event) => runCounterfactualBatch(event));
+    $("#matched-run-form").addEventListener("submit", compileMatchedRunPlan);
+    $("#matched-evaluation-refresh").addEventListener("click", () => loadMatchedEvaluation());
+    $("#matched-saved-select").addEventListener("change", () => { $("#matched-saved-open").disabled = !$("#matched-saved-select").value; });
+    $("#matched-saved-open").addEventListener("click", () => openMatchedBundle().catch((error) => showToast(error.message, "error")));
+    $("#matched-run-case").addEventListener("change", renderMatchedCasePreview);
+    $$('[data-counterfactual-workflow]').forEach((input) => input.addEventListener("change", updateCounterfactualDesign));
+    ["#counterfactual-portfolio", "#counterfactual-evaluation", "#counterfactual-start", "#counterfactual-end", "#counterfactual-repetitions", "#counterfactual-concurrency", "#counterfactual-authorize-model"].forEach((selector) => $(selector).addEventListener("change", updateCounterfactualDesign));
+    ["#counterfactual-study-title", "#counterfactual-study-id", "#counterfactual-experiment-id", "#counterfactual-question", "#counterfactual-hypothesis"].forEach((selector) => $(selector).addEventListener("input", updateCounterfactualDesign));
+    $("#counterfactual-saved-select").addEventListener("change", () => { $("#counterfactual-load-saved").disabled = !$("#counterfactual-saved-select").value; });
+    $("#counterfactual-load-saved").addEventListener("click", () => loadSelectedCounterfactualAnalysis().catch((error) => { $("#experiment-replay-status").textContent = error.message; }));
+    $("#counterfactual-run-matrix").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-counterfactual-run-artifact]");
+      if (button) inspectCounterfactualRun(button.dataset.counterfactualRunArtifact).catch((error) => { $("#counterfactual-run-detail").innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`; });
+    });
     $("#replay-form").addEventListener("submit", (event) => runHistoricalReplay(event));
-    ["#replay-workflow", "#replay-portfolio", "#replay-evaluation"].forEach((selector) => $(selector).addEventListener("change", updateReplayNotes));
+    ["#replay-workflow", "#replay-portfolio", "#replay-evaluation", "#replay-start", "#replay-end"].forEach((selector) => $(selector).addEventListener("change", updateReplayNotes));
     $("#replay-authorize-model").addEventListener("change", updateReplayNotes);
     $("#replay-saved-select").addEventListener("change", () => { $("#replay-load-saved").disabled = !$("#replay-saved-select").value; });
     $("#replay-load-saved").addEventListener("click", loadSelectedHistoricalReplay);
@@ -7188,7 +8550,7 @@
     const requestedZone = requestParams.get("zone");
     const requestedProposal = requestParams.get("proposal");
     if (requestedProposal) labState.selectedDecisionId = requestedProposal;
-    if (["system", "studio", "application", "dictionary", "dataset", "portfolio", "agent", "graph", "registry", "artifacts", "experiments", "decisions", "decision-diligence", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace, false, zoneDefaults[normalizedZone(requestedZone)] ? normalizedZone(requestedZone) : null);
+    if (["system", "studio", "application", "dictionary", "dataset", "portfolio", "agent", "graph", "registry", "artifacts", "demo", "experiments", "decisions", "decision-diligence", "full"].includes(requestedWorkspace)) switchWorkspace(requestedWorkspace, false, zoneDefaults[normalizedZone(requestedZone)] ? normalizedZone(requestedZone) : null);
     else switchZone("system", "system", false);
   }
 

@@ -24,7 +24,7 @@ def test_registry_has_exactly_the_required_unique_capability_ids() -> None:
     registry = CapabilityRegistry()
     assert registry.capability_ids == (
         "alert.draft.review", "alert.draft.synthesize", "data.synthetic.ingest",
-        "events.query.as_of", "market.anomaly.detect", "monitoring.alert.synthesize",
+        "events.query.as_of", "market.anomaly.detect", "market.anomaly.scan", "monitoring.alert.synthesize",
         "monitoring.evaluate", "monitoring.policy.evaluate", "monitoring.replay", "monitoring.report.render",
         "monitoring.run.contextual", "news.event.classify",
         "planning.knowledge.list_due", "portfolio.data_context.create",

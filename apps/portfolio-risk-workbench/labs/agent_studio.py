@@ -5061,9 +5061,30 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
-from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.graph import END, START, StateGraph
-from langgraph.types import interrupt
+try:
+    from langgraph.checkpoint.memory import InMemorySaver
+    from langgraph.graph import END, START, StateGraph
+    from langgraph.types import interrupt
+except ModuleNotFoundError:
+    START, END = "__start__", "__end__"
+
+    class InMemorySaver:
+        pass
+
+    class StateGraph:
+        def __init__(self, *_args, **_kwargs):
+            self._message = (
+                "LangGraph is required to compile this generated agent. "
+                "Install the approved Agent Studio runtime before execution."
+            )
+
+        def add_node(self, *_args, **_kwargs): pass
+        def add_edge(self, *_args, **_kwargs): pass
+        def add_conditional_edges(self, *_args, **_kwargs): pass
+        def compile(self, **_kwargs): raise RuntimeError(self._message)
+
+    def interrupt(_payload):
+        raise RuntimeError("LangGraph is required for human-review interrupts.")
 
 BLUEPRINT = {blueprint_literal}
 

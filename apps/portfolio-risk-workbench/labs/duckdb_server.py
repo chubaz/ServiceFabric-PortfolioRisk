@@ -7,10 +7,14 @@ import hashlib
 import json
 import math
 import os
+import platform
 import re
 import statistics
+import subprocess
+import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -21,7 +25,7 @@ import uvicorn
 import yaml
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from agent_studio import (
     AgentBlueprint,
@@ -176,15 +180,72 @@ from risk_experiments import (
     PresentationMode,
     SourceBinding,
     TemporalWindow,
+    analyse_counterfactual_batch,
     canonical_digest,
+    counterfactual_design_map,
+    dimension_catalogue as counterfactual_dimension_catalogue,
     finalize_agent_graph_execution,
     finalize_single_agent_execution,
 )
 from risk_agents import AgentExecutionEnvelope, AgentStructuredOutput
 from run_trace_runtime import create_calibration_run_trace, run_trace_payload
 from experimental_program_runtime import experimental_program_payload
+from case_discovery_runtime import signal_preview_payload
+from case_labelling_runtime import (
+    ContextPreparationRequest,
+    ContextReadinessRequest,
+    ContextReviewRequest,
+    ContextWorkPlanRequest,
+    LabelStudyRequest,
+    LabelReviewRequest,
+    LabellingBatchRequest,
+    SignalAnnotationRequest,
+    create_labelling_batch,
+    context_source_readiness,
+    labelling_batch_payload,
+    list_labelling_batches,
+    prepare_context_work,
+    record_signal_annotation,
+    review_prepared_context,
+    review_signal_annotation,
+    study_review_unit,
+    save_context_work_plan,
+    validate_context_work_plan,
+)
+from gold_case_runtime import (
+    ExperimentalCaseCompileRequest,
+    GoldPreparationRequest,
+    GoldReviewRequest,
+    compile_gold_experimental_case,
+    gold_work_payload,
+    prepare_gold_reference,
+    review_gold_reference,
+)
+from matched_run_runtime import (
+    MatchedRunCompileRequest, compile_matched_plan, get_matched_plan,
+    matched_run_setup,
+)
+from case_replay_runtime import case_replay_preview
+from trajectory_execution_runtime import (
+    execute_trajectory_cell, get_trajectory_result, list_trajectory_results,
+)
+from trajectory_evaluation_runtime import evaluate_matched_matrix
+from reproducibility_runtime import (
+    archive_reproducibility_bundle, create_reproducibility_bundle,
+    list_reproducibility_bundles, open_reproducibility_bundle,
+    remove_reproducibility_bundle, restore_reproducibility_bundle,
+    verify_reproducibility_bundle,
+)
+from risk_experiments import (
+    ContextWorkConflict, ContextWorkNotFound, GoldCaseConflict, GoldCaseNotFound,
+    LabelProductionConflict, LabelProductionNotFound, MatchedRunConflict,
+    MatchedRunNotFound, ReproducibilityConflict, ReproducibilityNotFound,
+    TrajectoryNotFound,
+)
 from historical_replay_runtime import (
     HistoricalReplayError,
+    professor_demo_definition,
+    professor_demo_preflight,
     run_replay as run_historical_replay,
     setup_payload as historical_replay_setup_payload,
 )
@@ -710,6 +771,44 @@ class HistoricalReplayRequest(BaseModel):
     evaluation_id: str = Field(default="thesis_evaluation_v1", min_length=1, max_length=80)
     save_result: bool = True
     authorize_external_model_calls: bool = False
+
+
+class ProfessorDemoRunRequest(BaseModel):
+    authorize_external_model_calls: bool = False
+
+
+class CounterfactualBatchRequest(BaseModel):
+    study_id: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]{2,159}$")
+    study_title: str = Field(min_length=3, max_length=300)
+    experiment_id: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]{2,159}$")
+    research_question: str = Field(min_length=10, max_length=2000)
+    hypothesis: str = Field(min_length=10, max_length=2000)
+    portfolio_ids: tuple[str, ...] = Field(min_length=1, max_length=3)
+    workflow_ids: tuple[Literal["B0", "B1", "A1"], ...] = Field(min_length=2, max_length=3)
+    baseline_workflow_id: Literal["B0"] = "B0"
+    start_date: date
+    end_date: date
+    evaluation_id: str = Field(default="thesis_evaluation_v1", min_length=1, max_length=80)
+    repetitions: int = Field(default=1, ge=1, le=3)
+    max_concurrency: int = Field(default=3, ge=1, le=3)
+    authorize_external_model_calls: bool = False
+
+    @field_validator("portfolio_ids", "workflow_ids")
+    @classmethod
+    def unique_ordered_values(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if len(value) != len(set(value)):
+            raise ValueError("counterfactual batch selections must be unique")
+        return value
+
+    @model_validator(mode="after")
+    def architecture_batch_is_bounded(self) -> "CounterfactualBatchRequest":
+        if self.baseline_workflow_id not in self.workflow_ids:
+            raise ValueError("the architecture matrix must include the B0 baseline")
+        if self.end_date < self.start_date:
+            raise ValueError("end_date must not precede start_date")
+        if len(self.portfolio_ids) * len(self.workflow_ids) * self.repetitions > 18:
+            raise ValueError("the first counterfactual batch is limited to 18 Run cells")
+        return self
 
 
 class ArchitectureOutputMappingRequest(BaseModel):
@@ -2087,7 +2186,7 @@ def platform_workspaces() -> dict[str, Any]:
         "saved_definitions": saved,
         "saved_counts": saved_counts,
         "risk_analysis_packages": analysis_packages,
-        "portfolios": data_plane.public_portfolios(),
+        "portfolios": _licensed_portfolio_projection()["portfolios"],
         "fixture_profiles": [
             {
                 "fixture_id": "licensed_real",
@@ -2704,6 +2803,712 @@ def historical_replay_setup() -> dict[str, Any]:
         raise HTTPException(status_code=503, detail=str(error)) from error
 
 
+@app.get("/api/experiments/signals")
+def experiment_signal_preview(
+    portfolio_id: str,
+    start_date: date,
+    end_date: date,
+) -> dict[str, Any]:
+    """Run the admitted detectors behind the existing Find cases journey."""
+
+    try:
+        return signal_preview_payload(
+            find_private_root(PROTOTYPE_ROOT),
+            portfolio_id=portfolio_id,
+            start_date=start_date,
+            end_date=end_date,
+        )
+    except (HistoricalReplayError, RuntimeError, duckdb.Error, ValueError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+def _labelling_error(error: Exception) -> HTTPException:
+    if isinstance(error, (LabelProductionNotFound, ContextWorkNotFound)):
+        return HTTPException(status_code=404, detail="labelling batch or review item not found")
+    return HTTPException(status_code=409, detail=str(error))
+
+
+@app.get("/api/experiments/label-batches")
+def experiment_label_batches() -> dict[str, Any]:
+    """List resumable pre-experiment signal-labelling batches."""
+
+    try:
+        return list_labelling_batches(find_private_root(PROTOTYPE_ROOT))
+    except (LabelProductionConflict, LabelProductionNotFound, HistoricalReplayError, duckdb.Error, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/label-batches")
+def experiment_create_label_batch(request: LabellingBatchRequest) -> dict[str, Any]:
+    """Select an informative detector-signal sample; do not create Gold cases."""
+
+    try:
+        return create_labelling_batch(find_private_root(PROTOTYPE_ROOT), request)
+    except (LabelProductionConflict, LabelProductionNotFound, HistoricalReplayError, duckdb.Error, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.get("/api/experiments/label-batches/{batch_id}")
+def experiment_label_batch(batch_id: str) -> dict[str, Any]:
+    try:
+        return labelling_batch_payload(find_private_root(PROTOTYPE_ROOT), batch_id)
+    except (LabelProductionConflict, LabelProductionNotFound, HistoricalReplayError, duckdb.Error, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/label-batches/{batch_id}/study")
+def experiment_study_label_item(batch_id: str, request: LabelStudyRequest) -> dict[str, Any]:
+    """Calculate retrospective study aids; never create or approve a label."""
+
+    try:
+        return study_review_unit(find_private_root(PROTOTYPE_ROOT), batch_id, request)
+    except (LabelProductionConflict, LabelProductionNotFound, HistoricalReplayError, duckdb.Error, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/label-batches/{batch_id}/context-readiness")
+def experiment_context_readiness(batch_id: str, request: ContextReadinessRequest) -> dict[str, Any]:
+    """Profile later context dependencies; never retrieve or associate evidence."""
+
+    try:
+        return context_source_readiness(find_private_root(PROTOTYPE_ROOT), batch_id, request)
+    except (ContextWorkConflict, ContextWorkNotFound, LabelProductionConflict, LabelProductionNotFound, HistoricalReplayError, duckdb.Error, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/label-batches/{batch_id}/context-plans/validate")
+def experiment_validate_context_plan(batch_id: str, request: ContextWorkPlanRequest) -> dict[str, Any]:
+    """Compile and validate a dormant plan; perform no retrieval or association."""
+
+    try:
+        return validate_context_work_plan(find_private_root(PROTOTYPE_ROOT), batch_id, request)
+    except (ContextWorkConflict, ContextWorkNotFound, LabelProductionConflict, LabelProductionNotFound, HistoricalReplayError, duckdb.Error, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/label-batches/{batch_id}/context-plans")
+def experiment_save_context_plan(batch_id: str, request: ContextWorkPlanRequest) -> dict[str, Any]:
+    """Save an immutable plan revision; perform no retrieval or association."""
+
+    try:
+        return save_context_work_plan(find_private_root(PROTOTYPE_ROOT), batch_id, request)
+    except (ContextWorkConflict, ContextWorkNotFound, LabelProductionConflict, LabelProductionNotFound, HistoricalReplayError, duckdb.Error, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/label-batches/{batch_id}/context-work/prepare")
+def experiment_prepare_context_work(batch_id: str, request: ContextPreparationRequest) -> dict[str, Any]:
+    """Prepare bounded evidence candidates for human review; never modify the label."""
+
+    try:
+        return prepare_context_work(find_private_root(PROTOTYPE_ROOT), batch_id, request)
+    except (ContextWorkConflict, ContextWorkNotFound, LabelProductionConflict, LabelProductionNotFound, HistoricalReplayError, duckdb.Error, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/label-batches/{batch_id}/context-work/review")
+def experiment_review_context_work(batch_id: str, request: ContextReviewRequest) -> dict[str, Any]:
+    """Retain, reject or challenge prepared candidates without changing the label."""
+
+    try:
+        return review_prepared_context(find_private_root(PROTOTYPE_ROOT), batch_id, request)
+    except (ContextWorkConflict, ContextWorkNotFound, LabelProductionConflict, LabelProductionNotFound, HistoricalReplayError, duckdb.Error, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.get("/api/experiments/label-batches/{batch_id}/gold-work/{unit_id}")
+def experiment_gold_work(batch_id: str, unit_id: str) -> dict[str, Any]:
+    try:
+        return gold_work_payload(batch_id, unit_id)
+    except (GoldCaseConflict, GoldCaseNotFound, LabelProductionConflict, LabelProductionNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/label-batches/{batch_id}/gold-work/prepare")
+def experiment_prepare_gold_reference(batch_id: str, request: GoldPreparationRequest) -> dict[str, Any]:
+    try:
+        return prepare_gold_reference(batch_id, request)
+    except (GoldCaseConflict, GoldCaseNotFound, LabelProductionConflict, LabelProductionNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/label-batches/{batch_id}/gold-work/review")
+def experiment_review_gold_reference(batch_id: str, request: GoldReviewRequest) -> dict[str, Any]:
+    try:
+        return review_gold_reference(batch_id, request)
+    except (GoldCaseConflict, GoldCaseNotFound, LabelProductionConflict, LabelProductionNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/label-batches/{batch_id}/gold-work/compile-case")
+def experiment_compile_gold_case(batch_id: str, request: ExperimentalCaseCompileRequest) -> dict[str, Any]:
+    try:
+        return compile_gold_experimental_case(batch_id, request)
+    except (GoldCaseConflict, GoldCaseNotFound, LabelProductionConflict, LabelProductionNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.get("/api/experiments/matched-run-plans/setup")
+def experiment_matched_run_setup() -> dict[str, Any]:
+    """Show only governed Cases and bounded compile-time choices."""
+    try:
+        return matched_run_setup()
+    except (GoldCaseConflict, GoldCaseNotFound, MatchedRunConflict, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/matched-run-plans/compile")
+def experiment_compile_matched_run_plan(request: MatchedRunCompileRequest) -> dict[str, Any]:
+    """Save a matrix plan without invoking models, capabilities, or replay."""
+    try:
+        return compile_matched_plan(request)
+    except (GoldCaseConflict, GoldCaseNotFound, MatchedRunConflict, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.get("/api/experiments/matched-run-plans/{matrix_id}")
+def experiment_get_matched_run_plan(matrix_id: str) -> dict[str, Any]:
+    try:
+        return get_matched_plan(matrix_id)
+    except (MatchedRunConflict, MatchedRunNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.get("/api/experiments/cases/{case_id}/replay-preview")
+def experiment_case_replay_preview(case_id: str) -> dict[str, Any]:
+    """Verify the complete point-in-time stream without exposing Gold truth."""
+    try:
+        return case_replay_preview(case_id)
+    except (GoldCaseConflict, GoldCaseNotFound, LabelProductionConflict, LabelProductionNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/matched-run-plans/{matrix_id}/cells/{cell_id}/execute")
+def experiment_execute_trajectory_cell(matrix_id: str, cell_id: str) -> dict[str, Any]:
+    """Execute one admitted cell within its sealed budget and authorization."""
+    try:
+        return execute_trajectory_cell(matrix_id, cell_id)
+    except (GoldCaseConflict, GoldCaseNotFound, MatchedRunConflict, MatchedRunNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.get("/api/experiments/matched-run-plans/{matrix_id}/results")
+def experiment_list_trajectory_results(matrix_id: str) -> dict[str, Any]:
+    """Return a compact projection of retained results for the comparison page."""
+    try:
+        return list_trajectory_results(matrix_id)
+    except (MatchedRunConflict, MatchedRunNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.get("/api/experiments/matched-run-plans/{matrix_id}/cells/{cell_id}/result")
+def experiment_get_trajectory_result(matrix_id: str, cell_id: str) -> dict[str, Any]:
+    """Return the readable cycle timeline; internal receipts remain persisted."""
+    try:
+        return get_trajectory_result(matrix_id, cell_id)
+    except (MatchedRunConflict, MatchedRunNotFound, TrajectoryNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.get("/api/experiments/matched-run-plans/{matrix_id}/evaluation")
+def experiment_evaluate_matched_run_plan(matrix_id: str) -> dict[str, Any]:
+    """Join hidden Gold truth after execution and retain truthful Run evaluations."""
+    try:
+        return evaluate_matched_matrix(matrix_id)
+    except (GoldCaseConflict, GoldCaseNotFound, MatchedRunConflict, MatchedRunNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+class ReproducibilityRemovalRequest(BaseModel):
+    confirmation: str = Field(min_length=3, max_length=160)
+
+
+@app.post("/api/experiments/matched-run-plans/{matrix_id}/bundle")
+def experiment_save_comparison_bundle(matrix_id: str) -> dict[str, Any]:
+    try:
+        return create_reproducibility_bundle(matrix_id)
+    except (ReproducibilityConflict, ReproducibilityNotFound, MatchedRunNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.get("/api/experiments/reproducibility-bundles")
+def experiment_list_comparison_bundles() -> dict[str, Any]:
+    return list_reproducibility_bundles()
+
+
+@app.get("/api/experiments/reproducibility-bundles/{bundle_id}")
+def experiment_open_comparison_bundle(bundle_id: str) -> dict[str, Any]:
+    try:
+        return open_reproducibility_bundle(bundle_id)
+    except (ReproducibilityConflict, ReproducibilityNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/reproducibility-bundles/{bundle_id}/verify")
+def experiment_verify_comparison_bundle(bundle_id: str) -> dict[str, Any]:
+    try:
+        return verify_reproducibility_bundle(bundle_id)
+    except (ReproducibilityConflict, ReproducibilityNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/reproducibility-bundles/{bundle_id}/archive")
+def experiment_archive_comparison_bundle(bundle_id: str) -> dict[str, Any]:
+    try:
+        return archive_reproducibility_bundle(bundle_id)
+    except (ReproducibilityConflict, ReproducibilityNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/reproducibility-bundles/{bundle_id}/restore")
+def experiment_restore_comparison_bundle(bundle_id: str) -> dict[str, Any]:
+    try:
+        return restore_reproducibility_bundle(bundle_id)
+    except (ReproducibilityConflict, ReproducibilityNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.delete("/api/experiments/reproducibility-bundles/{bundle_id}")
+def experiment_remove_comparison_bundle(bundle_id: str, request: ReproducibilityRemovalRequest) -> dict[str, Any]:
+    try:
+        return remove_reproducibility_bundle(bundle_id, request.confirmation)
+    except (ReproducibilityConflict, ReproducibilityNotFound, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/label-batches/{batch_id}/annotations")
+def experiment_record_label_annotation(
+    batch_id: str,
+    request: SignalAnnotationRequest,
+) -> dict[str, Any]:
+    try:
+        return record_signal_annotation(find_private_root(PROTOTYPE_ROOT), batch_id, request)
+    except (LabelProductionConflict, LabelProductionNotFound, HistoricalReplayError, duckdb.Error, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.post("/api/experiments/label-batches/{batch_id}/reviews")
+def experiment_review_label_annotation(
+    batch_id: str,
+    request: LabelReviewRequest,
+) -> dict[str, Any]:
+    try:
+        return review_signal_annotation(find_private_root(PROTOTYPE_ROOT), batch_id, request)
+    except (LabelProductionConflict, LabelProductionNotFound, HistoricalReplayError, duckdb.Error, ValueError) as error:
+        raise _labelling_error(error) from error
+
+
+@app.get("/api/professor-demo")
+def professor_demo() -> dict[str, Any]:
+    """Validate the exact demonstration boundary without saving or model use."""
+
+    try:
+        return professor_demo_preflight(find_private_root(PROTOTYPE_ROOT))
+    except (HistoricalReplayError, RuntimeError, duckdb.Error, ValueError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@app.post("/api/professor-demo/run")
+def run_professor_demo(request: ProfessorDemoRunRequest) -> dict[str, Any]:
+    """Execute and retain the frozen B0/B1/A1 demonstration comparison."""
+
+    if not request.authorize_external_model_calls:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "The B1 and A1 demonstration requires explicit authorization for five bounded OpenAI calls"
+            ),
+        )
+    try:
+        preflight = professor_demo_preflight(find_private_root(PROTOTYPE_ROOT))
+        if not preflight["demo_ready"]:
+            failed = [
+                item["label"] for item in preflight["checks"]
+                if item["required"] and item["status"] == "fail"
+            ]
+            raise HistoricalReplayError(
+                "Professor Demo preflight failed: " + "; ".join(failed)
+            )
+        definition = professor_demo_definition()
+        case = definition["case"]
+        response = create_counterfactual_batch(CounterfactualBatchRequest(
+            study_id=definition["study"]["study_id"],
+            study_title=definition["study"]["title"],
+            experiment_id=definition["experiment"]["experiment_id"],
+            research_question=definition["experiment"]["research_question"],
+            hypothesis=definition["experiment"]["hypothesis"],
+            portfolio_ids=(case["portfolio_id"],),
+            workflow_ids=tuple(definition["architectures"]),
+            baseline_workflow_id="B0",
+            start_date=date.fromisoformat(case["start_date"]),
+            end_date=date.fromisoformat(case["end_date"]),
+            evaluation_id=definition["evaluation_id"],
+            repetitions=int(definition["repetitions"]),
+            max_concurrency=int(definition["maximum_concurrency"]),
+            authorize_external_model_calls=True,
+        ))
+        return {"preflight": preflight, **response}
+    except (HistoricalReplayError, RuntimeError, duckdb.Error, ValueError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+def _single_run_assurance(
+    result: dict[str, Any], *, retention_requested: bool
+) -> dict[str, Any]:
+    """Qualify one Run from canonical object metadata without replaying its work.
+
+    Capability contracts remain responsible for their own payload validation and
+    errors.  This gate reads only the already-validated Case, RunInput,
+    ArchitectureOutput, evaluation, label and telemetry attributes.
+    """
+
+    expected_dimensions = {
+        "detection_quality", "severity_understanding", "timeliness",
+        "evidence_quality", "confidence_calibration", "decision_quality",
+        "robustness", "stability", "efficiency",
+    }
+    required_capabilities = {
+        "historical-replay-context",
+        "portfolio-risk-metric-pack",
+        "event-relevance-classifier",
+        "fundamental-state-classifier",
+        "mandate-policy-evaluator",
+        "mandate-rule-reference-label",
+        "daily-session-timeliness",
+        "evidence-structural-audit",
+        "execution-telemetry-collector",
+    }
+    hierarchy = result.get("hierarchy", {})
+    run_record = result.get("run_record", {})
+    run_input = run_record.get("run_input", {})
+    evaluation = result.get("evaluation", {})
+    reference = evaluation.get("reference_treatment", {})
+    dimensions = evaluation.get("dimensions", [])
+    outputs = run_record.get("architecture_outputs", [])
+    receipts = run_record.get("processing_receipts", [])
+    capability_configs = run_input.get("capability_configurations", [])
+    capability_ids = {
+        item.get("capability_id") for item in capability_configs if item.get("capability_id")
+    }
+    reference_capabilities = {
+        item.get("capability_id")
+        for item in capability_configs
+        if "reference_label" in item.get("evaluation_roles", [])
+    }
+    dimension_ids = {item.get("id") for item in dimensions}
+    execution_errors = sum(
+        len((item.get("execution_summary") or {}).get("errors", [])) for item in outputs
+    )
+    schema_failures = sum(
+        int((item.get("execution_summary") or {}).get("schema_validation_failures", 0) or 0)
+        for item in outputs
+    )
+    semantic_failures = sum(
+        int((item.get("execution_summary") or {}).get("semantic_verification_failures", 0) or 0)
+        for item in outputs
+    )
+    limited_dimensions = sorted(
+        item.get("id") for item in dimensions
+        if item.get("status") in {"partial", "not_measurable", "not_applicable"}
+    )
+
+    def check(
+        check_id: str,
+        label: str,
+        passed: bool,
+        summary: str,
+        *,
+        required: bool = True,
+        warning: bool = False,
+    ) -> dict[str, Any]:
+        return {
+            "check_id": check_id,
+            "label": label,
+            "status": "pass" if passed and not warning else "warning" if passed else "fail",
+            "required_for_valid_run": required,
+            "summary": summary,
+        }
+
+    case_valid = bool(
+        hierarchy.get("case", {}).get("case_id")
+        and hierarchy.get("case", {}).get("context_digest")
+        and run_input.get("case_id") == hierarchy.get("case", {}).get("case_id")
+    )
+    capabilities_ready = required_capabilities.issubset(capability_ids)
+    labels_ready = bool(
+        reference.get("label_state") == "admitted"
+        and reference.get("label_set_digest")
+        and int(reference.get("cycles") or 0) == int(evaluation.get("trading_days") or 0)
+        and reference_capabilities
+    )
+    outputs_ready = bool(
+        run_record.get("architecture_output")
+        and outputs
+        and len(outputs) == int(evaluation.get("trading_days") or 0)
+        and dimension_ids == expected_dimensions
+    )
+    runtime_healthy = bool(
+        result.get("status") == "completed"
+        and int(evaluation.get("workflow_failures") or 0) == 0
+        and execution_errors == 0
+    )
+    telemetry_ready = bool(
+        receipts
+        and len(receipts) == len(outputs)
+        and all(item.get("processing_wall_ms") is not None for item in receipts)
+    )
+
+    checks = [
+        check(
+            "case-contract",
+            "The frozen Case is valid",
+            case_valid,
+            "The RunInput points to the immutable Case and its canonical context digest."
+            if case_valid else "The Run is missing a bound Case identity or context digest.",
+        ),
+        check(
+            "capability-readiness",
+            "Required capabilities are present",
+            capabilities_ready,
+            "The registered context, event-classification and reference-label capabilities are available. Capability payloads were not revalidated."
+            if capabilities_ready else f"Missing registered capabilities: {', '.join(sorted(required_capabilities - capability_ids))}.",
+        ),
+        check(
+            "label-readiness",
+            "Appropriately labelled reference data is present",
+            labels_ready,
+            f"The admitted {reference.get('scope', 'reference')} labels cover {reference.get('cycles', 0)} of {evaluation.get('trading_days', 0)} workflow cycles and remain outside architecture inputs."
+            if labels_ready else "The admitted label digest, reference-label capability or full cycle coverage is missing.",
+        ),
+        check(
+            "output-and-evaluation",
+            "Outputs support the Evaluation Report",
+            outputs_ready,
+            f"{len(outputs)} cycle outputs map to the common ArchitectureOutput and all nine evaluation dimensions are present."
+            if outputs_ready else "A cycle ArchitectureOutput or one of the nine evaluation dimensions is missing.",
+        ),
+        check(
+            "runtime-health",
+            "The execution completed without an unhandled error",
+            runtime_healthy,
+            f"workflow_failures={evaluation.get('workflow_failures', 0)}; execution_errors={execution_errors}. Capability failures surface through their own receipts.",
+        ),
+        check(
+            "runtime-telemetry",
+            "Timing and cost evidence is available",
+            telemetry_ready,
+            f"{len(receipts)} processing receipts cover {len(outputs)} workflow cycles."
+            if telemetry_ready else "Processing receipts do not cover every workflow cycle.",
+        ),
+        check(
+            "structured-output-corrections",
+            "Structured-output corrections are disclosed",
+            True,
+            f"{schema_failures + semantic_failures} schema or semantic corrections were retained before final output admission.",
+            required=False,
+            warning=(schema_failures + semantic_failures) > 0,
+        ),
+        check(
+            "label-scope",
+            "Label scope is explicit",
+            True,
+            "Current labels test mandate-rule detection and response; they do not label event relevance, future outcomes or financial regret.",
+            required=False,
+            warning=True,
+        ),
+        check(
+            "evaluation-coverage",
+            "Unavailable evaluation evidence is explicit",
+            True,
+            f"Limited dimensions: {', '.join(limited_dimensions) or 'none'}.",
+            required=False,
+            warning=bool(limited_dimensions),
+        ),
+        check(
+            "retention",
+            "Retention state is explicit",
+            True,
+            "The result and its reports will be admitted to the Saved results repository."
+            if retention_requested else "The Run is valid for immediate review but was not selected for retention.",
+            required=False,
+            warning=not retention_requested,
+        ),
+    ]
+    failures = [item for item in checks if item["required_for_valid_run"] and item["status"] == "fail"]
+    warnings = [item for item in checks if item["status"] == "warning"]
+    engine_ready = not failures
+    archive_ready = engine_ready and retention_requested
+    status = "failed" if failures else "passed_with_limitations" if warnings else "passed"
+    label = {
+        "failed": "Run failed qualification",
+        "passed_with_limitations": "Run valid with limitations",
+        "passed": "Run valid",
+    }[status]
+    narrative = (
+        f"The engine {'completed this Run correctly' if engine_ready else 'did not produce a valid Run'}. "
+        f"The Case, registered capabilities, labelled reference, outputs, evaluation and telemetry were checked from their canonical object attributes; capability inputs were not recalculated. "
+        + (
+            "The result can be archived, while the stated label and evaluation limitations must remain attached."
+            if archive_ready else
+            "The result is valid for immediate review but cannot be archived because retention was not selected."
+            if engine_ready else
+            "The result cannot be archived until the failed gates are resolved."
+        )
+    )
+    return {
+        "schema_version": "portfolio-risk.single-run-assurance/v1",
+        "status": status,
+        "label": label,
+        "engine_ready": engine_ready,
+        "archive_ready": archive_ready,
+        "checks": checks,
+        "narrative": narrative,
+        "computation": {
+            "strategy": "canonical_attribute_inspection",
+            "database_queries": 0,
+            "model_calls": 0,
+            "capability_reexecutions": 0,
+        },
+        "technical_handoff": {
+            "run_id": result.get("run_id"),
+            "failed_check_ids": [item["check_id"] for item in failures],
+            "warning_check_ids": [item["check_id"] for item in warnings],
+            "diagnostic_issue_codes": [
+                item.get("code") for item in result.get("diagnostics", {}).get("shortcomings", [])
+            ],
+            "files_for_codex": [
+                "run-assurance-report.md", "runtime-report.json", "run-diagnostics.json",
+                "processing-receipts.json", "evaluation-record.json", "architecture-outputs.json",
+            ],
+        },
+    }
+
+
+def _single_run_runtime_report(result: dict[str, Any]) -> dict[str, Any]:
+    """Condense operational evidence already emitted by the execution wrapper."""
+
+    run_record = result.get("run_record", {})
+    outputs = run_record.get("architecture_outputs", [])
+    receipts = run_record.get("processing_receipts", [])
+    return {
+        "schema_version": "portfolio-risk.single-run-runtime-report/v1",
+        "run_id": result.get("run_id"),
+        "status": result.get("status"),
+        "workflow_id": result.get("workflow", {}).get("id"),
+        "cycles": len(outputs),
+        "processing_receipts": len(receipts),
+        "resource_usage": result.get("execution_regime", {}).get("resource_usage", {}),
+        "capability_errors": [
+            error
+            for output in outputs
+            for error in (output.get("execution_summary") or {}).get("errors", [])
+        ],
+        "diagnostic_counts": result.get("diagnostics", {}).get("counts", {}),
+        "priority_issue_codes": result.get("diagnostics", {}).get("codex_handoff", {}).get(
+            "priority_issue_codes", []
+        ),
+    }
+
+
+def _run_reproducibility_manifest(result: dict[str, Any]) -> dict[str, Any]:
+    """Capture enough immutable identity to reconstruct or challenge one Run."""
+
+    repository_root = Path(__file__).resolve().parents[3]
+    source_paths = (
+        Path("apps/portfolio-risk-workbench/labs/historical_replay_runtime.py"),
+        Path("apps/portfolio-risk-workbench/labs/agent_treatment_runtime.py"),
+        Path("apps/portfolio-risk-workbench/labs/duckdb_server.py"),
+        Path("config/agent/thesis-sprint/professor-demo-v0.1.yaml"),
+        Path("examples/portfolio-risk-thesis/prompts/day3/prompt-manifest.yaml"),
+    )
+
+    def git_output(*arguments: str) -> str | None:
+        try:
+            completed = subprocess.run(
+                ("git", *arguments),
+                cwd=repository_root,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return completed.stdout.strip() if completed.returncode == 0 else None
+
+    source_digests = {
+        str(path): "sha256:" + hashlib.sha256((repository_root / path).read_bytes()).hexdigest()
+        for path in source_paths
+        if (repository_root / path).is_file()
+    }
+    status = git_output("status", "--porcelain")
+    hierarchy = result.get("hierarchy", {})
+    workflow = result.get("workflow", {})
+    execution_regime = result.get("execution_regime", {})
+    experiment_id = hierarchy.get("experiment", {}).get("experiment_id")
+    local_seed = None
+    if experiment_id == "experiment-professor-demo-v0.1":
+        try:
+            local_seed = int(professor_demo_definition().get("seed"))
+        except (HistoricalReplayError, TypeError, ValueError):
+            local_seed = None
+    manifest = {
+        "schema_version": "portfolio-risk.run-reproducibility-manifest/v1",
+        "run_id": result.get("run_id"),
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "source": {
+            "git_revision": git_output("rev-parse", "HEAD"),
+            "git_dirty": None if status is None else bool(status),
+            "source_file_digests": source_digests,
+        },
+        "environment": {
+            "python": sys.version.split()[0],
+            "platform": platform.platform(),
+            "service": "portfolio-risk-workbench",
+        },
+        "definitions": {
+            "study_digest": canonical_digest(hierarchy.get("study", {})),
+            "experiment_digest": canonical_digest(hierarchy.get("experiment", {})),
+            "case_digest": canonical_digest(hierarchy.get("case", {})),
+            "architecture_digest": canonical_digest(
+                result.get("run_record", {}).get("architecture_config", {})
+            ),
+            "capability_environment_digest": canonical_digest(
+                result.get("evaluation", {}).get("capability_configurations", [])
+            ),
+            "evaluation_id": result.get("evaluation", {}).get("id"),
+        },
+        "data_revision": result.get("data_revision", {}),
+        "runtime": {
+            "workflow_id": workflow.get("id"),
+            "model": workflow.get("model"),
+            "prompt_manifest_digest": workflow.get("prompt_manifest_digest"),
+            "call_budget": workflow.get("call_budget"),
+            "maximum_output_tokens_per_call": execution_regime.get(
+                "maximum_output_tokens_per_call"
+            ),
+            "model_timeout_seconds": execution_regime.get("model_timeout_seconds"),
+            "local_random_seed": local_seed,
+            "model_seed": None,
+            "model_seed_limitation": (
+                None
+                if workflow.get("id") == "B0"
+                else "The reviewed Responses route does not expose a deterministic model seed; repeated Runs measure output variation."
+            ),
+        },
+        "outputs": {
+            "architecture_output_digest": canonical_digest(
+                result.get("run_record", {}).get("architecture_output", {})
+            ),
+            "evaluation_record_digest": canonical_digest(
+                result.get("run_record", {}).get("evaluation_record", {})
+            ),
+        },
+    }
+    manifest["manifest_digest"] = canonical_digest(manifest)
+    return manifest
+
+
 def _save_historical_replay(result: dict[str, Any]) -> dict[str, Any]:
     result_bytes = (json.dumps(result, indent=2, sort_keys=True) + "\n").encode("utf-8")
     files = {"result.json": result_bytes}
@@ -2722,6 +3527,10 @@ def _save_historical_replay(result: dict[str, Any]) -> dict[str, Any]:
             "run-trace.json": run_record["run_trace"],
             "processing-receipts.json": run_record.get("processing_receipts", []),
             "evaluation-record.json": run_record["evaluation_record"],
+            "run-diagnostics.json": result.get("diagnostics", {}),
+            "run-assurance.json": result.get("assurance", {}),
+            "runtime-report.json": result.get("runtime_report", {}),
+            "run-manifest.json": _run_reproducibility_manifest(result),
         }
         for path, payload in structured_files.items():
             files[path] = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
@@ -2736,12 +3545,32 @@ def _save_historical_replay(result: dict[str, Any]) -> dict[str, Any]:
             "run-trace.json": "run_trace",
             "processing-receipts.json": "processing_receipts",
             "evaluation-record.json": "evaluation_record",
+            "run-diagnostics.json": "run_diagnostics_and_codex_handoff",
+            "run-assurance.json": "run_qualification",
+            "runtime-report.json": "runtime_report",
+            "run-manifest.json": "run_reproducibility_manifest",
         })
+        assurance = result.get("assurance", {})
+        files["run-assurance-report.md"] = ("\n".join((
+            "# Single Run assurance report",
+            "",
+            f"**Outcome:** {assurance.get('label', 'Not assessed')}",
+            f"**Engine ready:** {'Yes' if assurance.get('engine_ready') else 'No'}",
+            f"**Archive ready:** {'Yes' if assurance.get('archive_ready') else 'No'}",
+            "",
+            assurance.get("narrative", "No assurance narrative was produced."),
+            "",
+            "## Checks",
+            "",
+            *(f"- **{item.get('label')} — {item.get('status', 'unknown').upper()}**: {item.get('summary')}" for item in assurance.get("checks", [])),
+            "",
+        )) + "\n").encode("utf-8")
+        file_roles["run-assurance-report.md"] = "human_readable_run_assurance"
     file_records = tuple(sorted((
         file_manifest(
             path=path,
             content=content,
-            media_type="application/json",
+            media_type="text/markdown" if path.endswith(".md") else "application/json",
             role=file_roles[path],
             preview_mode=PreviewMode.ESCAPED_TEXT,
             download_allowed=True,
@@ -2787,6 +3616,8 @@ def _saved_historical_replays() -> list[dict[str, Any]]:
     saved = []
     for record in artifact_store().list():
         if record.manifest.creation_method != "deterministic_historical_replay":
+            continue
+        if record.state.value in {"tombstoned", "deleted"}:
             continue
         result_bytes, _ = artifact_store().open_file(record.manifest.artifact_id, "result.json")
         result = json.loads(result_bytes)
@@ -2896,12 +3727,480 @@ def create_historical_replay(request: HistoricalReplayRequest) -> dict[str, Any]
             end_date=request.end_date,
             evaluation_id=request.evaluation_id,
         )
+        result["assurance"] = _single_run_assurance(
+            result, retention_requested=request.save_result
+        )
+        result["runtime_report"] = _single_run_runtime_report(result)
         result["saved"] = _save_historical_replay(result) if request.save_result else None
         return result
     except HistoricalReplayError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except (RuntimeError, duckdb.Error) as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+def _counterfactual_batch_definition(request: CounterfactualBatchRequest) -> dict[str, Any]:
+    cells = []
+    for portfolio_id in request.portfolio_ids:
+        case_id = f"case-{portfolio_id.replace('_', '-')}-{request.start_date.isoformat()}-{request.end_date.isoformat()}"
+        for repetition in range(1, request.repetitions + 1):
+            for workflow_id in request.workflow_ids:
+                cells.append(
+                    {
+                        "cell_id": f"{case_id}:r{repetition}:{workflow_id}",
+                        "case_id": case_id,
+                        "portfolio_id": portfolio_id,
+                        "workflow_id": workflow_id,
+                        "repetition": repetition,
+                        "is_baseline": workflow_id == request.baseline_workflow_id,
+                        "changed_dimension": "architecture",
+                    }
+                )
+    return {
+        "schema_version": "portfolio-risk.counterfactual-batch-definition/v1",
+        "study": {
+            "study_id": request.study_id,
+            "title": request.study_title,
+        },
+        "experiment": {
+            "experiment_id": request.experiment_id,
+            "research_question": request.research_question,
+            "hypothesis": request.hypothesis,
+            "baseline_workflow_id": request.baseline_workflow_id,
+            "planned_variable_dimensions": ["architecture", "repetition"],
+            "controlled_factors": [
+                "data_revision",
+                "evaluation_protocol",
+                "information_regime",
+                "mandate_version",
+                "point_in_time_boundary",
+                "portfolio_quantities",
+            ],
+        },
+        "cases": sorted({item["case_id"] for item in cells}),
+        "regime_role": "cross_cutting_case_classification",
+        "execution": {
+            "mode": "concurrent_independent_runs",
+            "max_concurrency": request.max_concurrency,
+            "terminal_analysis_required": True,
+            "external_effects": "disabled",
+        },
+        "period": {"start": request.start_date.isoformat(), "end": request.end_date.isoformat()},
+        "evaluation_id": request.evaluation_id,
+        "cells": cells,
+    }
+
+
+def _experiment_assurance(
+    analysis: dict[str, Any],
+    completed_cells: list[dict[str, Any]],
+    *,
+    use_narrative_agent: bool,
+) -> dict[str, Any]:
+    """Run post-execution gates and prepare one readable + technical report."""
+
+    expected_dimensions = {
+        "detection_quality", "severity_understanding", "timeliness",
+        "evidence_quality", "confidence_calibration", "decision_quality",
+        "robustness", "stability", "efficiency",
+    }
+    completed = analysis.get("matrix_coverage", {}).get("completed", 0)
+    planned = analysis.get("matrix_coverage", {}).get("planned", 0)
+    failed = analysis.get("matrix_coverage", {}).get("failed", 0)
+    results = [item["result"] for item in completed_cells]
+    dimension_sets = [
+        {item.get("id") for item in result.get("evaluation", {}).get("dimensions", [])}
+        for result in results
+    ]
+    mapped_outputs = [
+        result.get("run_record", {}).get("architecture_output")
+        for result in results
+    ]
+    integrity_failures = []
+    for item in completed_cells:
+        try:
+            verification = artifact_store().verify(item["artifact_id"])
+        except (ArtifactConflict, ArtifactNotFound, ValueError):
+            integrity_failures.append(item["artifact_id"])
+        else:
+            if not verification.valid:
+                integrity_failures.append(item["artifact_id"])
+    execution_errors = sum(
+        int(dimension.get("metrics", {}).get("execution_errors") or 0)
+        for result in results
+        for dimension in result.get("evaluation", {}).get("dimensions", [])
+        if dimension.get("id") == "efficiency"
+    )
+    validation_corrections = sum(
+        int(dimension.get("metrics", {}).get("schema_validation_failures") or 0)
+        + int(dimension.get("metrics", {}).get("semantic_verification_failures") or 0)
+        for result in results
+        for dimension in result.get("evaluation", {}).get("dimensions", [])
+        if dimension.get("id") == "efficiency"
+    )
+    unavailable_dimensions = sorted({
+        dimension.get("id")
+        for result in results
+        for dimension in result.get("evaluation", {}).get("dimensions", [])
+        if dimension.get("status") in {"partial", "not_measurable", "not_applicable"}
+    })
+
+    def check(check_id: str, label: str, passed: bool, summary: str, *, required: bool = True, warning: bool = False) -> dict[str, Any]:
+        return {
+            "check_id": check_id,
+            "label": label,
+            "status": "pass" if passed and not warning else "warning" if passed else "fail",
+            "required_for_archive": required,
+            "summary": summary,
+        }
+
+    checks = [
+        check("matrix-complete", "All planned runs completed", completed == planned and failed == 0, f"{completed}/{planned} runs completed; {failed} failed."),
+        check("architecture-output", "Every run produced a mapped ArchitectureOutput", bool(results) and all(mapped_outputs), f"{sum(bool(item) for item in mapped_outputs)}/{len(results)} final outputs are present."),
+        check("evaluation-contract", "Every run contains all nine evaluation dimensions", bool(dimension_sets) and all(items == expected_dimensions for items in dimension_sets), "The evaluator returned the complete nine-dimension contract for every completed run."),
+        check("execution-errors", "No unhandled execution error", execution_errors == 0, f"{execution_errors} unhandled execution errors were retained."),
+        check("matched-controls", "Architecture contrasts preserve the frozen controls", not analysis.get("confounds"), f"{len(analysis.get('confounds', []))} confounded contrasts were found."),
+        check("repository-integrity", "Retained run files pass integrity verification", not integrity_failures, "All retained run files match their manifests." if not integrity_failures else f"Integrity failed for: {', '.join(integrity_failures)}"),
+        check("validation-corrections", "Structured-output validation", True, f"{validation_corrections} schema or semantic corrections were recorded; final admitted outputs remained valid.", required=False, warning=validation_corrections > 0),
+        check("evaluation-coverage", "All dimensions are fully measurable", True, f"Limited or unavailable dimensions: {', '.join(unavailable_dimensions) or 'none'}.", required=False, warning=bool(unavailable_dimensions)),
+    ]
+    required_failures = [item for item in checks if item["required_for_archive"] and item["status"] == "fail"]
+    warnings = [item for item in checks if item["status"] == "warning"]
+    archive_ready = not required_failures
+    status = "failed" if required_failures else "passed_with_limitations" if warnings else "passed"
+    label = {"failed": "Failed", "passed_with_limitations": "Passed with limitations", "passed": "Passed"}[status]
+    deterministic_narrative = (
+        f"The experiment {label.lower()}. {completed} of {planned} planned runs completed and "
+        f"{sum(bool(item) for item in mapped_outputs)} produced a valid final ArchitectureOutput. "
+        + (
+            "The retained evidence is internally consistent and the result is ready to archive. "
+            if archive_ready else
+            "The result is not ready to archive until the failed post-run checks are resolved. "
+        )
+        + (
+            f"Interpretation remains limited for {', '.join(unavailable_dimensions)}. "
+            if unavailable_dimensions else "All declared evaluation dimensions were measurable. "
+        )
+        + (f"The agent critic corrected {validation_corrections} structured-output issue(s) before admission." if validation_corrections else "No output correction was required.")
+    )
+    narrative = deterministic_narrative
+    narrative_agent = {"used": False, "model": None, "status": "deterministic_fallback", "input_tokens": 0, "output_tokens": 0}
+    if use_narrative_agent and _keychain_key():
+        try:
+            from openai import OpenAI
+
+            compact = {
+                "status": status,
+                "archive_ready": archive_ready,
+                "checks": checks,
+                "diagnostic_counts": analysis.get("diagnostics", {}).get("counts", {}),
+                "priority_issue_codes": analysis.get("diagnostics", {}).get("codex_handoff", {}).get("priority_issue_codes", []),
+            }
+            response = OpenAI(api_key=str(_keychain_key(include_value=True))).responses.create(
+                model=COST_OPTIMIZED_LLM_MODEL,
+                reasoning={"effort": "low"},
+                store=False,
+                tools=[],
+                max_output_tokens=500,
+                input=[
+                    {"role": "system", "content": [{"type": "input_text", "text": "Write a concise experiment assurance narrative for a researcher. State whether execution succeeded, whether it is archive-ready, the most important limitations, and the next correction. Do not invent facts, repeat every test, or discuss implementation jargon unless needed. Use two short paragraphs."}]},
+                    {"role": "user", "content": [{"type": "input_text", "text": json.dumps(compact, sort_keys=True)}]},
+                ],
+            )
+            if response.output_text.strip():
+                narrative = response.output_text.strip()
+            usage = getattr(response, "usage", None)
+            narrative_agent = {
+                "used": True,
+                "model": getattr(response, "model", COST_OPTIMIZED_LLM_MODEL),
+                "status": "completed",
+                "input_tokens": int(getattr(usage, "input_tokens", 0) or 0),
+                "output_tokens": int(getattr(usage, "output_tokens", 0) or 0),
+            }
+        except Exception as error:
+            narrative_agent["error"] = f"{type(error).__name__}: {str(error)[:240]}"
+    return {
+        "schema_version": "portfolio-risk.experiment-assurance/v1",
+        "status": status,
+        "label": label,
+        "archive_ready": archive_ready,
+        "checks": checks,
+        "narrative": narrative,
+        "narrative_agent": narrative_agent,
+        "technical_handoff": {
+            "run_ids": sorted(result.get("run_id") for result in results),
+            "failed_check_ids": [item["check_id"] for item in required_failures],
+            "warning_check_ids": [item["check_id"] for item in warnings],
+            "priority_issue_codes": analysis.get("diagnostics", {}).get("codex_handoff", {}).get("priority_issue_codes", []),
+            "files_for_codex": ["experiment-assurance-report.md", "shortcomings.json", "counterfactual-analysis.json"],
+        },
+    }
+
+
+def _save_counterfactual_analysis(
+    definition: dict[str, Any], analysis: dict[str, Any]
+) -> dict[str, Any]:
+    assurance = analysis.get("assurance", {})
+    assurance_markdown = "\n".join((
+        "# Experiment assurance report",
+        "",
+        f"**Outcome:** {assurance.get('label', 'Not assessed')}",
+        f"**Archive ready:** {'Yes' if assurance.get('archive_ready') else 'No'}",
+        "",
+        assurance.get("narrative", "No assurance narrative was produced."),
+        "",
+        "## Post-run checks",
+        "",
+        *(
+            f"- **{item.get('label')} — {item.get('status', 'unknown').upper()}**: {item.get('summary')}"
+            for item in assurance.get("checks", [])
+        ),
+        "",
+        "## Codex handoff",
+        "",
+        "```json",
+        json.dumps(assurance.get("technical_handoff", {}), indent=2, sort_keys=True),
+        "```",
+        "",
+    ))
+    raw_files = {
+        "batch-definition.json": (
+            json.dumps(definition, indent=2, sort_keys=True) + "\n"
+        ).encode("utf-8"),
+        "counterfactual-analysis.json": (
+            json.dumps(analysis, indent=2, sort_keys=True) + "\n"
+        ).encode("utf-8"),
+        "shortcomings.json": (
+            json.dumps(analysis.get("diagnostics", {}), indent=2, sort_keys=True) + "\n"
+        ).encode("utf-8"),
+        "experiment-assurance-report.md": assurance_markdown.encode("utf-8"),
+    }
+    roles = {
+        "batch-definition.json": "counterfactual_batch_definition",
+        "counterfactual-analysis.json": "counterfactual_terminal_analysis",
+        "shortcomings.json": "batch_diagnostics_and_codex_handoff",
+        "experiment-assurance-report.md": "human_readable_experiment_assurance_report",
+    }
+    files = tuple(
+        file_manifest(
+            path=path,
+            content=raw_files[path],
+            media_type="application/json",
+            role=roles[path],
+            preview_mode=PreviewMode.ESCAPED_TEXT,
+            download_allowed=True,
+        )
+        for path in sorted(raw_files)
+    )
+    suffix = analysis["analysis_digest"].removeprefix("sha256:")[:20]
+    artifact_id = f"counterfactual-analysis:{definition['experiment']['experiment_id']}:{suffix}"
+    parent_ids = tuple(
+        sorted(
+            {
+                item["artifact_id"]
+                for item in analysis["cells"]
+                if item.get("artifact_id")
+            }
+        )
+    )
+    manifest = ArtifactManifest(
+        artifact_id=artifact_id,
+        title=f"Counterfactual analysis — {definition['study']['title']}"[:200],
+        kind=ArtifactKind.EVIDENCE_BUNDLE,
+        created_at=datetime.now(timezone.utc),
+        created_by="local.researcher",
+        creation_method="experiment-lab.counterfactual-terminal-analysis",
+        experiment_id=definition["experiment"]["experiment_id"],
+        data_truth=DataTruthClass.LICENSED_REAL,
+        rights=RightsState.LICENSED_RESTRICTED,
+        rights_policy_id="rights.licensed.research.only",
+        publication=PublicationState.RESTRICTED,
+        retention=RetentionClass.EXPERIMENT_EVIDENCE,
+        entry_file="counterfactual-analysis.json",
+        files=files,
+        total_size_bytes=sum(len(item) for item in raw_files.values()),
+        parent_artifact_ids=parent_ids,
+        restrictions=(
+            "licensed-data-no-redistribution",
+            "review-required-before-thesis-use",
+        ),
+    )
+    record = artifact_store().admit(
+        manifest,
+        raw_files,
+        actor="local.researcher",
+        rationale=(
+            "Retain the terminal analysis separately from every immutable Run output."
+        ),
+    )
+    verification = artifact_store().verify(record.manifest.artifact_id)
+    if not verification.valid:
+        raise ArtifactConflict("counterfactual analysis failed repository integrity verification")
+    return {
+        "artifact_id": record.manifest.artifact_id,
+        "artifact_digest": record.manifest.artifact_digest,
+        "created_at": record.manifest.created_at.isoformat(),
+        "state": record.state.value,
+    }
+
+
+def _counterfactual_analysis_artifacts() -> list[dict[str, Any]]:
+    values = []
+    for record in artifact_store().list():
+        if record.manifest.creation_method != "experiment-lab.counterfactual-terminal-analysis":
+            continue
+        if record.state.value in {"tombstoned", "deleted"}:
+            continue
+        content, _ = artifact_store().open_file(
+            record.manifest.artifact_id, "counterfactual-analysis.json"
+        )
+        analysis = json.loads(content)
+        values.append(
+            {
+                "artifact_id": record.manifest.artifact_id,
+                "artifact_digest": record.manifest.artifact_digest,
+                "study_id": analysis["study_id"],
+                "experiment_id": analysis["experiment_id"],
+                "status": analysis["status"],
+                "matrix_coverage": analysis["matrix_coverage"],
+                "generated_at": analysis["generated_at"],
+                "analysis_digest": analysis["analysis_digest"],
+            }
+        )
+    return sorted(values, key=lambda item: item["generated_at"], reverse=True)
+
+
+@app.get("/api/experiments/counterfactual-dimensions")
+def counterfactual_dimensions() -> dict[str, Any]:
+    design_map = counterfactual_design_map()
+    return {
+        "hierarchy": ["study", "experiment", "case", "run"],
+        "regime_role": "cross_cutting_case_classification",
+        "dimensions": counterfactual_dimension_catalogue(),
+        **design_map,
+        "first_executable_slice": "architecture_with_optional_repetition",
+        "terminal_analysis_required": True,
+    }
+
+
+@app.get("/api/experiments/counterfactual-batches")
+def list_counterfactual_batches() -> dict[str, Any]:
+    try:
+        return {"analyses": _counterfactual_analysis_artifacts()}
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.get("/api/experiments/counterfactual-batches/{artifact_id:path}")
+def load_counterfactual_batch(artifact_id: str) -> dict[str, Any]:
+    try:
+        record = artifact_store().get(artifact_id)
+        if record.manifest.creation_method != "experiment-lab.counterfactual-terminal-analysis":
+            raise ArtifactNotFound(artifact_id)
+        definition, _ = artifact_store().open_file(artifact_id, "batch-definition.json")
+        analysis, _ = artifact_store().open_file(artifact_id, "counterfactual-analysis.json")
+        return {
+            "definition": json.loads(definition),
+            "analysis": json.loads(analysis),
+            "analysis_artifact": {
+                "artifact_id": artifact_id,
+                "artifact_digest": record.manifest.artifact_digest,
+                "created_at": record.manifest.created_at.isoformat(),
+                "state": record.state.value,
+            },
+        }
+    except (ArtifactConflict, ArtifactNotFound, ValueError) as error:
+        raise _artifact_error(error) from error
+
+
+@app.post("/api/experiments/counterfactual-batches")
+def create_counterfactual_batch(request: CounterfactualBatchRequest) -> dict[str, Any]:
+    """Execute one bounded architecture matrix and retain its terminal analysis."""
+
+    if any(item in {"B1", "A1"} for item in request.workflow_ids) and not request.authorize_external_model_calls:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "B1 and A1 require explicit authorization to send bounded, derived licensed-data context to OpenAI for this batch"
+            ),
+        )
+    definition = _counterfactual_batch_definition(request)
+    private_root = find_private_root(PROTOTYPE_ROOT)
+
+    def execute(cell: dict[str, Any]) -> dict[str, Any]:
+        return run_historical_replay(
+            private_root,
+            workflow_id=cell["workflow_id"],
+            portfolio_id=cell["portfolio_id"],
+            start_date=request.start_date,
+            end_date=request.end_date,
+            evaluation_id=request.evaluation_id,
+            study_id=request.study_id,
+            experiment_id=request.experiment_id,
+            study_title=request.study_title,
+            research_question=request.research_question,
+            hypothesis=request.hypothesis,
+            repetition=cell["repetition"],
+        )
+
+    completed_cells = []
+    failed_cells = []
+    with ThreadPoolExecutor(max_workers=min(request.max_concurrency, len(definition["cells"]))) as executor:
+        futures = {executor.submit(execute, cell): cell for cell in definition["cells"]}
+        for future in as_completed(futures):
+            cell = futures[future]
+            try:
+                result = future.result()
+                result["assurance"] = _single_run_assurance(
+                    result, retention_requested=True
+                )
+                result["runtime_report"] = _single_run_runtime_report(result)
+                saved = _save_historical_replay(result)
+                result["saved"] = saved
+                completed_cells.append({**cell, "result": result, "artifact_id": saved["artifact_id"]})
+            except Exception as error:  # one failed cell must not erase completed counterfactual evidence
+                failed_cells.append(
+                    {
+                        **cell,
+                        "error": str(error)[:800],
+                    }
+                )
+
+    analysis = analyse_counterfactual_batch(
+        study_id=request.study_id,
+        experiment_id=request.experiment_id,
+        research_question=request.research_question,
+        hypothesis=request.hypothesis,
+        baseline_workflow_id=request.baseline_workflow_id,
+        planned_cells=definition["cells"],
+        completed_cells=completed_cells,
+        failed_cells=failed_cells,
+    )
+    analysis["assurance"] = _experiment_assurance(
+        analysis,
+        completed_cells,
+        use_narrative_agent=request.authorize_external_model_calls,
+    )
+    analysis.pop("analysis_digest", None)
+    analysis["analysis_digest"] = canonical_digest(analysis)
+    analysis_artifact = _save_counterfactual_analysis(definition, analysis)
+    return {
+        "definition": definition,
+        "analysis": analysis,
+        "analysis_artifact": analysis_artifact,
+        "run_artifacts": [
+            {
+                "cell_id": item["cell_id"],
+                "case_id": item["case_id"],
+                "workflow_id": item["workflow_id"],
+                "repetition": item["repetition"],
+                "run_id": item["result"]["run_id"],
+                "artifact_id": item["artifact_id"],
+                "regimes": item["result"].get("hierarchy", {}).get("regimes", []),
+            }
+            for item in sorted(completed_cells, key=lambda value: value["cell_id"])
+        ],
+    }
 
 
 @app.get("/api/experiments/options")
@@ -3008,6 +4307,38 @@ def _experiment_definition_registry_assets(
     )
 
 
+def _licensed_portfolio_projection() -> dict[str, Any]:
+    """Describe licensed portfolios without making metadata depend on private data.
+
+    Public CI and development installations may not mount the licensed
+    CRSP/Compustat root. Metadata views must remain usable in that state, while
+    the data and query endpoints continue to fail explicitly when invoked.
+    """
+
+    try:
+        selection = data_plane.selection
+        portfolios = data_plane.public_portfolios()
+    except RuntimeError:
+        return {
+            "available": False,
+            "status": "unavailable",
+            "unavailable_reason": "licensed data root is not configured",
+            "selection_id": None,
+            "source_snapshot_id": None,
+            "selection_digest": None,
+            "portfolios": [],
+        }
+    return {
+        "available": True,
+        "status": "available",
+        "unavailable_reason": None,
+        "selection_id": selection["selection_id"],
+        "source_snapshot_id": selection["source_snapshot_id"],
+        "selection_digest": selection["candidate_artifact"]["sha256"],
+        "portfolios": portfolios,
+    }
+
+
 def _experiment_options_payload() -> dict[str, Any]:
     assets = [
         {
@@ -3021,9 +4352,10 @@ def _experiment_options_payload() -> dict[str, Any]:
         }
         for document in _experiment_registry_documents()
     ]
-    selection_id = data_plane.selection["selection_id"]
-    snapshot_id = data_plane.selection["source_snapshot_id"]
-    selection_digest = data_plane.selection["candidate_artifact"]["sha256"]
+    licensed = _licensed_portfolio_projection()
+    selection_id = licensed["selection_id"]
+    snapshot_id = licensed["source_snapshot_id"]
+    selection_digest = licensed["selection_digest"]
     real_portfolios = [
         {
             "portfolio_id": item["portfolio_id"],
@@ -3034,7 +4366,7 @@ def _experiment_options_payload() -> dict[str, Any]:
             "data_truth": "licensed_real",
             "data_revision_reference": f"dataset-snapshot:{snapshot_id}",
         }
-        for item in data_plane.public_portfolios()
+        for item in licensed["portfolios"]
     ]
     simulated_portfolios = [
         {
@@ -3074,7 +4406,9 @@ def _experiment_options_payload() -> dict[str, Any]:
         },
         "portfolios": [*real_portfolios, *synthetic_portfolios, *simulated_portfolios],
         "licensed_data": {
-            "available": bool(real_portfolios),
+            "available": licensed["available"],
+            "status": licensed["status"],
+            "unavailable_reason": licensed["unavailable_reason"],
             "source_snapshot_id": snapshot_id,
             "selection_id": selection_id,
             "access": "read_only",

@@ -22,6 +22,11 @@
       "sha256": "7ed5ebc36c5974005150be160ee9643cf7a98712a6e68e7d1ada6ec2b84a2917"
     },
     {
+      "schema_id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/anomaly-signal.schema.json",
+      "schema_path": "anomaly-signal.schema.json",
+      "sha256": "577aeb09312cd97846651a96d9fb046807a6bd9fb71dcfe61ae901a886cbf561"
+    },
+    {
       "schema_id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/contribution-item.schema.json",
       "schema_path": "contribution-item.schema.json",
       "sha256": "4ffde71b2a967b1685b6b5d58b90fc02ac0e6d574ad6bc61bb1cfdbcd2f48509"
@@ -30,6 +35,21 @@
       "schema_id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/contribution-summary.schema.json",
       "schema_path": "contribution-summary.schema.json",
       "sha256": "8ff0e3e318dc1f1c3cb8f77269e772fb08427974a6dcd11a8976739021798ee0"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/detector-definition.schema.json",
+      "schema_path": "detector-definition.schema.json",
+      "sha256": "90f9e59d6af5393b6a745d2514df7a7c8c053fcd2c0e9801695203af25696db6"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/detector-observation.schema.json",
+      "schema_path": "detector-observation.schema.json",
+      "sha256": "5120368dfd37e0ffb5cf29a96d25a76e78120d48476bde6acb5a38e0a867080e"
+    },
+    {
+      "schema_id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/detector-run.schema.json",
+      "schema_path": "detector-run.schema.json",
+      "sha256": "98140b5e2dc12c96cb916513070a48d86fe976a1af619751c89bb087fb40f5b9"
     },
     {
       "schema_id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/drawdown-result.schema.json",

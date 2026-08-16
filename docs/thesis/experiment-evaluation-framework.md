@@ -1,5 +1,9 @@
 # Experiment evaluation framework
 
+For the treatment taxonomy, paired-comparison rules, standalone Experiment
+boundary and financial-counterfactual progression, read
+`docs/thesis/counterfactual-experiment-design.md` with this framework.
+
 ## Experimental hierarchy
 
 Every retained result belongs to one unambiguous scientific hierarchy:
@@ -144,20 +148,49 @@ limitations.
 
 ## Functional evaluator
 
-The evaluator intentionally does not manufacture thesis scores. With no admitted
-labels or matured branch outcomes:
+The selected-case evaluator is now implemented as
+`risk_experiments.evaluate_selected_case_trajectory`. It joins an immutable
+`RunTrajectory` to an independently accepted `GoldCaseRecord` only after the Run
+has terminated. Every nested `EvaluationMetricResult` retains its status, value,
+numerator, denominator, unit, method, reference identities and limitations. An
+unavailable metric cannot carry a value and an unavailable dimension cannot carry
+a score.
 
-- detection, timeliness, decision quality and robustness are not measurable;
-- severity and stability are partial;
-- probabilistic calibration is not applicable to the deterministic baseline;
-- structural evidence coverage is partial when findings exist and not applicable
-  when none exist;
-- efficiency reports observed runtime and query receipts without an arbitrary
-  composite score.
+For the first retained ADX Case, the available references support five bounded
+measurements:
 
-The evaluator is versioned and bound to the ordered cycle-output identifiers and
-metric specifications. Later label admission or branch maturity creates a new
-evaluation record; it never rewrites architecture output.
+- selected-case detection and downside direction, without population precision
+  or recall;
+- daily-session timeliness and separate real processing latency;
+- reviewed supporting/alternative evidence roles and point-in-time source
+  eligibility;
+- ex-ante monitoring-action appropriateness at one sealed checkpoint, kept
+  separate from unavailable economic branch regret;
+- runtime, model calls, tokens, cost and abstention without an arbitrary
+  efficiency composite.
+
+Economic severity is not scored because the current outputs carry ordinal
+urgency, not comparable basis-point forecasts. Confidence calibration is not
+scored from one selected positive Case. Session 10 adds two identical
+repetitions and a predeclared one-cycle adverse-event delay for every method.
+Stability now compares normalized structured behavior across repetitions;
+robustness compares detection and evidence retention against the matched delay.
+Both remain bounded selected-Case measurements, not population claims. Missing
+severity and calibration evidence stays explicitly `not_measurable`, never zero
+or perfect.
+
+The evaluator is versioned and bound to the ordered cycle-output identifiers,
+trajectory digest and Gold digest. Evaluation records are immutable under the
+external `run-evaluations` repository. Later label admission, branch maturity,
+repeat Runs or perturbations create new versioned evaluation evidence; they never
+rewrite architecture output.
+
+Completed comparisons can be saved as a content-addressed reproducibility
+bundle containing the exact Case, developer-only Gold reference, matrix,
+trajectories, evaluations, human report and Codex diagnostics. File digests are
+verified on load; reproduction recomputes the comparison from immutable source
+records and must match the manifest digest. Archive is reversible and removal
+is a recoverable tombstone that never deletes the source Runs.
 
 The current named portfolios retain the accepted quantities and resolve current
 company names from the licensed security master. Applying these fixed holdings to

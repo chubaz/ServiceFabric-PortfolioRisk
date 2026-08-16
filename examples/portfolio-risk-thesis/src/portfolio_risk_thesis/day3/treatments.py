@@ -47,6 +47,14 @@ def role_payload(bundle: ArchitectureInputBundle, role_id: str, specialists: dic
             "decision_point": safe["decision_point"],
             "specialist_outputs": specialists or {},
             "permitted_next_steps": list(NEXT_STEPS),
+            "authoritative_catalogue": {
+                "metrics": safe["metrics"],
+                "position_aliases": [
+                    item["position_alias"] for item in safe["exposures"]
+                ],
+                "event_ids": [item["event_id"] for item in safe["events"]],
+                "evidence_refs": safe["evidence_refs"],
+            },
         }
     raise ValueError(f"unknown Day 3 role: {role_id}")
 

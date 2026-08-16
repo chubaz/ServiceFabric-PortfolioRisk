@@ -1,0 +1,102 @@
+{
+  "$defs": {
+    "SignalScope": {
+      "enum": [
+        "instrument",
+        "group"
+      ],
+      "title": "SignalScope",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.servicefabric.ai/risk/analytics/v0.1/detector-observation.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One eligible value; benchmark_value is subtracted when configured.",
+  "properties": {
+    "available_at": {
+      "format": "date-time",
+      "title": "Available At",
+      "type": "string"
+    },
+    "benchmark_value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Benchmark Value"
+    },
+    "evidence_ids": {
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Evidence Ids",
+      "type": "array"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "quality_flags": {
+      "default": [],
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Quality Flags",
+      "type": "array"
+    },
+    "scope_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Scope Id",
+      "type": "string"
+    },
+    "scope_type": {
+      "$ref": "#/$defs/SignalScope"
+    },
+    "series_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Series Id",
+      "type": "string"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Value"
+    }
+  },
+  "required": [
+    "series_id",
+    "scope_type",
+    "scope_id",
+    "observed_at",
+    "available_at",
+    "value",
+    "evidence_ids"
+  ],
+  "title": "DetectorObservation",
+  "type": "object"
+}

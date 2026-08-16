@@ -219,6 +219,41 @@ def test_professional_workbench_uses_context_specific_layouts() -> None:
     assert "Chronological event processing" in javascript
     assert "Eligible event records" in javascript
     assert "End-of-day execution effect" in javascript
+    assert "Run qualification" in javascript
+    assert "0 database queries · 0 model calls · 0 capability reruns" in javascript
+    assert "Runtime report and Codex handoff" in javascript
+
+
+def test_experiment_journey_is_compact_and_discloses_only_user_relevant_truth() -> None:
+    html = (LABS_ROOT / "index.html").read_text(encoding="utf-8")
+    javascript = (LABS_ROOT / "labs.js").read_text(encoding="utf-8")
+
+    for step in ("Find cases", "Review case", "Run comparison", "Compare results"):
+        assert html.count(f"<b>{step}</b>") == 1
+    assert "Ready for a licensed-data research run." in javascript
+    assert "Licensed · read only" in javascript
+    assert "Point-in-time · ex ante" in javascript
+    assert "Mandate-rule labels only" in javascript
+    assert "Synthetic additions" in javascript
+    assert "Technical details" not in html
+    assert "Technical details" not in javascript
+    assert "What the comparison shows" in html
+    assert "Nine dimensions, without invented scores" in javascript
+    assert "Technical validation" in javascript
+    assert "evaluationResultLabel" in javascript
+
+
+def test_find_cases_uses_one_compact_real_data_signal_preview_without_internal_records() -> None:
+    html = (LABS_ROOT / "index.html").read_text(encoding="utf-8")
+    javascript = (LABS_ROOT / "labs.js").read_text(encoding="utf-8")
+
+    assert html.count('id="case-signal-run"') == 1
+    assert "Find unusual moves" in html
+    assert "Scan this period" in html
+    assert "/api/experiments/signals?" in javascript
+    assert "company" in javascript and "direction" in javascript and "threshold" in javascript
+    for internal_term in ("definition_digest", "cache_key", "capability_id", "request_digest"):
+        assert internal_term not in html
 
 
 def test_synthetic_cycle_is_deterministic_and_discloses_data_truth() -> None:
@@ -357,11 +392,24 @@ def test_experiment_draft_action_reports_prerequisites_and_success_inline() -> N
     assert 'submit.textContent = "Saving…"' in javascript
 
 
-def test_visible_experiment_page_uses_live_real_data_readiness_and_plain_language() -> None:
+def test_visible_experiment_page_uses_hierarchical_counterfactual_workspace_and_live_data() -> None:
     html = (LABS_ROOT / "index.html").read_text(encoding="utf-8")
     javascript = (LABS_ROOT / "labs.js").read_text(encoding="utf-8")
+    styles = (LABS_ROOT / "styles.css").read_text(encoding="utf-8")
 
-    assert "Choose real data, assemble an agent setup, run it, and compare the results." in html
+    assert "Validate one canonical Run first." in html
+    assert 'data-experiment-mode="single"' in html
+    assert 'data-experiment-mode="experiment"' in html
+    assert 'data-experiment-mode-panel="single"' in html
+    assert "Use setup in an Experiment" in html
+    assert "Study → Experiment → Case → Run" in html
+    assert "Regime classifies Cases across the hierarchy." in html
+    for view in ("design", "cases", "runs", "analysis"):
+        assert f'data-experiment-view="{view}"' in html
+        assert f'data-experiment-panel="{view}"' in html
+    assert 'id="counterfactual-batch-form"' in html
+    assert 'id="counterfactual-run-matrix"' in html
+    assert 'id="counterfactual-analysis"' in html
     assert 'id="replay-datasets"' in html
     assert 'id="replay-workflow"' in html
     assert 'id="replay-portfolio"' in html
@@ -371,6 +419,15 @@ def test_visible_experiment_page_uses_live_real_data_readiness_and_plain_languag
     assert 'id="replay-saved-select"' in html
     assert "Development samples and automated tests are never shown as research results." in html
     assert "function renderHistoricalReplaySetup" in javascript
+    assert "function switchExperimentMode" in javascript
+    assert "function useSingleRunInExperiment" in javascript
+    assert "function replayPeriodValidation" in javascript
+    assert "Shorten the observation window to" in javascript
+    assert 'terminalState = "error"' in javascript
+    assert 'item.id === "B0" && item.runnable' in javascript
+    assert "function runCounterfactualBatch" in javascript
+    assert "function renderCounterfactualAnalysis" in javascript
+    assert 'agentApi("/api/experiments/counterfactual-batches"' in javascript
     assert 'agentApi("/api/experiments/replay-setup")' in javascript
     assert 'agentApi("/api/experiments/replay-runs"' in javascript
     assert "Nine dimensions" in javascript
@@ -379,4 +436,70 @@ def test_visible_experiment_page_uses_live_real_data_readiness_and_plain_languag
     assert "Pilot limit: 20 model calls per run." in javascript
     assert "authorize_external_model_calls" in javascript
     assert "No synthetic fallback was used." in javascript
+    assert "#replay-run-hint.error" in styles
+    assert ".replay-programme-grid small" in styles
+    assert "overflow-wrap: anywhere" in styles
     assert '<details class="experiment-advanced" hidden>' in html
+
+
+def test_professor_demo_is_a_small_guided_research_workspace() -> None:
+    html = (LABS_ROOT / "index.html").read_text(encoding="utf-8")
+    javascript = (LABS_ROOT / "labs.js").read_text(encoding="utf-8")
+    professional_css = (LABS_ROOT / "professional.css").read_text(encoding="utf-8")
+
+    assert 'data-zone="research" data-workspace="demo">Demo</button>' in html
+    assert 'id="lab-demo"' in html
+    assert "One case. Three methods. Same evidence." in html
+    for element_id in (
+        "demo-readiness", "demo-case-detail", "demo-capabilities",
+        "demo-architectures", "demo-authorize-model", "demo-run", "demo-results",
+    ):
+        assert f'id="{element_id}"' in html
+    assert 'agentApi("/api/professor-demo")' in javascript
+    assert 'agentApi("/api/professor-demo/run"' in javascript
+    assert "function renderProfessorDemoPreflight" in javascript
+    assert "function renderProfessorDemoResults" in javascript
+    assert 'research: "demo"' in javascript
+    assert ".demo-shell" in professional_css
+    assert ".demo-architecture-grid" in professional_css
+
+
+def test_case_review_integrates_gated_gold_work_without_developer_record_ui() -> None:
+    html = (LABS_ROOT / "index.html").read_text(encoding="utf-8")
+    javascript = (LABS_ROOT / "labs.js").read_text(encoding="utf-8")
+
+    assert "Label sample" in html
+    assert 'id="case-label-prepare"' in html
+    assert 'id="case-label-workspace"' in html
+    assert 'id="case-label-batch-select"' in html
+    assert "Study this move" in javascript
+    assert "Alternative interval interpretations" in javascript
+    assert "Suggestion copied into the unsaved form" in javascript
+    assert "No Gold cases are created here." in html
+    assert "Prepare Gold case" not in html
+    assert "Create Gold case" not in html
+    assert "technical receipt" not in html.lower()
+    assert "function prepareLabelSample" in javascript
+    assert "function renderLabelBatch" in javascript
+    assert "function saveSignalAnnotation" in javascript
+    assert "function saveLabelReview" in javascript
+    assert "function contextWorkPanel" in javascript
+    assert "function validateContextPlan" in javascript
+    assert "function saveContextPlan" in javascript
+    assert "Prepared evidence" in javascript
+    assert "function prepareContextEvidence" in javascript
+    assert "function reviewContextEvidence" in javascript
+    assert "function renderGoldWork" in javascript
+    assert "function prepareGoldReference" in javascript
+    assert "function reviewGoldReference" in javascript
+    assert "function compileGoldCase" in javascript
+    assert "Complete these scientific checks" in javascript
+    assert "Gold truth remains retrospective and hidden" not in html
+    assert "bundle_digest" not in javascript
+    assert "context_execution_digest" not in javascript
+    assert "Synthetic controls" in javascript
+    assert "Synthetic controls are never generated at this stage." in javascript
+    assert "Nothing was executed." in javascript
+    assert "/context-plans/validate" in javascript
+    assert '/api/experiments/label-batches' in javascript
+    assert "gold_case_created" not in javascript

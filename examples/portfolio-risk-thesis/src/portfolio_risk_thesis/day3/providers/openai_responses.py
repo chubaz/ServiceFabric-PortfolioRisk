@@ -23,7 +23,39 @@ from ..prompts import prompt_text
 from .base import StructuredModelProvider
 
 
-def _strict_response_schema(architecture_id: str) -> dict[str, object]:
+def _authoritative_catalogue(payload: dict[str, object]) -> dict[str, tuple[str, ...]]:
+    """Extract the identifiers the model may reference from its exact payload."""
+
+    supplied = payload.get("authoritative_catalogue")
+    catalogue = supplied if isinstance(supplied, dict) else payload
+    metrics = catalogue.get("metrics", {})
+    exposures = catalogue.get("exposures", ())
+    events = catalogue.get("events", ())
+    position_aliases = catalogue.get("position_aliases", ())
+    event_ids = catalogue.get("event_ids", ())
+    evidence = catalogue.get("evidence_refs", payload.get("evidence_refs", ()))
+    return {
+        "metrics": tuple(sorted(str(value) for value in metrics)) if isinstance(metrics, dict) else (),
+        "positions": tuple(sorted(str(value) for value in position_aliases))
+        if isinstance(position_aliases, (list, tuple)) and position_aliases else tuple(sorted(
+            str(item["position_alias"])
+            for item in exposures
+            if isinstance(item, dict) and item.get("position_alias")
+        )) if isinstance(exposures, (list, tuple)) else (),
+        "events": tuple(sorted(str(value) for value in event_ids))
+        if isinstance(event_ids, (list, tuple)) and event_ids else tuple(sorted(
+            str(item["event_id"])
+            for item in events
+            if isinstance(item, dict) and item.get("event_id")
+        )) if isinstance(events, (list, tuple)) else (),
+        "evidence": tuple(sorted(str(value) for value in evidence))
+        if isinstance(evidence, (list, tuple)) else (),
+    }
+
+
+def _strict_response_schema(
+    architecture_id: str, payload: dict[str, object] | None = None
+) -> dict[str, object]:
     schema = ArchitectureReviewOutput.model_json_schema()
     schema["properties"].pop("output_digest", None)
     schema["required"] = list(schema["properties"])
@@ -44,12 +76,58 @@ def _strict_response_schema(architecture_id: str) -> dict[str, object]:
 
     normalize(schema)
     properties = schema["properties"]
-    properties["architecture_id"].pop("enum", None)
-    properties["architecture_id"]["const"] = architecture_id
+    # Responses strict schemas support enums, while JSON Schema ``const`` is
+    # not part of the documented strict subset. Pydantic emits another const
+    # for Literal[True], so normalize both to single-value enums.
+    properties["architecture_id"].pop("const", None)
+    properties["architecture_id"]["enum"] = [architecture_id]
+    properties["human_review_required"].pop("const", None)
+    properties["human_review_required"]["enum"] = [True]
     properties["recommended_next_steps"]["items"]["enum"] = list(NEXT_STEPS)
     properties["effects"]["maxItems"] = 0
+    properties["summary"]["maxLength"] = 700
+    properties["affected_positions"]["maxItems"] = 8
+    properties["metric_refs"]["maxItems"] = 6
+    properties["event_refs"]["maxItems"] = 4
+    properties["evidence_refs"]["maxItems"] = 10
+    properties["supporting_claims"]["maxItems"] = 4
+    properties["contradictory_claims"]["maxItems"] = 2
+    properties["uncertainties"]["maxItems"] = 4
+    properties["recommended_next_steps"]["maxItems"] = 3
     claim_properties = schema["$defs"]["StructuredClaim"]["properties"]
+    claim_properties["statement"]["maxLength"] = 500
+    claim_properties["affected_positions"]["maxItems"] = 8
+    claim_properties["evidence_refs"]["maxItems"] = 4
     claim_properties["evidence_refs"]["minItems"] = 1
+    # Pydantic's Decimal schema includes a string regex with negative
+    # lookaround. Responses strict schemas reject lookaround; JSON numbers are
+    # sufficient because Pydantic validates them into Decimal afterwards.
+    claim_properties["reported_metric_value"]["anyOf"] = [
+        {"type": "number"},
+        {"type": "null"},
+    ]
+    catalogue = _authoritative_catalogue(payload or {})
+
+    def restrict_array(target: dict[str, object], values: tuple[str, ...]) -> None:
+        if values:
+            target["items"] = {"type": "string", "enum": list(values)}
+
+    restrict_array(properties["metric_refs"], catalogue["metrics"])
+    restrict_array(properties["event_refs"], catalogue["events"])
+    restrict_array(properties["affected_positions"], catalogue["positions"])
+    restrict_array(properties["evidence_refs"], catalogue["evidence"])
+    restrict_array(claim_properties["affected_positions"], catalogue["positions"])
+    restrict_array(claim_properties["evidence_refs"], catalogue["evidence"])
+    if catalogue["metrics"]:
+        claim_properties["metric_ref"]["anyOf"] = [
+            {"type": "string", "enum": list(catalogue["metrics"])},
+            {"type": "null"},
+        ]
+    if catalogue["events"]:
+        claim_properties["event_ref"]["anyOf"] = [
+            {"type": "string", "enum": list(catalogue["events"])},
+            {"type": "null"},
+        ]
     return schema
 
 
@@ -58,6 +136,7 @@ def _safe_error_detail(error: Exception) -> str | None:
     values = [
         type(error).__name__,
         str(getattr(error, "code", "") or ""),
+        str(getattr(error, "param", "") or ""),
         str(getattr(error, "status_code", "") or ""),
     ]
     normalized = [
@@ -154,6 +233,7 @@ class OpenAIResponsesProvider(StructuredModelProvider):
                 },
             ],
             "max_output_tokens": self.configuration.maximum_output_tokens,
+            "reasoning": {"effort": "low"},
             "store": False,
             "tools": [],
             "text": {
@@ -161,7 +241,9 @@ class OpenAIResponsesProvider(StructuredModelProvider):
                     "type": "json_schema",
                     "name": "architecture_review",
                     "strict": True,
-                    "schema": _strict_response_schema(request.architecture_id),
+                    "schema": _strict_response_schema(
+                        request.architecture_id, request.payload
+                    ),
                 }
             },
         }

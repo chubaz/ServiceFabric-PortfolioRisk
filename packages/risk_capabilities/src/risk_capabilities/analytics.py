@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 from pydantic import Field, field_validator
 
 from risk_analytics import (
@@ -11,6 +13,10 @@ from risk_analytics import (
     AnalysisMethod,
     ContributionSummary,
     DrawdownResult,
+    DetectorDefinition,
+    DetectorObservation,
+    DetectorRun,
+    DetectorRunCache,
     HistoricalTailRiskResult,
     ReturnSeriesResult,
     RiskReport,
@@ -25,6 +31,7 @@ from risk_analytics import (
     maximum_drawdown,
     render_report,
     summarize_contributions,
+    execute_detector,
 )
 from risk_domain import MarketObservation, PortfolioSnapshot
 
@@ -118,6 +125,34 @@ class ReportRequest(CapabilityContract):
     @property
     def evidence_references(self) -> tuple[EvidenceReference, ...]:
         return evidence_references(self.result.evidence)
+
+
+class DetectorExecutionRequest(CapabilityContract):
+    """Bounded point-in-time input for a registered statistical detector."""
+
+    definition: DetectorDefinition
+    observations: tuple[DetectorObservation, ...] = Field(min_length=1, max_length=500_000)
+    as_of: datetime
+    evidence: tuple[AnalysisEvidence, ...] = Field(min_length=1)
+    cache_root: Path | None = None
+
+    @field_validator("as_of")
+    @classmethod
+    def as_of_is_explicit_utc(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("detector as_of must be timezone-aware")
+        return value.astimezone(UTC)
+
+    @field_validator("cache_root")
+    @classmethod
+    def cache_root_is_absolute(cls, value: Path | None) -> Path | None:
+        if value is not None and not value.is_absolute():
+            raise ValueError("detector cache root must be an absolute local path")
+        return value
+
+    @property
+    def evidence_references(self) -> tuple[EvidenceReference, ...]:
+        return evidence_references(self.evidence)
 
 
 def evidence_references(
@@ -231,4 +266,14 @@ def report(request: ReportRequest) -> RiskReport:
         analysis_id=request.analysis_id,
         title=request.title,
         result=request.result,
+    )
+
+
+def detector_run(request: DetectorExecutionRequest) -> DetectorRun:
+    return execute_detector(
+        request.definition,
+        request.observations,
+        as_of=request.as_of,
+        evidence=request.evidence,
+        cache=DetectorRunCache(request.cache_root) if request.cache_root is not None else None,
     )

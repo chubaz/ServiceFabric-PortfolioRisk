@@ -30,7 +30,7 @@ def test_discovery_surfaces_all_initial_asset_kinds_from_existing_sources() -> N
     }
     assert counts == {
         "agent": 4,
-        "capability": 27,
+        "capability": 28,
         "evaluation": 1,
         "scenario": 3,
         "workflow": 3,
@@ -38,7 +38,7 @@ def test_discovery_surfaces_all_initial_asset_kinds_from_existing_sources() -> N
         "mandate": 3,
         "risk_policy": 3,
     }
-    assert len(items) == 45
+    assert len(items) == 46
     assert len(items) == len({item.identity.reference for item in items})
 
 

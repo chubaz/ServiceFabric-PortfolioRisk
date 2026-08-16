@@ -28,7 +28,7 @@ class ExperimentCase(FrozenModel):
 
 
 class ExperimentalArm(FrozenModel):
-    arm_id: Literal["b0", "a1"]
+    arm_id: Literal["b0", "b1", "a1"]
     role: Literal["baseline", "treatment"]
     name: str
     processing_reference: str
@@ -47,7 +47,7 @@ class ArmRunPlan(FrozenModel):
     schema_version: Literal["portfolio-risk.arm-run-plan/v1"] = "portfolio-risk.arm-run-plan/v1"
     fixture_context_digest: str = Field(pattern=DIGEST)
     cases: tuple[ExperimentCase, ...] = Field(min_length=1)
-    arms: tuple[ExperimentalArm, ...] = Field(min_length=2, max_length=2)
+    arms: tuple[ExperimentalArm, ...] = Field(min_length=3, max_length=3)
     expected_outputs: int = Field(ge=1)
     executable: bool
     blockers: tuple[QualificationIssue, ...] = ()
@@ -55,6 +55,8 @@ class ArmRunPlan(FrozenModel):
 
     @model_validator(mode="after")
     def validate_plan(self) -> "ArmRunPlan":
+        if tuple(item.arm_id for item in self.arms) != ("b0", "b1", "a1"):
+            raise ValueError("an initial thesis plan requires B0, B1 and A1 in that order")
         if self.expected_outputs != len(self.cases) * len(self.arms):
             raise ValueError("expected_outputs must equal cases multiplied by arms")
         if self.executable == bool(self.blockers):
@@ -87,7 +89,7 @@ class LabelReviewGate(FrozenModel):
 
 class MatrixCell(FrozenModel):
     cell_id: str = Field(pattern=IDENTIFIER)
-    arm_id: Literal["b0", "a1"]
+    arm_id: Literal["b0", "b1", "a1"]
     information_regime_reference: str
     repetition: int = Field(ge=0, le=100)
     case_count: int = Field(ge=1)
@@ -134,18 +136,19 @@ def compile_arm_plan(context: FixtureContext, review_dates: tuple[datetime, ...]
             issue_id="point-in-time-prices-unbound",
             area="fixture",
             message="The accepted pricing binding resolves to provider-pricing metadata, not case-level point-in-time market observations.",
-            resolution="Create and review a new Fixture version that binds the exact synthetic market dataset bytes and availability rule.",
+            resolution="Bind the exact read-only market snapshot revision and point-in-time availability rule to every Case before execution.",
         ),
         QualificationIssue(
             issue_id="processing-identities-unqualified",
             area="processing",
-            message="The agent, graph and workflow identities are declared but have not been qualified together as this treatment executor.",
-            resolution="Register and fixture-test the exact A1 processing chain before enabling treatment output generation.",
+            message="The B1 agent and A1 graph identities are declared but have not been qualified together against the common experimental wrapper.",
+            resolution="Register and fixture-test the exact B1 and A1 processing chains before enabling treatment output generation.",
         ),
     )
     arms = (
         ExperimentalArm(arm_id="b0", role="baseline", name=context.object_set.scientific_design.baseline.name, processing_reference=context.object_set.scientific_design.baseline.reference, information_regime_reference=regime, deterministic=True),
-        ExperimentalArm(arm_id="a1", role="treatment", name="Structured single-agent treatment", processing_reference=context.object_set.authority_envelope.processing.reference, information_regime_reference=regime, deterministic=True),
+        ExperimentalArm(arm_id="b1", role="treatment", name="Single-agent treatment", processing_reference=context.object_set.authority_envelope.processing.reference, information_regime_reference=regime, deterministic=False),
+        ExperimentalArm(arm_id="a1", role="treatment", name="Agent-graph treatment", processing_reference=context.object_set.authority_envelope.processing.reference, information_regime_reference=regime, deterministic=False),
     )
     return ArmRunPlan(fixture_context_digest=context.fixture_context_digest, cases=cases, arms=arms, expected_outputs=len(cases) * len(arms), executable=False, blockers=issues)
 

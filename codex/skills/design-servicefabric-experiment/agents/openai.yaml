@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design ServiceFabric Experiment"
+  short_description: "Design governed counterfactual experiments"
+  default_prompt: "Use $design-servicefabric-experiment to design a controlled evaluation or counterfactual experiment."

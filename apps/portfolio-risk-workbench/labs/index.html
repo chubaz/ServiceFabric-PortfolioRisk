@@ -20,8 +20,8 @@
       });
     }
   </script>
-  <link rel="stylesheet" href="./styles.css?v=31">
-  <link rel="stylesheet" href="./professional.css?v=10">
+  <link rel="stylesheet" href="./styles.css?v=39">
+  <link rel="stylesheet" href="./professional.css?v=16">
 </head>
 <body>
   <header class="app-header">
@@ -39,7 +39,8 @@
         <button class="workspace-tab" type="button" data-zone="system" data-workspace="studio">Studios</button>
         <button class="workspace-tab" type="button" data-zone="system" data-workspace="application" data-workbench-root>Workbench</button>
 
-        <button class="workspace-tab hidden" type="button" data-zone="research" data-workspace="experiments">Experiments</button>
+        <button class="workspace-tab hidden" type="button" data-zone="research" data-workspace="demo">Demo</button>
+        <button class="workspace-tab hidden" type="button" data-zone="research" data-workspace="experiments">Experiment Lab</button>
         <button class="workspace-tab hidden" type="button" data-zone="research" data-workspace="artifacts">Saved results</button>
       </nav>
     </div>
@@ -969,29 +970,211 @@ Use information unavailable at the workflow date</textarea></label>
       </div>
     </section>
 
+    <section class="lab-page" id="lab-demo" aria-labelledby="lab-demo-title">
+      <div class="demo-shell">
+        <header class="demo-heading">
+          <div><span class="eyebrow">Professor Demo v0.1</span><h1 id="lab-demo-title">One case. Three methods. Same evidence.</h1><p>Check the frozen case, run B0, B1 and A1, then review one comparable result.</p></div>
+          <button class="button ghost" id="demo-refresh" type="button">Recheck</button>
+        </header>
+
+        <section class="demo-readiness" id="demo-readiness" aria-live="polite">
+          <div class="demo-loading"><span></span><b>Checking licensed data and the frozen case…</b></div>
+        </section>
+
+        <section class="demo-flow hidden" id="demo-flow">
+          <div class="demo-flow-step">
+            <span>1</span>
+            <div><small>Case</small><h2 id="demo-case-title">Loading</h2><p id="demo-case-summary"></p></div>
+            <button class="text-button" id="demo-case-toggle" type="button">View inputs</button>
+          </div>
+          <div class="demo-case-detail hidden" id="demo-case-detail"></div>
+
+          <div class="demo-flow-step">
+            <span>2</span>
+            <div><small>Capabilities</small><h2>Calculate and classify</h2><p>Prices, fundamentals, events, risk metrics, mandate checks, evidence and runtime measurement.</p></div>
+            <strong id="demo-capability-count">—</strong>
+          </div>
+          <div class="demo-capability-list" id="demo-capabilities"></div>
+
+          <div class="demo-flow-step">
+            <span>3</span>
+            <div><small>Methods</small><h2>Compare the architectures</h2><p>Only the architecture changes. The Case, capabilities and evaluation stay fixed.</p></div>
+            <strong>3 Runs</strong>
+          </div>
+          <div class="demo-architecture-grid" id="demo-architectures"></div>
+
+          <div class="demo-action-bar">
+            <div><b>Ready to compare</b><span>Five bounded model calls: one for B1 and four for A1. B0 is deterministic.</span></div>
+            <label><input id="demo-authorize-model" type="checkbox"> Allow the five model calls</label>
+            <button class="button primary" id="demo-run" type="button" disabled>Run comparison</button>
+          </div>
+        </section>
+
+        <section class="demo-results hidden" id="demo-results" aria-live="polite"></section>
+      </div>
+    </section>
+
     <section class="lab-page" id="lab-experiments" aria-labelledby="lab-experiments-title">
       <div class="lab-heading registry-heading experiment-heading">
-        <div><span class="eyebrow">Run and compare</span><h1 id="lab-experiments-title">Experiments</h1><p>Choose real data, assemble an agent setup, run it, and compare the results.</p></div>
-        <div class="registry-heading-actions"><span class="stage-status" id="experiment-status">Not ready</span><button class="button ghost" id="experiment-tutorial-open" type="button">How it works</button><button class="button primary" id="experiment-refresh" type="button">Check readiness</button></div>
+        <div><span class="eyebrow">Experimental Research</span><h1 id="lab-experiments-title">Experiment Lab</h1><p>Validate one canonical Run first. Then reuse the same Case, method and evaluator in a matched counterfactual Experiment.</p></div>
+        <div class="registry-heading-actions"><span class="stage-status" id="experiment-replay-status">Not ready</span><button class="button ghost" id="experiment-tutorial-open" type="button">How it works</button><button class="button primary" id="experiment-refresh" type="button">Check readiness</button></div>
       </div>
       <div id="experiment-issues" aria-live="polite"></div>
 
-      <section class="simple-experiment" aria-label="Experiment readiness">
+      <section class="experiment-route-picker" aria-labelledby="experiment-route-title">
+        <div class="experiment-route-intro"><span class="panel-label">Choose your level</span><h2 id="experiment-route-title">Start small; compare only after the apparatus works</h2><p>A single Run validates the plumbing. An Experiment coordinates matched Runs and produces a terminal comparison.</p></div>
+        <div class="experiment-route-options">
+          <button class="active" type="button" data-experiment-mode="single" aria-pressed="true"><span>01 · Start here</span><b>Validate one Run</b><small>One Case · one method · one evaluation · one retained output</small></button>
+          <i aria-hidden="true">→</i>
+          <button type="button" data-experiment-mode="experiment" aria-pressed="false"><span>02 · Then compare</span><b>Build an Experiment</b><small>One question · matched Run matrix · terminal counterfactual analysis</small></button>
+        </div>
+      </section>
+
+      <section class="experiment-readiness" aria-label="Experiment apparatus readiness">
         <div class="simple-experiment-notice" id="replay-notice"><b>Checking the licensed data.</b><span>Development samples and automated tests are never shown as research results.</span></div>
         <div class="replay-data-grid" id="replay-datasets"><div class="empty-state">Checking CRSP, Compustat and RavenPack.</div></div>
+      </section>
+
+      <section class="experiment-mode-panel active" data-experiment-mode-panel="single" aria-labelledby="single-run-title">
+        <header class="single-run-intro">
+          <div><span class="panel-label">Apparatus validation</span><h2 id="single-run-title">Run one cell end to end</h2><p>Confirm that the selected method can read the frozen Case, produce the common ArchitectureOutput, complete the nine-dimension evaluation and retain its evidence.</p></div>
+          <div class="single-run-boundary"><b>What this establishes</b><span>Execution and persistence work for this exact cell.</span><small>It does not establish a comparative, causal or “best method” claim.</small></div>
+        </header>
         <form class="replay-form" id="replay-form">
-          <section id="replay-step-workflow"><span class="replay-step">1</span><div><h2>Workflow</h2><p>Choose a method from the Registry.</p><label class="field"><span>Method</span><select id="replay-workflow" required disabled></select><small id="replay-workflow-note"></small></label></div></section>
-          <section id="replay-step-portfolio"><span class="replay-step">2</span><div><h2>Portfolio + mandate</h2><p>Choose the holdings and their reviewed monitoring rules together.</p><label class="field"><span>Selection</span><select id="replay-portfolio" required disabled></select><small id="replay-portfolio-note"></small></label></div></section>
-          <section id="replay-step-dates"><span class="replay-step">3</span><div><h2>Dates</h2><p>The replay clock only uses information available by each date.</p><div class="replay-date-fields"><label class="field"><span>Start</span><input id="replay-start" type="date" required disabled></label><label class="field"><span>End</span><input id="replay-end" type="date" required disabled></label></div><small id="replay-period-note"></small></div></section>
-          <section id="replay-step-evaluation"><span class="replay-step">4</span><div><h2>Evaluation</h2><p>Score what this dry run can establish and mark anything requiring labels or decisions as unavailable.</p><label class="field"><span>Method</span><select id="replay-evaluation" required disabled></select><small id="replay-evaluation-note"></small></label></div></section>
-          <div class="replay-actions" id="replay-run-actions"><label class="replay-save-choice"><input id="replay-save" type="checkbox" checked><span>Save this run</span></label><label class="replay-save-choice hidden" id="replay-model-consent"><input id="replay-authorize-model" type="checkbox"><span>Allow this run to send bounded derived context to OpenAI</span></label><button class="button primary" id="replay-run" type="submit" disabled>Run historical replay</button><span id="replay-run-hint">Waiting for the licensed data check.</span></div>
+          <section id="replay-step-workflow"><span class="replay-step">1</span><div><h2>Method</h2><p>Begin with B0 to validate the apparatus without a model call; then test B1 or A1 explicitly.</p><label class="field"><span>Registered method</span><select id="replay-workflow" required disabled></select><small id="replay-workflow-note"></small></label></div></section>
+          <section id="replay-step-portfolio"><span class="replay-step">2</span><div><h2>Case</h2><p>Freeze the portfolio and reviewed mandate that every later comparison will share.</p><label class="field"><span>Portfolio + mandate</span><select id="replay-portfolio" required disabled></select><small id="replay-portfolio-note"></small></label></div></section>
+          <section id="replay-step-dates"><span class="replay-step">3</span><div><h2>Observation window</h2><p>The replay clock admits only information available by each date.</p><div class="replay-date-fields"><label class="field"><span>Start</span><input id="replay-start" type="date" required disabled></label><label class="field"><span>End</span><input id="replay-end" type="date" required disabled></label></div><small id="replay-period-note"></small></div></section>
+          <section id="replay-step-evaluation"><span class="replay-step">4</span><div><h2>Evaluation</h2><p>Measure what the retained output supports and preserve unavailable outcomes honestly.</p><label class="field"><span>Evaluation protocol</span><select id="replay-evaluation" required disabled></select><small id="replay-evaluation-note"></small></label></div></section>
+          <div class="replay-actions" id="replay-run-actions"><label class="replay-save-choice"><input id="replay-save" type="checkbox" checked><span>Save this Run and its evidence</span></label><label class="replay-save-choice hidden" id="replay-model-consent"><input id="replay-authorize-model" type="checkbox"><span>Allow this Run to send bounded derived context to OpenAI</span></label><button class="button primary" id="replay-run" type="submit" disabled>Validate this Run</button><span id="replay-run-hint" aria-live="polite">Waiting for the licensed data check.</span></div>
         </form>
+        <section class="replay-programme-position" aria-label="Research programme position">
+          <header><div><span class="panel-label">Exact comparison cell</span><h2>What this Run fixes and varies</h2></div><span class="truth-chip" id="replay-programme-status">Loading</span></header>
+          <p id="replay-programme-purpose">Loading the registered comparison structure.</p>
+          <div class="replay-programme-grid" id="replay-programme-context"><div class="empty-state">Checking the baseline and classification registry.</div></div>
+          <small>Changing a fixed context creates a new Case or configuration. Earlier saved Runs remain immutable.</small>
+        </section>
+        <section class="single-run-handoff">
+          <div><span class="panel-label">Next step</span><h2>Turn the validated cell into a comparison</h2><p>Copy this method, Case, window and evaluator into the Experiment designer. Add B0 or a treatment there; do not rebuild the setup by hand.</p></div>
+          <button class="button primary" id="single-run-use-in-experiment" type="button">Use setup in an Experiment</button>
+        </section>
         <section class="replay-saved" aria-label="Saved experiment runs">
-          <div><b>Saved runs</b><span>Reload a previous result without running it again.</span></div>
+          <div><b>Saved Runs</b><span>Reload retained evidence without repeating execution.</span></div>
           <select id="replay-saved-select" aria-label="Saved experiment run"><option value="">No saved runs</option></select>
-          <button class="button ghost" id="replay-load-saved" type="button" disabled>Load</button>
+          <button class="button ghost" id="replay-load-saved" type="button" disabled>Load Run</button>
         </section>
         <section class="replay-results hidden" id="replay-results" aria-live="polite"></section>
+      </section>
+
+      <section class="counterfactual-studio" data-experiment-mode-only="experiment" aria-label="Hierarchical Experiment workspace" hidden>
+        <header class="experiment-object-context">
+          <div><span>Study</span><b id="experiment-context-study">Portfolio risk architecture study</b></div>
+          <i aria-hidden="true">›</i>
+          <div><span>Experiment</span><b id="experiment-context-experiment">Architecture counterfactual 01</b></div>
+          <div class="experiment-context-rule"><span>Scientific hierarchy</span><b>Study → Experiment → Case → Run</b><small>Regime classifies Cases across the hierarchy.</small></div>
+        </header>
+        <nav class="experiment-view-tabs" aria-label="Experiment workspace views">
+          <button class="active" type="button" data-experiment-view="design" aria-selected="true"><span>01</span><b>Find cases</b><small>Question and eligible setup</small></button>
+          <button type="button" data-experiment-view="cases" aria-selected="false"><span>02</span><b>Review case</b><small>Label sample first</small></button>
+          <button type="button" data-experiment-view="runs" aria-selected="false"><span>03</span><b>Run comparison</b><small>Matched architecture cells</small></button>
+          <button type="button" data-experiment-view="analysis" aria-selected="false"><span>04</span><b>Compare results</b><small>Evaluation and limitations</small></button>
+        </nav>
+      </section>
+
+      <section class="simple-experiment experiment-view-panel active" data-experiment-panel="design" data-experiment-mode-only="experiment" aria-label="Experiment Design" hidden>
+        <div class="counterfactual-design-grid">
+          <form class="counterfactual-builder" id="counterfactual-batch-form">
+            <div class="panel-heading"><div><span class="panel-label">Standalone experiment definition</span><h2>Architecture counterfactual</h2></div><span class="truth-chip">First executable slice</span></div>
+            <div class="counterfactual-builder-progress" aria-label="Experiment design steps"><span><b>1</b>Question</span><i></i><span><b>2</b>Treatments</span><i></i><span><b>3</b>Case</span><i></i><span><b>4</b>Execute</span></div>
+            <div class="counterfactual-intent-grid">
+              <label class="field"><span>Study title</span><input id="counterfactual-study-title" value="Portfolio risk architecture study" required></label>
+              <label class="field"><span>Study ID</span><input id="counterfactual-study-id" value="study-portfolio-risk-01" pattern="[a-z0-9][a-z0-9._-]*" required></label>
+              <label class="field experiment-full"><span>Experiment ID</span><input id="counterfactual-experiment-id" value="experiment-architecture-counterfactual-01" pattern="[a-z0-9][a-z0-9._-]*" required></label>
+              <label class="field experiment-full"><span>Research question</span><textarea id="counterfactual-question" rows="2" required>How does architecture change the assessment of the same point-in-time portfolio-risk Case?</textarea></label>
+              <label class="field experiment-full"><span>Hypothesis</span><textarea id="counterfactual-hypothesis" rows="2" required>Agent treatments produce different retained observations while preserving the same Case, information boundary and evaluation protocol.</textarea></label>
+            </div>
+            <fieldset class="counterfactual-treatment-picker">
+              <legend>Architecture treatments</legend>
+              <p>B0 is the fixed baseline. Every selected treatment receives the same Case and evaluation contract.</p>
+              <div>
+                <label><input type="checkbox" value="B0" data-counterfactual-workflow checked disabled><span><b>B0 · Deterministic</b><small>Fixed-rule reference</small></span></label>
+                <label><input type="checkbox" value="B1" data-counterfactual-workflow checked><span><b>B1 · Single agent</b><small>One final decision agent</small></span></label>
+                <label><input type="checkbox" value="A1" data-counterfactual-workflow checked><span><b>A1 · Agent graph</b><small>Specialists and synthesis</small></span></label>
+              </div>
+            </fieldset>
+            <div class="counterfactual-controls-grid">
+              <label class="field"><span>Case · portfolio + mandate</span><select id="counterfactual-portfolio" required disabled></select></label>
+              <label class="field"><span>Evaluation</span><select id="counterfactual-evaluation" required disabled></select></label>
+              <label class="field"><span>Start</span><input id="counterfactual-start" type="date" required disabled></label>
+              <label class="field"><span>End</span><input id="counterfactual-end" type="date" required disabled></label>
+              <label class="field"><span>Identical repetitions</span><select id="counterfactual-repetitions"><option value="1">1 · apparatus pass</option><option value="2">2 · compare stability</option><option value="3">3 · compare stability</option></select></label>
+              <label class="field"><span>Maximum concurrency</span><select id="counterfactual-concurrency"><option value="3">3 Run cells</option><option value="2">2 Run cells</option><option value="1">1 Run cell</option></select></label>
+            </div>
+            <label class="counterfactual-consent"><input id="counterfactual-authorize-model" type="checkbox"><span><b>Authorize model treatments for this batch</b><small>B1 and A1 send only the bounded, derived context permitted by the existing Run contract.</small></span></label>
+            <div class="counterfactual-run-actions"><button class="button primary" id="counterfactual-run" type="submit" disabled>Run counterfactual batch</button><span id="counterfactual-run-hint">Waiting for readiness.</span></div>
+          </form>
+          <aside class="counterfactual-matrix-preview">
+            <div class="panel-heading"><div><span class="panel-label">Predeclared matrix</span><h2>Run plan</h2></div><strong id="counterfactual-run-count">0 Runs</strong></div>
+            <div id="counterfactual-matrix-preview"><div class="empty-state">Choose the Case and treatments to compile the matrix.</div></div>
+            <div class="counterfactual-control-note"><b>Held constant</b><span>Portfolio quantities, mandate, data revision, point-in-time boundary, information regime and evaluation protocol.</span></div>
+            <button class="button ghost btn-block" id="experiment-test-one-cell" type="button">Validate the B0 cell first</button>
+          </aside>
+        </div>
+        <section class="case-signal-preview" aria-labelledby="case-signal-title">
+          <div><span class="panel-label">Licensed market history</span><h2 id="case-signal-title">Find unusual moves</h2><p>Scan the selected portfolio and period before deciding which cases deserve review.</p></div>
+          <div class="case-signal-actions"><button class="button primary" id="case-signal-run" type="button" disabled>Scan this period</button><button class="button ghost" id="case-label-prepare" type="button" hidden>Prepare review sample</button></div>
+          <div class="case-signal-results" id="case-signal-results"><span>Choose a portfolio and period, then run the scan.</span></div>
+        </section>
+        <details class="counterfactual-dimensions" aria-labelledby="counterfactual-dimensions-title">
+          <summary><div><span class="panel-label">Design reference</span><h2 id="counterfactual-dimensions-title">Explore all comparison dimensions</h2><p>Open this map when choosing the next Experiment—not while completing the current architecture comparison.</p></div><span>12 dimensions · 9 outcomes</span></summary>
+          <div class="counterfactual-design-reference-body">
+            <header><div><span class="panel-label">Experiment design map</span><h2>What changes, what groups results, and what is measured</h2></div><p>Each experiment changes one main dimension. A second dimension is varied only when testing a deliberate interaction.</p></header>
+            <div class="counterfactual-design-rule" id="counterfactual-design-rule">Loading the comparison rule.</div>
+            <div class="counterfactual-dimension-map" id="counterfactual-dimension-list"><div class="empty-state">Loading the governed comparison taxonomy.</div></div>
+            <section class="counterfactual-outcome-map" aria-labelledby="counterfactual-outcomes-title">
+              <div><span class="panel-label">Measured after every Run</span><h3 id="counterfactual-outcomes-title">Evaluation outcomes</h3><p>These are results, not experimental treatments.</p></div>
+              <div id="counterfactual-outcome-list"><div class="empty-state">Loading evaluation outcomes.</div></div>
+            </section>
+            <section class="counterfactual-programme-map" aria-labelledby="counterfactual-programme-title">
+              <div><span class="panel-label">Bounded thesis programme</span><h3 id="counterfactual-programme-title">Build comparisons sequentially</h3><p>The first slice is executable. Later comparisons remain visible without creating the full Cartesian product.</p></div>
+              <ol id="counterfactual-programme-list"><li>Loading programme.</li></ol>
+            </section>
+          </div>
+        </details>
+      </section>
+
+      <section class="experiment-view-panel" data-experiment-panel="cases" data-experiment-mode-only="experiment" aria-labelledby="counterfactual-cases-title" hidden>
+        <header class="experiment-view-heading"><div><span class="panel-label">Pre-experiment reference work</span><h2 id="counterfactual-cases-title">Label an informative sample</h2></div><p>Review selected market moves, revise them when needed, and obtain an independent check before any Gold case or experimental Case is prepared.</p></header>
+        <div class="label-workspace-toolbar"><label class="field"><span>Saved review sample</span><select id="case-label-batch-select"><option value="">No saved samples</option></select></label><button class="button ghost" id="case-label-load" type="button" disabled>Load</button><button class="button ghost" id="case-context-check" type="button" disabled>Check sources</button><span id="case-label-boundary">No Gold cases are created here.</span></div>
+        <div id="case-context-readiness" class="case-context-readiness" hidden></div>
+        <div class="label-workspace" id="case-label-workspace">
+          <aside class="label-review-queue"><div class="empty-state">Prepare a review sample from Find cases.</div></aside>
+          <section class="label-review-editor"><div class="empty-state">Choose one selected move to label.</div></section>
+        </div>
+        <div id="counterfactual-cases" hidden></div>
+      </section>
+
+      <section class="experiment-view-panel" data-experiment-panel="runs" data-experiment-mode-only="experiment" aria-labelledby="counterfactual-runs-title" hidden>
+        <header class="experiment-view-heading"><div><span class="panel-label">Matched comparison</span><h2 id="counterfactual-runs-title">Prepare the Runs</h2></div><p>Compile the exact B0, B1 and A1 comparison before authorising execution.</p></header>
+        <section class="matched-run-planner" id="matched-run-planner">
+          <form id="matched-run-form">
+            <label class="field"><span>Accepted Case</span><select id="matched-run-case" required disabled><option value="">Loading Cases</option></select></label>
+            <label class="field"><span>Evidence available to each Run</span><select id="matched-run-package" required disabled><option value="">Loading packages</option></select></label>
+            <label class="field compact"><span>Repetitions</span><select id="matched-run-repetitions"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select></label>
+            <label class="field compact"><span>Identity</span><select id="matched-run-identity"><option value="named_historical">Named</option><option value="anonymized_historical">Anonymized</option></select></label>
+            <label class="matched-run-authorization"><input id="matched-run-authorize" type="checkbox"><span><b>Authorise model calls later</b><small>Compilation itself never calls a model.</small></span></label>
+            <label class="matched-run-authorization"><input id="matched-run-perturb" type="checkbox" checked><span><b>Test delayed evidence</b><small>Runs the same methods after one adverse event is delayed by one cycle.</small></span></label>
+            <button class="button primary" id="matched-run-compile" type="submit" disabled>Compile plan</button>
+          </form>
+          <div id="matched-run-review"><div class="empty-state">Loading accepted Cases.</div></div>
+        </section>
+        <div id="counterfactual-run-matrix"><div class="empty-state">No counterfactual batch has been executed.</div></div>
+        <aside id="counterfactual-run-detail"><div class="empty-state">Select a completed Run to inspect its hierarchy and evaluation dimensions.</div></aside>
+      </section>
+
+      <section class="experiment-view-panel" data-experiment-panel="analysis" data-experiment-mode-only="experiment" aria-labelledby="counterfactual-analysis-title" hidden>
+        <header class="experiment-view-heading"><div><span class="panel-label">Independent evaluation</span><h2 id="counterfactual-analysis-title">What the comparison shows</h2></div><div class="matched-saved-picker"><select id="matched-saved-select" aria-label="Saved comparison"><option value="">Saved comparisons</option></select><button class="button ghost" id="matched-saved-open" type="button" disabled>Open</button><button class="button ghost" id="matched-evaluation-refresh" type="button">Refresh</button></div></header>
+        <div class="counterfactual-saved-analysis" hidden><label class="field"><span>Legacy saved analysis</span><select id="counterfactual-saved-select"><option value="">No saved analyses</option></select></label><button class="button ghost" id="counterfactual-load-saved" type="button" disabled>Load analysis</button></div>
+        <div id="counterfactual-analysis"><div class="empty-state">Complete the matched Runs to evaluate what was actually measured.</div></div>
       </section>
 
       <details class="experiment-advanced" hidden>
@@ -1121,16 +1304,16 @@ Use information unavailable at the workflow date</textarea></label>
       <dialog class="experiment-tutorial" id="experiment-tutorial" aria-labelledby="experiment-tutorial-title">
         <form method="dialog"><button class="experiment-tutorial-close" value="close" aria-label="Close tutorial">×</button></form>
         <span class="eyebrow">Experiment guide</span>
-        <h2 id="experiment-tutorial-title">How the experiment will work</h2>
-        <p>Every method receives the same data and portfolio rules. The system then compares the warnings each method produced.</p>
+        <h2 id="experiment-tutorial-title">From a working Run to a credible comparison</h2>
+        <p>The Lab has two connected paths. Validate one canonical Run first; only then compose matched Runs into a counterfactual Experiment.</p>
         <ol>
-          <li><span>1</span><div><b>Choose real historical data</b><p>Select the test period and the information that would have been available on each date.</p></div></li>
-          <li><span>2</span><div><b>Choose the portfolio rules</b><p>Select the portfolio, mandate, risk limits and actions the methods may recommend.</p></div></li>
-          <li><span>3</span><div><b>Run the three methods</b><p>Compare rules, a fixed workflow and an LLM using exactly the same cases.</p></div></li>
-          <li><span>4</span><div><b>Measure the warnings</b><p>Calculate accuracy, timing, missed risks, failures and cost using reviewed labels.</p></div></li>
-          <li><span>5</span><div><b>Save the result</b><p>Keep the structured output, case details and run files together so the result can be checked later.</p></div></li>
+          <li><span>1</span><div><b>Validate a single B0 Run</b><p>Freeze one Case, execute the deterministic method, inspect all outputs and retain the evidence. This proves the apparatus—not the hypothesis.</p></div></li>
+          <li><span>2</span><div><b>Reuse the exact setup</b><p>Send the method, Case, dates and evaluator into the Experiment designer instead of recreating them manually.</p></div></li>
+          <li><span>3</span><div><b>Predeclare the comparison</b><p>Write the Study, question and hypothesis; select B0 and at least one treatment; review the held-constant controls and expected Run count.</p></div></li>
+          <li><span>4</span><div><b>Execute matched Runs</b><p>Independent cells may run concurrently, but each keeps its own identity, output, trace and evaluation. Failed cells stay visible.</p></div></li>
+          <li><span>5</span><div><b>Read the terminal analysis</b><p>Inspect paired contrasts, stability, Regime conditioning, confounds and unavailable outcomes. The analysis never rewrites a source Run.</p></div></li>
         </ol>
-        <div class="experiment-tutorial-boundary"><b>Current state</b><span>The user-facing research run is not connected yet. The page will remain blocked until real historical data, a portfolio and the three methods are available.</span><span>Development samples may still be used by automated software tests, but they will not appear as research results.</span></div>
+        <div class="experiment-tutorial-boundary"><b>Current executable slice</b><span>Single Runs and architecture comparisons with optional identical repetitions can run over the licensed historical apparatus. Information, capability, decision-policy and financial counterfactuals remain design references until their treatment contracts are admitted.</span><span>A successful single Run is a prerequisite signal, not comparative evidence. Development samples and software tests never appear as research results.</span></div>
       </dialog>
     </section>
 
@@ -1813,6 +1996,6 @@ checkpoint store and server route are connected, selecting it returns BLOCKED.</
   </dialog>
 
   <script src="./app.js"></script>
-  <script src="./labs.js?v=44"></script>
+  <script src="./labs.js?v=55"></script>
 </body>
 </html>

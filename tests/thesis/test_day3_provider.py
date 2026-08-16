@@ -60,15 +60,32 @@ def test_openai_request_is_strict_tool_free_unstored_and_contains_no_key(monkeyp
     encoded = json.dumps(captured, sort_keys=True)
     assert captured["store"] is False
     assert captured["tools"] == []
+    assert captured["reasoning"] == {"effort": "low"}
     assert captured["text"]["format"]["strict"] is True
     schema = captured["text"]["format"]["schema"]
-    assert schema["properties"]["architecture_id"]["const"] == "B1"
+    assert schema["properties"]["architecture_id"]["enum"] == ["B1"]
+    assert "const" not in schema["properties"]["architecture_id"]
+    assert schema["properties"]["human_review_required"]["enum"] == [True]
     assert schema["properties"]["recommended_next_steps"]["items"]["enum"]
     assert schema["properties"]["effects"]["maxItems"] == 0
+    assert schema["properties"]["supporting_claims"]["maxItems"] == 4
+    assert schema["properties"]["contradictory_claims"]["maxItems"] == 2
+    assert schema["properties"]["evidence_refs"]["maxItems"] == 10
     assert (
         schema["$defs"]["StructuredClaim"]["properties"]["evidence_refs"]["minItems"]
         == 1
     )
+    metric_value_schema = schema["$defs"]["StructuredClaim"]["properties"]["reported_metric_value"]
+    assert metric_value_schema["anyOf"] == [{"type": "number"}, {"type": "null"}]
+    claim_schema = schema["$defs"]["StructuredClaim"]["properties"]
+    expected_metrics = sorted(bundle().metrics)
+    assert schema["properties"]["metric_refs"]["items"]["enum"] == expected_metrics
+    assert claim_schema["metric_ref"]["anyOf"][0]["enum"] == expected_metrics
+    assert schema["properties"]["affected_positions"]["items"]["enum"] == [
+        "position-001", "position-002",
+    ]
+    assert schema["properties"]["event_refs"]["items"]["enum"] == ["event-001"]
+    assert claim_schema["evidence_refs"]["items"]["enum"]
     assert captured["temperature"] == 0
     assert "secret-test-key" not in encoded
     assert result.receipts[0].input_tokens == 10

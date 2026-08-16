@@ -14,12 +14,14 @@ from pydantic import Field, field_validator, model_validator
 from risk_analytics import AnalysisMethod
 from risk_data import IngestionRun, NormalizedMarketRecord
 from risk_domain import CashBalance, ExposureSnapshot, PortfolioSnapshot, Position, PositionExposure, SourceReference
+from risk_domain.digests import sha256_digest
 from risk_planning import PlanningCatalog
 
 from .contracts import CapabilityContract, EvidenceReference
 from .analytics import (
     ContributionSummaryRequest,
     DerivedReturnsRequest,
+    DetectorExecutionRequest,
     HistoricalTailRiskRequest,
     ReportRequest,
     ReturnsRequest,
@@ -27,6 +29,7 @@ from .analytics import (
     VolatilityRequest,
     contributions,
     drawdown,
+    detector_run,
     log_returns,
     report,
     scenario,
@@ -212,6 +215,7 @@ CAPABILITY_REQUEST_TYPES = MappingProxyType(
         "portfolio.snapshot.create": PortfolioSnapshotRequest,
         "portfolio.exposure.summarize": ExposureSummaryRequest,
         "market.anomaly.detect": AnomalyDetectionRequest,
+        "market.anomaly.scan": DetectorExecutionRequest,
         "news.event.classify": NewsClassificationRequest,
         "alert.draft.synthesize": AlertSynthesisRequest,
         "alert.draft.review": AlertReviewRequest,
@@ -369,6 +373,25 @@ def calculate_simple_returns(request: ReturnsRequest) -> CapabilityResult[Any]:
     return _analytics_result("risk.returns.simple", request, simple_returns(request))
 
 
+def scan_market_anomalies(request: DetectorExecutionRequest) -> CapabilityResult[Any]:
+    output = detector_run(request)
+    return CapabilityResult(
+        capability_id="market.anomaly.scan",
+        data=output,
+        evidence_references=request.evidence_references,
+        assumptions=(
+            "Each score uses only observations eligible at its explicit as_of boundary.",
+            "The supplied benchmark is a declared statistical residualization input, not a causal model.",
+        ),
+        warnings=tuple(output.quality_flags),
+        limitations=(
+            "A statistical signal is not a risk episode, materiality conclusion, finding, or alert.",
+        ),
+        output_digest=output.output_digest,
+        human_review_required=True,
+    )
+
+
 def calculate_log_returns(request: ReturnsRequest) -> CapabilityResult[Any]:
     return _analytics_result("risk.returns.log", request, log_returns(request))
 
@@ -421,6 +444,9 @@ class CapabilityInvocationRecord(CapabilityContract):
     capability_id: str
     status: Literal["succeeded", "failed", "stopped"]
     evidence_references: tuple[EvidenceReference, ...]
+    request_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    output_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    cache_key: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
 
 
 class CapabilityRegistry:
@@ -433,6 +459,7 @@ class CapabilityRegistry:
             "portfolio.snapshot.create": create_portfolio_snapshot,
             "portfolio.exposure.summarize": summarize_exposure,
             "market.anomaly.detect": detect_market_anomalies,
+            "market.anomaly.scan": scan_market_anomalies,
             "news.event.classify": classify_news_event,
             "alert.draft.synthesize": synthesize_alert_draft,
             "alert.draft.review": review_alert_draft,
@@ -484,7 +511,17 @@ class CapabilityRegistry:
             result = CapabilityResult(capability_id=capability_id, status="failed", evidence_references=getattr(request, "evidence_references", ()), warnings=(str(error),))
         if result.capability_id != capability_id:
             raise ValueError("capability handler returned a mismatched capability ID")
-        self._history.append(CapabilityInvocationRecord(sequence=len(self._history), capability_id=capability_id, status=result.status, evidence_references=result.evidence_references))
+        self._history.append(
+            CapabilityInvocationRecord(
+                sequence=len(self._history),
+                capability_id=capability_id,
+                status=result.status,
+                evidence_references=result.evidence_references,
+                request_digest=sha256_digest(request),
+                output_digest=result.output_digest or sha256_digest(result),
+                cache_key=getattr(result.data, "cache_key", None),
+            )
+        )
         return result
 
 

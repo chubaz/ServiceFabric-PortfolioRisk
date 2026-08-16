@@ -523,12 +523,57 @@ class RuntimeObservation(FrozenModel):
     _available = field_validator("available_at")(_utc)
 
 
+class EvaluationMetricResult(FrozenModel):
+    """One auditable measurement inside an evaluation dimension.
+
+    A metric is never silently coerced to zero.  The numerator, denominator,
+    unit, reference and limitations travel with the value so a human or coding
+    assistant can reconstruct exactly what was—and was not—measured.
+    """
+
+    metric_id: str = Field(pattern=IDENTIFIER)
+    label: str = Field(min_length=2, max_length=200)
+    status: Literal["measured", "not_measurable", "not_applicable"]
+    value: float | int | str | bool | None = None
+    numerator: float | int | None = None
+    denominator: float | int | None = None
+    unit: str = Field(pattern=IDENTIFIER)
+    method: str = Field(min_length=3, max_length=1200)
+    reference_ids: tuple[str, ...] = ()
+    limitations: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def measurement_is_explicit(self) -> "EvaluationMetricResult":
+        if self.status == "measured" and self.value is None:
+            raise ValueError("a measured evaluation metric requires a value")
+        if self.status != "measured" and any(
+            value is not None for value in (self.value, self.numerator, self.denominator)
+        ):
+            raise ValueError("an unavailable evaluation metric cannot carry a numeric result")
+        if self.denominator is not None and self.denominator <= 0:
+            raise ValueError("an evaluation metric denominator must be positive")
+        if self.reference_ids != tuple(sorted(set(self.reference_ids))):
+            raise ValueError("evaluation metric references must be unique and sorted")
+        return self
+
+
 class EvaluationDimensionRecord(FrozenModel):
     dimension_id: str = Field(pattern=IDENTIFIER)
     status: Literal["measured", "partial", "not_measurable", "not_applicable"]
     score: float | None = Field(default=None, ge=0, le=1)
     summary: str = Field(min_length=3, max_length=1500)
     metric_values: dict[str, float | int | str | bool | None]
+    metrics: tuple[EvaluationMetricResult, ...] = ()
+    limitations: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def score_is_supported(self) -> "EvaluationDimensionRecord":
+        if self.status in {"not_measurable", "not_applicable"} and self.score is not None:
+            raise ValueError("an unavailable evaluation dimension cannot have a score")
+        metric_ids = tuple(item.metric_id for item in self.metrics)
+        if len(metric_ids) != len(set(metric_ids)):
+            raise ValueError("evaluation dimension metrics must be unique")
+        return self
 
 
 class EvaluationRecord(FrozenModel):

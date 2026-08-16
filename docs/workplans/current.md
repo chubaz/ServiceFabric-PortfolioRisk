@@ -1,5 +1,13 @@
 # Current Workplan
 
+- Completed bounded slice: Session 10 is accepted. The authorised ADX Case now has a 12-cell B0/B1/A1 comparison spanning two repetitions and a predeclared delayed-evidence perturbation. All 72 runtime checks pass; stability and robustness are measured, unavailable dimensions remain explicit, and the content-addressed comparison bundle reopens and reproduces from its exact manifest.
+- Ten-session contract: `config/agent/thesis-risk-episodes/ten-session-development-contract.yaml`
+- Latest handoff: `docs/handoffs/thesis-risk-episodes/session-10.md`
+- Matched-run result: one saved Gold-backed `ExperimentalCase` can now compile into an immutable, non-executing B0/B1/A1 matrix. The same observable Case, information boundary and capability package are sealed across cells; architecture, package, repetition and identity treatment are the only declared variables. The UI projects runs, calls, tokens, time and cost before any execution.
+- Session 8 handoff: `docs/handoffs/thesis-risk-episodes/session-08.md`. The kernel and licensed-source adapter drive the same real 16-cycle ADX stream through B0, B1 and A1. B1 used 4 calls/$0.010899; A1 used 16 calls/$0.028659. The compact comparison surface reads retained summaries and expandable cycle timelines without exposing internal contracts.
+- Session 9 handoff: `docs/handoffs/thesis-risk-episodes/session-09.md`. The deterministic evaluator joins hidden Gold truth only after execution, persists one EvaluationRecord per Run, proves 18/18 runtime checks, and exposes measured, unavailable and limited evidence before results. B0 evidence quality was 1.00; B1/A1 were 0.67 because they did not keep the reviewed alternative evidence distinct.
+- Case-reference result: the authorised ADX label and evidence review produced Gold reference `gold-reference-badf3e74133680390c59a8e4` and Case `experimental-case-315cc68cc801237c326a599b`. Gold truth stays hidden; the architecture receives all 16 historically eligible observations, not merely the two retained Gold evidence items.
+- Case-framework interface rule: one existing Experiment page with Find cases, Review case, Run comparison, and Compare results; developer contracts and receipts are not rendered.
 - Active bounded development: first historical research experiment
 - Prototype readiness: docs/thesis/prototype-readiness.md
 - Prototype tutorial: docs/tutorials/thesis-experiment-v0/README.md
