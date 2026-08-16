@@ -2186,7 +2186,7 @@ def platform_workspaces() -> dict[str, Any]:
         "saved_definitions": saved,
         "saved_counts": saved_counts,
         "risk_analysis_packages": analysis_packages,
-        "portfolios": data_plane.public_portfolios(),
+        "portfolios": _licensed_portfolio_projection()["portfolios"],
         "fixture_profiles": [
             {
                 "fixture_id": "licensed_real",
@@ -4307,6 +4307,38 @@ def _experiment_definition_registry_assets(
     )
 
 
+def _licensed_portfolio_projection() -> dict[str, Any]:
+    """Describe licensed portfolios without making metadata depend on private data.
+
+    Public CI and development installations may not mount the licensed
+    CRSP/Compustat root. Metadata views must remain usable in that state, while
+    the data and query endpoints continue to fail explicitly when invoked.
+    """
+
+    try:
+        selection = data_plane.selection
+        portfolios = data_plane.public_portfolios()
+    except RuntimeError:
+        return {
+            "available": False,
+            "status": "unavailable",
+            "unavailable_reason": "licensed data root is not configured",
+            "selection_id": None,
+            "source_snapshot_id": None,
+            "selection_digest": None,
+            "portfolios": [],
+        }
+    return {
+        "available": True,
+        "status": "available",
+        "unavailable_reason": None,
+        "selection_id": selection["selection_id"],
+        "source_snapshot_id": selection["source_snapshot_id"],
+        "selection_digest": selection["candidate_artifact"]["sha256"],
+        "portfolios": portfolios,
+    }
+
+
 def _experiment_options_payload() -> dict[str, Any]:
     assets = [
         {
@@ -4320,9 +4352,10 @@ def _experiment_options_payload() -> dict[str, Any]:
         }
         for document in _experiment_registry_documents()
     ]
-    selection_id = data_plane.selection["selection_id"]
-    snapshot_id = data_plane.selection["source_snapshot_id"]
-    selection_digest = data_plane.selection["candidate_artifact"]["sha256"]
+    licensed = _licensed_portfolio_projection()
+    selection_id = licensed["selection_id"]
+    snapshot_id = licensed["source_snapshot_id"]
+    selection_digest = licensed["selection_digest"]
     real_portfolios = [
         {
             "portfolio_id": item["portfolio_id"],
@@ -4333,7 +4366,7 @@ def _experiment_options_payload() -> dict[str, Any]:
             "data_truth": "licensed_real",
             "data_revision_reference": f"dataset-snapshot:{snapshot_id}",
         }
-        for item in data_plane.public_portfolios()
+        for item in licensed["portfolios"]
     ]
     simulated_portfolios = [
         {
@@ -4373,7 +4406,9 @@ def _experiment_options_payload() -> dict[str, Any]:
         },
         "portfolios": [*real_portfolios, *synthetic_portfolios, *simulated_portfolios],
         "licensed_data": {
-            "available": bool(real_portfolios),
+            "available": licensed["available"],
+            "status": licensed["status"],
+            "unavailable_reason": licensed["unavailable_reason"],
             "source_snapshot_id": snapshot_id,
             "selection_id": selection_id,
             "access": "read_only",

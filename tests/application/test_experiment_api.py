@@ -65,6 +65,39 @@ def test_experiment_options_declare_real_data_without_synthetic_fallback() -> No
     assert all(item["base_currency"] for item in real)
 
 
+def test_metadata_remains_available_without_private_licensed_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unavailable_plane = duckdb_server.LazyReadOnlyDataPlane()
+    monkeypatch.setattr(duckdb_server, "data_plane", unavailable_plane)
+
+    def unavailable_root(_start: Path) -> Path:
+        raise RuntimeError("private test data is absent")
+
+    monkeypatch.setattr(duckdb_server, "find_private_root", unavailable_root)
+
+    options = duckdb_server._experiment_options_payload()
+    assert options["licensed_data"] == {
+        "available": False,
+        "status": "unavailable",
+        "unavailable_reason": "licensed data root is not configured",
+        "source_snapshot_id": None,
+        "selection_id": None,
+        "access": "read_only",
+        "synthetic_fallback": False,
+    }
+    assert not [
+        item for item in options["portfolios"] if item["data_truth"] == "licensed_real"
+    ]
+    assert [
+        item for item in options["portfolios"] if item["data_truth"] == "reviewed_synthetic"
+    ]
+    assert duckdb_server.platform_workspaces()["portfolios"] == []
+
+    with pytest.raises(RuntimeError, match="private test data is absent"):
+        duckdb_server.portfolios()
+
+
 def scientific_design_projection(identity: RegistryIdentity) -> RegistryProjection:
     return RegistryProjection(
         identity=identity,

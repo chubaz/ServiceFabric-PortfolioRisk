@@ -95,7 +95,7 @@
     },
     {
       "path": "labs/duckdb_server.py",
-      "sha256": "e3d9d7b7e880692b40597d04fdb47a6008be7327d133f8d4c3acccebcdbff180"
+      "sha256": "1837a91d71313e72e44c7a49b4fc6802448198d62612276f9f93cb2a46f84392"
     },
     {
       "path": "labs/experiment_run_audit.py",
