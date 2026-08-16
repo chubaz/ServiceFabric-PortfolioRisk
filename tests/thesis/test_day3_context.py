@@ -47,6 +47,14 @@ def test_role_context_isolation_and_one_common_digest():
     assert "exposures" in exposure and "metrics" not in exposure and "events" not in exposure
     assert "events" in news and "metrics" not in news and "exposures" not in news
     assert "specialist_outputs" in synthesis and "events" not in synthesis
+    assert synthesis["authoritative_catalogue"] == {
+        "metrics": context.model_safe()["metrics"],
+        "position_aliases": [
+            item["position_alias"] for item in context.model_safe()["exposures"]
+        ],
+        "event_ids": [item["event_id"] for item in context.model_safe()["events"]],
+        "evidence_refs": context.model_safe()["evidence_refs"],
+    }
     assert context.context_digest == ArchitectureInputBundle.model_validate(
         context.model_dump(mode="python")
     ).context_digest

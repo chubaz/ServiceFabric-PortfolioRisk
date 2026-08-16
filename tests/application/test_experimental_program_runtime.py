@@ -20,6 +20,12 @@ def test_program_projection_counts_real_fixture_cases(tmp_path, monkeypatch):
     monkeypatch.setattr(experimental_program_runtime, "FIXTURE_DIGEST", context.fixture_context_digest)
     value = experimental_program_runtime.experimental_program_payload()
     assert len(value["arm_plan"]["cases"]) == 15
-    assert value["arm_plan"]["expected_outputs"] == 30
-    assert value["matrix"]["planned_observations"] == 60
+    assert [item["arm_id"] for item in value["arm_plan"]["arms"]] == [
+        "b0",
+        "b1",
+        "a1",
+    ]
+    assert value["arm_plan"]["expected_outputs"] == 45
+    assert len(value["matrix"]["cells"]) == 6
+    assert value["matrix"]["planned_observations"] == 90
     assert value["boundary"]["outputs_generated"] is False

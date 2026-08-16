@@ -10,6 +10,7 @@ from pydantic import BaseModel, TypeAdapter
 
 from .contracts import AnalysisEvidence, AnalysisHorizon, AnalysisMethod, AnalysisWarning, ContributionItem, ContributionSummary, DrawdownResult, HistoricalTailRiskResult, ReturnObservation, ReturnSeriesResult, RiskReport, SamplePeriod, ScenarioResult, ScenarioShock, VolatilityResult
 from .monitoring_reports import MonitoringReport, MonitoringReportRequest
+from .detectors import AnomalySignal, DetectorDefinition, DetectorObservation, DetectorRun
 
 
 BASE_ID = "https://schemas.servicefabric.ai/risk/analytics/v0.1"
@@ -31,6 +32,10 @@ SCHEMA_RESOURCES: dict[str, object] = {
     "volatility-result.schema.json": VolatilityResult,
     "monitoring-report.schema.json": MonitoringReport,
     "monitoring-report-request.schema.json": MonitoringReportRequest,
+    "detector-definition.schema.json": DetectorDefinition,
+    "detector-observation.schema.json": DetectorObservation,
+    "detector-run.schema.json": DetectorRun,
+    "anomaly-signal.schema.json": AnomalySignal,
 }
 
 

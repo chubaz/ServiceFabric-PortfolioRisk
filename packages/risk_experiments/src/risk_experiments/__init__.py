@@ -84,7 +84,7 @@ from .hierarchy import (
     EVALUATION_DIMENSION_IDS, AgentContributionSummary, ArchitectureBehaviorSummary, ArchitectureConfig,
     ArchitectureDecision, ArchitectureExecutionSummary, ArchitectureFinding,
     ArchitectureOutput, CaseEvaluationState, CriticCorrectionSummary, DecisionBranch,
-    EvaluationDimensionRecord, EvaluationRecord, ExperimentalCapabilityConfig, ExperimentalCase,
+    EvaluationDimensionRecord, EvaluationMetricResult, EvaluationRecord, ExperimentalCapabilityConfig, ExperimentalCase,
     ExperimentalRun, FindingEpisode, MetricSpecification, ObservableCaseState,
     RegimeLabel, ResearchExperimentDefinition, RunInput, RunTraceRecord,
     RuntimeObservation, StudyDefinition,
@@ -94,6 +94,10 @@ from .experimental_program import (
     ArmRunPlan, ExperimentCase, ExperimentalArm, ExperimentMatrixPlan,
     LabelReviewGate, MatrixCell, QualificationIssue, compile_arm_plan,
     compile_label_gate, compile_matrix,
+)
+from .research_registry import (
+    AnalysisDefinition, AnalysisSnapshot, ContextRevision, RerunObligation,
+    RunClassification, rerun_obligations,
 )
 from .execution_kernel import (
     ArchitectureMappingContext, ArchitectureMappingError,
@@ -105,6 +109,80 @@ from .execution_kernel import (
 from .replay_scheduler import (
     BlockingReplayScheduler, ReplayProcessingOutcome, ReplayProcessingReceipt,
     ReplayTrigger,
+)
+from .counterfactual import (
+    COUNTERFACTUAL_DIMENSIONS, analyse_counterfactual_batch,
+    counterfactual_design_map, dimension_catalogue,
+)
+from .labelling import (
+    GoldPreparationReadiness,
+    LabelAnnotationReview,
+    LabelDirection,
+    LabelFieldRule,
+    LabelOutcome,
+    LabelProductionConflict,
+    LabelProductionNotFound,
+    LabellingBatch,
+    LabellingEvent,
+    LabellingProtocol,
+    LocalLabellingStore,
+    ManifestationInterval,
+    RelevanceLabel,
+    ReviewOutcome,
+    SignalReference,
+    SignalReviewUnit,
+    SignalScoreBand,
+    SignalSelectionPlan,
+    SignalAnnotation,
+    TemporalMorphology,
+    build_review_units,
+    compile_signal_selection,
+    default_labelling_protocol,
+)
+from .gold_cases import (
+    GoldCaseBundle,
+    GoldCaseConflict,
+    GoldCaseNotFound,
+    GoldCaseRecord,
+    GoldCaseReview,
+    GoldDecisionCheckpoint,
+    GoldEvidenceItem,
+    GoldReviewOutcome,
+    LocalGoldCaseStore,
+    PlannedExperimentSelection,
+    compile_experimental_case,
+    prepare_gold_case_bundle,
+)
+from .context_work import (
+    AssociationMethod, CandidateReviewOutcome, ContextAssociationProposal,
+    ContextCandidateReview, ContextChannel, ContextEvidenceCandidate,
+    ContextExecutionRecord, ContextExecutionReview, ContextPurpose,
+    ContextReviewOutcome, ContextWindow, ContextWorkConflict,
+    ContextWorkExecution, ContextWorkNotFound, ContextWorkPlan,
+    ContextWorkRecord, ControlKind, ControlSpecification, EvidencePosition,
+    EvidenceRole, LocalContextExecutionStore, LocalContextWorkStore,
+    compile_context_work_plan,
+)
+from .matched_runs import (
+    ArchitectureTreatment, ExperimentalCapabilityPackage, IdentityCondition,
+    LocalMatchedRunPlanStore, MatchedRunCell, MatchedRunConflict,
+    MatchedRunMatrixPlan, MatchedRunNotFound, PerturbationCondition, RunBudget,
+    compile_matched_run_matrix,
+)
+from .trajectories import (
+    CycleContext, CycleExecutionResult, LocalTrajectoryStore, ReplayObservation,
+    RunTrajectory, TrajectoryConflict, TrajectoryCycle, TrajectoryNotFound,
+    execute_point_in_time_trajectory,
+)
+from .evaluations import (
+    COHORT_EVALUATOR_VERSION, EVALUATOR_VERSION, EvaluationConflict,
+    EvaluationNotFound, LocalEvaluationStore, evaluate_selected_case_cohort,
+    evaluate_selected_case_trajectory, trajectory_semantic_digest,
+)
+from .reproducibility import (
+    BundleFile, BundleProjection, LocalReproducibilityStore,
+    ReproducibilityBundle, ReproducibilityConflict, ReproducibilityNotFound,
+    build_bundle_manifest,
 )
 
 __all__ = [
@@ -139,7 +217,7 @@ __all__ = [
     "ArchitectureConfig", "ArchitectureDecision", "ArchitectureExecutionSummary", "ArchitectureFinding",
     "ArchitectureOutput", "CaseEvaluationState", "DecisionBranch",
     "CriticCorrectionSummary",
-    "EvaluationDimensionRecord", "EvaluationRecord", "ExperimentalCapabilityConfig", "ExperimentalCase",
+    "EvaluationDimensionRecord", "EvaluationMetricResult", "EvaluationRecord", "ExperimentalCapabilityConfig", "ExperimentalCase",
     "ExperimentalRun", "FindingEpisode", "MetricSpecification",
     "ObservableCaseState", "RegimeLabel", "ResearchExperimentDefinition",
     "RunInput", "RunTraceRecord", "RuntimeObservation", "StudyDefinition",
@@ -147,6 +225,8 @@ __all__ = [
     "ArmRunPlan", "ExperimentCase", "ExperimentalArm", "ExperimentMatrixPlan",
     "LabelReviewGate", "MatrixCell", "QualificationIssue", "compile_arm_plan",
     "compile_label_gate", "compile_matrix",
+    "AnalysisDefinition", "AnalysisSnapshot", "ContextRevision", "RerunObligation",
+    "RunClassification", "rerun_obligations",
     "ArchitectureMappingContext", "ArchitectureMappingError",
     "ArchitectureProjectionContext", "EpisodeBinding", "GraphExecutionEnvelope", "KernelEvidence",
     "compare_critic_revision", "finalize_agent_graph_execution", "finalize_agent_graph_output",
@@ -154,4 +234,39 @@ __all__ = [
     "wrap_agent_graph",
     "BlockingReplayScheduler", "ReplayProcessingOutcome", "ReplayProcessingReceipt",
     "ReplayTrigger",
+    "COUNTERFACTUAL_DIMENSIONS", "analyse_counterfactual_batch",
+    "counterfactual_design_map", "dimension_catalogue",
+    "GoldPreparationReadiness", "LabelAnnotationReview", "LabelDirection",
+    "LabelFieldRule", "LabelOutcome", "LabelProductionConflict",
+    "LabelProductionNotFound", "LabellingBatch", "LabellingEvent",
+    "LabellingProtocol", "LocalLabellingStore", "ManifestationInterval",
+    "RelevanceLabel", "ReviewOutcome", "SignalReference", "SignalReviewUnit",
+    "SignalScoreBand", "SignalSelectionPlan", "SignalAnnotation",
+    "TemporalMorphology", "build_review_units", "compile_signal_selection",
+    "default_labelling_protocol",
+    "GoldCaseBundle", "GoldCaseConflict", "GoldCaseNotFound", "GoldCaseRecord",
+    "GoldCaseReview", "GoldDecisionCheckpoint", "GoldEvidenceItem",
+    "GoldReviewOutcome", "LocalGoldCaseStore", "PlannedExperimentSelection",
+    "compile_experimental_case", "prepare_gold_case_bundle",
+    "AssociationMethod", "CandidateReviewOutcome", "ContextAssociationProposal",
+    "ContextCandidateReview", "ContextChannel", "ContextEvidenceCandidate",
+    "ContextExecutionRecord", "ContextExecutionReview", "ContextPurpose",
+    "ContextReviewOutcome", "ContextWindow", "ContextWorkConflict",
+    "ContextWorkExecution", "ContextWorkNotFound", "ContextWorkPlan",
+    "ContextWorkRecord", "ControlKind", "ControlSpecification",
+    "EvidencePosition", "EvidenceRole", "LocalContextExecutionStore",
+    "LocalContextWorkStore", "compile_context_work_plan",
+    "ArchitectureTreatment", "ExperimentalCapabilityPackage", "IdentityCondition",
+    "LocalMatchedRunPlanStore", "MatchedRunCell", "MatchedRunConflict",
+    "MatchedRunMatrixPlan", "MatchedRunNotFound", "PerturbationCondition", "RunBudget",
+    "compile_matched_run_matrix",
+    "CycleContext", "CycleExecutionResult", "LocalTrajectoryStore",
+    "ReplayObservation", "RunTrajectory", "TrajectoryConflict",
+    "TrajectoryCycle", "TrajectoryNotFound", "execute_point_in_time_trajectory",
+    "COHORT_EVALUATOR_VERSION", "EVALUATOR_VERSION", "EvaluationConflict",
+    "EvaluationNotFound", "LocalEvaluationStore", "evaluate_selected_case_cohort",
+    "evaluate_selected_case_trajectory", "trajectory_semantic_digest",
+    "BundleFile", "BundleProjection", "LocalReproducibilityStore",
+    "ReproducibilityBundle", "ReproducibilityConflict", "ReproducibilityNotFound",
+    "build_bundle_manifest",
 ]

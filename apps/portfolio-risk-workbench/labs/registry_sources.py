@@ -459,9 +459,9 @@ def discover_registry_projections(
     identities = [projection.identity.reference for projection in projections]
     if len(identities) != len(set(identities)):
         raise ValueError("source discovery produced duplicate registry identities")
-    if len(projections) != 45:
+    if len(projections) != 46:
         raise ValueError(
-            "active thesis source adapter set must produce 45 projections "
+            "active thesis source adapter set must produce 46 projections "
             f"after incubator exclusions, got {len(projections)}"
         )
     return sorted(projections, key=lambda item: item.identity.reference)

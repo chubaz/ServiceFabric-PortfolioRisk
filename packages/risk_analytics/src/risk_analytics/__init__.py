@@ -8,6 +8,33 @@ from .returns import calculate_returns
 from .scenarios import apply_scenario
 from .tail_risk import historical_tail_risk
 from .volatility import annualized_volatility
+from .detectors import (
+    DEFAULT_DETECTOR_REGISTRY,
+    AnomalySignal,
+    DetectorDefinition,
+    DetectorKind,
+    DetectorObservation,
+    DetectorParameter,
+    DetectorRegistry,
+    DetectorRun,
+    DetectorRunCache,
+    SignalDirection,
+    SignalScope,
+    execute_detector,
+)
+from .label_study import (
+    AssociationEdge,
+    ChangePointProposal,
+    GroupContext,
+    IntervalKind,
+    IntervalProposal,
+    LabelStudyProposal,
+    PathObservation,
+    PathPoint,
+    SeverityObservation,
+    StudyDirection,
+    build_label_study,
+)
 from risk_domain.monitoring import AlertOutcomeMatch, ContextQualityIssue, ContextualMonitoringRequest, ContextualMonitoringRun, DataVintageSelection, EvaluationWarning, InstrumentDataBinding, MappingCoverage, MonitoringEvaluation, MonitoringEvidenceBundle, MonitoringFindingSet, MonitoringPolicy, MonitoringPolicyVersion, OutcomeLabel, PolicyBreach, PolicyEvaluationRequest, PolicyEvaluationResult, PortfolioDataContext, PortfolioDataContextRequest, ReplayRun, ReplaySpecification, ReplayStep, create_portfolio_data_context, evaluate_monitoring_policy, evaluate_replay, run_contextual_monitoring
 from .monitoring_reports import MonitoringReport, MonitoringReportRequest, render_monitoring_report
 from .analysis_packages import (
@@ -39,6 +66,29 @@ __all__ = [
     "ScenarioResult",
     "ScenarioShock",
     "VolatilityResult",
+    "DEFAULT_DETECTOR_REGISTRY",
+    "AnomalySignal",
+    "DetectorDefinition",
+    "DetectorKind",
+    "DetectorObservation",
+    "DetectorParameter",
+    "DetectorRegistry",
+    "DetectorRun",
+    "DetectorRunCache",
+    "SignalDirection",
+    "SignalScope",
+    "execute_detector",
+    "AssociationEdge",
+    "ChangePointProposal",
+    "GroupContext",
+    "IntervalKind",
+    "IntervalProposal",
+    "LabelStudyProposal",
+    "PathObservation",
+    "PathPoint",
+    "SeverityObservation",
+    "StudyDirection",
+    "build_label_study",
     "annualized_volatility",
     "apply_scenario",
     "calculate_returns",

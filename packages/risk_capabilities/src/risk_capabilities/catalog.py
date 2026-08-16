@@ -59,6 +59,14 @@ CAPABILITY_DESCRIPTORS = (
         denied_effects=ORDER_AND_BROKER_EFFECTS,
     ),
     CapabilityDescriptor(
+        capability_id="market.anomaly.scan",
+        objective="Produce versioned robust residual and CUSUM anomaly signals from supplied point-in-time observations.",
+        input_contract="DetectorExecutionRequest with a registered definition, eligible observations and evidence.",
+        output_contract="CapabilityResult containing an immutable DetectorRun; no finding, alert or causal narrative is created.",
+        allowed_effects=(),
+        denied_effects=ORDER_AND_BROKER_EFFECTS,
+    ),
+    CapabilityDescriptor(
         capability_id="risk.capability.news_sentiment",
         objective="Summarize supplied news evidence without fabricating observations.",
         input_contract="EvidenceReference[] and JSON-safe research context.",

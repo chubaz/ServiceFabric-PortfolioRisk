@@ -1,0 +1,652 @@
+schema_version: "1.0"
+contract_id: thesis-risk-episode-case-framework-v1
+title: Risk-Episode Case Framework — Ten-Session Development Contract
+status: completed
+assessment_date: 2026-08-14
+
+execution:
+  latest_completed_session: S10-release-reproducibility
+  next_session: null
+  next_session_status: programme_complete
+  latest_handoff: docs/handoffs/thesis-risk-episodes/session-10.md
+
+repository:
+  product: ServiceFabric PortfolioRisk
+  assessed_head: 23f99f536d0889669091a194abf8e88bf63cdfd6
+  comparison_baseline: 6ea08f6b7b88f5759808f2b30466ccdcd106919f
+  feasibility_report: docs/thesis/risk-episode-case-framework-feasibility.md
+
+verdict:
+  recommendation: proceed_with_reduced_p0_scope
+  overall_integration_likelihood_percent: 84
+  thesis_scale_likelihood_percent: 88
+  product_scale_likelihood_percent: 58
+  confidence: medium_high
+
+objective: >-
+  Extend the existing SF-PR experiment, replay, capability, agent-output,
+  persistence, and Workbench infrastructure so selected historical risk cases
+  can be discovered, reviewed, replayed across B0/B1/A1, and evaluated
+  reproducibly without creating a parallel platform or a market-wide oracle.
+
+research_question: >-
+  Under identical historical information, case, portfolio, mandate,
+  capability, and budget conditions, do bounded agentic architectures improve
+  risk detection, interpretation, and decision support relative to a
+  deterministic baseline?
+
+execution_policy:
+  sessions_per_codex_turn: 1
+  continue_automatically: false
+  instruction: >-
+    Execute exactly one numbered session when the user asks to proceed. Inspect
+    the repository and the previous handoff before editing. Do not silently
+    execute later sessions. A user may explicitly authorize a different scope.
+  preserve_dirty_worktree: true
+  edit_method: apply_patch
+  vendor_policy: read_only
+  licensed_data_policy: external_read_only_no_bytes_in_git
+  destructive_commands: forbidden_without_explicit_user_authority
+  new_dependency_policy: prefer_existing_dependencies_and_request_approval_if_network_needed
+  test_policy: focused_every_session_broader_at_sessions_4_7_10
+  documentation_policy: update_contract_handoff_and_traceability_each_session
+
+plain_language:
+  primary_journey:
+    - Find cases
+    - Review case
+    - Run comparison
+    - Compare results
+  developer_only_material_never_rendered_in_research_ui:
+    - detector receipts
+    - schema hashes
+    - artifact manifests
+    - capability identifiers
+    - provider revisions
+    - architecture mapping diagnostics
+  developer_access: persisted_machine_readable_outputs_and_codex_handoffs
+  forbidden_user_facing_patterns:
+    - another top-level studio for the case workflow
+    - raw object catalogue as the primary navigation
+    - hash-only labels
+    - unexplained 100-percent scores
+    - fixture results presented as licensed historical results
+
+architecture_names:
+  B0: deterministic baseline
+  B1: single-agent architecture
+  A1: multi-agent graph architecture
+  future_A1_critic_variant: graph plus independent critic
+  note: >-
+    Keep the product's existing identifiers. Do not rename them to the
+    A0/A1/A2/A3 terminology used in the external brief.
+
+evaluation_dimensions:
+  - confidence_calibration
+  - decision_quality
+  - detection_quality
+  - efficiency
+  - evidence_quality
+  - robustness
+  - severity_understanding
+  - stability
+  - timeliness
+diagnostics:
+  - coverage
+  - abstention
+  - unsupported_conclusions
+  - incomplete_context_detection
+  - data_quality_stops
+
+invariants:
+  - id: INV-001
+    rule: Hindsight case construction and ex-ante architecture execution are separate planes.
+  - id: INV-002
+    rule: The evaluated architecture never receives Gold labels, future outcomes, or observations unavailable at replay time.
+  - id: INV-003
+    rule: Every ex-ante record satisfies available_at less than or equal to replay_time.
+  - id: INV-004
+    rule: Every detector, model, feature set, label, prompt, architecture, capability package, dataset revision, and seed is versioned.
+  - id: INV-005
+    rule: Case-building agents may prepare Gold cases but may not approve their own labels.
+  - id: INV-006
+    rule: RavenPack is event evidence behind a provider adapter, not the RiskEpisode ground truth.
+  - id: INV-007
+    rule: Association is not represented as causality or supply-chain exposure without supporting data.
+  - id: INV-008
+    rule: All portfolio actions are hypothetical and external financial effects remain denied.
+  - id: INV-009
+    rule: Architecture and capability package are independent experimental factors.
+  - id: INV-010
+    rule: Deterministic context and capability outputs are reused by content digest where inputs and versions are identical.
+  - id: INV-011
+    rule: User-facing artifacts are renderings; structured evaluation by-products remain the evaluation source.
+  - id: INV-012
+    rule: Existing canonical findings, evidence, decisions, runs, evaluations, artifacts, and registry identities are reused rather than duplicated.
+
+canonical_reuse:
+  domain:
+    - PortfolioSnapshot
+    - PortfolioDataContext
+    - RiskFinding
+    - DecisionPoint
+    - EvidenceReference
+  data:
+    - EventDatasetSnapshot
+    - EventQueryRequest
+    - licensed_crsp_compustat_read_only_adapter
+  agents:
+    - AgentStructuredOutput
+    - AgentExecutionEnvelope
+    - existing_monitoring_role_cards
+  experiments:
+    - StudyDefinition
+    - ExperimentalCase
+    - ArchitectureConfig
+    - ArchitectureOutput
+    - ExperimentalRun
+    - EvaluationRecord
+    - BlockingReplayScheduler
+    - ExperimentDefinition
+    - ExperimentSet
+  persistence:
+    - LocalExperimentStore
+    - LocalArtifactRepository
+    - LocalRegistryStore
+
+research_payloads_to_add:
+  - DetectorDefinition
+  - DetectorRun
+  - AnomalySignal
+  - RiskEpisodeCandidate
+  - SilverCaseLabel
+  - GoldCaseBundle
+  - CaseLabelBundleReference
+  - FrozenForecastModelManifest
+note_on_payloads: >-
+  Start these as package-local typed research payloads and artifact schemas.
+  Promote them to canonical public domain objects only after repeated reuse
+  demonstrates stable meaning.
+
+initial_vertical_slice:
+  period: 2013-01-01/2017-12-31
+  universe: bounded_linked_crsp_compustat_universe_selected_in_session_1
+  cases:
+    governed_gold: 3
+    additional_silver: 3-6
+    ordinary_or_negative_controls: 2_or_more
+    incomplete_or_abstention_case: 1_or_more
+  architectures:
+    - B0
+    - B1
+    - A1
+  llm_repeats_per_case: 2
+  detectors:
+    - robust_residual_z_score
+    - cusum
+    - deterministic_change_point
+    - group_breadth_and_correlation
+  challenger_detectors:
+    - multivariate_unsupervised_detector
+  primary_severity_target:
+    measure: expected_adverse_portfolio_impact
+    unit: basis_points
+    horizon_sessions: 5
+    diagnostics_horizon_sessions:
+      - 1
+      - 20
+
+sessions:
+  - id: S01
+    name: Reconcile the experimental foundation
+    outcome: >-
+      Establish a clean, unambiguous base and freeze the smallest set of
+      contracts needed by later sessions.
+    preconditions:
+      - Read AGENTS.md and docs/workplans/current.md.
+      - Inspect git status and preserve all user-owned changes.
+      - Read the feasibility report and this contract completely.
+    scope:
+      - Reconcile the provisional B0/B1/A1 experimental-program changes.
+      - Fix the known projection-count expectation or implementation mismatch based on intended three-arm semantics.
+      - Create a concise ubiquitous-language mapping for case, signal, candidate, Silver, Gold, run, output, and evaluation.
+      - Confirm existing canonical ownership and prevent duplicate classes.
+      - Select and record the bounded initial universe and proof-case sampling rule.
+      - Record provider/data revisions without copying licensed bytes.
+    deliverables:
+      - clean focused experimental tests
+      - frozen research payload schemas or schema decision record
+      - initial case-sampling manifest
+      - updated traceability and session handoff
+    acceptance:
+      - B0/B1/A1 projection counts and route projections agree.
+      - No existing user change is discarded.
+      - Every proposed payload has one documented owning package.
+      - The user-facing journey contains only four primary stages.
+      - The selected data sources and truth labels are visibly distinguished from fixtures.
+    tests:
+      - tests/experiments/test_experimental_program.py
+      - tests/application/test_experimental_program_runtime.py
+      - tests/application/test_experiment_api.py
+    ui_proof: >-
+      Existing Experiments page identifies real licensed data, development
+      fixtures, architectures, and saved results without internal jargon.
+    stop_conditions:
+      - Cannot determine whether provisional worktree changes are user-owned or intended.
+      - Initial universe cannot be linked point-in-time across required datasets.
+
+  - id: S02
+    name: Build the detector foundation
+    outcome: >-
+      Produce reproducible structured anomaly signals from real read-only
+      historical data without narrative or future leakage.
+    preconditions:
+      - S01 accepted
+      - detector and signal schemas frozen
+    scope:
+      - Implement DetectorDefinition, DetectorRun, and AnomalySignal payloads.
+      - Add a detector registry or equivalent explicit dispatch.
+      - Implement robust residual z-score and two-sided CUSUM.
+      - Record parameters, lookback, horizon, normalization, regime, threshold, scope, and quality flags.
+      - Add bounded capability invocation and receipts.
+      - Cache immutable detector results by data/parameter/version digest.
+    owned_paths:
+      - packages/risk_analytics/src/risk_analytics
+      - packages/risk_capabilities/src/risk_capabilities
+      - packages/risk_data/src/risk_data
+      - tests/analytics
+      - tests/capabilities
+      - tests/data
+    deliverables:
+      - detector contracts and registry
+      - robust residual detector
+      - CUSUM detector
+      - real-data detector preview endpoint or existing-route extension
+    acceptance:
+      - Known synthetic paths produce expected signed signals.
+      - Real read-only rows produce versioned signals with evidence refs.
+      - No signal contains causal prose.
+      - Repeated identical runs produce identical digests and values.
+      - Every input observation is point-in-time eligible.
+    ui_proof: >-
+      A compact preview shows instrument/group name, date, direction, score,
+      threshold, detector, and data source; internal schemas are not rendered.
+
+  - id: S03
+    name: Build selective label production
+    outcome: >-
+      Turn the full detector output into a bounded, reproducible and resumable
+      signal-review sample whose labels fit the evaluated architectures and
+      nine-dimension evaluation, without creating Gold or experimental Cases.
+    preconditions:
+      - S02 accepted
+    scope:
+      - Define a versioned labelling protocol mapped to ArchitectureOutput and evaluation fields.
+      - Collapse duplicate detector hits into one same-scope/date/direction review unit.
+      - Select a bounded sample across direction, score band, and detector support.
+      - Record immutable annotation revisions for outcome, relevance, scope, direction, morphology, interval, severity, evidence, data quality, and confidence.
+      - Require a different reviewer to accept, request changes, or exclude an annotation.
+      - Persist resumable batches with optimistic concurrency and idempotent writes.
+      - Report readiness for later Gold preparation without constructing Gold or Case objects.
+    deliverables:
+      - labelling protocol and ArchitectureOutput mapping
+      - deterministic review-unit sampling
+      - immutable annotation and independent-review lifecycle
+      - restart-safe local label-production store
+      - minimal Review case labelling interface
+    acceptance:
+      - Identical detector outputs and selection inputs produce the same sample.
+      - Duplicate detector hits are reviewed once without losing method support.
+      - Material, non-material, ambiguous, upside, downside, censored, and data-quality labels are representable.
+      - Annotation revisions are immutable and self-review is rejected.
+      - Reference-ready creates no Gold case and exposes no label to an experimental architecture.
+    ui_proof: >-
+      The existing Review case stage loads a saved sample, shows named review
+      items, records one label and independent review, and contains no Gold-case
+      creation action or developer-only records.
+
+  - id: S04
+    name: Enrich labels with intervals and candidate evidence
+    outcome: >-
+      Help reviewers study selected signals by adding reproducible path
+      intervals, candidate associations and reviewed quantitative context while
+      continuing to stop before Gold-case construction.
+    preconditions:
+      - S03 accepted
+    scope:
+      - Add one deterministic change-point detector and group breadth/correlation detection.
+      - Propose punctual, drawdown, slow-deterioration, and regime-transition intervals with hysteresis and censoring.
+      - Group related review units using only explicit association edges.
+      - Calculate reviewed severity observations over declared horizons.
+      - Present price paths, interval proposals, method agreement, missingness, and alternatives to the labeller.
+      - Retain proposals separately from accepted annotations so automation cannot establish reference truth.
+    deliverables:
+      - interval and candidate-association proposals
+      - path and severity context for selected review units
+      - proposal-to-annotation reconciliation tests
+      - label firewall and reproducibility tests
+    acceptance:
+      - Interval and severity proposals are reproducible from frozen inputs.
+      - Adjacent unrelated signals do not merge without an allowed edge.
+      - A proposal cannot approve, overwrite, or silently revise an annotation.
+      - Retrospective fields remain absent from ex-ante architecture inputs.
+      - Broad focused test gate passes before proceeding.
+    ui_proof: >-
+      Review case shows one selected path with proposed onset, peak, resolution
+      or censoring, quantitative severity context and clear accept/edit controls.
+
+  - id: S05
+    name: Qualify event and fundamental context sources
+    outcome: >-
+      Establish the provider-neutral, point-in-time and dependency boundaries
+      needed by later context work without retrieving evidence, generating
+      controls, or associating any event, fundamental or signal record.
+    preconditions:
+      - S04 accepted
+      - RavenPack rights and snapshot paths confirmed
+    scope:
+      - Reuse the canonical provider-neutral event and licensed-data contracts.
+      - Profile RavenPack and Compustat schemas, coverage, rights, and temporal integrity with fixed read-only queries.
+      - Keep event time, accounting observation time, availability time, and readiness-check time distinct.
+      - Record missing amendment, retraction, duplicate and publication semantics as blockers or limitations.
+      - Compile an ordered preparation plan whose retrieval, association, controls and counter-evidence steps remain deferred.
+      - Remove automatic signal-to-signal association from the label-study runtime.
+    deliverables:
+      - provider-neutral source-qualification contracts
+      - fixed read-only readiness query
+      - no-association runtime gate and tests
+      - compact source-readiness projection in Review case
+    acceptance:
+      - Licensed bytes remain outside Git.
+      - Retrospective cutoff and availability fields are independently qualified.
+      - No provider taxonomy becomes the canonical case taxonomy.
+      - No event rows, fundamental values, evidence associations, controls or counter-evidence are produced.
+      - Association execution is explicitly not authorised and its count is zero.
+    ui_proof: >-
+      Review case offers one compact source check showing coverage, eligible
+      row counts and Associations: Not started; no technical objects are exposed.
+
+  - id: S05B
+    name: Design dormant context work
+    outcome: >-
+      Let the researcher configure, validate, save, revise and reload a bounded
+      context-work plan while keeping all retrieval, association, control
+      generation, label mutation and Gold creation at zero.
+    preconditions:
+      - S05 accepted
+      - source-readiness result available
+    scope:
+      - Define a Context Work Plan linked to exactly one saved review unit.
+      - Separate purpose, source channels, temporal windows, association method, alternatives and optional control specifications.
+      - Define future provider-neutral evidence-candidate and association-proposal output contracts without creating instances.
+      - Persist immutable plan revisions separately from labels and experiments.
+      - Distinguish execution blockers from coverage limitations.
+      - Surface the planner inside Review case without adding another page.
+    deliverables:
+      - dormant planning and future proposal contracts
+      - append-only local plan store
+      - validation and save APIs
+      - compact context-work planner
+      - real-history no-execution qualification
+    acceptance:
+      - Every saved plan has execution_status not_started and zero retrieval, association and generated-control counts.
+      - Plans cannot modify an annotation or create Gold/experimental Cases.
+      - Plans require exact identifiers, bounded windows, point-in-time availability and competing evidence by default.
+      - Stale revisions cannot overwrite current plans.
+      - Real-history qualification saves only the plan specification and no licensed rows.
+    ui_proof: >-
+      One selected review item shows purpose, sources, bounded windows,
+      competing-evidence policy, optional controls, blockers, limitations and
+      explicit zero execution counts in a compact collapsible panel.
+
+  - id: S05-association-execution
+    name: Retrieve and associate selected case context
+    outcome: >-
+      Deferred sub-slice. Only after explicit user authorisation, retrieve
+      bounded context for selected labels and propose reviewable associations,
+      controls and counter-evidence without treating provider fields as truth.
+    preconditions:
+      - S05B accepted
+      - explicit user authorisation to begin association work
+      - readiness blockers resolved or explicitly accepted
+    scope:
+      - Retrieve point-in-time RavenPack evidence and Compustat vulnerability context only for selected review units.
+      - Map amendment, retraction, duplicate and entity-link semantics.
+      - Propose rather than assert event associations.
+      - Prepare synthetic controls only when a declared Case Design requires them.
+      - Keep all proposals outside ex-ante architecture inputs and Gold acceptance.
+    deliverables:
+      - bounded context retrieval
+      - reviewable association proposals
+      - explicit alternatives and controls
+    acceptance:
+      - No association is created outside a selected review unit.
+      - Provider metadata remains evidence rather than ground truth.
+      - Synthetic controls are visibly synthetic and never presented as real events.
+      - Human review remains required before later Gold preparation.
+    ui_proof: >-
+      A selected review unit can show eligible evidence, retrospective evidence,
+      alternatives and controls only after the researcher starts that task.
+
+  - id: S06
+    name: Prepare governed Gold references and experimental Cases
+    outcome: >-
+      Invoke expensive Gold preparation only for independently reviewed labels
+      selected for an imminent experiment, then bind accepted references into
+      experimental Cases without exposing internal complexity.
+    preconditions:
+      - S05 association execution accepted
+    scope:
+      - Compose GoldCaseBundle from existing evidence, annotation review, checkpoints, and artifact primitives.
+      - Require explicit selection of reference-ready labels before Gold preparation starts.
+      - Require independent human Gold acceptance; preparation agents cannot approve their own work.
+      - Add immutable lifecycle, supersession, and Gold-packet isolation.
+      - Bind accepted Gold references to the existing ExperimentalCase only when compiling a planned experiment.
+      - Keep schemas, hashes, receipts, and versions out of the research UI and available only in persisted developer outputs and Codex handoffs.
+      - Split new route/UI logic into focused modules where practical instead of growing the monolith.
+    deliverables:
+      - selective Gold-preparation workflow
+      - independently accepted Gold reference bundles
+      - saved experimental Case catalogue
+      - application and journey tests
+    acceptance:
+      - No Gold preparation runs for labels not selected for a planned experiment.
+      - A user can prepare, review, save, and reopen a Case without editing JSON.
+      - Gold and future fields remain unreachable from architecture processing.
+      - Real, fixture, retrospective, ex-ante, and synthetic content cannot be confused.
+      - No unexplained score is shown as a success percentage.
+      - Keyboard and narrow-screen journeys remain usable.
+    ui_proof: >-
+      User completes Find cases -> Review case using one central workspace and
+      no more than one primary action per state.
+
+  - id: S07
+    name: Compile matched architecture runs
+    outcome: >-
+      Convert accepted Case Designs into bounded, reviewable B0/B1/A1 run
+      matrices with architecture and capability package as separate factors.
+    preconditions:
+      - S06 accepted
+    scope:
+      - Implement the case experiment compiler using existing definitions and object sets.
+      - Qualify B0, B1, and A1 against the same sealed input schema.
+      - Enforce deterministic/statistical/generative capability classes.
+      - Prevent B0 from using generative capabilities.
+      - Separate pre-parameterized capabilities from agent-parameterized capabilities.
+      - Add model, prompt, seed, context, memory, package, latency, and cost budgets.
+      - Add repeat-run and anonymized historical conditions.
+    deliverables:
+      - bounded run matrix compiler
+      - qualification and grant checks
+      - pre-run comparison summary
+      - reconciled three-arm tests
+    acceptance:
+      - Matched runs differ only on declared experimental factors.
+      - The compiler rejects missing labels, grants, versions, or budget bounds.
+      - The projected invocation count is visible before execution.
+      - Broad focused test gate passes before proceeding.
+    ui_proof: >-
+      Run comparison shows cases, architectures, capabilities, repeats,
+      projected calls, and budget in one concise review.
+
+  - id: S08
+    name: Execute point-in-time risk-outlook trajectories
+    outcome: >-
+      Produce one valid structured ArchitectureOutput at each workflow cycle
+      while preserving simulated-time and real-processing-time semantics.
+    preconditions:
+      - S07 accepted
+    scope:
+      - Release prices, fundamentals, and events only when eligible.
+      - Freeze simulated time from trigger through all capability and agent outputs.
+      - Extend AgentStructuredOutput only with required risk-outlook and severity by-products.
+      - Map single-agent outputs through the existing execution kernel.
+      - Aggregate graph node contributions, disagreements, critic corrections, and coordination telemetry.
+      - Record warning, actionable, high-confidence, persistence, and decay trajectories.
+      - Persist artifacts outside the disposable run listing through the artifact repository.
+    deliverables:
+      - case-aware replay runner
+      - trajectory persistence
+      - single-agent and graph mapping tests
+      - mixed-frequency timing telemetry
+    acceptance:
+      - Every cycle yields a valid ArchitectureOutput or explicit abstention/error state.
+      - Real processing latency includes all model and capability work.
+      - Simulated clock does not advance during processing.
+      - Graph aggregation preserves each node receipt and final synthesis.
+      - User-facing artifacts are labelled and excluded from evaluation fields.
+    ui_proof: >-
+      A replay timeline shows incoming evidence, capability calls, architecture
+      outlook, confidence, hypothetical decision, and processing time per cycle.
+
+  - id: S09
+    name: Complete truthful evaluation
+    outcome: >-
+      Compute the nine dimensions from declared reference schemas and run
+      behavior, with coverage and abstention retained as diagnostics.
+    preconditions:
+      - S08 accepted
+      - detection and severity plans frozen for the proof corpus
+    scope:
+      - Implement detection metrics for selected labels without claiming population recall.
+      - Implement five-session severity error with one/twenty-session diagnostics.
+      - Implement interval-based timeliness and processing latency.
+      - Implement evidence eligibility, support, contradiction, and provenance checks.
+      - Implement confidence/calibration with sampling limitations.
+      - Implement decision appropriateness separately from branch outcome/regret.
+      - Implement bounded robustness perturbations, stability repeats, and full efficiency telemetry.
+      - Emit data sufficiency, denominator, warning, and failure diagnostics for every score.
+    deliverables:
+      - versioned EvaluationRecord per run
+      - comparison-ready dimension records
+      - runtime validity report
+      - machine-readable Codex handoff diagnostics
+    acceptance:
+      - Every score names its numerator, denominator, unit, reference, and limitations.
+      - Missing labels produce not-evaluable, not 100 percent.
+      - Failed or incomplete runs are not archivable as valid research results.
+      - Ex-ante appropriateness and ex-post luck remain separate.
+      - Deterministic dry runs are evaluable where references exist.
+    ui_proof: >-
+      Results explain what was measured, whether the run was valid, what could
+      not be evaluated, and the principal shortcomings before showing scores.
+
+  - id: S10
+    name: Finish comparison, reproducibility, and release gate
+    outcome: >-
+      Deliver one elegant end-to-end historical comparison that can be saved,
+      reloaded, inspected, reproduced, and presented for the thesis.
+    preconditions:
+      - S09 accepted
+    scope:
+      - Complete Compare results stage.
+      - Add architecture trajectories, nine-dimension comparison, warnings, and artifact views.
+      - Persist case, run matrix, outputs, evaluations, reports, and exact versions.
+      - Add archive/reload/reproduce and explicit deletion lifecycle.
+      - Run journey, leakage, determinism, stability, perturbation, and packaging checks.
+      - Update inventories, traceability, methodology notes, and supervisor-facing handoff.
+    deliverables:
+      - accepted end-to-end comparison
+      - saved reproducibility bundle
+      - human-readable report
+      - technical Codex diagnostics bundle
+      - final test and limitation report
+    acceptance:
+      - One selected case runs from licensed snapshots through comparison without manual JSON editing.
+      - Deterministic rerun is identical.
+      - LLM variability is measured rather than hidden.
+      - The user can distinguish data truth, architecture behavior, evaluation result, and runtime health.
+      - No future leakage, effect grant, missing receipt, or Gold-packet exposure is detected.
+      - Full planned focused and journey test gate passes.
+    ui_proof: >-
+      Supervisor can open one saved result, understand the case and comparison,
+      inspect evidence and limitations, and reproduce it from the same manifest.
+
+cross_session_acceptance:
+  - The same canonical objects and terms are used from detector output through UI rendering.
+  - New public contracts are inventoried and schema-exported where appropriate.
+  - Every material behavior has a focused test before a UI control is exposed.
+  - A later session may extend but may not silently weaken an earlier invariant or gate.
+  - No session stores licensed source bytes, secrets, or private chain-of-thought.
+  - Human-readable rationale, evidence, receipts, uncertainty, and validation outcomes are retained.
+  - Technical failures are explicit and never converted into valid zero-risk or perfect-score outputs.
+
+global_definition_of_done:
+  - One selected Case Design executes end to end across B0, B1, and A1.
+  - All three use identical sealed historical inputs for matched conditions.
+  - The deterministic run is reproducible.
+  - LLM instability is measured with repeats.
+  - Every capability call has an auditable receipt.
+  - Gold evidence is isolated from evaluated architectures.
+  - The nine evaluation dimensions have valid source data or explicit not-evaluable states.
+  - Results are saved, reloadable, comparable, and reproducible.
+  - The user journey remains Find cases -> Review case -> Run comparison -> Compare results.
+  - No portfolio action is executed.
+
+deferred:
+  - market-wide Gold RiskEpisode corpus
+  - exhaustive near-miss discovery
+  - universal event-to-episode clustering
+  - general causal graph inference
+  - supply-chain propagation without dedicated data
+  - continuous online retraining
+  - autonomous portfolio execution
+  - reinforcement-learning policies
+  - production MLOps
+  - deep temporal and diffusion models except as later challengers
+  - a new universal experiment or evidence object hierarchy
+
+open_decisions:
+  critical:
+    - reviewer authority for Gold case acceptance
+    - proof of point-in-time Compustat and RavenPack field availability
+    - reconciliation of provisional three-arm worktree changes
+  high:
+    - initial bounded universe and proof cases
+    - frozen detector and interval thresholds
+    - primary severity target confirmation
+    - committed RavenPack adapter boundary
+  medium:
+    - residual benchmark/factor set
+    - first change-point algorithm
+    - robustness perturbation set and repeat count
+    - timing of the graph critic variant
+
+session_handoff_template:
+  completed:
+    - item
+  files_changed:
+    - path
+  tests_run:
+    - command: ""
+      result: ""
+  ui_proof:
+    route: ""
+    observation: ""
+  data_and_method_versions:
+    - identity
+  unresolved:
+    - item
+  next_session_ready: false
+  next_session_blockers:
+    - item

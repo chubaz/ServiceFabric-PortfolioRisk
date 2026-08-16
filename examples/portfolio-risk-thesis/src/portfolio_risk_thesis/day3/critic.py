@@ -1,6 +1,7 @@
 """Deterministic critic. It never repairs an invalid model output."""
 import json
 import re
+from decimal import Decimal, InvalidOperation
 
 from .contracts import (
     ArchitectureInputBundle, ArchitectureReviewOutput, CriticReport,
@@ -9,6 +10,7 @@ from .contracts import (
 
 
 NUMBER = re.compile(r"(?<![\w-])[+-]?\d+(?:\.\d+)?%?")
+METRIC_NAME_NUMBER = re.compile(r"\d+(?:\.\d+)?")
 SAFE_EFFECT_DISCLOSURES = (
     "no network, broker, order, trade, rebalance or portfolio mutation effect.",
     "no network, provider, broker, order, trade, rebalance or portfolio mutation effect.",
@@ -24,7 +26,11 @@ def critic(
     violations: list[CriticViolation] = []
     positions = {item.position_alias for item in bundle.exposures}
     events = {item.event_id for item in bundle.events}
-    evidence = set(bundle.evidence_refs) | {event.evidence_digest for event in bundle.events}
+    evidence = set(bundle.evidence_refs) | {
+        value
+        for event in bundle.events
+        for value in (event.evidence_digest, event.source_reference)
+    }
     severity_by_status = {
         "NO_ISSUE": {0},
         "REVIEW": {1, 2},
@@ -73,23 +79,44 @@ def critic(
         violations.append(CriticViolation(code="privacy", message="output contains a private identifier or path"))
 
     supported_numbers: set[str] = set()
+    supported_numeric_values: set[tuple[Decimal, bool]] = set()
     for claim in claims:
         if claim.claim_type == "metric" and claim.reported_metric_value is not None:
             value = format(claim.reported_metric_value, "f")
             supported_numbers.add(value)
+            supported_numeric_values.add((claim.reported_metric_value, False))
             try:
                 supported_numbers.add(format(claim.reported_metric_value * 100, "f") + "%")
+                supported_numeric_values.add((claim.reported_metric_value * 100, True))
             except Exception:
                 pass
-    for token in NUMBER.findall(text):
-        normalized = token.lstrip("+")
-        if normalized not in supported_numbers:
-            violations.append(
-                CriticViolation(
-                    code="numeric_claim",
-                    message=f"numeric statement {json.dumps(token)} lacks a structured metric claim",
+            # A metric name may itself define a quantitative convention such
+            # as historical_var_95. If the exact metric claim is present, its
+            # convention may be named as 95 or 95% without becoming an
+            # unbound quantitative assertion.
+            if claim.metric_ref:
+                for token in METRIC_NAME_NUMBER.findall(claim.metric_ref):
+                    normalized = token.lstrip("+")
+                    supported_numbers.add(normalized)
+                    supported_numbers.add(normalized.rstrip("%") + "%")
+                    supported_numeric_values.add((Decimal(normalized), False))
+                    supported_numeric_values.add((Decimal(normalized), True))
+    # Provider/schema abstentions carry safe operational codes rather than
+    # analytical claims. HTTP 400 must not become an unsupported risk metric.
+    if output.status not in {"ABSTAIN", "ABSTAINED_AGENT_OUTPUT"}:
+        for token in NUMBER.findall(text):
+            normalized = token.lstrip("+")
+            try:
+                numeric_key = (Decimal(normalized.rstrip("%")), normalized.endswith("%"))
+            except InvalidOperation:
+                numeric_key = None
+            if normalized not in supported_numbers and numeric_key not in supported_numeric_values:
+                violations.append(
+                    CriticViolation(
+                        code="numeric_claim",
+                        message=f"numeric statement {json.dumps(token)} lacks a structured metric claim",
+                    )
                 )
-            )
 
     return CriticReport(
         passed=not violations,

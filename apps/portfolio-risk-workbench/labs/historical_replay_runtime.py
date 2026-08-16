@@ -40,9 +40,11 @@ from risk_experiments import (
     ReplayProcessingReceipt,
     RiskPolicySet,
     RunInput,
+    RunClassification,
     RunTraceRecord,
     RuntimeObservation,
     StudyDefinition,
+    canonical_digest,
     validate_mandate_policy_binding,
 )
 
@@ -51,14 +53,19 @@ from agent_treatment_runtime import (
     MODEL_ID as AGENT_MODEL_ID,
     execute_agent_cycle,
 )
+from portfolio_risk_thesis.day3.prompts import prompt_manifest_digest
 
 
 CATALOG_RELATIVE = Path("portfolio-risk/catalog/crsp-compustat.duckdb")
 PORTFOLIO_RELATIVES = (
-    Path("portfolio-definitions/portfolio-definitions/thesis-real-portfolios-v2"),
     Path("portfolio-definitions/portfolio-definitions/thesis-real-portfolios-day4-v1"),
+    Path("portfolio-definitions/portfolio-definitions/thesis-real-portfolios-v2"),
 )
 CONFIG_RELATIVE = Path("config/thesis-experiment-day4.yaml")
+PROFESSOR_DEMO_CONFIG = (
+    Path(__file__).resolve().parents[3]
+    / "config/agent/thesis-sprint/professor-demo-v0.1.yaml"
+)
 COMMON_START = date(2013, 1, 1)
 COMMON_END = date(2017, 12, 31)
 MAX_CALENDAR_DAYS = 62
@@ -70,6 +77,14 @@ EVALUATION_ID = "thesis_evaluation_v1"
 STUDY_ID = "study-portfolio-risk-01"
 EXPERIMENT_ID = "experiment-deterministic-reference-01"
 ARCHITECTURE_ID = "b0-deterministic-reference"
+RULE_RISK_TYPES = {
+    "daily-loss": "loss",
+    "drawdown": "loss",
+    "volatility": "volatility",
+    "cash-minimum": "liquidity",
+    "issuer-concentration": "concentration",
+    "sector-concentration": "concentration",
+}
 
 
 PRECONFIGURED_CAPABILITIES = (
@@ -80,6 +95,14 @@ PRECONFIGURED_CAPABILITIES = (
         parameterization="preconfigured",
         evaluation_roles=("architecture_input", "measurement"),
         parameter_digest="sha256:" + hashlib.sha256(b"historical-replay-context@1.0.0").hexdigest(),
+    ),
+    ExperimentalCapabilityConfig(
+        capability_id="portfolio-risk-metric-pack",
+        version="1.0.0",
+        implementation_class="deterministic",
+        parameterization="preconfigured",
+        evaluation_roles=("architecture_input", "measurement"),
+        parameter_digest="sha256:" + hashlib.sha256(b"portfolio-risk-metric-pack@1.0.0").hexdigest(),
     ),
     ExperimentalCapabilityConfig(
         capability_id="event-relevance-classifier",
@@ -96,6 +119,46 @@ PRECONFIGURED_CAPABILITIES = (
         parameterization="preconfigured",
         evaluation_roles=("architecture_input",),
         parameter_digest="sha256:" + hashlib.sha256(b"fundamental-state-baseline@1.0.0").hexdigest(),
+    ),
+    ExperimentalCapabilityConfig(
+        capability_id="mandate-policy-evaluator",
+        version="1.0.0",
+        implementation_class="deterministic",
+        parameterization="preconfigured",
+        evaluation_roles=("architecture_input", "measurement"),
+        parameter_digest="sha256:" + hashlib.sha256(b"mandate-policy-evaluator@1.0.0").hexdigest(),
+    ),
+    ExperimentalCapabilityConfig(
+        capability_id="mandate-rule-reference-label",
+        version="1.0.0",
+        implementation_class="deterministic",
+        parameterization="preconfigured",
+        evaluation_roles=("reference_label",),
+        parameter_digest="sha256:" + hashlib.sha256(b"mandate-rule-reference-label@1.0.0").hexdigest(),
+    ),
+    ExperimentalCapabilityConfig(
+        capability_id="daily-session-timeliness",
+        version="1.0.0",
+        implementation_class="deterministic",
+        parameterization="preconfigured",
+        evaluation_roles=("measurement",),
+        parameter_digest="sha256:" + hashlib.sha256(b"daily-session-timeliness@1.0.0").hexdigest(),
+    ),
+    ExperimentalCapabilityConfig(
+        capability_id="evidence-structural-audit",
+        version="1.0.0",
+        implementation_class="deterministic",
+        parameterization="preconfigured",
+        evaluation_roles=("measurement",),
+        parameter_digest="sha256:" + hashlib.sha256(b"evidence-structural-audit@1.0.0").hexdigest(),
+    ),
+    ExperimentalCapabilityConfig(
+        capability_id="execution-telemetry-collector",
+        version="1.0.0",
+        implementation_class="deterministic",
+        parameterization="preconfigured",
+        evaluation_roles=("measurement",),
+        parameter_digest="sha256:" + hashlib.sha256(b"execution-telemetry-collector@1.0.0").hexdigest(),
     ),
 )
 
@@ -414,7 +477,14 @@ def setup_payload(private_root: Path, workflows: list[dict[str, Any]]) -> dict[s
                 "runnable": True,
                 "note": "Live bounded treatment. B1 uses one model call per cycle; A1 uses four; maximum 20 calls per run.",
             })
-    workflow_options.sort(key=lambda item: (not item["runnable"], item["type"], item["label"]))
+    architecture_order = {"B0": 0, "B1": 1, "A1": 2}
+    workflow_options.sort(
+        key=lambda item: (
+            not item["runnable"],
+            architecture_order.get(item["id"], 99),
+            item["label"],
+        )
+    )
 
     portfolio_options = []
     for value in portfolios:
@@ -451,6 +521,15 @@ def setup_payload(private_root: Path, workflows: list[dict[str, Any]]) -> dict[s
     return {
         "ready": all(item["available"] for item in datasets) and bool(portfolio_options),
         "datasets": datasets,
+        "data_boundary": {
+            "inputs": "licensed_real_read_only",
+            "portfolio": "reviewed_current_selection_fixed_holdings_counterfactual",
+            "architecture_view": "point_in_time_ex_ante",
+            "reference_labels": "pre_run_deterministic_mandate_rules_only",
+            "retrospective_case_labels": "not_admitted",
+            "synthetic_additions": "none",
+            "development_fixtures_in_results": False,
+        },
         "workflows": workflow_options,
         "portfolio_mandates": portfolio_options,
         "period": {
@@ -597,6 +676,87 @@ def _observation_ledger(
     return tuple(observations)
 
 
+def _metric_key(value: str | None) -> str:
+    return str(value or "unclassified").replace("_", "-")
+
+
+def _deterministic_reference_cycles(rows: list[dict[str, Any]]) -> tuple[dict[str, Any], ...]:
+    """Freeze mandate-rule labels independently from an architecture's output."""
+
+    references = []
+    for row in rows:
+        available_at = datetime.fromisoformat(row["data_available_at"])
+        if available_at.tzinfo is None:
+            available_at = available_at.replace(tzinfo=timezone.utc)
+        findings = tuple(
+            {
+                "key": f"cycle-{row['date']}:{_metric_key(item['metric'])}",
+                "metric_id": _metric_key(item["metric"]),
+                "risk_type": RULE_RISK_TYPES[item["rule_id"]],
+                "severity": 3 if item["level"] == "urgent" else 2,
+                "available_at": available_at,
+            }
+            for item in row["warnings"]
+        )
+        maximum_severity = max((item["severity"] for item in findings), default=0)
+        references.append({
+            "cycle_id": f"cycle-{row['date']}",
+            "available_at": available_at,
+            "findings": findings,
+            "monitoring_action": (
+                "urgent_human_review" if maximum_severity == 3
+                else "increase_monitoring" if findings
+                else "continue_monitoring"
+            ),
+            "portfolio_action": "review_exposure" if findings else "none",
+        })
+    return tuple(references)
+
+
+def _rate(numerator: int, denominator: int) -> float | None:
+    return None if denominator == 0 else numerator / denominator
+
+
+EVALUATION_METHODS: dict[str, dict[str, str]] = {
+    "detection_quality": {
+        "formula": "precision = TP/(TP+FP); recall = TP/(TP+FN); F1 = 2PR/(P+R)",
+        "scope": "Mandate-rule findings per workflow cycle against the frozen pre-run reference labels.",
+    },
+    "severity_understanding": {
+        "formula": "score = max(0, 1 - mean absolute severity error / 3)",
+        "scope": "Severity and risk-channel agreement for matched mandate findings only.",
+    },
+    "timeliness": {
+        "formula": "same-cycle detection rate = reference findings detected in their workflow cycle / reference findings",
+        "scope": "Trading-session detection plus real wall-clock processing; daily prices cannot identify intraday market reaction.",
+    },
+    "evidence_quality": {
+        "formula": "score = findings whose citations resolve in the output evidence index / all findings",
+        "scope": "Structural citation coverage; it does not independently judge whether a source is substantively correct.",
+    },
+    "confidence_calibration": {
+        "formula": "score = 1 - mean((forecast probability - observed outcome)^2)",
+        "scope": "Only outputs explicitly declared as calibrated probabilities; ordinal confidence is retained but not scored.",
+    },
+    "decision_quality": {
+        "formula": "current score = mean(monitoring-action agreement, portfolio-action agreement)",
+        "scope": "Agreement with the frozen mandate-response policy; financial regret requires matured decision branches.",
+    },
+    "robustness": {
+        "formula": "requires performance deltas across declared perturbations or comparable regime cases",
+        "scope": "Not inferred from input completeness; no score is produced without admitted perturbation cases.",
+    },
+    "stability": {
+        "formula": "identical-output rate across repeated runs with the same frozen case and controls",
+        "scope": "Calculated by the batch evaluator, never from a single run.",
+    },
+    "efficiency": {
+        "formula": "reported vector: wall time, calls, tokens, validation failures and priced cost",
+        "scope": "Observed resource use is kept disaggregated; no arbitrary composite efficiency score is applied.",
+    },
+}
+
+
 def _evaluate_architecture_outputs(
     outputs: tuple[ArchitectureOutput, ...],
     episodes: tuple[FindingEpisode, ...],
@@ -607,37 +767,338 @@ def _evaluate_architecture_outputs(
     repetitions: int,
     label_state: str,
     capability_configs: tuple[ExperimentalCapabilityConfig, ...] = (),
+    reference_cycles: tuple[dict[str, Any], ...] = (),
+    processing_receipts: tuple[ReplayProcessingReceipt, ...] = (),
 ) -> list[dict[str, Any]]:
-    """Evaluate only retained outputs and runtime receipts, never kernel internals."""
+    """Calculate observable metrics against the frozen mandate-rule reference."""
 
     findings = tuple(item for output in outputs for item in output.findings)
-    evidenced_findings = sum(bool(item.evidence_ids) for item in findings)
-    labels_admitted = label_state == "admitted"
     architecture_type = outputs[0].architecture_type if outputs else "deterministic"
-    execution_summaries = [item.execution_summary for item in outputs if item.execution_summary is not None]
-    model_calls = sum(item.model_calls for item in execution_summaries)
-    input_tokens = sum(item.input_tokens for item in execution_summaries)
-    output_tokens = sum(item.output_tokens for item in execution_summaries)
+    labels_admitted = label_state == "admitted" and bool(reference_cycles)
+    output_by_cycle = {item.cycle_id: item for item in outputs if item.cycle_id}
+    reference_by_cycle = {item["cycle_id"]: item for item in reference_cycles}
+    predicted_by_key: dict[str, Any] = {}
+    for output in outputs:
+        for finding in output.findings:
+            key = f"{output.cycle_id}:{_metric_key(finding.metric_id)}"
+            current = predicted_by_key.get(key)
+            if current is None or finding.severity > current.severity:
+                predicted_by_key[key] = finding
+    reference_by_key = {
+        item["key"]: item
+        for cycle in reference_cycles
+        for item in cycle["findings"]
+    }
+    predicted_keys = set(predicted_by_key)
+    reference_keys = set(reference_by_key)
+    true_positive_keys = predicted_keys & reference_keys
+    false_positive_keys = predicted_keys - reference_keys
+    false_negative_keys = reference_keys - predicted_keys
+    true_positives = len(true_positive_keys)
+    false_positives = len(false_positive_keys)
+    false_negatives = len(false_negative_keys)
+    precision = _rate(true_positives, true_positives + false_positives)
+    recall = _rate(true_positives, true_positives + false_negatives)
+    if reference_keys and not predicted_keys:
+        precision = 0.0
+    f1 = (
+        None if precision is None or recall is None or precision + recall == 0
+        else 2 * precision * recall / (precision + recall)
+    )
+    if reference_keys and precision == 0 and recall == 0:
+        f1 = 0.0
+    labelled_cycle_count = len(reference_cycles)
+    cycle_classification_correct = sum(
+        bool(output_by_cycle.get(cycle_id) and output_by_cycle[cycle_id].findings)
+        == bool(reference["findings"])
+        for cycle_id, reference in reference_by_cycle.items()
+    )
+    cycle_accuracy = _rate(cycle_classification_correct, labelled_cycle_count)
+
+    severity_errors = [
+        abs(predicted_by_key[key].severity - reference_by_key[key]["severity"])
+        for key in true_positive_keys
+    ]
+    severity_mae = None if not severity_errors else sum(severity_errors) / len(severity_errors)
+    exact_severity = _rate(sum(value == 0 for value in severity_errors), len(severity_errors))
+    risk_type_accuracy = _rate(
+        sum(predicted_by_key[key].risk_type == reference_by_key[key]["risk_type"] for key in true_positive_keys),
+        len(true_positive_keys),
+    )
+
     event_cycle_delays = [
         max(0.0, (item.as_of - item.trigger_available_at).total_seconds() / 3600)
         for item in outputs
-        if item.as_of is not None and item.trigger_available_at is not None and item.trigger_available_at < item.as_of
+        if item.as_of is not None and item.trigger_available_at is not None
     ]
+    execution_summaries = [item.execution_summary for item in outputs if item.execution_summary is not None]
+    first_finding_latencies = [
+        (item.first_finding_at - item.started_at).total_seconds() * 1000
+        for item in execution_summaries
+        if item.first_finding_at is not None
+    ]
+    same_cycle_detection_rate = _rate(true_positives, len(reference_keys))
+
+    evidenced_findings = sum(bool(item.evidence_ids) for item in findings)
+    indexed_findings = sum(
+        set(finding.evidence_ids).issubset(
+            set(output.supporting_evidence_ids) | set(output.conflicting_evidence_ids)
+        )
+        for output in outputs
+        for finding in output.findings
+    )
+    evidence_coverage = _rate(evidenced_findings, len(findings))
+    evidence_index_coverage = _rate(indexed_findings, len(findings))
+    mean_evidence_per_finding = (
+        None if not findings else sum(len(item.evidence_ids) for item in findings) / len(findings)
+    )
+
+    calibrated_outputs = [item for item in outputs if item.confidence_kind == "calibrated_probability"]
+    ordinal_outputs = [item for item in outputs if item.confidence_kind == "ordinal_judgement"]
+    brier_values = []
+    for output in calibrated_outputs:
+        reference = reference_by_cycle.get(output.cycle_id)
+        if reference is None:
+            continue
+        event_probability = output.confidence if output.assessment_state != "clear" else 1 - output.confidence
+        outcome = 1.0 if reference["findings"] else 0.0
+        brier_values.append((event_probability - outcome) ** 2)
+    brier_score = None if not brier_values else sum(brier_values) / len(brier_values)
+
+    monitoring_matches = 0
+    portfolio_matches = 0
+    comparable_decisions = 0
+    monitoring_distance = []
+    action_rank = {"continue_monitoring": 0, "increase_monitoring": 1, "urgent_human_review": 2, "no_action": 0}
+    for cycle_id, reference in reference_by_cycle.items():
+        output = output_by_cycle.get(cycle_id)
+        if output is None:
+            continue
+        comparable_decisions += 1
+        actual = output.decision.monitoring_action
+        expected = reference["monitoring_action"]
+        monitoring_matches += actual == expected
+        portfolio_matches += output.decision.portfolio_action == reference["portfolio_action"]
+        monitoring_distance.append(abs(action_rank[actual] - action_rank[expected]))
+    monitoring_agreement = _rate(monitoring_matches, comparable_decisions)
+    portfolio_agreement = _rate(portfolio_matches, comparable_decisions)
+    mean_monitoring_distance = None if not monitoring_distance else sum(monitoring_distance) / len(monitoring_distance)
+
+    if processing_receipts:
+        measured_wall_ms = sum(item.processing_wall_ms for item in processing_receipts)
+        capability_calls = sum(item.capability_calls for item in processing_receipts)
+        model_calls = sum(item.model_calls for item in processing_receipts)
+        input_tokens = sum(item.input_tokens for item in processing_receipts)
+        cached_input_tokens = sum(item.cached_input_tokens for item in processing_receipts)
+        output_tokens = sum(item.output_tokens for item in processing_receipts)
+        estimated_cost = (
+            None if any(item.estimated_cost_usd is None for item in processing_receipts)
+            else sum(item.estimated_cost_usd or 0.0 for item in processing_receipts)
+        )
+    else:
+        measured_wall_ms = wall_clock_ms
+        capability_calls = sum(item.capability_calls for item in execution_summaries)
+        model_calls = sum(item.model_calls for item in execution_summaries)
+        input_tokens = sum(item.input_tokens for item in execution_summaries)
+        cached_input_tokens = sum(item.cached_input_tokens for item in execution_summaries)
+        output_tokens = sum(item.output_tokens for item in execution_summaries)
+        estimated_cost = sum(item.cost_usd for item in execution_summaries) if execution_summaries else 0.0
+    schema_failures = sum(item.schema_validation_failures for item in execution_summaries)
+    semantic_failures = sum(item.semantic_verification_failures for item in execution_summaries)
+    execution_errors = sum(len(item.errors) for item in execution_summaries)
     capability_by_role = {
         role: tuple(item.capability_id for item in capability_configs if role in item.evaluation_roles)
         for role in ("architecture_input", "reference_label", "measurement")
     }
-    return [
-        {"id": "detection_quality", "label": "Detection quality", "status": "not_measurable" if not labels_admitted else "partial", "score": None, "summary": "Per-cycle findings are retained, but precision, recall and false negatives require an independently admitted label set." if not labels_admitted else "Labels are admitted; comparison metrics require the labelled evaluator implementation.", "metrics": {"finding_episodes": len(episodes), "labelled_cases": 0 if not labels_admitted else None, "required_reference_capabilities": ",".join(capability_by_role["reference_label"]) or "none"}},
-        {"id": "severity_understanding", "label": "Severity and risk understanding", "status": "partial", "score": None, "summary": "Observed threshold distance and episode severity are retained. Accuracy cannot be scored without reference severity and risk-channel labels.", "metrics": {"review_findings": sum(item.severity == 2 for item in findings), "urgent_findings": sum(item.severity == 3 for item in findings)}},
-        {"id": "timeliness", "label": "Timeliness", "status": "partial", "score": None, "summary": "Operational latency is measured when the daily point-in-time context becomes available. Market reaction remains interval-censored between closes; no false hourly price precision is reported.", "metrics": {"cycle_outputs": len(outputs), "intraday_event_cycles": len(event_cycle_delays), "mean_event_to_workflow_cycle_hours": None if not event_cycle_delays else sum(event_cycle_delays) / len(event_cycle_delays), "maximum_event_to_workflow_cycle_hours": None if not event_cycle_delays else max(event_cycle_delays), "market_response_unit": "trading_session", "minimum_market_horizon_sessions": 1, "within_session_market_reaction_identifiable": False, "warning_lead_time_sessions": None, "required_measurement_capabilities": ",".join(capability_by_role["measurement"]) or "none"}},
-        {"id": "evidence_quality", "label": "Evidence quality", "status": "not_applicable" if not findings else "partial", "score": None, "summary": "Structural evidence coverage is checked but is not treated as a quality score. Correctness, temporal validity and sufficiency require independent evidence review.", "metrics": {"structural_evidence_coverage": None if not findings else evidenced_findings / len(findings), "unsupported_findings": len(findings) - evidenced_findings}},
-        {"id": "confidence_calibration", "label": "Confidence and calibration", "status": "not_applicable" if architecture_type == "deterministic" else "not_measurable", "score": None, "summary": "The deterministic baseline reports calculation confidence, not a probabilistic forecast." if architecture_type == "deterministic" else "Agent ordinal confidence is retained, but calibration requires admitted outcomes or reference labels.", "metrics": {"probabilistic_confidence_outputs": sum(item.confidence_kind == "calibrated_probability" for item in outputs), "ordinal_confidence_outputs": sum(item.confidence_kind == "ordinal_judgement" for item in outputs), "calibration_cases": 0}},
-        {"id": "decision_quality", "label": "Decision quality", "status": "not_measurable", "score": None, "summary": "Selected and counterfactual branches are retained. Regret is evaluated only after branch outcomes become available.", "metrics": {"decision_points": len(outputs), "branches": len(outputs) * 2, "regret": None}},
+    detection_status = "measured" if labels_admitted else "not_measurable"
+    detection_score = f1 if reference_keys else cycle_accuracy if labels_admitted else None
+    decision_score = (
+        None if monitoring_agreement is None or portfolio_agreement is None
+        else (monitoring_agreement + portfolio_agreement) / 2
+    )
+    dimensions = [
+        {"id": "detection_quality", "label": "Detection quality", "status": detection_status, "score": detection_score, "summary": "Positive cycles use precision, recall and F1; all labelled cycles use breach/no-breach classification accuracy against the pre-run deterministic mandate reference. Unlabelled event relevance is outside this score." if detection_status == "measured" else "Detection requires an admitted reference label set.", "metrics": {"true_positives": true_positives, "false_positives": false_positives, "false_negatives": false_negatives, "precision": precision, "recall": recall, "f1": f1, "cycle_classification_accuracy": cycle_accuracy, "labelled_cycles": labelled_cycle_count, "finding_episodes": len(episodes), "reference_scope": "deterministic_mandate_breaches", "reference_capabilities": ",".join(capability_by_role["reference_label"]) or "none"}},
+        {"id": "severity_understanding", "label": "Severity and risk understanding", "status": "measured" if severity_mae is not None else "not_applicable", "score": None if severity_mae is None else max(0.0, 1 - severity_mae / 3), "summary": "Matched mandate findings are compared with the frozen reference severity and risk channel; unmatched findings remain detection errors." if severity_mae is not None else "No matched positive mandate finding is available for severity comparison.", "metrics": {"matched_findings": len(true_positive_keys), "severity_mae": severity_mae, "exact_severity_rate": exact_severity, "risk_type_accuracy": risk_type_accuracy, "review_findings": sum(item.severity == 2 for item in findings), "urgent_findings": sum(item.severity == 3 for item in findings)}},
+        {"id": "timeliness", "label": "Timeliness", "status": "measured" if reference_keys else "not_applicable", "score": same_cycle_detection_rate, "summary": "Detection is scored in trading-session units; workflow and model processing retain wall-clock milliseconds. Intraday market reaction remains unidentifiable from daily prices.", "metrics": {"cycle_outputs": len(outputs), "reference_findings": len(reference_keys), "same_cycle_detection_rate": same_cycle_detection_rate, "mean_trigger_to_cycle_hours": None if not event_cycle_delays else sum(event_cycle_delays) / len(event_cycle_delays), "maximum_trigger_to_cycle_hours": None if not event_cycle_delays else max(event_cycle_delays), "mean_processing_to_first_finding_ms": None if not first_finding_latencies else sum(first_finding_latencies) / len(first_finding_latencies), "market_response_unit": "trading_session", "minimum_market_horizon_sessions": 1, "within_session_market_reaction_identifiable": False, "measurement_capabilities": ",".join(capability_by_role["measurement"]) or "none"}},
+        {"id": "evidence_quality", "label": "Evidence quality", "status": "not_applicable" if not findings else "measured", "score": evidence_index_coverage, "summary": "The score measures structural citation and evidence-index coverage only; source correctness and substantive sufficiency require an independent evidence review.", "metrics": {"finding_citation_coverage": evidence_coverage, "evidence_index_coverage": evidence_index_coverage, "mean_evidence_references_per_finding": mean_evidence_per_finding, "unsupported_findings": len(findings) - evidenced_findings, "unindexed_findings": len(findings) - indexed_findings, "unique_supporting_evidence": len({value for item in outputs for value in item.supporting_evidence_ids}), "quality_scope": "structural_not_substantive"}},
+        {"id": "confidence_calibration", "label": "Confidence and calibration", "status": "measured" if brier_score is not None else "not_applicable" if architecture_type == "deterministic" else "not_measurable", "score": None if brier_score is None else max(0.0, 1 - brier_score), "summary": "Brier score is calculated only for outputs explicitly declaring calibrated probabilities." if brier_score is not None else "The deterministic baseline reports calculation confidence, not a probabilistic forecast." if architecture_type == "deterministic" else "Ordinal agent confidence is retained but is not misrepresented as calibrated probability.", "metrics": {"probabilistic_confidence_outputs": len(calibrated_outputs), "ordinal_confidence_outputs": len(ordinal_outputs), "calibration_cases": len(brier_values), "brier_score": brier_score, "mean_ordinal_confidence": None if not ordinal_outputs else sum(item.confidence for item in ordinal_outputs) / len(ordinal_outputs)}},
+        {"id": "decision_quality", "label": "Decision quality", "status": "partial" if comparable_decisions else "not_measurable", "score": decision_score, "summary": "Current scoring measures agreement with the predeclared mandate-response policy. Financial regret remains unavailable until counterfactual branch outcomes mature.", "metrics": {"decision_points": len(outputs), "comparable_decisions": comparable_decisions, "monitoring_action_agreement": monitoring_agreement, "portfolio_action_agreement": portfolio_agreement, "mean_monitoring_action_distance": mean_monitoring_distance, "branches": len(outputs) * 2, "regret": None}},
         {"id": "robustness", "label": "Robustness", "status": "not_measurable", "score": None, "summary": "Input completeness is reported as runtime quality, not robustness. Robustness requires perturbations or comparable cases across regimes.", "metrics": {"position_observation_completeness": round(position_observation_completeness, 6), "perturbation_cases": 0}},
-        {"id": "stability", "label": "Stability", "status": "measured" if repetitions > 1 else "partial", "score": None, "summary": "Empirical stability requires repeated executions with output-digest comparison." if repetitions == 1 else "Repeated outputs are available for digest comparison.", "metrics": {"deterministic_execution": architecture_type == "deterministic", "repetitions": repetitions}},
-        {"id": "efficiency", "label": "Efficiency", "status": "measured", "score": None, "summary": "Observed runtime, model usage and actual query receipts are retained without an arbitrary composite score.", "metrics": {"wall_clock_ms": wall_clock_ms, "model_calls": model_calls, "input_tokens": input_tokens, "output_tokens": output_tokens, "database_queries": len(query_receipts), "estimated_cost_usd": None if model_calls else 0.0}},
+        {"id": "stability", "label": "Stability", "status": "partial", "score": None, "summary": "A repetition index is not a stability calculation. Output-digest agreement is computed only by the batch evaluator across completed identical repetitions.", "metrics": {"deterministic_execution": architecture_type == "deterministic", "current_repetition": repetitions, "compared_repetitions": 0, "unique_output_signatures": None}},
+        {"id": "efficiency", "label": "Efficiency", "status": "measured", "score": None, "summary": "Observed processing, calls, tokens, failures and priced cost are reported separately without an arbitrary composite score.", "metrics": {"processing_wall_ms": round(measured_wall_ms, 3), "mean_processing_ms_per_cycle": _rate(round(measured_wall_ms, 3), len(outputs)), "mean_processing_ms_per_finding": _rate(round(measured_wall_ms, 3), len(findings)), "capability_calls": capability_calls, "model_calls": model_calls, "input_tokens": input_tokens, "cached_input_tokens": cached_input_tokens, "output_tokens": output_tokens, "schema_validation_failures": schema_failures, "semantic_verification_failures": semantic_failures, "execution_errors": execution_errors, "database_queries": len(query_receipts), "estimated_cost_usd": None if estimated_cost is None else round(estimated_cost, 8)}},
     ]
+    for dimension in dimensions:
+        method = EVALUATION_METHODS[dimension["id"]]
+        dimension["formula"] = method["formula"]
+        dimension["measurement_scope"] = method["scope"]
+    return dimensions
+
+
+def _build_run_diagnostics(
+    *,
+    workflow_id: str,
+    evaluation_dimensions: list[dict[str, Any]],
+    outputs: tuple[ArchitectureOutput, ...],
+    missing_position_observations: int,
+    missing_position_names: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    """Create a concise, deterministic run-shortcoming log for review and Codex handoff."""
+
+    issues: dict[str, dict[str, Any]] = {}
+
+    def add(
+        code: str,
+        *,
+        category: str,
+        severity: str,
+        summary: str,
+        detail: str,
+        remediation: str,
+        dimensions: tuple[str, ...] = (),
+    ) -> None:
+        issues.setdefault(code, {
+            "code": code,
+            "category": category,
+            "severity": severity,
+            "summary": summary,
+            "detail": detail,
+            "affected_dimensions": list(dimensions),
+            "remediation": remediation,
+            "codex_actionable": True,
+        })
+
+    if missing_position_observations:
+        named_gap = (
+            f" Affected holdings: {', '.join(missing_position_names)}."
+            if missing_position_names else ""
+        )
+        add(
+            "DATA-MISSING-POSITION-OBSERVATIONS",
+            category="data",
+            severity="high",
+            summary="Some portfolio positions had no eligible market observation.",
+            detail=(
+                f"The run recorded {missing_position_observations} missing position observations."
+                f"{named_gap} No eligible valuation price was silently imputed."
+            ),
+            remediation="Inspect identifier coverage and point-in-time market-data eligibility before relying on the affected cycles.",
+            dimensions=("robustness", "detection_quality"),
+        )
+
+    for dimension in evaluation_dimensions:
+        status = dimension["status"]
+        if status in {"measured", "not_applicable"}:
+            continue
+        severity = "high" if dimension["id"] == "decision_quality" else "medium"
+        add(
+            f"EVAL-{dimension['id'].upper().replace('_', '-')}-{status.upper().replace('_', '-')}",
+            category="evaluation",
+            severity=severity,
+            summary=f"{dimension['label']} is {status.replace('_', ' ')}.",
+            detail=dimension["summary"],
+            remediation=(
+                "Admit the missing labels, matured outcomes, repetitions or perturbation cases described by this dimension before thesis comparison."
+            ),
+            dimensions=(dimension["id"],),
+        )
+
+    execution_errors = sum(
+        len(output.execution_summary.errors)
+        for output in outputs
+        if output.execution_summary is not None
+    )
+    schema_failures = sum(
+        output.execution_summary.schema_validation_failures
+        for output in outputs
+        if output.execution_summary is not None
+    )
+    semantic_failures = sum(
+        output.execution_summary.semantic_verification_failures
+        for output in outputs
+        if output.execution_summary is not None
+    )
+    if execution_errors or schema_failures or semantic_failures:
+        add(
+            "EXECUTION-VALIDATION-FAILURES",
+            category="execution",
+            severity="high",
+            summary="The architecture recorded execution or output-validation failures.",
+            detail=(
+                f"errors={execution_errors}; schema_failures={schema_failures}; "
+                f"semantic_failures={semantic_failures}."
+            ),
+            remediation="Inspect processing receipts and the affected structured outputs; fix the architecture before comparing its scores.",
+            dimensions=("efficiency", "evidence_quality"),
+        )
+
+    missing_information = sorted({value for output in outputs for value in output.missing_information})
+    limitations = sorted({value for output in outputs for value in output.limitations})
+    warnings = sorted({value for output in outputs for value in output.warnings})
+    if missing_information or limitations or warnings:
+        add(
+            "OUTPUT-DECLARED-LIMITATIONS",
+            category="architecture_output",
+            severity="medium",
+            summary="The architecture declared unresolved information or limitations.",
+            detail=" | ".join((missing_information + limitations + warnings)[:12]),
+            remediation="Review the declared gaps and add only the data, capability or output-contract changes that materially affect the research question.",
+            dimensions=("evidence_quality", "decision_quality"),
+        )
+
+    add(
+        "METHOD-FIXED-HOLDINGS-RETROJECTION",
+        category="methodology",
+        severity="high",
+        summary="Current accepted holdings are retrojected into the historical period.",
+        detail="This run validates the apparatus but is not clean thesis evidence for a historically constructed portfolio.",
+        remediation="Freeze a point-in-time portfolio-construction rule before the test period and rerun the case.",
+        dimensions=("detection_quality", "decision_quality", "robustness"),
+    )
+    add(
+        "METHOD-SHARED-DETERMINISTIC-REFERENCE",
+        category="methodology",
+        severity="medium",
+        summary="All architectures receive the same deterministic calculations used by the reference treatment.",
+        detail="Agreement scores verify preservation of the mandate baseline; they cannot alone demonstrate that an agent is superior.",
+        remediation="Add independently labelled event relevance, severity and matured outcome cases for discriminating architecture comparisons.",
+        dimensions=("detection_quality", "severity_understanding", "decision_quality"),
+    )
+    add(
+        "METHOD-DAILY-PRICE-INTERVAL-CENSORING",
+        category="methodology",
+        severity="medium",
+        summary="Daily prices cannot identify intraday market reaction or exact alpha decay.",
+        detail="Events are processed chronologically, but tradable response is evaluated no earlier than the eligible daily close.",
+        remediation="Keep session-level timeliness separate from processing latency; admit intraday prices only in a later data regime.",
+        dimensions=("timeliness", "decision_quality"),
+    )
+
+    severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    ordered = sorted(issues.values(), key=lambda item: (severity_order[item["severity"]], item["code"]))
+    counts = {level: sum(item["severity"] == level for item in ordered) for level in severity_order}
+    return {
+        "schema_version": "portfolio-risk.run-diagnostics/v1",
+        "workflow_id": workflow_id,
+        "status": "attention_required" if counts["critical"] or counts["high"] else "review",
+        "counts": counts,
+        "shortcomings": ordered,
+        "risk_criticalities": [
+            {
+                "cycle_id": output.cycle_id,
+                "assessment_state": output.assessment_state,
+                "severity": output.severity,
+                "summary": output.risk_interpretation,
+                "finding_ids": [finding.finding_id for finding in output.findings],
+            }
+            for output in outputs
+            if output.findings or output.assessment_state != "clear"
+        ],
+        "codex_handoff": {
+            "purpose": "Debug and improve the experimental apparatus without confusing portfolio-risk findings with system defects.",
+            "priority_issue_codes": [item["code"] for item in ordered if item["severity"] in {"critical", "high"}],
+            "inspect_files": ["run-diagnostics.json", "processing-receipts.json", "evaluation-record.json", "architecture-outputs.json"],
+        },
+    }
 
 
 def run_replay(
@@ -648,6 +1109,12 @@ def run_replay(
     start_date: date,
     end_date: date,
     evaluation_id: str,
+    study_id: str = STUDY_ID,
+    experiment_id: str = EXPERIMENT_ID,
+    study_title: str = "Agentic portfolio-risk architecture study",
+    research_question: str = "How does the selected architecture interpret the same mandate-linked point-in-time portfolio-risk context?",
+    hypothesis: str = "Agent treatments may improve semantic risk understanding over the deterministic reference while preserving evidence, temporal and effect-free constraints.",
+    repetition: int = 1,
 ) -> dict[str, Any]:
     started_at = datetime.now(timezone.utc)
     started = perf_counter()
@@ -902,7 +1369,9 @@ def run_replay(
         if replay_date < history_start:
             continue
         position_values_by_id = {
-            permno: float(quantity_by_id[permno] * price)
+            # CRSP encodes a negative PRC when it reports a bid/ask midpoint;
+            # the sign is metadata, not a negative security value.
+            permno: float(quantity_by_id[permno] * abs(price))
             for permno, price, _ in observations
         }
         position_values = list(position_values_by_id.values())
@@ -965,6 +1434,10 @@ def run_replay(
         if replay_date < start_date or replay_date > end_date:
             continue
         missing = len(positions) - len(observations)
+        missing_position_names = tuple(
+            security_context.get(permno, {}).get("company_name", f"Security {permno}")
+            for permno in sorted(set(ids) - set(position_values_by_id))
+        )
         metric_quality = "complete" if missing == 0 and not price_fallback_ids else "partial"
         rule_results = []
         warning_items = []
@@ -1068,6 +1541,14 @@ def run_replay(
                 },
                 "positions_observed": len(observations),
                 "positions_missing": missing,
+                "position_observations_missing": [
+                    {
+                        "company_name": company_name,
+                        "status": "unavailable",
+                        "reason": "No eligible CRSP valuation price was available for this trading session.",
+                    }
+                    for company_name in missing_position_names
+                ],
                 "warnings": warning_items,
                 "rule_results": rule_results,
             }
@@ -1085,11 +1566,8 @@ def run_replay(
     case_id = f"case-{portfolio_id.replace('_', '-')}-{start_date.isoformat()}-{end_date.isoformat()}"
     elapsed_ms = round((perf_counter() - started) * 1000, 2)
     completeness = 0.0 if len(rows) * len(positions) == 0 else 1 - missing_inputs / (len(rows) * len(positions))
-    finding_risk_types = {
-        "daily-loss": "loss", "drawdown": "loss", "volatility": "volatility",
-        "cash-minimum": "liquidity", "issuer-concentration": "concentration",
-        "sector-concentration": "concentration",
-    }
+    reference_cycles = _deterministic_reference_cycles(rows)
+    reference_label_digest = canonical_digest(reference_cycles)
     active_episodes: dict[str, dict[str, Any]] = {}
     completed_episodes: list[dict[str, Any]] = []
     architecture_outputs: list[ArchitectureOutput] = []
@@ -1119,7 +1597,7 @@ def run_replay(
             if episode is None:
                 episode = {
                     "episode_id": f"episode-{rule_id}-{cycle_index:04d}",
-                    "risk_type": finding_risk_types[rule_id],
+                    "risk_type": RULE_RISK_TYPES[rule_id],
                     "rule_id": rule_id,
                     "first_detected_at": cycle_at,
                     "last_detected_at": cycle_at,
@@ -1140,7 +1618,7 @@ def run_replay(
             cycle_findings.append(ArchitectureFinding(
                 finding_id=f"finding-{row['date']}-{rule_id}",
                 episode_id=episode["episode_id"],
-                risk_type=finding_risk_types[rule_id],
+                risk_type=RULE_RISK_TYPES[rule_id],
                 affected_asset=portfolio_id,
                 direction="negative",
                 materiality=min(1.0, threshold_distance),
@@ -1313,8 +1791,8 @@ def run_replay(
                 input_tokens=receipt["input_tokens"],
                 cached_input_tokens=0,
                 output_tokens=receipt["output_tokens"],
-                estimated_cost_usd=None,
-                pricing_reference="pricing_unavailable_for_model_snapshot",
+                estimated_cost_usd=receipt["estimated_cost_usd"],
+                pricing_reference=receipt["pricing_reference"],
                 metadata={
                     "event_timing": receipt["event_timing"],
                     "execution_timing": receipt["execution_timing"],
@@ -1372,8 +1850,10 @@ def run_replay(
         wall_clock_ms=elapsed_ms,
         query_receipts=tuple(query_receipts),
         repetitions=1,
-        label_state="not_admitted",
+        label_state="admitted",
         capability_configs=PRECONFIGURED_CAPABILITIES,
+        reference_cycles=reference_cycles,
+        processing_receipts=tuple(processing_receipts),
     )
     regimes = _regime_labels(rows)
     observations = _observation_ledger(
@@ -1383,15 +1863,15 @@ def run_replay(
         mandate_rules=mandate["rules"],
     )
     study = StudyDefinition(
-        study_id=STUDY_ID,
-        title="Agentic portfolio-risk architecture study",
+        study_id=study_id,
+        title=study_title,
         research_programme="Compare deterministic, single-agent and agent-graph portfolio-risk monitoring across cases, information regimes and market regimes.",
     )
     experiment = ResearchExperimentDefinition(
-        experiment_id=EXPERIMENT_ID,
-        study_id=STUDY_ID,
-        research_question="How does the selected architecture interpret the same mandate-linked point-in-time portfolio-risk context?",
-        hypothesis="Agent treatments may improve semantic risk understanding over the deterministic reference while preserving evidence, temporal and effect-free constraints.",
+        experiment_id=experiment_id,
+        study_id=study_id,
+        research_question=research_question,
+        hypothesis=hypothesis,
         controlled_factors=tuple(sorted(("data-revision", "mandate-version", "portfolio-quantities", "temporal-policy"))),
         variable_factors=("architecture",),
         evaluation_dimensions=tuple(sorted(item["id"] for item in evaluation_dimensions)),
@@ -1399,18 +1879,23 @@ def run_replay(
     input_observation_ids = ("input-compustat", "input-crsp", "input-mandate", "input-portfolio", "input-ravenpack")
     case = ExperimentalCase(
         case_id=case_id,
-        experiment_id=EXPERIMENT_ID,
+        experiment_id=experiment_id,
         observable_state=ObservableCaseState(
             portfolio_reference=f"portfolio:portfolio-risk.research:{portfolio_id}@2026-08-11",
             mandate_reference=mandate["reference"],
             risk_policy_reference=mandate["risk_policy"]["reference"],
-            data_references=("dataset:compustat-quarterly", "dataset:crsp-daily", "dataset:ravenpack-events"),
+            data_references=(
+                f"dataset:crsp-compustat:{config['dataset_snapshot_id']}",
+                "dataset:compustat-quarterly",
+                "dataset:crsp-daily",
+                "dataset:ravenpack-events",
+            ),
             observation_ids=input_observation_ids,
             as_of=datetime.combine(end_date, time.max, tzinfo=timezone.utc),
         ),
         evaluation_state=CaseEvaluationState(
             evaluation_horizon_end=datetime.combine(end_date + timedelta(days=20), time.max, tzinfo=timezone.utc),
-            label_state="not_admitted",
+            label_state="admitted",
             regimes=regimes,
         ),
     )
@@ -1426,17 +1911,18 @@ def run_replay(
         run_id=run_id,
         evaluator="deterministic_evaluator",
         evaluated_output_id=architecture_output.output_id,
-        label_state="not_admitted",
+        label_state="admitted",
         dimensions=dimension_records,
         created_at=completed_at,
-        evaluator_version="2.0.0",
+        evaluator_version="3.0.0",
         evaluated_output_ids=tuple(item.output_id for item in architecture_outputs),
         metric_specification_ids=tuple(item.metric_id for item in METRIC_SPECIFICATIONS),
+        label_set_digest=reference_label_digest,
     )
     run_record = ExperimentalRun(
         run_id=run_id,
-        study_id=STUDY_ID,
-        experiment_id=EXPERIMENT_ID,
+        study_id=study_id,
+        experiment_id=experiment_id,
         case_id=case_id,
         regime_labels=regimes,
         run_input=RunInput(
@@ -1445,7 +1931,7 @@ def run_replay(
             information_regime="licensed-market-fundamentals-events",
             capability_references=tuple(item.capability_id for item in PRECONFIGURED_CAPABILITIES),
             capability_configurations=PRECONFIGURED_CAPABILITIES,
-            repetition=1,
+            repetition=repetition,
             observation_ids=input_observation_ids,
         ),
         architecture_config=ArchitectureConfig(
@@ -1474,6 +1960,39 @@ def run_replay(
         processing_receipts=tuple(processing_receipts),
         agent_output_ids=tuple(item.source_output_id for item in architecture_outputs if item.source_output_id),
         architecture_output_ids=tuple(item.output_id for item in architecture_outputs),
+    )
+    programme_classification = RunClassification(
+        study_id=study_id,
+        experiment_id=experiment_id,
+        fixture_context_digest=canonical_digest({
+            "portfolio_mandate": {
+                "portfolio": case.observable_state.portfolio_reference,
+                "mandate": case.observable_state.mandate_reference,
+                "risk_policy": case.observable_state.risk_policy_reference,
+            },
+            "data": case.observable_state.data_references,
+            "information_regime": run_record.run_input.information_regime,
+            "capability_environment": [item.model_dump(mode="json") for item in PRECONFIGURED_CAPABILITIES],
+            "scenario": "scenario:historical-replay@1.0.0",
+            "evaluation": evaluation_id,
+        }),
+        case_id=case_id,
+        baseline_id=workflow_id.lower(),
+        architecture_reference=run_record.architecture_config.architecture_id,
+        portfolio_mandate_reference=(
+            f"{case.observable_state.portfolio_reference} | "
+            f"{case.observable_state.mandate_reference}"
+        ),
+        information_regime_reference=(
+            "information-regime:licensed-market-fundamentals-events@1.0.0"
+        ),
+        scenario_reference="scenario:historical-replay@1.0.0",
+        evaluation_reference=f"evaluation:{evaluation_id}@1.0.0",
+        repetition=repetition,
+        market_regime_labels=tuple(sorted(
+            f"{item.dimension}:{item.value}" for item in regimes
+        )),
+        run_id=run_id,
     )
     resource_days: dict[str, dict[str, Any]] = {}
     for item in processing_receipts:
@@ -1519,6 +2038,17 @@ def run_replay(
         "cost_status": "unpriced" if total_cost is None else "priced",
         "by_replay_date": [resource_days[key] for key in sorted(resource_days)],
     }
+    diagnostics = _build_run_diagnostics(
+        workflow_id=workflow_id,
+        evaluation_dimensions=evaluation_dimensions,
+        outputs=tuple(architecture_outputs),
+        missing_position_observations=missing_inputs,
+        missing_position_names=tuple(sorted({
+            item["company_name"]
+            for row in rows
+            for item in row.get("position_observations_missing", ())
+        })),
+    )
     return {
         "run_id": run_id,
         "status": "completed",
@@ -1531,6 +2061,9 @@ def run_replay(
             "rules_are_fixed": workflow_id == "B0",
             "cycle_outputs": len(architecture_outputs),
             "call_budget": MAX_AGENT_MODEL_CALLS,
+            "prompt_manifest_digest": (
+                None if workflow_id == "B0" else prompt_manifest_digest()
+            ),
             "cycle_receipts": agent_cycle_receipts,
         },
         "execution_regime": {
@@ -1538,7 +2071,7 @@ def run_replay(
             "processing_time_policy": "real_wall_clock_with_replay_time_blocked",
             "idle_time_policy": "accelerated_between_triggers",
             "maximum_model_calls": MAX_AGENT_MODEL_CALLS,
-            "maximum_output_tokens_per_call": 1600,
+            "maximum_output_tokens_per_call": 2400,
             "model_timeout_seconds": 90,
             "cost_policy": "retain_tokens_and_cost_when_a_reviewed_pricing_snapshot_matches; otherwise cost_is_null",
             "continuous_operations_comparator": "parked_for_later_real_time_apparatus",
@@ -1548,10 +2081,15 @@ def run_replay(
             "study": study.model_dump(mode="json"),
             "experiment": experiment.model_dump(mode="json"),
             "case": case.model_dump(mode="json"),
-            "run": {"run_id": run_id, "repetition": 1},
+            "run": {"run_id": run_id, "repetition": repetition},
             "regimes": [item.model_dump(mode="json") for item in regimes],
         },
         "run_record": run_record.model_dump(mode="json"),
+        "programme_classification": {
+            **programme_classification.model_dump(mode="json"),
+            "cell_key": programme_classification.cell_key,
+        },
+        "diagnostics": diagnostics,
         "portfolio": {
             "id": portfolio_id,
             "definition_date": "2026-08-11",
@@ -1563,10 +2101,24 @@ def run_replay(
             ],
             "instrument_lifetime_metrics": instrument_lifetime_summaries,
         },
+        "data_revision": {
+            "snapshot_id": config["dataset_snapshot_id"],
+            "snapshot_receipt_sha256": config["dataset_receipt_sha256"],
+            "portfolio_receipt_sha256": config["portfolio_receipt_sha256"],
+            "access": "licensed_read_only",
+        },
         "mandate": mandate,
         "period": {"start": start_date.isoformat(), "end": end_date.isoformat()},
         "evaluation": {
             "id": evaluation_id,
+            "reference_treatment": {
+                "scope": "deterministic_mandate_breaches",
+                "label_state": "admitted",
+                "label_set_digest": reference_label_digest,
+                "cycles": len(reference_cycles),
+                "positive_findings": sum(len(item["findings"]) for item in reference_cycles),
+                "limitation": "This reference scores mandate-rule preservation and response, not unlabelled event relevance or future market outcomes. Because the same deterministic calculations are supplied to B1 and A1, these scores verify apparatus integrity and do not by themselves demonstrate agent superiority.",
+            },
             "trading_days": len(rows),
             "warnings": warnings,
             "missing_position_observations": missing_inputs,
@@ -1599,7 +2151,7 @@ def run_replay(
                     "and leaves exact intraday alpha decay unscored until an admitted intraday market-data source exists."
                 ),
             },
-            "interpretation": "Descriptive execution result only; predictive accuracy requires a reviewed outcome label.",
+            "interpretation": "Mandate-rule detection and response are scored against the frozen deterministic reference. Predictive event accuracy, probability calibration, robustness and financial regret require separate admitted labels or matured outcomes.",
             "dimensions": evaluation_dimensions,
             "rule_summary": [
                 {"rule_id": rule["rule_id"], "label": rule["label"], "clause": rule["clause"], **rule_counts[rule["rule_id"]]}
@@ -1612,4 +2164,301 @@ def run_replay(
             "Those fixed holdings were applied to earlier dates. Treat this run as an apparatus test, "
             "not as thesis evidence until the portfolio construction rule is fixed before the test period."
         ),
+    }
+
+
+def professor_demo_definition() -> dict[str, Any]:
+    """Load the versioned, private-neutral Professor Demo definition."""
+
+    if not PROFESSOR_DEMO_CONFIG.is_file():
+        raise HistoricalReplayError("Professor Demo v0.1 configuration is unavailable")
+    value = yaml.safe_load(PROFESSOR_DEMO_CONFIG.read_text(encoding="utf-8"))
+    if value.get("schema_version") != "portfolio-risk.professor-demo/v1":
+        raise HistoricalReplayError("Professor Demo v0.1 has an unsupported schema")
+    return value
+
+
+def professor_demo_preflight(private_root: Path) -> dict[str, Any]:
+    """Qualify the exact demo Case without saving a Run or calling a model.
+
+    This workflow deliberately executes B0 once because B0 is the deterministic
+    reference implementation of the same metrics and mandate checks used by the
+    treatments.  It is a preflight observation, not a retained research result.
+    """
+
+    definition = professor_demo_definition()
+    case_definition = definition["case"]
+    expected = definition["expected_preflight"]
+    setup = setup_payload(private_root, [])
+    portfolio = next(
+        (
+            item for item in setup["portfolio_mandates"]
+            if item["id"] == case_definition["portfolio_id"]
+        ),
+        None,
+    )
+    if portfolio is None:
+        raise HistoricalReplayError("the Professor Demo portfolio is unavailable")
+
+    start_date = date.fromisoformat(case_definition["start_date"])
+    end_date = date.fromisoformat(case_definition["end_date"])
+    audit = run_replay(
+        private_root,
+        workflow_id="B0",
+        portfolio_id=case_definition["portfolio_id"],
+        start_date=start_date,
+        end_date=end_date,
+        evaluation_id=definition["evaluation_id"],
+        study_id=definition["study"]["study_id"],
+        experiment_id=definition["experiment"]["experiment_id"],
+        study_title=definition["study"]["title"],
+        research_question=definition["experiment"]["research_question"],
+        hypothesis=definition["experiment"]["hypothesis"],
+    )
+    row = audit["clock"][0]
+    final_output = audit["run_record"]["architecture_output"]
+    evaluation = audit["evaluation"]
+    data_revision = audit["data_revision"]
+    configured_capabilities = {
+        item.capability_id for item in PRECONFIGURED_CAPABILITIES
+    }
+    required_capabilities = set(definition["capabilities"])
+    portfolio_count = len(portfolio["holdings"])
+    price_coverage = (
+        0.0 if portfolio_count == 0
+        else row["positions_observed"] / portfolio_count
+    )
+    fundamental_coverage = (
+        0.0 if portfolio_count == 0
+        else evaluation["compustat_companies_available"] / portfolio_count
+    )
+    material_findings = len(final_output["findings"])
+    absolute_daily_return = abs(float(row["daily_return"] or 0.0))
+
+    database = _database(private_root)
+    with duckdb.connect(str(database), read_only=True) as connection:
+        catalog_snapshot = connection.execute(
+            "SELECT snapshot_id FROM catalogue_snapshot_metadata LIMIT 1"
+        ).fetchone()[0]
+        ravenpack = connection.execute(
+            """
+            SELECT inventory_signature, admission_ready, readiness
+            FROM ravenpack_integration_status
+            WHERE provider_id = 'ravenpack'
+            """
+        ).fetchone()
+
+    checks: list[dict[str, Any]] = []
+
+    def add_check(
+        check_id: str,
+        label: str,
+        passed: bool,
+        observed: str,
+        *,
+        required: bool = True,
+        limitation: str | None = None,
+    ) -> None:
+        checks.append({
+            "check_id": check_id,
+            "label": label,
+            "status": "pass" if passed else "fail" if required else "warning",
+            "required": required,
+            "observed": observed,
+            "limitation": limitation,
+        })
+
+    add_check(
+        "data-revision",
+        "The licensed data revision matches the frozen demo",
+        catalog_snapshot == definition["data"]["snapshot_id"]
+        and data_revision["snapshot_receipt_sha256"]
+        == definition["data"]["snapshot_receipt_sha256"],
+        f"{catalog_snapshot} · read only",
+    )
+    add_check(
+        "ravenpack-revision",
+        "The RavenPack inventory is admitted and unchanged",
+        bool(ravenpack)
+        and ravenpack[0] == definition["data"]["ravenpack_inventory_signature"]
+        and bool(ravenpack[1]),
+        "Unavailable" if not ravenpack else f"{ravenpack[2]} · {ravenpack[0]}",
+    )
+    add_check(
+        "portfolio-binding",
+        "The selected portfolio is bound to the intended mandate",
+        portfolio["mandate"]["object_id"] == case_definition["mandate_id"]
+        and portfolio_count == int(expected["position_count"]),
+        f"{portfolio_count} named holdings · {portfolio['mandate']['name']}",
+    )
+    add_check(
+        "market-coverage",
+        "Every holding has an eligible valuation",
+        price_coverage >= float(expected["minimum_price_coverage"]),
+        f"{row['positions_observed']}/{portfolio_count} holdings ({price_coverage:.0%})",
+    )
+    add_check(
+        "fundamental-coverage",
+        "Every holding has point-in-time fundamentals",
+        fundamental_coverage >= float(expected["minimum_fundamental_coverage"]),
+        f"{evaluation['compustat_companies_available']}/{portfolio_count} holdings ({fundamental_coverage:.0%})",
+    )
+    add_check(
+        "event-context",
+        "The date contains eligible portfolio events",
+        evaluation["ravenpack_events"]
+        >= int(expected["minimum_eligible_event_records"]),
+        f"{evaluation['ravenpack_events']} records · {len(row['ravenpack_events'].get('event_stream', []))} event clusters",
+    )
+    add_check(
+        "capability-environment",
+        "Every demo capability is versioned and configured",
+        required_capabilities.issubset(configured_capabilities),
+        f"{len(required_capabilities & configured_capabilities)}/{len(required_capabilities)} capabilities",
+    )
+    add_check(
+        "architecture-environment",
+        "B0, B1 and A1 are runnable on the same Case",
+        set(definition["architectures"]).issubset(
+            {item["id"] for item in setup["workflows"] if item["runnable"]}
+        ),
+        "B0 deterministic · B1 single agent · A1 specialist graph",
+    )
+    add_check(
+        "nontrivial-case",
+        "The Case contains a material risk question",
+        material_findings >= int(expected["minimum_material_findings"])
+        and absolute_daily_return >= float(expected["minimum_absolute_daily_return"]),
+        f"{material_findings} mandate findings · {absolute_daily_return:.1%} absolute daily return",
+    )
+    add_check(
+        "historical-construction",
+        "The portfolio was formed before the historical observation date",
+        False,
+        "Quantities were approved in 2026 and retrojected to 2016",
+        required=False,
+        limitation=case_definition["selection_limitation"],
+    )
+    add_check(
+        "independent-outcomes",
+        "Independent event and future-outcome labels are available",
+        False,
+        "Mandate-rule reference labels only",
+        required=False,
+        limitation=(
+            "This demo validates execution, mapping and presentation. It cannot "
+            "establish predictive accuracy, calibration, robustness or financial regret."
+        ),
+    )
+
+    required_failures = [
+        item for item in checks if item["required"] and item["status"] == "fail"
+    ]
+    manifest = {
+        "schema_version": definition["schema_version"],
+        "demo_id": definition["demo_id"],
+        "study": definition["study"],
+        "experiment": definition["experiment"],
+        "case": definition["case"],
+        "data": definition["data"],
+        "architectures": definition["architectures"],
+        "evaluation_id": definition["evaluation_id"],
+        "capabilities": definition["capabilities"],
+        "seed": definition["seed"],
+        "effects": [],
+    }
+    manifest["manifest_digest"] = canonical_digest(manifest)
+
+    immediate_capabilities = [
+        {
+            "capability_id": item.capability_id,
+            "version": item.version,
+            "implementation_class": item.implementation_class,
+            "role": (
+                "Input and calculation"
+                if "architecture_input" in item.evaluation_roles
+                else "Evaluation measurement"
+            ),
+            "status": "ready",
+        }
+        for item in PRECONFIGURED_CAPABILITIES
+    ]
+    deferred_capabilities = [
+        {
+            **item,
+            "status": "deferred_scientific_dependency",
+            "needed_for_demo": False,
+        }
+        for item in EVALUATION_CAPABILITY_REQUIREMENTS
+        if item["status"] != "ready"
+    ]
+    return {
+        "schema_version": "portfolio-risk.professor-demo-preflight/v1",
+        "status": "ready_with_limitations" if not required_failures else "blocked",
+        "demo_ready": not required_failures,
+        "thesis_ready": False,
+        "manifest": manifest,
+        "checks": checks,
+        "case_preview": {
+            "display_name": case_definition["display_name"],
+            "source_portfolio_id": case_definition["portfolio_id"],
+            "date": case_definition["start_date"],
+            "mandate": portfolio["mandate"]["name"],
+            "mandate_objective": portfolio["mandate"]["objective"],
+            "holdings": portfolio["holdings"],
+            "data_truth": "Licensed CRSP, Compustat and RavenPack · read only",
+            "selection_policy": case_definition["selection_policy"],
+            "selection_limitation": case_definition["selection_limitation"],
+        },
+        "interesting_evidence": {
+            "daily_return": row["daily_return"],
+            "annualised_volatility": row["annualised_volatility"],
+            "drawdown": row["drawdown"],
+            "cash_weight": row["cash_weight"],
+            "largest_issuer_weight": row["largest_issuer_weight"],
+            "eligible_event_records": evaluation["ravenpack_events"],
+            "event_clusters": len(row["ravenpack_events"].get("event_stream", [])),
+            "material_findings": material_findings,
+            "maximum_severity": final_output["severity"],
+            "assessment_state": final_output["assessment_state"],
+            "finding_types": sorted({
+                item["risk_type"] for item in final_output["findings"]
+            }),
+        },
+        "architectures": [
+            {
+                "id": "B0",
+                "name": "Deterministic reference",
+                "strength": "Transparent, repeatable policy and metric baseline.",
+                "limitation": "Cannot add semantic interpretation beyond programmed rules.",
+                "model_calls": 0,
+            },
+            {
+                "id": "B1",
+                "name": "Single structured agent",
+                "strength": "One bounded synthesis step with the lowest generative cost.",
+                "limitation": "One agent must combine all evidence and can still omit useful connections.",
+                "model_calls": 1,
+            },
+            {
+                "id": "A1",
+                "name": "Specialist-agent graph",
+                "strength": "Separates market, event, exposure and synthesis work.",
+                "limitation": "Higher token, latency and coordination overhead; richer structure does not guarantee a better decision.",
+                "model_calls": 4,
+            },
+        ],
+        "capabilities": {
+            "ready": immediate_capabilities,
+            "deferred": deferred_capabilities,
+            "conclusion": (
+                "The Case has every capability required for a fair apparatus comparison. "
+                "Deferred capabilities depend on independent labels, perturbations or matured outcomes and must not be simulated for the meeting."
+            ),
+        },
+        "preflight_run": {
+            "saved": False,
+            "model_calls": 0,
+            "purpose": "Deterministic validation only; not a retained research Run.",
+        },
     }

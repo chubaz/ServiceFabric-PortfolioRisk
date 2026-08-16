@@ -1,3 +1,4 @@
 Interpret only the five authoritative metric values, readiness warnings,
 limitations, and evidence supplied in this role slice. Do not infer portfolio
-exposure or event meaning. Do not recalculate any metric.
+exposure or event meaning. Bind every stated value to an exact structured
+metric claim. Do not recalculate any metric.

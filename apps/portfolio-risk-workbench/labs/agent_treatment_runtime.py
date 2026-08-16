@@ -27,14 +27,17 @@ from portfolio_risk_thesis.day3.prompts import prompt_manifest_digest
 from portfolio_risk_thesis.day3.providers.openai_responses import OpenAIResponsesProvider
 from portfolio_risk_thesis.day3.treatments import ROLES, a1, b1
 from risk_agents import (
+    AgentCapabilityUse,
     AgentDecisionByproduct,
     AgentEvaluationByproducts,
     AgentExecutionEnvelope,
     AgentFindingByproduct,
     AgentRuntimeTelemetry,
     AgentStructuredOutput,
+    CapabilityReceipt,
     wrap_agent_execution,
 )
+from risk_capabilities import EvidenceReference
 from risk_domain.digests import sha256_digest
 from risk_experiments import (
     ArchitectureMappingContext,
@@ -47,12 +50,16 @@ from agent_studio import _keychain_key
 
 
 MODEL_ID = "gpt-5.6-luna"
+LUNA_INPUT_USD_PER_MILLION = 0.20
+LUNA_OUTPUT_USD_PER_MILLION = 1.20
+LUNA_PRICING_REFERENCE = "openai-model-compare:gpt-5.6-luna:2026-08-11"
 SINGLE_AGENT_ID = "risk.agent.portfolio_risk_synthesizer"
 GRAPH_AGENT_IDS = ROLES
 ARCHITECTURE_IDS = {
     "B1": "b1-single-agent",
     "A1": "a1-four-agent-graph",
 }
+CONTEXT_CAPABILITY_ID = "capability:risk:historical-replay-context@1.0.0"
 
 
 def _slug(value: str, fallback: str) -> str:
@@ -60,6 +67,23 @@ def _slug(value: str, fallback: str) -> str:
     if not result or not result[0].isalpha() or len(result) < 3:
         return fallback
     return result
+
+
+def _canonical_metric_id(value: Any, fallback: str) -> str:
+    """Map model references onto the shared identifier-safe metric vocabulary."""
+
+    normalized = str(value or "").casefold().replace("_", "-")
+    for metric_id in (
+        "daily-return",
+        "annualised-volatility",
+        "drawdown",
+        "cash-weight",
+        "largest-issuer-weight",
+        "largest-sector-weight",
+    ):
+        if metric_id in normalized:
+            return metric_id
+    return _slug(normalized, fallback)
 
 
 def _configuration() -> ModelConfiguration:
@@ -70,12 +94,24 @@ def _configuration() -> ModelConfiguration:
         prompt_manifest_digest=prompt_manifest_digest(),
         temperature=None,
         temperature_supported=False,
-        maximum_output_tokens=1600,
+        maximum_output_tokens=2400,
         timeout_seconds=90,
         retry_count=1,
         store=False,
         tools=(),
     )
+
+
+def _receipt_cost(input_tokens: int, output_tokens: int) -> float:
+    return round(
+        input_tokens * LUNA_INPUT_USD_PER_MILLION / 1_000_000
+        + output_tokens * LUNA_OUTPUT_USD_PER_MILLION / 1_000_000,
+        8,
+    )
+
+
+def _receipt_errors(receipt: Any) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(str(value) for value in receipt.warnings))
 
 
 def build_bundle(
@@ -89,16 +125,23 @@ def build_bundle(
 
     alias_to_name: dict[str, str] = {}
     exposures = []
-    total_value = sum(max(float(item["market_value"]), 0.0) for item in holdings)
+    positive_values = [max(float(item["market_value"]), 0.0) for item in holdings]
+    total_value = sum(positive_values)
+    weights = [Decimal("0") for _item in holdings]
+    if total_value > 0 and holdings:
+        weights = [
+            (Decimal(str(value)) / Decimal(str(total_value))).quantize(Decimal("0.0000000001"))
+            for value in positive_values
+        ]
+        weights[-1] = Decimal("1") - sum(weights[:-1], Decimal("0"))
     for index, item in enumerate(holdings, start=1):
         alias = _slug(str(item["company_name"]), f"holding-{index:02d}")
         while alias in alias_to_name:
             alias = f"{alias[:58]}-{index:02d}"
         alias_to_name[alias] = str(item["company_name"])
-        weight = 0 if total_value <= 0 else float(item["market_value"]) / total_value
         exposures.append(PositionExposure(
             position_alias=alias,
-            weight=Decimal(str(round(weight, 10))),
+            weight=weights[index - 1],
             evidence_refs=(f"portfolio-exposure:{row['date']}",),
         ))
 
@@ -126,7 +169,9 @@ def build_bundle(
         if affected_alias is None:
             continue
         event_digest = thesis_digest((item["event_id"], item["event_time"], item["information_available_at"], item["maximum_relevance"], item["average_sentiment"]))
+        source_reference = item.get("evidence_id") or "dataset:ravenpack-derived-classification"
         evidence_refs.add(event_digest)
+        evidence_refs.add(source_reference)
         sentiment_value = item.get("average_sentiment")
         event_values_list.append(EligibleAgentEvent(
             event_id=item["event_id"],
@@ -142,7 +187,7 @@ def build_bundle(
             ),
             sentiment="negative" if sentiment_value is not None and sentiment_value < -0.2 else "positive" if sentiment_value is not None and sentiment_value > 0.2 else "neutral",
             relevance=Decimal(str(item.get("maximum_relevance") or 0.8)),
-            source_reference="dataset:ravenpack-derived-classification",
+            source_reference=source_reference,
             evidence_digest=event_digest,
             profile="private_curated",
             publication_state="reviewed",
@@ -206,6 +251,56 @@ def _risk_type(claim: Any) -> str:
     return "market"
 
 
+def _warning_risk_type(warning: dict[str, Any]) -> str:
+    metric = str(warning.get("metric") or "")
+    if "volatility" in metric:
+        return "volatility"
+    if "drawdown" in metric or "return" in metric:
+        return "loss"
+    if "cash" in metric:
+        return "liquidity"
+    if "weight" in metric or "concentration" in metric:
+        return "concentration"
+    return "market"
+
+
+def _context_capability_use(
+    bundle: ArchitectureInputBundle,
+    row: dict[str, Any],
+    *,
+    started_at: datetime,
+    completed_at: datetime,
+) -> AgentCapabilityUse:
+    evidence_id = f"point-in-time-context:{row['date']}"
+    return AgentCapabilityUse(
+        receipt=CapabilityReceipt(
+            capability_id=CONTEXT_CAPABILITY_ID,
+            status="succeeded",
+            input_digest=sha256_digest({
+                "portfolio_id": bundle.portfolio_id,
+                "as_of": bundle.as_of,
+                "source_revision": row.get("source_revision"),
+            }),
+            output_digest=sha256_digest({
+                "metrics": bundle.metrics,
+                "warnings": row["warnings"],
+                "events": bundle.events,
+                "exposures": bundle.exposures,
+            }),
+            evidence=(EvidenceReference(
+                evidence_id=evidence_id,
+                reference=evidence_id,
+                source_type="point_in_time_replay_context",
+                description="Deterministically assembled portfolio, metric, mandate and classified-event context.",
+            ),),
+            methodology="Point-in-time replay context assembly and mandate-rule evaluation.",
+            limitations=("Raw licensed news text is excluded from model input.",),
+        ),
+        started_at=started_at,
+        completed_at=completed_at,
+    )
+
+
 def _structured_output(
     output: ArchitectureReviewOutput,
     *,
@@ -220,9 +315,16 @@ def _structured_output(
     all_agent_ids: tuple[str, ...],
     classified_context_ids: tuple[str, ...],
     suffix: str,
+    portfolio_id: str,
+    deterministic_warnings: tuple[dict[str, Any], ...] = (),
+    capability_use: AgentCapabilityUse | None = None,
 ) -> AgentStructuredOutput:
     claims = [item for item in output.supporting_claims if item.evidence_refs]
-    findings = tuple(
+    warning_metric_ids = {
+        _canonical_metric_id(warning["metric"], "metric")
+        for warning in deterministic_warnings
+    }
+    model_findings = tuple(
         AgentFindingByproduct(
             finding_id=f"{cycle_id}-{suffix}-{index}",
             cluster_key=_slug(str(claim.metric_ref or claim.event_ref or claim.claim_id), f"claim-{index}"),
@@ -236,14 +338,45 @@ def _structured_output(
             confidence_method="Ordinal confidence assigned from deterministic critic admission; it is not a calibrated probability.",
             evidence_ids=tuple(sorted(set(claim.evidence_refs))),
             observed_at=cycle_at,
-            metric_id=claim.metric_ref,
+            metric_id=_canonical_metric_id(claim.metric_ref, f"metric-{index}") if claim.metric_ref else None,
             observed_value=float(claim.reported_metric_value) if claim.reported_metric_value is not None else None,
         )
         for index, claim in enumerate(claims, start=1)
+        if _canonical_metric_id(claim.metric_ref, f"metric-{index}") not in warning_metric_ids
     )
+    deterministic_findings = tuple(
+        AgentFindingByproduct(
+            finding_id=f"{cycle_id}-{suffix}-rule-{index}",
+            cluster_key=_slug(str(warning["rule_id"]), f"rule-{index}"),
+            claim=f"Mandate rule '{warning['reason']}' was breached by the deterministic point-in-time calculation.",
+            risk_type=_warning_risk_type(warning),
+            affected_asset=portfolio_id,
+            direction="negative",
+            materiality=min(1.0, float(warning["threshold_distance"])),
+            severity=3 if warning["level"] == "urgent" else 2,
+            confidence=0.95,
+            confidence_method="Deterministic rule result retained from the reviewed replay capability; confidence is not an outcome probability.",
+            evidence_ids=tuple(sorted(set(warning["evidence_ids"]))),
+            observed_at=cycle_at,
+            metric_id=_canonical_metric_id(warning["metric"], f"metric-{index}"),
+            observed_value=float(warning["observed_value"]),
+            threshold_value=float(warning["threshold"]),
+        )
+        for index, warning in enumerate(deterministic_warnings, start=1)
+    )
+    findings = deterministic_findings + model_findings
     admitted = output.status not in {"ABSTAIN", "ABSTAINED_AGENT_OUTPUT"}
-    state = "alert" if output.status == "URGENT_REVIEW" and findings else "watch" if output.status in {"REVIEW", "URGENT_REVIEW"} or not admitted else "clear"
-    evidence = tuple(sorted(set(output.evidence_refs) | {item for claim in claims for item in claim.evidence_refs}))
+    maximum_severity = max((item.severity for item in findings), default=0)
+    state = "alert" if maximum_severity == 3 else "watch" if findings or output.status in {"REVIEW", "URGENT_REVIEW"} or not admitted else "clear"
+    capability_evidence = set()
+    if capability_use is not None:
+        capability_evidence = {item.evidence_id for item in capability_use.receipt.evidence}
+    evidence = tuple(sorted(
+        set(output.evidence_refs)
+        | {item for claim in claims for item in claim.evidence_refs}
+        | {item for finding in deterministic_findings for item in finding.evidence_ids}
+        | capability_evidence
+    ))
     rationale = tuple(item.finding_id for item in findings)
     decision = None
     if experimental_role == "final_decision_agent":
@@ -269,7 +402,11 @@ def _structured_output(
         evaluation_byproducts=AgentEvaluationByproducts(
             assessment_state=state,
             findings=findings,
-            risk_interpretation=output.summary,
+            risk_interpretation=(
+                f"Deterministic capabilities retained {len(deterministic_findings)} mandate finding(s). "
+                f"Model interpretation: {output.summary}"
+                if deterministic_findings else output.summary
+            ),
             expectations="The output supports monitoring and human review; it does not predict or execute a portfolio action.",
             confidence=0.8 if admitted else 0.2,
             confidence_kind="ordinal_judgement",
@@ -277,13 +414,13 @@ def _structured_output(
             decision=decision,
             supporting_evidence_ids=evidence,
             classified_context_ids=classified_context_ids,
-            missing_information=tuple(output.uncertainties),
+            missing_information=tuple(dict.fromkeys(output.uncertainties)),
             assumptions=(),
             warnings=(),
             limitations=("Model interpretation is bounded to the supplied point-in-time context.",),
         ),
         agent_ids=all_agent_ids if experimental_role == "final_decision_agent" else (role_id,),
-        capability_uses=(),
+        capability_uses=(() if capability_use is None else (capability_use,)),
         effects=(),
     )
 
@@ -300,6 +437,7 @@ def execute_agent_cycle(
     trigger_available_at: datetime,
     previous_assessment_state: str | None,
     previous_severity: int | None,
+    cycle_id: str | None = None,
 ) -> tuple[Any, dict[str, Any]]:
     """Execute B1 or A1 and return its canonically mapped ArchitectureOutput."""
 
@@ -310,31 +448,28 @@ def execute_agent_cycle(
     bundle, alias_to_name = build_bundle(
         portfolio_id=portfolio_id, row=row, holdings=holdings, cycle_at=cycle_at,
     )
-    api_key = _keychain_key(include_value=True)
-    if not isinstance(api_key, str) or not api_key:
-        raise ValueError("OpenAI API key is unavailable; store it in the ServiceFabric keychain before running B1 or A1")
-    provider = OpenAIResponsesProvider(_configuration(), api_key=api_key)
-    context_completed_at = datetime.now(timezone.utc)
-    context_processing_ms = (context_completed_at - processing_started_at).total_seconds() * 1000
-    started_at = datetime.now(timezone.utc)
-    treatment = b1(bundle, provider) if workflow_id == "B1" else a1(bundle, provider)
-    completed_at = datetime.now(timezone.utc)
-    if completed_at <= started_at:
-        completed_at = started_at + timedelta(microseconds=1)
     classified_ids = (
         row["classified_context"]["context_id"],
         row["classified_context"]["fundamentals"]["context_id"],
     )
-    event_evidence_times = {event.evidence_digest: event.available_at for event in bundle.events}
+    event_evidence_times = {
+        evidence_id: event.available_at
+        for event in bundle.events
+        for evidence_id in (event.evidence_digest, event.source_reference)
+    }
+    evidence_ids = tuple(dict.fromkeys(
+        bundle.evidence_refs + tuple(event.evidence_digest for event in bundle.events)
+    ))
     evidence = tuple(
         KernelEvidence(evidence_id=item, available_at=event_evidence_times.get(item, cycle_at))
-        for item in bundle.evidence_refs + tuple(event.evidence_digest for event in bundle.events)
+        for item in evidence_ids
     )
     architecture_type = "single_agent" if workflow_id == "B1" else "agent_graph"
     allowed_agents = (SINGLE_AGENT_ID,) if workflow_id == "B1" else GRAPH_AGENT_IDS
+    # Validate the complete experimental boundary before any external model call.
     context = ArchitectureMappingContext(
         run_id=run_id,
-        cycle_id=f"cycle-{row['date']}",
+        cycle_id=cycle_id or f"cycle-{row['date']}",
         architecture_id=ARCHITECTURE_IDS[workflow_id],
         architecture_type=architecture_type,
         as_of=cycle_at,
@@ -343,14 +478,42 @@ def execute_agent_cycle(
         case_id=case_id,
         repetition=1,
         eligible_evidence=evidence,
-        allowed_capability_ids=(),
+        allowed_capability_ids=(CONTEXT_CAPABILITY_ID,),
         allowed_agent_ids=allowed_agents,
         classified_context_ids=classified_ids,
         previous_assessment_state=previous_assessment_state,
         previous_severity=previous_severity,
     )
-
+    api_key = _keychain_key(include_value=True)
+    if not isinstance(api_key, str) or not api_key:
+        raise ValueError("OpenAI API key is unavailable; store it in the ServiceFabric keychain before running B1 or A1")
+    provider = OpenAIResponsesProvider(_configuration(), api_key=api_key)
+    context_completed_at = datetime.now(timezone.utc)
+    capability_use = _context_capability_use(
+        bundle,
+        row,
+        started_at=processing_started_at,
+        completed_at=context_completed_at,
+    )
+    context_processing_ms = (context_completed_at - processing_started_at).total_seconds() * 1000
+    started_at = datetime.now(timezone.utc)
+    treatment = b1(bundle, provider) if workflow_id == "B1" else a1(bundle, provider)
+    completed_at = datetime.now(timezone.utc)
+    if completed_at <= started_at:
+        completed_at = started_at + timedelta(microseconds=1)
     total_tokens = sum(item.input_tokens + item.output_tokens for item in treatment.receipts)
+    provider_request_attempts = sum(
+        not any(value.startswith("skipped_after_terminal_error:") for value in item.warnings)
+        for item in treatment.receipts
+    )
+    successful_model_calls = sum(not item.warnings for item in treatment.receipts)
+    estimated_cost_usd = round(
+        sum(item.input_tokens for item in treatment.receipts)
+        * LUNA_INPUT_USD_PER_MILLION / 1_000_000
+        + sum(item.output_tokens for item in treatment.receipts)
+        * LUNA_OUTPUT_USD_PER_MILLION / 1_000_000,
+        8,
+    )
     if workflow_id == "B1":
         structured = _structured_output(
             treatment.output, workflow_id=workflow_id, run_id=run_id,
@@ -358,6 +521,9 @@ def execute_agent_cycle(
             role_id=SINGLE_AGENT_ID, experimental_role="final_decision_agent",
             alias_to_name=alias_to_name, all_agent_ids=(SINGLE_AGENT_ID,),
             classified_context_ids=classified_ids, suffix="final",
+            portfolio_id=portfolio_id,
+            deterministic_warnings=tuple(row["warnings"]),
+            capability_use=capability_use,
         )
         telemetry = AgentRuntimeTelemetry(
             agent_id=SINGLE_AGENT_ID, agent_version="1.0.0",
@@ -366,8 +532,17 @@ def execute_agent_cycle(
             model_calls=1,
             input_tokens=sum(item.input_tokens for item in treatment.receipts),
             output_tokens=sum(item.output_tokens for item in treatment.receipts),
+            cost_usd=estimated_cost_usd,
             route=(SINGLE_AGENT_ID,),
+            capability_calls=1,
+            schema_validation_failures=sum(
+                any("invalid_structured_output" in value for value in item.warnings)
+                for item in treatment.receipts
+            ),
             semantic_verification_failures=0 if treatment.critic.passed else 1,
+            errors=tuple(dict.fromkeys(
+                value for item in treatment.receipts for value in _receipt_errors(item)
+            )),
         )
         mapped = finalize_single_agent_execution(
             wrap_agent_execution(structured, telemetry), context, mapped_at=completed_at,
@@ -389,6 +564,9 @@ def execute_agent_cycle(
                 experimental_role="final_decision_agent" if is_final else "specialist_node",
                 alias_to_name=alias_to_name, all_agent_ids=GRAPH_AGENT_IDS,
                 classified_context_ids=classified_ids, suffix=f"node-{index + 1}",
+                portfolio_id=portfolio_id,
+                deterministic_warnings=tuple(row["warnings"]) if is_final else (),
+                capability_use=capability_use if is_final else None,
             )
             receipt = treatment.receipts[index]
             executions.append(wrap_agent_execution(
@@ -398,8 +576,15 @@ def execute_agent_cycle(
                     started_at=item_start, completed_at=item_end,
                     first_finding_at=item_end if structured.evaluation_byproducts.findings else None,
                     model_calls=1, input_tokens=receipt.input_tokens,
-                    output_tokens=receipt.output_tokens, route=GRAPH_AGENT_IDS[: index + 1],
+                    output_tokens=receipt.output_tokens,
+                    cost_usd=_receipt_cost(receipt.input_tokens, receipt.output_tokens),
+                    route=GRAPH_AGENT_IDS[: index + 1],
+                    capability_calls=1 if is_final else 0,
+                    schema_validation_failures=int(any(
+                        "invalid_structured_output" in value for value in receipt.warnings
+                    )),
                     semantic_verification_failures=0 if is_final and treatment.critic.passed else int(is_final),
+                    errors=_receipt_errors(receipt),
                 ),
             ))
         graph = wrap_agent_graph(
@@ -412,7 +597,12 @@ def execute_agent_cycle(
         mapped = finalize_agent_graph_execution(graph, context, mapped_at=completed_at)
     finalized_at = datetime.now(timezone.utc)
     elapsed_ms = (perf_counter() - processing_started_clock) * 1000
-    model_processing_ms = float(sum(item.elapsed_ms for item in treatment.receipts))
+    # Provider receipts can be rounded to whole milliseconds; keep the timing
+    # decomposition physically bounded by the measured cycle wall clock.
+    model_processing_ms = min(
+        elapsed_ms,
+        float(sum(item.elapsed_ms for item in treatment.receipts)),
+    )
     validation_processing_ms = max(0.0, elapsed_ms - context_processing_ms - model_processing_ms)
     event_available_values = [item.available_at for item in bundle.events]
     earliest_event_available = min(event_available_values) if event_available_values else cycle_at
@@ -423,9 +613,13 @@ def execute_agent_cycle(
             execution_close += timedelta(days=1)
     return mapped, {
         "model_calls": len(treatment.receipts),
+        "provider_request_attempts": provider_request_attempts,
+        "successful_model_calls": successful_model_calls,
         "input_tokens": sum(item.input_tokens for item in treatment.receipts),
         "output_tokens": sum(item.output_tokens for item in treatment.receipts),
         "tokens": total_tokens,
+        "estimated_cost_usd": estimated_cost_usd,
+        "pricing_reference": LUNA_PRICING_REFERENCE,
         "elapsed_ms": round(elapsed_ms, 3),
         "processing_clock": {
             "replay_triggered_at": cycle_at.isoformat(),
@@ -457,4 +651,15 @@ def execute_agent_cycle(
         "critic_violations": [item.model_dump(mode="json") for item in treatment.critic.violations],
         "provider": "openai_responses",
         "model": MODEL_ID,
+        "provider_receipts": [
+            {
+                "role_id": item.role_id,
+                "response_id": item.response_id,
+                "input_tokens": item.input_tokens,
+                "output_tokens": item.output_tokens,
+                "elapsed_ms": item.elapsed_ms,
+                "warnings": list(item.warnings),
+            }
+            for item in treatment.receipts
+        ],
     }

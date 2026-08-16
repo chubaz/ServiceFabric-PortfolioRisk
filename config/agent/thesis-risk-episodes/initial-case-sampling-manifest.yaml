@@ -1,0 +1,139 @@
+schema_version: "1.0"
+manifest_id: thesis-risk-episode-initial-case-sampling-v1
+status: frozen_for_detector_development
+created_at: "2026-08-14T00:00:00Z"
+purpose: >-
+  Bound the first real-data detector and case-design slice to the reviewed
+  portfolio-linked universe that is already available point-in-time across the
+  local research data plane. This is a software and methodology proof corpus,
+  not a representative market-wide sample.
+
+period:
+  start: "2013-01-01"
+  end: "2017-12-31"
+  reason: exact common RavenPack coverage within the larger CRSP/Compustat history
+
+universe:
+  definition: >-
+    Union of the 18 securities in the three human-reviewed
+    thesis-real-portfolios-day4-v1 portfolios. CRSP/Compustat bindings use the
+    corrected CCM snapshot. RavenPack is currently portfolio-scoped and links
+    16 of the 18 securities; the two unmatched securities remain explicit
+    data-quality and abstention opportunities.
+  membership_source: thesis-real-portfolios-day4-v1
+  expected_unique_securities: 18
+  ravenpack_linked_securities: 16
+  portfolios:
+    - defensive_multi_asset
+    - diversified
+    - technology_concentrated
+  portfolio_use: >-
+    Fixed quantities are a disclosed counterfactual when replayed before their
+    2026 selection date. Case discovery is instrument/group based; portfolio
+    relevance is projected separately for each reviewed portfolio.
+  exclusions:
+    - securities without an exact date-effective CRSP identity
+    - observations unavailable at the relevant point-in-time cutoff
+    - ambiguous overlapping CCM links
+    - fuzzy, ticker-only, or nearest-date matches
+
+data_revisions:
+  crsp_compustat:
+    snapshot_id: crsp_compustat_01322048b75d7ac69e858b1e
+    catalogue_digest: sha256:8c43f179b7cb16ab8f5e719a025419d33ada314cc2fe8b110e2fc7cc979708da
+    mapping_digest: sha256:9b30358625064ef3094a62c75a67fcbc53cf8f871f232e4683178d3d1d8855f6
+    code_revision: bridge-5ff3a8a73da8bad7e8542af9
+    access: licensed_read_only
+    availability:
+      market: crsp_next_observed_session
+      annual_fundamentals: compustat_annual_publication
+      quarterly_fundamentals: compustat_quarterly_publication
+      links: ccm_date_effective
+  portfolios:
+    selection_id: thesis-real-portfolios-day4-v1
+    source_snapshot_id: crsp_compustat_01322048b75d7ac69e858b1e
+    selection_digest: sha256:00a8d88a5da5c181ac9970adc7941ad81f9ec0ce92693ff86c1740170e0a42b3
+    evidence_manifest_digest: sha256:a336de8c0d2e98494b8af0d0fdff39076a26f15dbc0a76cd4fde59189993e1ef
+    receipt_digest: sha256:2754ee10e3244f4e78da327cfe2ca13553479b52a25206254f40b906f76a59f4
+    reviewed_at: "2026-07-30T15:03:48Z"
+  ravenpack:
+    provider_id: ravenpack
+    integration_version: "1.0"
+    profile_digest: sha256:c606f58e1b19408349c66ee4ac801a037a4072c20cf43bfaba3014ed91f22ce3
+    contract_id: ravenpack-local-events-v1
+    contract_digest: sha256:45fb38ec0a332dc486a007bcf806efa82545a23e26869f4658ad769ef7d48edd
+    coverage_start: "2013-01-01T00:00:00Z"
+    coverage_end: "2017-12-31T23:57:45.968Z"
+    admitted_rows: 3545638
+    missing_available_at: 0
+    scope: reviewed_portfolios
+    access: licensed_read_only_no_publication
+    event_text_materialized: false
+
+locator_policy:
+  root_reference: PRIVATE_DATA_ROOT
+  committed_absolute_paths: false
+  licensed_bytes_in_git: false
+  resolution: >-
+    Runtime resolves external manifests beneath the configured private data
+    root. Digests and provider-neutral identities may be committed; local paths
+    and licensed rows may not.
+
+case_sampling:
+  discovery_population: all eligible instrument and derived group sessions in the bounded universe
+  hindsight_plane: full period through 2017-12-31 for interval construction and retrospective evidence review
+  ex_ante_plane: available_at less than or equal to each replay time
+  ranking_axes:
+    - detector_consensus
+    - standardized_signal_strength
+    - persistence
+    - cross_sectional_breadth
+    - event_coverage
+    - data_quality
+  proof_corpus_targets:
+    gold_cases: 3
+    additional_silver_cases_minimum: 3
+    additional_silver_cases_maximum: 6
+    ordinary_or_negative_controls_minimum: 2
+    incomplete_or_abstention_cases_minimum: 1
+  morphology_requirements:
+    - punctual_shock
+    - slow_deterioration
+    - group_or_sector_propagation
+  direction_requirements:
+    - downside
+    - upside_or_two_sided
+  control_requirements:
+    - ordinary_period_without_material_manifestation
+    - high_event_activity_with_low_market_materiality
+    - ambiguous_or_incomplete_evidence
+  selection_rule: >-
+    Select cases only after the versioned detector sweep. Preserve the ranked
+    candidate list, reasons for inclusion/exclusion, and all detector
+    parameters. Do not select only famous events. Gold acceptance is performed
+    by a reviewer independent of the evaluated architecture.
+
+truth_boundaries:
+  ravenpack: event_evidence_not_episode_ground_truth
+  silver: programmatic_manifestation_label
+  gold: governed_retrospective_case_not_causal_truth
+  portfolio_relevance: derived_separately_per_portfolio
+  population_recall_claim: prohibited
+  synthetic_controls: explicitly_labelled_and_case_specific
+
+known_limitations:
+  - RavenPack coverage is portfolio-scoped rather than market-wide.
+  - Two of eighteen portfolio securities are not linked to RavenPack.
+  - Fixed 2026 portfolio quantities are counterfactual over 2013-2017.
+  - All eighteen securities have some missing total-return observations in eligible history.
+  - Eight securities have some missing valuation-price observations.
+  - Sixteen securities have incomplete point-in-time fundamental availability.
+  - The initial proof corpus cannot support a market-wide recall estimate.
+
+next_session_gate:
+  session_id: S02
+  ready_when:
+    - this manifest parses and its referenced external digests are present
+    - B0/B1/A1 programme projection tests pass
+    - user-facing data truth remains explicit
+    - DetectorDefinition and AnomalySignal ownership remains risk_analytics

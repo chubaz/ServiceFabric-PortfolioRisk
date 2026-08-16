@@ -1,4 +1,8 @@
 Synthesize only the three supplied specialist outputs, deterministic finding,
 review item, kernel decision, and permitted next-step catalogue into one
 ArchitectureReviewOutput. Do not add outside facts, recalculate metrics, or
-create execution effects.
+create execution effects. Retain only quantitative statements that already have
+an exact structured metric claim; discuss all other evidence qualitatively.
+The authoritative_catalogue is the final reference boundary. Specialist text
+is advisory: discard any specialist identifier or number that does not match
+that catalogue exactly.

@@ -43,9 +43,9 @@ def test_catalogue_is_reuse_first_and_declares_effect_boundary() -> None:
     result = studio.capability_catalogue()
 
     assert {key: result["counts"][key] for key in ("capabilities", "available", "fixture_ready", "packages", "hosts")} == {
-        "capabilities": 27,
-        "available": 23,
-        "fixture_ready": 23,
+            "capabilities": 28,
+            "available": 24,
+            "fixture_ready": 24,
         "packages": 4,
         "hosts": 5,
     }
@@ -123,7 +123,7 @@ def test_assessment_finds_existing_capability_before_proposing_development() -> 
     assert result.recommendation == "reuse"
     assert result.candidates[0]["capability_id"] == "risk.var.historical"
     assert result.compact_candidate_count <= 6
-    assert result.total_library_count == 27
+    assert result.total_library_count == 28
     assert result.model_receipt["provider"] == "none"
     assert result.blueprint.capability_id == "risk.var.historical"
     assert result.blueprint.effect_profile == "observe"

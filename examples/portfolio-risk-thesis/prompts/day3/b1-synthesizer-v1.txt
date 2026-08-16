@@ -1,4 +1,5 @@
 Synthesize the complete governed context into one ArchitectureReviewOutput.
 Preserve exact authoritative metric values, use only eligible supplied events
 and portfolio aliases, disclose warnings and limitations, and cite evidence.
-Do not independently recalculate any metric.
+For each quantitative statement create an exact structured metric claim as
+required by the system instruction. Do not independently recalculate any metric.

@@ -19,7 +19,10 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from agent_studio import COST_OPTIMIZED_LLM_MODEL, RUN_ROOT, _keychain_key
-from risk_analytics import AnalysisHorizon, SamplePeriod, ScenarioShock
+from risk_analytics import (
+    AnalysisEvidence, AnalysisHorizon, DetectorDefinition, DetectorKind,
+    DetectorObservation, SamplePeriod, ScenarioShock, SignalScope,
+)
 from risk_capabilities import (
     AlertDraft,
     AlertReviewRequest,
@@ -35,6 +38,7 @@ from risk_capabilities import (
     DEFAULT_CAPABILITY_REGISTRY,
     DecisionPoint,
     DerivedReturnsRequest,
+    DetectorExecutionRequest,
     EventQueryCapabilityRequest,
     EvidenceReference,
     ExposureSummaryRequest,
@@ -2299,6 +2303,28 @@ def _fixture_request(capability_id: str) -> tuple[Any, list[dict[str, Any]]]:
             normalized_observations=observations,
             percentage_threshold=Decimal("0.20"),
             evidence_references=references,
+        ), preparation
+    if capability_id == "market.anomaly.scan":
+        values = ("-0.01", "0", "0.01", "-0.02", "0.02", "-0.10")
+        return DetectorExecutionRequest(
+            definition=DetectorDefinition(
+                detector_id="capability-studio-robust-residual-z", version="1.0.0",
+                kind=DetectorKind.ROBUST_RESIDUAL_Z_SCORE, lookback=5,
+                threshold=Decimal("3"),
+            ),
+            observations=tuple(DetectorObservation(
+                series_id="instrument-orchid", scope_type=SignalScope.INSTRUMENT,
+                scope_id="instrument-orchid", observed_at=TEST_CASE_TIME - timedelta(days=5-index),
+                available_at=TEST_CASE_TIME - timedelta(days=5-index),
+                value=Decimal(value), benchmark_value=Decimal("0"),
+                evidence_ids=(f"capability-test-market-row-{index}",),
+                quality_flags=("reviewed_synthetic",),
+            ) for index, value in enumerate(values)),
+            as_of=TEST_CASE_TIME,
+            evidence=(AnalysisEvidence(
+                evidence_id=evidence.evidence_id, reference=evidence.reference,
+                digest=evidence.digest, description=evidence.description,
+            ),),
         ), preparation
     if capability_id == "news.event.classify":
         return NewsClassificationRequest(
